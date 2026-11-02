@@ -9,6 +9,8 @@ import {
   type TableVolumes,
   createRng,
   validateDrawing,
+  tableWithHostVolume,
+  withHostVolume,
 } from '@vt/game-sdk';
 import { hintLines, hostLinesOf, titleGroups } from './content.ts';
 import { type HostPart, bidMoment, say } from './host.ts';
@@ -1326,6 +1328,28 @@ function inPlay(state: GoingOnceState, fn: (s: GoingOnceState) => GameError | nu
 export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx): Result {
   const by = ctx.by;
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's (and the table screen's): any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          hostVolumes: withHostVolume(
+            state.settings.hostVolumes,
+            action.which,
+            action.level,
+            ctx.now,
+          ),
+          tableVolumes: tableWithHostVolume(
+            state.settings.tableVolumes,
+            action.which,
+            action.level,
+          ),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(state, action, ctx);
     case 'table-volume':

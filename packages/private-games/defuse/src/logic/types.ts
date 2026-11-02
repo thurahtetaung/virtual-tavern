@@ -1,4 +1,4 @@
-import type { PlayerId, TableVolumes } from '@vt/game-sdk';
+import type { HostVolumes, HostVolumeAction, PlayerId, TableVolumes } from '@vt/game-sdk';
 import type { WireColour } from './data-types.ts';
 
 export type { WireColour } from './data-types.ts';
@@ -373,6 +373,8 @@ export interface State {
   look?: Look | null;
   /** The table screen's volumes, from the host's sliders (missing in rooms saved before). */
   tableVolumes?: TableVolumes;
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   /** Hidden: seeds the next bomb. */
   seed: number;
   /** Hidden: the seed of the manual kept all night ("Same manual all night"). */
@@ -408,6 +410,7 @@ export type Action =
   | { type: 'hand-over'; player: PlayerId }
   | ({ type: 'look' } & Look)
   | { type: 'table-volume'; volumes: TableVolumes }
+  | HostVolumeAction
   /** The defuser presses the alarm clock's snooze button (`AlarmClock.ButtonDown`). */
   | { type: 'alarm' }
   | { type: 'next' }

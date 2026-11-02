@@ -9,6 +9,8 @@ import {
   soundEngineFor,
   soundPlan,
   useTableVolumes,
+  useVolumeShare,
+  volumeShare,
   whereLine,
 } from '@vt/ui/sound';
 import type { Manifest } from '../logic/manifest.ts';
@@ -63,6 +65,7 @@ interface Props {
 
 function useCliffhangerSound({ view, room, act, manifest }: Props) {
   const [volumes, setVolume] = useCliffhangerVolumes();
+  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act), setVolume);
   const [table, setTable] = useTableVolumes(
     view.settings.tableVolumes,
     (v) => {
@@ -79,7 +82,9 @@ function useCliffhangerSound({ view, room, act, manifest }: Props) {
     {
       title: 'This phone',
       volumes,
-      setVolume,
+      setVolume: shared.setVolume,
+      hostSet: shared.hostSet,
+      caption: shared.caption,
       channels: plan.mine.length ? channelsOf(audio, !roomHere) : [],
       testId: 'cliffhanger-sound-mine',
     },

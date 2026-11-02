@@ -1,4 +1,4 @@
-import type { TableVolumes } from '@vt/game-sdk';
+import type { HostVolumes, TableVolumes } from '@vt/game-sdk';
 import { MORSE_ALPHABET, WOF_DISPLAYS } from './data.ts';
 import { PRINTED, PRINTED_SEED, type Rules, rulesFor } from './rules.ts';
 import type {
@@ -116,6 +116,8 @@ export interface DefuseView {
   look: Look | null;
   /** The table screen's volumes (the host's sliders). */
   tableVolumes: TableVolumes;
+  /** The host's sliders for everyone (empty in rooms saved before). */
+  hostVolumes: HostVolumes;
   /** Browser tests only (never in production): the 3D view's test hooks are on. */
   test?: true;
 }
@@ -242,5 +244,6 @@ export function view(state: State, viewer: string | null): DefuseView {
     history: state.history,
     look: live && seesBomb ? (state.look ?? null) : null,
     tableVolumes: state.tableVolumes ?? {},
+    hostVolumes: state.hostVolumes ?? {},
   };
 }

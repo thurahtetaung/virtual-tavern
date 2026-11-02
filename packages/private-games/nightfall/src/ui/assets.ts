@@ -33,6 +33,7 @@ export const GAME_ID = 'nightfall';
  *   "narration": { "<line key>": ["audio/<clip>.ogg", …] },   // see `stepLines` in plan.ts
  *   "durations": { "audio/<clip>.ogg": 2350 },   // each clip's length in ms: steps stretch to fit
  *   "music":     { "lobby" | "night" | "day" | "vote" | "reveal": ["music/<track>.ogg", …] },
+ *                // "lobby" plays while getting ready; the lobby itself is silent
  *   "musicTracks": { "<track id>": { "name": "…", "file": "music/<track>.ogg", "duration": 42.1 } },
  *   "presets":   { "<preset id>": { "name": "…" } }
  * }

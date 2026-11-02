@@ -44,7 +44,7 @@ const MUSIC = {
 
 describe('music', () => {
   it('maps game phases to music phases', () => {
-    expect(musicPhaseFor('lobby')).toBe('lobby');
+    expect(musicPhaseFor('lobby')).toBeNull();
     expect(musicPhaseFor('ready')).toBe('lobby');
     expect(musicPhaseFor('night')).toBe('night');
     expect(musicPhaseFor('vote')).toBe('vote');

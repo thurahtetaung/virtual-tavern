@@ -8,6 +8,8 @@ import {
   SoundButton as SoundCorner,
   previewElement,
   useTableVolumes,
+  useVolumeShare,
+  volumeShare,
 } from '@vt/ui/sound';
 import type { Action } from '../logic/types.ts';
 import type { DefuseView } from '../logic/view.ts';
@@ -52,6 +54,7 @@ function useDefuseSound({ v, room, art, send, playsBomb, nameOf }: Props): {
   note: string;
 } {
   const [volumes, setVolume] = useDefuseVolumes();
+  const shared = useVolumeShare(volumeShare('defuse', room.isHost, send), setVolume);
   const [table, setTable] = useTableVolumes(v.tableVolumes, (t) => {
     send({ type: 'table-volume', volumes: t });
   });
@@ -71,7 +74,9 @@ function useDefuseSound({ v, room, art, send, playsBomb, nameOf }: Props): {
       {
         title: 'This phone',
         volumes,
-        setVolume,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
         channels: channelsOf(mine, art),
         testId: 'defuse-sound-mine',
       },

@@ -7,7 +7,8 @@ import { deckFor, useManifest } from './assets.ts';
 import { RoleDetailsProvider } from './Cards.tsx';
 import { Lobby } from './Lobby.tsx';
 import { Day, Night, Ready, Reveal } from './Play.tsx';
-import { NightfallSoundButton } from './Sound.tsx';
+import { useHostVolumes } from '@vt/ui/sound';
+import { GAME, NightfallSoundButton } from './Sound.tsx';
 import { statusFor } from './status.ts';
 import { useNightfallVolumes, useSound } from './useSound.ts';
 import { useWakeAlert, useWakeLock } from './wake.ts';
@@ -30,7 +31,8 @@ export function NightfallGame({
     act({ type: 'back-to-lobby' }),
   );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const [volumes] = useNightfallVolumes();
+  const [volumes, setVolume] = useNightfallVolumes();
+  useHostVolumes({ game: GAME, host: view.settings.hostVolumes, isHost: room.isHost, setVolume });
   const { said: narration } = useSound({
     view,
     manifest: deck.manifest,
@@ -70,7 +72,7 @@ export function NightfallGame({
       : null,
   );
 
-  const sound = <NightfallSoundButton view={view} room={room} manifest={deck.manifest} />;
+  const sound = <NightfallSoundButton view={view} room={room} act={act} manifest={deck.manifest} />;
   const props = { view, room, act, status, deck };
   return (
     <RoleDetailsProvider

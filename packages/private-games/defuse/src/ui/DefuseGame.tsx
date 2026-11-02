@@ -1,3 +1,4 @@
+import { useHostVolumes } from '@vt/ui/sound';
 import { type GameUiProps, storageKey } from '@vt/game-sdk';
 import {
   Button,
@@ -91,7 +92,8 @@ export function DefuseGame({
   const you = room.you;
   const nameOf = (id: string | null) =>
     id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody';
-  const [volumes] = useDefuseVolumes();
+  const [volumes, setVolume] = useDefuseVolumes();
+  useHostVolumes({ game: 'defuse', host: v.hostVolumes, isHost: room.isHost, setVolume });
   usePlayerVolumes(volumes);
   const [mode, setMode] = useViewMode();
   // The defuser's device plays the bomb, and its end once the defuser has become an expert again.

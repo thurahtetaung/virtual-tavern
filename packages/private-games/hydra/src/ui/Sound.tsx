@@ -2,8 +2,11 @@ import {
   FULL_VOLUMES,
   LobbySound,
   type SoundSection,
+  type VolumeKey,
+  type VolumeShare,
   SoundButton as SoundCorner,
   gainOf,
+  useVolumeShare,
   useVolumes,
 } from '@vt/ui/sound';
 import { storageKey } from '@vt/game-sdk';
@@ -16,17 +19,25 @@ import { playSfx, setSfxLevel } from './fx.ts';
 const KEY = 'vt.hydra.sound';
 /** Off out of the box, as the switch was. */
 const DEFAULTS = { ...FULL_VOLUMES, effects: 0 };
+/** The volumes key, and the game the host's volumes are shared for. */
+export const GAME = 'hydra';
 const NOTE = 'Effects play only on your own phone.';
 
 /** This player's effects volume (the switch from before, on, becomes full volume). */
-export function useHydraSound(): { sound: boolean; sections: SoundSection[]; note: string } {
-  const [volumes, setVolume] = useVolumes('hydra', DEFAULTS, () => {
+export function useHydraSound(share: VolumeShare): {
+  sound: boolean;
+  sections: SoundSection[];
+  note: string;
+  setVolume: (which: VolumeKey, level: number) => void;
+} {
+  const [volumes, setVolume] = useVolumes(GAME, DEFAULTS, () => {
     try {
       return localStorage.getItem(storageKey(KEY)) === 'true' ? { effects: 1 } : null;
     } catch {
       return null;
     }
   });
+  const shared = useVolumeShare(share, setVolume);
   const gain = gainOf(volumes, 'effects');
   useEffect(() => {
     setSfxLevel(gain);
@@ -34,10 +45,13 @@ export function useHydraSound(): { sound: boolean; sections: SoundSection[]; not
   return {
     sound: gain > 0,
     note: NOTE,
+    setVolume,
     sections: [
       {
         volumes,
-        setVolume,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
         testId: 'hydra-sound-mine',
         channels: [
           {
@@ -55,12 +69,12 @@ export function useHydraSound(): { sound: boolean; sections: SoundSection[]; not
   };
 }
 
-export function HydraLobbySound() {
-  const { sections, note } = useHydraSound();
+export function HydraLobbySound({ share }: { share: VolumeShare }) {
+  const { sections, note } = useHydraSound(share);
   return <LobbySound sections={sections} note={note} />;
 }
 
-export function HydraSoundButton({ className }: { className?: string }) {
-  const { sections, note } = useHydraSound();
+export function HydraSoundButton({ className, share }: { className?: string; share: VolumeShare }) {
+  const { sections, note } = useHydraSound(share);
   return <SoundCorner sections={sections} note={note} className={className} testId="hydra-sound" />;
 }

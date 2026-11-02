@@ -7,6 +7,8 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  tableWithHostVolume,
+  withHostVolume,
 } from '@vt/game-sdk';
 import {
   type Card,
@@ -1053,6 +1055,19 @@ function refreshPacks(state: CliffhangerState, content: ContentProvider): Cliffh
 export function reduce(state: CliffhangerState, action: CliffhangerAction, ctx: ActionCtx): Result {
   const s = refreshPacks(state, ctx.content);
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's (and the table screen's): any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...s,
+        settings: {
+          ...s.settings,
+          hostVolumes: withHostVolume(s.settings.hostVolumes, action.which, action.level, ctx.now),
+          tableVolumes: tableWithHostVolume(s.settings.tableVolumes, action.which, action.level),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(s, action, ctx);
     case 'table-volume': {

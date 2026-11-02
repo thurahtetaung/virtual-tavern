@@ -1,9 +1,11 @@
 import {
   type Drawing,
   type PlayerColor,
+  type HostVolumes,
   type PlayerId,
   type TableVolumes,
   drawingSchema,
+  hostVolumeAction,
   tableVolumeAction,
 } from '@vt/game-sdk';
 import { z } from 'zod';
@@ -234,10 +236,12 @@ export interface Settings {
   practice?: boolean;
   /** The table screen's volumes, from the host's sliders (the table has no input). */
   tableVolumes?: TableVolumes;
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
 }
 
 export const DEFAULT_SETTINGS: Required<
-  Omit<Settings, 'paceChosen' | 'soundChosen' | 'tableVolumes'>
+  Omit<Settings, 'paceChosen' | 'soundChosen' | 'tableVolumes' | 'hostVolumes'>
 > = {
   drawSeconds: 90,
   pace: 'normal',
@@ -563,6 +567,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     practice: z.boolean().optional(),
   }),
   tableVolumeAction,
+  hostVolumeAction,
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('refresh') }),
   z.object({ type: z.literal('start') }),

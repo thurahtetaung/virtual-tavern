@@ -1,4 +1,5 @@
-import { ShortFuseLobbySound } from './Sound.tsx';
+import { volumeShare } from '@vt/ui/sound';
+import { GAME as SOUND_GAME, ShortFuseLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
@@ -251,7 +252,7 @@ export function Lobby({
           )}
         </p>
       </LobbySettings>
-      <ShortFuseLobbySound />
+      <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act)} />
 
       <Panel className="space-y-2">
         <h3 className="font-bold text-ink">

@@ -1,3 +1,4 @@
+import { useHostVolumes } from '@vt/ui/sound';
 import { type GameUiProps, storageKey } from '@vt/game-sdk';
 import {
   Button,
@@ -17,7 +18,7 @@ import {
   MAX_PLAYERS,
   TEAMS,
 } from '../logic/types.ts';
-import { ArtContext, useArt, useLoadedArt } from './assets.ts';
+import { ArtContext, GAME_ID, useArt, useLoadedArt } from './assets.ts';
 import { End } from './End.tsx';
 import { Lobby, SEAT_CONTROL_ID, Teams } from './Lobby.tsx';
 import { MomentOverlay } from './MomentOverlay.tsx';
@@ -156,7 +157,13 @@ function Game(props: CliffhangerUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const status = statusFor(view, room);
   const [tab, setTab] = useState<Tab>('play');
-  const [volumes] = useCliffhangerVolumes();
+  const [volumes, setVolume] = useCliffhangerVolumes();
+  useHostVolumes({
+    game: GAME_ID,
+    host: view.settings.hostVolumes,
+    isHost: room.isHost,
+    setVolume,
+  });
   const cue = useSound({
     view,
     manifest: art.manifest,

@@ -8,6 +8,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  withHostVolume,
 } from '@vt/game-sdk';
 import { hydraAwards } from './awards.ts';
 import { COPY, type CopyKey, fillVars } from './copy.ts';
@@ -1038,6 +1039,23 @@ function reduce(state: HydraState, action: HydraAction, ctx: Ctx): Result {
 
 function reduceOne(state: HydraState, action: HydraAction, ctx: Ctx): Result {
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's: any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          hostVolumes: withHostVolume(
+            state.settings.hostVolumes,
+            action.which,
+            action.level,
+            ctx.now,
+          ),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(state, action, ctx);
     case 'sit':

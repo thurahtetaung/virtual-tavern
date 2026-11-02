@@ -1,4 +1,4 @@
-import type { PlayerId } from '@vt/game-sdk';
+import { type HostVolumes, type PlayerId, hostVolumeAction } from '@vt/game-sdk';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 5;
@@ -35,6 +35,8 @@ export type Power = 'investigate' | 'special' | 'peek' | 'execute';
 export type TimerMode = 'soft' | 'strict';
 
 export interface Settings {
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   /** The community rebalance for 6, 7 and 9 players (off by default). */
   rebalance: boolean;
   /** Skip the Leader check's dramatic pause. */
@@ -271,6 +273,7 @@ const seconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).n
 const policy = z.enum(['blue', 'red']);
 
 export const actionSchema = z.discriminatedUnion('type', [
+  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
     rebalance: z.boolean().optional(),

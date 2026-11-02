@@ -1,4 +1,4 @@
-import type { PlayerId } from '@vt/game-sdk';
+import { type HostVolumes, type PlayerId, hostVolumeAction } from '@vt/game-sdk';
 import { z } from 'zod';
 import {
   ARTIFACT_IDS,
@@ -41,6 +41,8 @@ export const MAX_TIMELINE = 200;
 export type NarrationMode = 'off' | 'host' | 'all';
 
 export interface Settings {
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   /** The cards in play, one entry per card: players + 3, plus one for the centre werewolf. */
   roles: RoleId[];
   stepSeconds: number;
@@ -542,6 +544,7 @@ const id = z.string().min(1).max(128);
 const roleId = z.enum(ROLE_IDS);
 
 export const actionSchema = z.discriminatedUnion('type', [
+  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
     roles: z.array(roleId).max(40).optional(),

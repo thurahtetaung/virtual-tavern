@@ -1,3 +1,4 @@
+import { useHostVolumes } from '@vt/ui/sound';
 import {
   type Drawing,
   type GameRoomInfo,
@@ -41,7 +42,7 @@ import {
 import type { Act } from './act.ts';
 import { soundModeIn } from './audio.ts';
 import { PhoneShow } from './PhoneShow.tsx';
-import { type Art, artFor, useManifest } from './assets.ts';
+import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
 import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
@@ -71,7 +72,13 @@ export function GoingOnceGame({
     return (id) => (id ? (map.get(id) ?? 'Someone') : 'Someone');
   }, [names]);
   const status = statusFor(view, room.you, name, art.names);
-  const [volumes] = useGoVolumes();
+  const [volumes, setVolume] = useGoVolumes();
+  useHostVolumes({
+    game: GAME_ID,
+    host: view.settings.hostVolumes,
+    isHost: room.isHost,
+    setVolume,
+  });
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );

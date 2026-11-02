@@ -3,6 +3,7 @@ import { cliffhanger } from '../logic/definition.ts';
 import {
   HOST,
   type Harness,
+  harness,
   keepAndPlace,
   pair,
   started,
@@ -12,6 +13,15 @@ import { HURRY, LOUD, clockCues, eventCues, gainFor, soundModeOf } from './audio
 import { momentAt } from './moments.ts';
 
 const viewOf = (h: Harness, id: string | null = HOST) => cliffhanger.view(h.state, id);
+
+describe('the lobby', () => {
+  it('is silent: no clock, loops or stings (Cliffhanger has no music at all)', () => {
+    const v = viewOf(harness(4));
+    expect(v.phase).toBe('lobby');
+    expect(clockCues(v, 0, Number.MAX_SAFE_INTEGER)).toEqual([]);
+    expect(eventCues(v)).toEqual([]);
+  });
+});
 
 describe('the clock', () => {
   it('ticks a face-off twice a second, four times in its last 5 s, the last three louder, then buzzes', () => {

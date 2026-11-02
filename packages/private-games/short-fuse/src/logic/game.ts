@@ -7,6 +7,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  withHostVolume,
 } from '@vt/game-sdk';
 import { shortFuseAwards } from './awards.ts';
 import { shortFuseBot, shortFuseBotInfo } from './bot.ts';
@@ -2123,6 +2124,23 @@ function nudgeAction(state: S, player: PlayerId, ctx: Ctx): Result {
 function reduce(state: S, action: ShortFuseAction, ctx: Ctx): Result {
   rand = ctx.rng;
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's: any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          hostVolumes: withHostVolume(
+            state.settings.hostVolumes,
+            action.which,
+            action.level,
+            ctx.now,
+          ),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(state, action, ctx);
     case 'sit':

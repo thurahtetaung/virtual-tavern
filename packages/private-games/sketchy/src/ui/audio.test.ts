@@ -132,9 +132,9 @@ describe('jokes', () => {
 });
 
 describe('music', () => {
-  it('follows the game: lobby, drawing, writing, picking, the reveal, then the board', () => {
+  it('follows the game: silence in the lobby, drawing, writing, picking, the reveal, then the board', () => {
     const h = harness();
-    expect(musicFor(sketchy.view(h.state, null), 0, null)).toBe('lobby');
+    expect(musicFor(sketchy.view(h.state, null), 0, null)).toBeNull();
     h.act(HOST, { type: 'start' });
     expect(musicFor(sketchy.view(h.state, null), 0, null)).toMatch(/^draw/);
     const w = writing();

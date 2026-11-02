@@ -7,14 +7,19 @@ import {
   type SoundSection,
   SoundButton as SoundCorner,
   previewElement,
+  useVolumeShare,
+  volumeShare,
   soundPlan,
   whereLine,
 } from '@vt/ui/sound';
 import { FRAME_LINES } from '../logic/plan.ts';
-import type { NightfallView } from '../logic/types.ts';
+import type { NightfallAction, NightfallView } from '../logic/types.ts';
 import { type Manifest, assetUrl } from './assets.ts';
 import { trackFor } from './audio.ts';
 import { MUSIC_SHARE, useNightfallVolumes } from './useSound.ts';
+
+/** The volumes key, and the game the host's volumes are shared for. */
+export const GAME = 'nightfall';
 
 // Nightfall's sound panel: the music and narration sliders, on the devices the host's narration
 // choice makes speak. Text narration always shows, so a quiet phone loses nothing.
@@ -31,13 +36,16 @@ export function previewClip(manifest: Manifest | null, kind: SoundKind): string 
 function useNightfallSound({
   view,
   room,
+  act,
   manifest,
 }: {
   view: NightfallView;
   room: GameRoomInfo;
+  act: (action: NightfallAction) => unknown;
   manifest: Manifest | null;
 }): { sections: SoundSection[]; note: string } {
   const [volumes, setVolume] = useNightfallVolumes();
+  const shared = useVolumeShare(volumeShare(GAME, room.isHost, act), setVolume);
   const mode = view.settings.narration;
   const kinds: SoundKind[] = [
     ...(view.settings.music && manifest?.music ? ['music' as const] : []),
@@ -62,7 +70,19 @@ function useNightfallSound({
     mode === 'off'
       ? 'Narration is off: the host’s choice. The narrator’s words still show on every screen.'
       : `${whereLine(mode, host, room.isHost)} The narrator’s words show on every screen.`;
-  return { sections: [{ volumes, setVolume, channels, testId: 'nightfall-sound-mine' }], note };
+  return {
+    sections: [
+      {
+        volumes,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
+        channels,
+        testId: 'nightfall-sound-mine',
+      },
+    ],
+    note,
+  };
 }
 
 export function NightfallLobbySound(props: Parameters<typeof useNightfallSound>[0]) {

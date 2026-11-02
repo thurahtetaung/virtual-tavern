@@ -2,8 +2,11 @@ import {
   FULL_VOLUMES,
   LobbySound,
   type SoundSection,
+  type VolumeKey,
+  type VolumeShare,
   SoundButton as SoundCorner,
   gainOf,
+  useVolumeShare,
   useVolumes,
 } from '@vt/ui/sound';
 import { storageKey } from '@vt/game-sdk';
@@ -16,17 +19,25 @@ import { playSfx, setSfxLevel } from './fx.ts';
 const KEY = 'vt.short-fuse.sound';
 /** Off out of the box, as the switch was. */
 const DEFAULTS = { ...FULL_VOLUMES, effects: 0 };
+/** The volumes key, and the game the host's volumes are shared for. */
+export const GAME = 'short-fuse';
 const NOTE = 'Effects play only on your own phone.';
 
 /** This player's effects volume (the switch from before, on, becomes full volume). */
-export function useShortFuseSound(): { sound: boolean; sections: SoundSection[]; note: string } {
-  const [volumes, setVolume] = useVolumes('short-fuse', DEFAULTS, () => {
+export function useShortFuseSound(share: VolumeShare): {
+  sound: boolean;
+  sections: SoundSection[];
+  note: string;
+  setVolume: (which: VolumeKey, level: number) => void;
+} {
+  const [volumes, setVolume] = useVolumes(GAME, DEFAULTS, () => {
     try {
       return localStorage.getItem(storageKey(KEY)) === 'true' ? { effects: 1 } : null;
     } catch {
       return null;
     }
   });
+  const shared = useVolumeShare(share, setVolume);
   const gain = gainOf(volumes, 'effects');
   useEffect(() => {
     setSfxLevel(gain);
@@ -34,10 +45,13 @@ export function useShortFuseSound(): { sound: boolean; sections: SoundSection[];
   return {
     sound: gain > 0,
     note: NOTE,
+    setVolume,
     sections: [
       {
         volumes,
-        setVolume,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
         testId: 'short-fuse-sound-mine',
         channels: [
           {
@@ -55,13 +69,19 @@ export function useShortFuseSound(): { sound: boolean; sections: SoundSection[];
   };
 }
 
-export function ShortFuseLobbySound() {
-  const { sections, note } = useShortFuseSound();
+export function ShortFuseLobbySound({ share }: { share: VolumeShare }) {
+  const { sections, note } = useShortFuseSound(share);
   return <LobbySound sections={sections} note={note} />;
 }
 
-export function ShortFuseSoundButton({ className }: { className?: string }) {
-  const { sections, note } = useShortFuseSound();
+export function ShortFuseSoundButton({
+  className,
+  share,
+}: {
+  className?: string;
+  share: VolumeShare;
+}) {
+  const { sections, note } = useShortFuseSound(share);
   return (
     <SoundCorner sections={sections} note={note} className={className} testId="short-fuse-sound" />
   );

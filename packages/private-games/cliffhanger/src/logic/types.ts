@@ -1,4 +1,10 @@
-import { type PlayerId, type TableVolumes, tableVolumeAction } from '@vt/game-sdk';
+import {
+  type HostVolumes,
+  type PlayerId,
+  type TableVolumes,
+  hostVolumeAction,
+  tableVolumeAction,
+} from '@vt/game-sdk';
 import { z } from 'zod';
 import type { Card, Category, PackSummary } from './content.ts';
 import type { ActAlt, DeckKind, Each, FilmGoal, Goal, GoalId, ModeId, StyleId } from './genres.ts';
@@ -44,6 +50,8 @@ export type AnswerSeconds = (typeof ANSWER_SECONDS)[number];
 export type TurnSeconds = (typeof TURN_SECONDS)[number];
 
 export interface Settings {
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   deck: DeckKind;
   /** The last film preset picked; alone (rooms saved before the genre picks) it is the goal. */
   goal: FilmGoal;
@@ -261,6 +269,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     sound: z.enum(['off', 'host', 'all', 'stage']).optional(),
   }),
   tableVolumeAction,
+  hostVolumeAction,
   z.object({ type: z.literal('team'), team: z.enum(['a', 'b']).nullable() }),
   z.object({ type: z.literal('shuffle-teams') }),
   z.object({ type: z.literal('on-call'), onCall: z.boolean() }),

@@ -26,7 +26,8 @@ import { PolicyBack } from './Cards.tsx';
 import { Dock, TaskSheet, secretTask } from './Dock.tsx';
 import { End } from './End.tsx';
 import { playSfx, prefersReducedMotion, useBuzz } from './fx.ts';
-import { HydraSoundButton, useHydraSound } from './Sound.tsx';
+import { type VolumeShare, useHostVolumes, volumeShare } from '@vt/ui/sound';
+import { GAME as SOUND_GAME, HydraSoundButton, useHydraSound } from './Sound.tsx';
 import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab, useRoleReveal } from './Me.tsx';
@@ -100,10 +101,12 @@ function HeaderStrip({
   onRole,
   legend,
   onLegend,
+  share,
 }: {
   view: HydraView;
   room: GameRoomInfo;
   c: Content;
+  share: VolumeShare;
   onRole: () => void;
   /** The scoreboard's legend is open. */
   legend: boolean;
@@ -152,7 +155,10 @@ function HeaderStrip({
             />
           </span>
         )}
-        <HydraSoundButton className="-my-1.5 shrink-0 rounded-full text-sm text-white hover:bg-white/10 dark:text-white" />
+        <HydraSoundButton
+          share={share}
+          className="-my-1.5 shrink-0 rounded-full text-sm text-white hover:bg-white/10 dark:text-white"
+        />
         {view.role && (
           <button
             type="button"
@@ -461,7 +467,14 @@ export function HydraGame({
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
-  const { sound } = useHydraSound();
+  const share = volumeShare(SOUND_GAME, room.isHost, act);
+  const { sound, setVolume } = useHydraSound(share);
+  useHostVolumes({
+    game: SOUND_GAME,
+    host: view.settings.hostVolumes,
+    isHost: room.isHost,
+    setVolume,
+  });
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
   const [notes, setNote] = useNotes(`${view.table}.${view.gamesPlayed}`);
   const [fresh, dismissTip] = useTips();
@@ -663,6 +676,7 @@ export function HydraGame({
         view={view}
         room={room}
         c={c}
+        share={share}
         onRole={() => setTab('me')}
         legend={legend}
         onLegend={() => {

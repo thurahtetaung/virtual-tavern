@@ -42,11 +42,14 @@ export function SoundSliders({
   volumes,
   setVolume,
   channels,
+  hostSet = [],
   testId = 'sound-panel',
 }: {
   volumes: Volumes;
   setVolume: (which: VolumeKey, level: number) => void;
   channels: readonly SoundChannel[];
+  /** The sliders the host just set for everyone: they say so for a few seconds. */
+  hostSet?: readonly VolumeKey[];
   testId?: string;
 }) {
   const [playing, setPlaying] = useState<SoundKind | null>(null);
@@ -94,7 +97,16 @@ export function SoundSliders({
           <div key={key} className="flex items-center gap-2" data-testid={`sound-row-${key}`}>
             <label htmlFor={id} className="w-24 shrink-0 text-sm leading-tight sm:w-28">
               <span className="block font-semibold">{label}</span>
-              {help && <span className="block text-xs text-ink-muted">{help}</span>}
+              {hostSet.includes(key) ? (
+                <span
+                  className="block text-xs font-semibold text-accent"
+                  data-testid={`sound-host-set-${key}`}
+                >
+                  Set by the host
+                </span>
+              ) : (
+                help && <span className="block text-xs text-ink-muted">{help}</span>
+              )}
             </label>
             <input
               id={id}
@@ -150,6 +162,10 @@ export interface SoundSection {
   volumes: Volumes;
   setVolume: (which: VolumeKey, level: number) => void;
   channels: readonly SoundChannel[];
+  /** The sliders the host just set for everyone (`useHostNotes`). */
+  hostSet?: readonly VolumeKey[];
+  /** A line under the sliders (the host's: their sliders set everyone's). */
+  caption?: ReactNode;
   testId?: string;
 }
 
@@ -171,7 +187,18 @@ export function SoundSections({
               {s.title}
             </h3>
           )}
-          <SoundSliders {...s} />
+          <SoundSliders
+            volumes={s.volumes}
+            setVolume={s.setVolume}
+            channels={s.channels}
+            hostSet={s.hostSet}
+            testId={s.testId}
+          />
+          {s.caption && (
+            <p className="text-xs text-ink-muted" data-testid="sound-host-line">
+              {s.caption}
+            </p>
+          )}
         </section>
       ))}
       {note && (

@@ -1,3 +1,4 @@
+import { useHostVolumes } from '@vt/ui/sound';
 import { type GameRoomInfo, type GameUiProps, listNames, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
@@ -29,7 +30,7 @@ import {
 } from './status.ts';
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 import { TurnStage, useReveal } from './Turn.tsx';
-import { type SketchyManifest, manifestOf, useManifest } from './assets.ts';
+import { GAME_ID, type SketchyManifest, manifestOf, useManifest } from './assets.ts';
 import { ChipColours, paintsOf } from './paint.tsx';
 import { PhoneShow, Toast } from './PhoneShow.tsx';
 import { SketchyLobbySound, SketchySoundButton } from './Sound.tsx';
@@ -236,7 +237,13 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
 export function SketchyGame(props: SketchyUiProps) {
   const { view, room, profile = 'phone-full' } = props;
   const manifest = useManifest();
-  const [volumes] = useSketchyVolumes();
+  const [volumes, setVolume] = useSketchyVolumes();
+  useHostVolumes({
+    game: GAME_ID,
+    host: view.settings.hostVolumes,
+    isHost: room.isHost,
+    setVolume,
+  });
   const stagePresent = room.stage?.present === true;
   return (
     <PhoneShow
