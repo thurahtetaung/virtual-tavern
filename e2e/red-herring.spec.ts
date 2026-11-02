@@ -67,7 +67,12 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
   ])) as [Page, Page, Page, Page];
   const [ana] = pages;
   await expect(ana.getByTestId('host-settings')).toContainText('8 rounds');
+  // The draw pile, face down: both of the game's decks.
+  await expect(ana.getByTestId('rh-pile')).toContainText('252 cards in the deck');
   await ana.getByRole('button', { name: 'Start the game' }).click();
+  // Every seat's two slots wait face down; the pile is the decks less four hands of six.
+  await expect(ana.getByTestId('rh-empty-slot')).toHaveCount(8);
+  await expect(ana.getByTestId('rh-pile')).toContainText('228 cards in the deck');
 
   for (let k = 0; k < 8; k++) {
     const order = roundOrder(pages, k % 4);

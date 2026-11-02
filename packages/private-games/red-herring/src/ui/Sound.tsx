@@ -24,6 +24,7 @@ import {
   type SoundMode,
 } from '../logic/types.ts';
 import { type Art, GAME_ID } from './assets.ts';
+import { cueStep, cuesOf } from './cues.ts';
 
 // Red Herring's sound: two short cues, as effects: one when the word is written, one at the end.
 // The host picks where they play. Phones also buzz on their owner's turn, wherever sound plays.
@@ -159,19 +160,6 @@ function useUnlocked(): boolean {
   return unlocked;
 }
 
-/** The cue moments a view holds, each with a stable key (played once each). */
-export function cuesOf(view: RedHerringView): { key: string; cue: 'newWord' | 'winner' }[] {
-  const g = view.game;
-  if (!g) return [];
-  const out: { key: string; cue: 'newWord' | 'winner' }[] = [];
-  const r = g.round;
-  const written = r.stage !== 'card' && r.stage !== 'word';
-  if (written && view.phase === 'playing')
-    out.push({ key: `word:${g.history.length}:${r.no}:${r.picker}`, cue: 'newWord' });
-  if (view.phase === 'over') out.push({ key: `over:${g.history.length}`, cue: 'winner' });
-  return out;
-}
-
 /**
  * Plays the cues on this device where the host's choice puts them, and buzzes this phone when
  * its owner's turn comes. Nothing plays before the first tap.
@@ -185,21 +173,18 @@ export function useCues(view: RedHerringView, art: Art, isHost: boolean, yourMov
   const here = mode === 'all' || (mode === 'host' && isHost);
   const gain = gainOf(volumes, 'effects');
   const seen = useRef<Set<string> | null>(null);
-  const cues = cuesOf(view);
-  const keys = cues.map((c) => c.key).join('|');
+  const keys = cuesOf(view)
+    .map((c) => c.key)
+    .join('|');
   useEffect(() => {
-    const first = seen.current === null;
-    seen.current ??= new Set();
-    for (const c of cues) {
-      if (seen.current.has(c.key)) continue;
-      seen.current.add(c.key);
-      // A page opened mid-game doesn't replay what already happened.
-      if (first) continue;
-      const file = art.sound[c.cue];
+    const step = cueStep(seen.current, view);
+    seen.current = step.seen;
+    for (const cue of step.play) {
+      const file = art.sound[cue];
       if (here && unlocked && file && gain > 0)
         void engine().effect(file, Date.now(), Math.min(1, gain), Date.now() + 1500);
     }
-    // `cues` is summed up by `keys`.
+    // The view's cues are summed up by `keys`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys, here, unlocked, gain, art.sound]);
 
