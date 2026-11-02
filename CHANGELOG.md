@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.84.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.83.0...v0.84.0) (2026-11-02)
+
+
+### Features
+
+* **red-herring:** add Red Herring, a picture-card bluffing game with a blind conspirator in the back room ([#509](https://github.com/thurahtetaung/virtual-tavern/issues/509)) ([279828a](https://github.com/thurahtetaung/virtual-tavern/commit/279828adb0726330afe6eb44f93f6376b053d3f7))
+
 ## [0.83.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.3...v0.83.0) (2026-11-02)
 
 
