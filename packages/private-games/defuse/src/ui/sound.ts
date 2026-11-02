@@ -1,5 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
-import { FULL_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { DEFAULT_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
 import { useEffect, useRef } from 'react';
 import { leftAt } from '../logic/bomb.ts';
 import { isNeedy } from '../logic/types.ts';
@@ -175,7 +175,7 @@ export function useUnlock(auto: boolean) {
 
 /** This player's volumes for the bomb (a mute from before, kept per seat, becomes the master at 0). */
 export const useDefuseVolumes = () =>
-  useVolumes('defuse', FULL_VOLUMES, () => {
+  useVolumes('defuse', DEFAULT_VOLUMES, () => {
     try {
       return localStorage.getItem(storageKey(MUTE_KEY)) === '1' ? { master: 0 } : null;
     } catch {

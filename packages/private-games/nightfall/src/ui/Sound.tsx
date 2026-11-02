@@ -45,7 +45,10 @@ function useNightfallSound({
   manifest: Manifest | null;
 }): { sections: SoundSection[]; note: string } {
   const [volumes, setVolume] = useNightfallVolumes();
-  const shared = useVolumeShare(volumeShare(GAME, room.isHost, act), setVolume);
+  const shared = useVolumeShare(
+    volumeShare(GAME, room.isHost, act, view.settings.hostVolumes),
+    setVolume,
+  );
   const mode = view.settings.narration;
   const kinds: SoundKind[] = [
     ...(view.settings.music && manifest?.music ? ['music' as const] : []),
@@ -77,6 +80,7 @@ function useNightfallSound({
         setVolume: shared.setVolume,
         hostSet: shared.hostSet,
         caption: shared.caption,
+        hostMode: shared.hostMode,
         channels,
         testId: 'nightfall-sound-mine',
       },

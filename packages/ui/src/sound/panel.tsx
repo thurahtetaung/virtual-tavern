@@ -3,7 +3,14 @@ import { cn } from '../cn.ts';
 import { Button } from '../components.tsx';
 import { Modal } from '../modal.tsx';
 import type { PreviewHandle } from './engine.ts';
-import { type SoundKind, type VolumeKey, type Volumes, gainOf, tableVolumes } from './volumes.ts';
+import {
+  type HostModeControl,
+  type SoundKind,
+  type VolumeKey,
+  type Volumes,
+  gainOf,
+  tableVolumes,
+} from './volumes.ts';
 
 // The sound panel every game with sound shares: a volume slider per sound type the game has (and
 // a master one when it has more than one), each with a ▶ that plays a short real clip of that
@@ -164,8 +171,10 @@ export interface SoundSection {
   channels: readonly SoundChannel[];
   /** The sliders the host just set for everyone (`useHostNotes`). */
   hostSet?: readonly VolumeKey[];
-  /** A line under the sliders (the host's: their sliders set everyone's). */
+  /** A line under the sliders (the host's: whose volume their sliders set). */
   caption?: ReactNode;
+  /** The host's "Just me / Everyone" switch, above the caption. */
+  hostMode?: HostModeControl;
   testId?: string;
 }
 
@@ -194,6 +203,7 @@ export function SoundSections({
             hostSet={s.hostSet}
             testId={s.testId}
           />
+          {s.hostMode && <HostModeSwitch control={s.hostMode} />}
           {s.caption && (
             <p className="text-xs text-ink-muted" data-testid="sound-host-line">
               {s.caption}
@@ -206,6 +216,48 @@ export function SoundSections({
           {note}
         </p>
       )}
+    </div>
+  );
+}
+
+const MODES = [
+  { mode: 'me', label: 'Just me' },
+  { mode: 'all', label: 'Everyone' },
+] as const;
+
+/** The host's choice of whose volume their sliders set: theirs alone, or everyone's. */
+export function HostModeSwitch({ control }: { control: HostModeControl }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="My sliders set"
+      className="mt-1 flex items-center gap-2"
+      data-testid="sound-host-mode"
+    >
+      <span className="shrink-0 text-xs font-semibold text-ink-muted">My sliders set:</span>
+      <div className="flex flex-1 gap-1 rounded-xl bg-panel p-1 ring-1 ring-line">
+        {MODES.map(({ mode, label }) => {
+          const on = control.mode === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => {
+                if (!on) control.set(mode);
+              }}
+              data-testid={`sound-host-mode-${mode}`}
+              className={cn(
+                'min-h-11 flex-1 rounded-lg px-2 text-sm font-semibold transition',
+                on ? 'bg-accent text-accent-fg shadow-sm' : 'text-ink-muted hover:bg-card',
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

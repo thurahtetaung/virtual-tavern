@@ -5,7 +5,6 @@ import {
   type AudioManifest,
   CUT_MS,
   type Cue,
-  DEFAULT_VOLUME,
   LOOKAHEAD_MS,
   STALE_MS,
   type VoiceClip,
@@ -38,7 +37,7 @@ import {
 import { type Saying, soundEngine } from './engine.ts';
 import { GAME_ID } from './assets.ts';
 import {
-  FULL_VOLUMES,
+  DEFAULT_VOLUMES,
   type Volumes,
   gainOf,
   legacyDevice,
@@ -48,8 +47,8 @@ import {
 
 // ---- This player's own volumes (per device) ----
 
-/** Going Once's sound types: everyone's own sliders, master 80 % out of the box. */
-export const VOLUME_DEFAULTS: Volumes = { ...FULL_VOLUMES, master: DEFAULT_VOLUME };
+/** Going Once's sound types: everyone's own sliders, every one at 50 % out of the box. */
+export const VOLUME_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
 
 /** This player's volumes (a phone's own `{ muted, volume }` switch from before becomes the master). */
 export const useGoVolumes = () =>

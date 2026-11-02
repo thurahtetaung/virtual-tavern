@@ -467,7 +467,7 @@ export function HydraGame({
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
-  const share = volumeShare(SOUND_GAME, room.isHost, act);
+  const share = volumeShare(SOUND_GAME, room.isHost, act, view.settings.hostVolumes);
   const { sound, setVolume } = useHydraSound(share);
   useHostVolumes({
     game: SOUND_GAME,

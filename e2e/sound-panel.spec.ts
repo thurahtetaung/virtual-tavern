@@ -124,6 +124,8 @@ const GAMES: { id: string; host: string[]; guest: string[]; where: RegExp; previ
   },
   // The host's device by default: a guest keeps their own sounds.
   { id: 'cliffhanger', host: ['effects'], guest: ['effects'], where: /Hana’s phone/ },
+  // Every device by default; its two cues are private files, so no clip to preview here.
+  { id: 'red-herring', host: ['effects'], guest: ['effects'], where: /every phone/ },
 ];
 
 for (const g of GAMES)
@@ -146,6 +148,19 @@ for (const g of GAMES)
     expect((await first.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     const play = hostPanel.locator('[data-testid^=sound-preview-]').first();
     expect((await play.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+    // Every slider starts at 50 %; only the host chooses whose volume their sliders set, and a
+    // new room starts on "Just me".
+    for (const key of g.host)
+      await expect(host.getByTestId(`sound-slider-${key}`)).toHaveValue('50');
+    for (const key of g.guest)
+      await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('50');
+    await expect(hostPanel.getByTestId('sound-host-mode-me')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(hostPanel.getByTestId('sound-host-line')).toContainText('only your own volume');
+    await expect(guestPanel.getByTestId('sound-host-mode')).toHaveCount(0);
 
     // A volume is the player's own and stays on this device.
     const last = g.host.at(-1)!;
@@ -187,26 +202,40 @@ const SHARED: Record<string, string> = {
   hogwarts: 'effects',
   'short-fuse': 'effects',
   cliffhanger: 'effects',
+  'red-herring': 'effects',
 };
 
 for (const [id, key] of Object.entries(SHARED))
-  test(`${id}: the host's slider sets everyone's, and a player can change theirs after`, async ({
+  test(`${id}: with "Everyone", the host's slider sets everyone's, and a player can change theirs after`, async ({
     browser,
   }) => {
     const { host, guest } = await room(browser, id);
     const hostPanel = await openSound(host);
     const guestPanel = await openSound(guest);
+    const dir = process.env.HOST_VOLUME_SHOTS ?? test.info().outputPath();
+    // "Just me" out of the box: the host's sliders are their own.
+    await expect(hostPanel.getByTestId('sound-host-line')).toContainText('only your own volume');
+    if (process.env.SCREENSHOTS) await hostPanel.screenshot({ path: `${dir}/${id}-host-me.png` });
+    await host.getByTestId(`sound-slider-${key}`).fill('60');
+    await expect(host.getByTestId(`sound-slider-${key}`)).toHaveValue('60');
+
+    // The host switches to "Everyone": nothing is pushed until their next move.
+    await hostPanel.getByTestId('sound-host-mode-all').click();
+    await expect(hostPanel.getByTestId('sound-host-mode-all')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await expect(hostPanel.getByTestId('sound-host-line')).toContainText('set everyone’s volume');
     await expect(guestPanel.getByTestId('sound-host-line')).toHaveCount(0);
+    await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('50');
 
     await host.getByTestId(`sound-slider-${key}`).fill('40');
     await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('40');
     await expect(guest.getByTestId(`sound-host-set-${key}`)).toHaveText('Set by the host');
     await expect(host.getByTestId(`sound-host-set-${key}`)).toHaveCount(0);
     if (process.env.SCREENSHOTS) {
-      const dir = process.env.HOST_VOLUME_SHOTS ?? test.info().outputPath();
       await guestPanel.screenshot({ path: `${dir}/${id}-guest.png` });
-      await hostPanel.screenshot({ path: `${dir}/${id}-host.png` });
+      await hostPanel.screenshot({ path: `${dir}/${id}-host-all.png` });
     }
 
     // The guest turns it up: theirs sticks, after a reload too (the host's change is taken once).
@@ -218,6 +247,14 @@ for (const [id, key] of Object.entries(SHARED))
 
     // The host's next change of that slider wins again.
     await host.getByTestId(`sound-slider-${key}`).fill('20');
+    await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('20');
+
+    // Back on "Just me", the host's moves stay theirs.
+    await hostPanel.getByTestId('sound-host-mode-me').click();
+    await expect(hostPanel.getByTestId('sound-host-line')).toContainText('only your own volume');
+    await host.getByTestId(`sound-slider-${key}`).fill('70');
+    await guest.reload();
+    await openSound(guest);
     await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('20');
     await host.context().close();
     await guest.context().close();

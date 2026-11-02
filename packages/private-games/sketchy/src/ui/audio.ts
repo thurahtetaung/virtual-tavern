@@ -27,7 +27,6 @@ export interface AudioManifest {
 /** The manifest's `jokes`: a prompt's key (`jokeKey`) to its file. */
 export type JokeTable = Record<string, string>;
 
-export const DEFAULT_VOLUME = 0.8;
 /** The music plays at this share of the device's volume, and a third of that under the voice. */
 export const MUSIC_SHARE = 0.35;
 export const DUCK_RATIO = 0.3;

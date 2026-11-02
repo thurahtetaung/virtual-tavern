@@ -380,7 +380,7 @@ export function ShortFuseGame({
   const art = g?.art ?? view.settings.art;
   const c = useMemo(() => contentFor(manifest, art), [manifest, art]);
   const me = view.me?.id ?? '';
-  const share = volumeShare(SOUND_GAME, room.isHost, act);
+  const share = volumeShare(SOUND_GAME, room.isHost, act, view.settings.hostVolumes);
   const { sound, setVolume } = useShortFuseSound(share);
   useHostVolumes({
     game: SOUND_GAME,
