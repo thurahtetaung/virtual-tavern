@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.86.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.0...v0.86.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **red-herring:** the new-word sound plays once, and the card back shows on the pile and empty slots ([#514](https://github.com/thurahtetaung/virtual-tavern/issues/514)) ([a24e784](https://github.com/thurahtetaung/virtual-tavern/commit/a24e784ebedacb75c3e76d466f672f1f43645909))
+
 ## [0.86.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.85.0...v0.86.0) (2026-11-02)
 
 
