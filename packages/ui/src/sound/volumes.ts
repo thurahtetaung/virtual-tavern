@@ -358,9 +358,9 @@ export function useHostSetter(
   );
 }
 
-/** The line under the host's own sliders. */
-export const HOST_LINE =
-  'Your sliders set everyone’s volume (and the table screen’s); players can change theirs after.';
+/** The line under the host's own sliders (`table`: the game's table screen follows them too). */
+export const hostLine = (table: boolean) =>
+  `Your sliders set everyone’s volume${table ? ' (and the table screen’s)' : ''}; players can change theirs after.`;
 
 /** What a game's sound panel needs to share the host's sliders. */
 export interface VolumeShare {
@@ -369,6 +369,8 @@ export interface VolumeShare {
   isHost: boolean;
   /** Sends the game's `host-volume` action. */
   send: (which: VolumeKey, level: number) => void;
+  /** The game's table screen plays sound and follows the host's sliders too. */
+  table?: boolean;
 }
 
 /**
@@ -386,7 +388,11 @@ export function useVolumeShare(
 } {
   const set = useHostSetter(setVolume, share.isHost, share.send);
   const hostSet = useHostNotes(share.game);
-  return { setVolume: set, hostSet, ...(share.isHost ? { caption: HOST_LINE } : {}) };
+  return {
+    setVolume: set,
+    hostSet,
+    ...(share.isHost ? { caption: hostLine(share.table === true) } : {}),
+  };
 }
 
 /** A game's `VolumeShare`: the host's sliders go out as the game's `host-volume` action. */
@@ -394,10 +400,12 @@ export function volumeShare(
   game: string,
   isHost: boolean,
   act: (action: HostVolumeAction) => unknown,
+  table = false,
 ): VolumeShare {
   return {
     game,
     isHost,
+    table,
     send: (which, level) => {
       void act({ type: 'host-volume', which, level });
     },

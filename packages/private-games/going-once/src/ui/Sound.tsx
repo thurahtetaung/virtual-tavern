@@ -74,7 +74,7 @@ export function useGoSound({
   manifest: ManifestState;
 }): { sections: SoundSection[]; note: string } {
   const [volumes, setVolume] = useGoVolumes();
-  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act), setVolume);
+  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act, true), setVolume);
   const [table, setTable] = useTableVolumes(view.settings.tableVolumes, (v) => {
     void act({ type: 'table-volume', volumes: v });
   });

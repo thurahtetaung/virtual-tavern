@@ -78,7 +78,7 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
   note: string;
 } {
   const [volumes, setVolume] = useSketchyVolumes();
-  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act), setVolume);
+  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act, true), setVolume);
   const [table, setTable] = useTableVolumes(
     view.settings.tableVolumes,
     (v) => {
