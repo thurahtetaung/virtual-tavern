@@ -1,5 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
-import { DEFAULT_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { DEFAULT_VOLUMES, type SoundKind, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
 import { useEffect, useRef } from 'react';
 import { leftAt } from '../logic/bomb.ts';
 import { isNeedy } from '../logic/types.ts';
@@ -173,6 +173,9 @@ export function useUnlock(auto: boolean) {
   }, [auto]);
 }
 
+/** The sound types the bomb plays (each device that plays it shows these sliders). */
+export const BOMB_KINDS: readonly SoundKind[] = ['music', 'effects'];
+
 /** This player's volumes for the bomb (a mute from before, kept per seat, becomes the master at 0). */
 export const useDefuseVolumes = () =>
   useVolumes('defuse', DEFAULT_VOLUMES, () => {
@@ -185,8 +188,9 @@ export const useDefuseVolumes = () =>
 
 /** Plays the bomb at these volumes on this device (and starts the audio on a tap). */
 export function usePlayerVolumes(v: Volumes, auto = false) {
-  const music = gainOf(v, 'music');
-  const effects = gainOf(v, 'effects');
+  // The bomb plays both types wherever it plays, so the master shows and counts.
+  const music = gainOf(v, 'music', BOMB_KINDS);
+  const effects = gainOf(v, 'effects', BOMB_KINDS);
   useEffect(() => {
     player.setGains({ music, effects });
   }, [music, effects]);

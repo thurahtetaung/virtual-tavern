@@ -38,7 +38,8 @@ export function useHydraSound(share: VolumeShare): {
     }
   });
   const shared = useVolumeShare(share, setVolume);
-  const gain = gainOf(volumes, 'effects');
+  // The only type, so its slider is the whole volume (no master shows).
+  const gain = gainOf(volumes, 'effects', ['effects']);
   useEffect(() => {
     setSfxLevel(gain);
   }, [gain]);

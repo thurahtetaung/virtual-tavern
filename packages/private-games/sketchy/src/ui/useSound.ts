@@ -1,10 +1,13 @@
 import type { ShowAudio } from '@vt/ui/show';
 import {
   DEFAULT_VOLUMES,
+  type SoundKind,
   type Volumes,
+  type WhereMode,
   gainOf,
   legacyDevice,
   soundEngineFor,
+  soundPlan,
   tableVolumes,
   useVolumes,
 } from '@vt/ui/sound';
@@ -44,6 +47,17 @@ const INSTANT = ['reveal.hit', 'reveal.drumroll', 'write.break', 'vote.tick', 'l
 export const VOLUME_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
 /** The table screen's out of the box: 50 % too, until the host moves them. */
 export const TABLE_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
+
+/** The room's sound types; every phone also makes its own little sounds (effects). */
+export const ROOM_KINDS: readonly SoundKind[] = ['music', 'effects', 'voice'];
+
+/**
+ * The sound types that play on this device, which are the sliders it shows: the room's where the
+ * room's sound plays (the table screen's are the host's Table screen sliders), else only its own
+ * effects, where no master shows and the effects slider is the whole volume.
+ */
+export const deviceKinds = (mode: WhereMode, isHost: boolean, isStage = false): SoundKind[] =>
+  isStage ? [...ROOM_KINDS] : soundPlan(mode, isHost, ROOM_KINDS, ['effects']).mine;
 
 /** This player's volumes (a phone's own `{ muted, volume }` switch from before becomes the master). */
 export const useSketchyVolumes = () =>
@@ -107,10 +121,11 @@ export function useSound({
   const on = unlocked && mode !== 'off' && !!audio;
   // Each type plays at this device's volume for it (the table screen's: the host's); 0 is off.
   const levels = isStage ? tableVolumes(s.tableVolumes, TABLE_DEFAULTS) : volumes;
+  const kinds = deviceKinds(mode, isHost, isStage);
   const gains = {
-    music: gainOf(levels, 'music'),
-    effects: gainOf(levels, 'effects'),
-    voice: gainOf(levels, 'voice'),
+    music: gainOf(levels, 'music', kinds),
+    effects: gainOf(levels, 'effects', kinds),
+    voice: gainOf(levels, 'voice', kinds),
   };
   const d: Device = {
     mode,

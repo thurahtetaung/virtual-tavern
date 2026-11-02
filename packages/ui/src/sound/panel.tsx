@@ -9,12 +9,15 @@ import {
   type VolumeKey,
   type Volumes,
   gainOf,
+  heardVolumes,
+  masterShown,
   tableVolumes,
 } from './volumes.ts';
 
 // The sound panel every game with sound shares: a volume slider per sound type the game has (and
 // a master one when it has more than one), each with a ▶ that plays a short real clip of that
-// type at its level. Previews only play on a tap, one at a time.
+// type at the level it really plays at. Previews only play on a tap, one at a time. Without the
+// master slider the master counts as 100 % (`heardVolumes`), here and wherever sound plays.
 
 /** How long a preview plays. */
 export const PREVIEW_MS = 4000;
@@ -35,11 +38,27 @@ export interface SoundChannel {
 
 const pct = (x: number) => `${Math.round(x * 100)} %`;
 
+/**
+ * The level a channel's ▶ and its sound play at, beside the other channels shown with it: with
+ * one channel no master slider shows, so that slider alone is the volume.
+ */
+export const channelGain = (
+  v: Volumes,
+  channels: readonly SoundChannel[],
+  kind: SoundKind,
+): number =>
+  gainOf(
+    v,
+    kind,
+    channels.map((c) => c.kind),
+  );
+
 /** A short summary of the volumes: "Off", "80 %", or "Music 0 % · Effects 80 %". */
-export function volumeSummary(v: Volumes, kinds: readonly SoundKind[]): string {
+export function volumeSummary(stored: Volumes, kinds: readonly SoundKind[]): string {
+  const v = heardVolumes(stored, kinds);
   if (v.master === 0 || kinds.every((k) => v[k] === 0)) return 'off';
-  // One slider (no master shown): its own level.
-  if (kinds.length === 1) return pct(gainOf(v, kinds[0]!));
+  // One slider (no master shown): its own level, which is what plays.
+  if (!masterShown(kinds)) return pct(gainOf(v, kinds[0]!, kinds));
   const off = kinds.filter((k) => v[k] === 0);
   return off.length ? `${pct(v.master)}, ${off.join(' and ')} off` : pct(v.master);
 }
@@ -74,17 +93,21 @@ export function SoundSliders({
     setPlaying(null);
   };
   useEffect(() => stop, []);
+  const latest = useRef(channels);
+  useEffect(() => {
+    latest.current = channels;
+  });
   // The volume applies live to a preview that is playing.
   useEffect(() => {
     const now = handle.current;
-    if (now) now.h.volume(gainOf(volumes, now.kind));
+    if (now) now.h.volume(channelGain(volumes, latest.current, now.kind));
   }, [volumes]);
 
   const play = (c: SoundChannel) => {
     const again = handle.current?.kind === c.kind;
     stop();
     if (again || !c.preview) return;
-    const h = c.preview(gainOf(volumes, c.kind));
+    const h = c.preview(channelGain(volumes, channels, c.kind));
     if (!h) return;
     const timer = setTimeout(stop, PREVIEW_MS);
     handle.current = { kind: c.kind, h, timer };
@@ -92,7 +115,9 @@ export function SoundSliders({
   };
 
   const rows: { key: VolumeKey; label: string; help?: string; channel?: SoundChannel }[] = [
-    ...(channels.length > 1 ? [{ key: 'master' as const, label: 'All sound' }] : []),
+    ...(masterShown(channels.map((c) => c.kind))
+      ? [{ key: 'master' as const, label: 'All sound' }]
+      : []),
     ...channels.map((c) => ({ key: c.kind, label: c.label, help: c.help, channel: c })),
   ];
   return (
@@ -263,7 +288,7 @@ export function HostModeSwitch({ control }: { control: HostModeControl }) {
 }
 
 const silent = (sections: readonly SoundSection[]) =>
-  sections.every((s) => s.channels.every((c) => gainOf(s.volumes, c.kind) === 0));
+  sections.every((s) => s.channels.every((c) => channelGain(s.volumes, s.channels, c.kind) === 0));
 
 /** The lobby's "Sound" section: folded, and every player's own (not only the host's). */
 export function LobbySound({

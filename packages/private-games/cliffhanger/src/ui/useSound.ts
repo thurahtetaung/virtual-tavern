@@ -89,7 +89,8 @@ export function useSound({
   const audio = manifest?.audio;
   const mode = soundModeOf(view.settings, stagePresent);
   const levels = isStage ? tableVolumes(view.settings.tableVolumes, TABLE_DEFAULTS) : volumes;
-  const effects = gainOf(levels, 'effects');
+  // The only type, so its slider is the whole volume (no master shows), the table screen's too.
+  const effects = gainOf(levels, 'effects', ['effects']);
   const on = unlocked && mode !== 'off' && !!audio && effects > 0;
   const describing = view.round?.turn?.describer === view.me?.id && view.round?.stage === 'turn';
   const latest = useRef({ view, audio, mode, effects, clockOffset, describing, on });
