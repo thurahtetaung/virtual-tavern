@@ -10,6 +10,8 @@ import {
   createRng,
   validateDrawing,
   wordKey,
+  tableWithHostVolume,
+  withHostVolume,
 } from '@vt/game-sdk';
 import {
   PLAYER_SLOT,
@@ -792,6 +794,28 @@ function refreshPacks(state: SketchyState, content: ContentProvider): SketchySta
 export function reduce(state: SketchyState, action: SketchyAction, ctx: Ctx): Result {
   const current = refreshPacks(state, ctx.content);
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's (and the table screen's): any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...current,
+        settings: {
+          ...current.settings,
+          hostVolumes: withHostVolume(
+            current.settings.hostVolumes,
+            action.which,
+            action.level,
+            ctx.now,
+          ),
+          tableVolumes: tableWithHostVolume(
+            current.settings.tableVolumes,
+            action.which,
+            action.level,
+          ),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(current, action, ctx);
     case 'table-volume': {

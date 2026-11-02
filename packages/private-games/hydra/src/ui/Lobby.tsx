@@ -1,4 +1,5 @@
-import { HydraLobbySound } from './Sound.tsx';
+import { volumeShare } from '@vt/ui/sound';
+import { GAME as SOUND_GAME, HydraLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
@@ -278,7 +279,7 @@ export function Lobby({
           }
         />
       </LobbySettings>
-      <HydraLobbySound />
+      <HydraLobbySound share={volumeShare(SOUND_GAME, room.isHost, act)} />
 
       {host && (
         <StickyBar>

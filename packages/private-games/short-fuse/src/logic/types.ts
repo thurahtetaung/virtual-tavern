@@ -1,4 +1,4 @@
-import type { PlayerId } from '@vt/game-sdk';
+import { type HostVolumes, type PlayerId, hostVolumeAction } from '@vt/game-sdk';
 import { z } from 'zod';
 import { CARD_TYPES, type CardType } from './cards.ts';
 
@@ -37,6 +37,8 @@ export interface Card {
 }
 
 export interface Settings {
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   core: Core;
   art: Art;
   /** Expansion 1 (the Black Hole and friends). */
@@ -449,6 +451,7 @@ const cardId = z.string().min(1).max(20);
 const cardType = z.enum(CARD_TYPES);
 
 export const actionSchema = z.discriminatedUnion('type', [
+  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
     preset: z.enum(['classic', 'adult', 'party', 'chaos', 'zombie']).optional(),

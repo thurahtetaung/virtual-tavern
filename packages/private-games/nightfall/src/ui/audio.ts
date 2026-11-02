@@ -44,10 +44,14 @@ export const CLOSE_LEAD_MS = 2500;
 /** A close whose length is known starts early enough to end this long before its step does. */
 export const CLOSE_GAP_MS = NARRATION_GAP_MS;
 
-/** Which music a game phase plays. Getting ready keeps the lobby's track. */
-export function musicPhaseFor(phase: Phase): MusicPhase {
+/**
+ * Which music a game phase plays: none in the lobby (the ▶ previews still play); getting ready
+ * plays the `lobby` list (its id kept for saved music picks).
+ */
+export function musicPhaseFor(phase: Phase): MusicPhase | null {
   switch (phase) {
     case 'lobby':
+      return null;
     case 'ready':
       return 'lobby';
     case 'night':
@@ -67,9 +71,10 @@ export function musicPhaseFor(phase: Phase): MusicPhase {
  */
 export function trackFor(
   music: Partial<Record<MusicPhase, readonly string[]>> | undefined,
-  phase: MusicPhase,
+  phase: MusicPhase | null,
   gameNumber: number,
 ): string | null {
+  if (!phase) return null;
   const list = music?.[phase]?.filter((t) => typeof t === 'string' && t) ?? [];
   if (!list.length) return null;
   return list[Math.max(0, gameNumber - 1) % list.length]!;

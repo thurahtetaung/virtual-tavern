@@ -105,7 +105,8 @@ export const voiceClip = (key: string, pick: number) => `voice:${key}#${pick}`;
 /** The music for the part of the game the view is in: a key of the manifest's `music`. */
 export function musicFor(view: SketchyView, now: number, revealEnd: number | null): string | null {
   const g = view.game;
-  if (view.phase === 'lobby') return 'lobby';
+  // Nothing musical plays in the lobby (the ▶ previews still do).
+  if (view.phase === 'lobby') return null;
   if (view.phase === 'over' || !g) return 'end';
   switch (g.stage) {
     case 'draw':

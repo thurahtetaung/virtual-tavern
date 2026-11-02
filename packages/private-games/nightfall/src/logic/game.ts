@@ -8,6 +8,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  withHostVolume,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
 import { nightfallAwards } from './awards.ts';
@@ -463,6 +464,23 @@ function startNightNow(state: NightfallState, ctx: Ctx): Result {
 
 function reduce(state: NightfallState, action: NightfallAction, ctx: Ctx): Result {
   switch (action.type) {
+    case 'host-volume': {
+      // The host's own sliders set everyone's: any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          hostVolumes: withHostVolume(
+            state.settings.hostVolumes,
+            action.which,
+            action.level,
+            ctx.now,
+          ),
+        },
+      };
+    }
     case 'update-settings':
       return updateSettings(state, action, ctx);
     case 'sit':
@@ -774,7 +792,7 @@ export const nightfall: GameDefinition<NightfallState, NightfallAction, Nightfal
   access: 'private',
   music: {
     phases: [
-      { id: 'lobby', label: 'Lobby and getting ready' },
+      { id: 'lobby', label: 'Getting ready' },
       { id: 'night', label: 'Night' },
       { id: 'day', label: 'Day' },
       { id: 'vote', label: 'Vote' },

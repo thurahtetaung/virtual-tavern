@@ -122,6 +122,8 @@ const GAMES: { id: string; host: string[]; guest: string[]; where: RegExp; previ
     where: /your own phone/,
     preview: 'effects',
   },
+  // The host's device by default: a guest keeps their own sounds.
+  { id: 'cliffhanger', host: ['effects'], guest: ['effects'], where: /Hana’s phone/ },
 ];
 
 for (const g of GAMES)
@@ -151,6 +153,11 @@ for (const g of GAMES)
     await expect(host.getByTestId(`sound-row-${last}`)).toContainText('40 %');
     if (process.env.SCREENSHOTS)
       await host.screenshot({ path: test.info().outputPath('panel.png') });
+    // Nightfall's guest has no slider to share, so its lobby shot is the host's own section.
+    if (process.env.SCREENSHOTS && g.id === 'nightfall')
+      await hostPanel.screenshot({
+        path: `${process.env.HOST_VOLUME_SHOTS ?? test.info().outputPath()}/nightfall-host.png`,
+      });
     await host.reload();
     await openSound(host);
     await expect(host.getByTestId(`sound-slider-${last}`)).toHaveValue('40');
@@ -167,6 +174,51 @@ for (const g of GAMES)
       // Without the private sound files there is no clip to play.
       await expect(host.getByTestId(`sound-preview-${last}`)).toBeDisabled();
     }
+    await host.context().close();
+    await guest.context().close();
+  });
+
+/** A slider the host and a guest both have in a new room, per game (Nightfall's guest has none). */
+const SHARED: Record<string, string> = {
+  'going-once': 'music',
+  sketchy: 'effects',
+  defuse: 'music',
+  hydra: 'effects',
+  hogwarts: 'effects',
+  'short-fuse': 'effects',
+  cliffhanger: 'effects',
+};
+
+for (const [id, key] of Object.entries(SHARED))
+  test(`${id}: the host's slider sets everyone's, and a player can change theirs after`, async ({
+    browser,
+  }) => {
+    const { host, guest } = await room(browser, id);
+    const hostPanel = await openSound(host);
+    const guestPanel = await openSound(guest);
+    await expect(hostPanel.getByTestId('sound-host-line')).toContainText('set everyone’s volume');
+    await expect(guestPanel.getByTestId('sound-host-line')).toHaveCount(0);
+
+    await host.getByTestId(`sound-slider-${key}`).fill('40');
+    await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('40');
+    await expect(guest.getByTestId(`sound-host-set-${key}`)).toHaveText('Set by the host');
+    await expect(host.getByTestId(`sound-host-set-${key}`)).toHaveCount(0);
+    if (process.env.SCREENSHOTS) {
+      const dir = process.env.HOST_VOLUME_SHOTS ?? test.info().outputPath();
+      await guestPanel.screenshot({ path: `${dir}/${id}-guest.png` });
+      await hostPanel.screenshot({ path: `${dir}/${id}-host.png` });
+    }
+
+    // The guest turns it up: theirs sticks, after a reload too (the host's change is taken once).
+    await guest.getByTestId(`sound-slider-${key}`).fill('80');
+    await guest.reload();
+    await openSound(guest);
+    await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('80');
+    await expect(guest.getByTestId(`sound-host-set-${key}`)).toHaveCount(0);
+
+    // The host's next change of that slider wins again.
+    await host.getByTestId(`sound-slider-${key}`).fill('20');
+    await expect(guest.getByTestId(`sound-slider-${key}`)).toHaveValue('20');
     await host.context().close();
     await guest.context().close();
   });

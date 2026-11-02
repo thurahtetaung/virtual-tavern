@@ -9,6 +9,8 @@ import {
   soundEngineFor,
   soundPlan,
   useTableVolumes,
+  useVolumeShare,
+  volumeShare,
   whereLine,
 } from '@vt/ui/sound';
 import {
@@ -76,6 +78,7 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
   note: string;
 } {
   const [volumes, setVolume] = useSketchyVolumes();
+  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act, true), setVolume);
   const [table, setTable] = useTableVolumes(
     view.settings.tableVolumes,
     (v) => {
@@ -96,7 +99,9 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
       {
         title: 'This phone',
         volumes,
-        setVolume,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
         channels: channelsOf(plan.mine, audio, !roomHere, announcer),
         testId: 'sketchy-sound-mine',
       },

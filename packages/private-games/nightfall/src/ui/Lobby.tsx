@@ -712,7 +712,7 @@ export function Lobby({
         </p>
       </LobbySettings>
 
-      <NightfallLobbySound view={view} room={room} manifest={deck.manifest} />
+      <NightfallLobbySound view={view} room={room} act={act} manifest={deck.manifest} />
 
       {/* On phones the long card list pushes Deal off screen, so it floats at the bottom, with the
           night's length (the last thing above it, which the floating bar would cover). */}

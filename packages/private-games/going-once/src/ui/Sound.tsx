@@ -8,11 +8,13 @@ import {
   SoundButton as SoundCorner,
   soundPlan,
   useTableVolumes,
+  useVolumeShare,
+  volumeShare,
   whereLine,
 } from '@vt/ui/sound';
 import type { GoingOnceView, Sender } from '../logic/types.ts';
 import type { Act } from './act.ts';
-import type { ManifestState } from './assets.ts';
+import { GAME_ID, type ManifestState } from './assets.ts';
 import { type AudioManifest, musicLevel, previewClip, soundModeIn } from './audio.ts';
 import { soundEngine } from './engine.ts';
 import { useGoVolumes } from './useSound.ts';
@@ -72,6 +74,7 @@ export function useGoSound({
   manifest: ManifestState;
 }): { sections: SoundSection[]; note: string } {
   const [volumes, setVolume] = useGoVolumes();
+  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act, true), setVolume);
   const [table, setTable] = useTableVolumes(view.settings.tableVolumes, (v) => {
     void act({ type: 'table-volume', volumes: v });
   });
@@ -92,7 +95,9 @@ export function useGoSound({
       {
         title: 'This phone',
         volumes,
-        setVolume,
+        setVolume: shared.setVolume,
+        hostSet: shared.hostSet,
+        caption: shared.caption,
         channels: channelsOf(plan.mine, audio, !roomHere, contact),
         testId: 'go-sound-mine',
       },

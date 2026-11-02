@@ -136,7 +136,7 @@ describe('music', () => {
     // The winner's sound comes at the same moment.
     expect(effectCues(end, null).find((c) => c.key === 'winner-centre')!.at).toBe(times.winner);
     h.act(HOST, { type: 'back-to-lobby' });
-    expect(musicFor(goingOnce.view(h.state, null))).toEqual({ key: 'lobby', pick: 0 });
+    expect(musicFor(goingOnce.view(h.state, null))).toBeNull();
   });
 
   it('plays the heartbeat while a screw is aimed', () => {
@@ -722,11 +722,9 @@ describe('fetching ahead', () => {
   });
 
   it('fetches only the track playing and the next', () => {
+    // The lobby plays no music: only the first game's track is fetched ahead.
     const lobby = harness(3, 5);
-    expect(musicClips(audio, goingOnce.view(lobby.state, 'p1'))).toEqual([
-      'm/lobby.ogg',
-      'm/tut.ogg',
-    ]);
+    expect(musicClips(audio, goingOnce.view(lobby.state, 'p1'))).toEqual(['m/tut.ogg']);
     const h = voiced();
     const v = goingOnce.view(h.state, 'p1');
     const lot = v.game!.auction!.lot;

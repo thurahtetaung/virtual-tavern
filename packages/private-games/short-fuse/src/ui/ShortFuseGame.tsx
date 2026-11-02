@@ -47,7 +47,8 @@ import {
   cardHint,
   precious,
 } from './Sheets.tsx';
-import { ShortFuseSoundButton, useShortFuseSound } from './Sound.tsx';
+import { useHostVolumes, volumeShare } from '@vt/ui/sound';
+import { GAME as SOUND_GAME, ShortFuseSoundButton, useShortFuseSound } from './Sound.tsx';
 import { useTips } from './storage.ts';
 import { ShortFuseStyles } from './styles.tsx';
 import { amGhost, amIn, an, logLine, playNow, statusFor, who } from './text.ts';
@@ -379,7 +380,14 @@ export function ShortFuseGame({
   const art = g?.art ?? view.settings.art;
   const c = useMemo(() => contentFor(manifest, art), [manifest, art]);
   const me = view.me?.id ?? '';
-  const { sound } = useShortFuseSound();
+  const share = volumeShare(SOUND_GAME, room.isHost, act);
+  const { sound, setVolume } = useShortFuseSound(share);
+  useHostVolumes({
+    game: SOUND_GAME,
+    host: view.settings.hostVolumes,
+    isHost: room.isHost,
+    setVolume,
+  });
   const [fresh, dismissTip] = useTips();
   const [now, setNow] = useState(() => Date.now() + room.clockOffset);
   useEffect(() => {
@@ -874,7 +882,10 @@ export function ShortFuseGame({
           {g.x4 && ` + ${c.names.sets.x4}`}
         </span>
         {g.art === 'adult' && <AdultBadge />}
-        <ShortFuseSoundButton className="shrink-0 rounded-full bg-panel text-sm ring-1 ring-line" />
+        <ShortFuseSoundButton
+          share={share}
+          className="shrink-0 rounded-full bg-panel text-sm ring-1 ring-line"
+        />
       </div>
 
       {!(over && !wide) && seats}

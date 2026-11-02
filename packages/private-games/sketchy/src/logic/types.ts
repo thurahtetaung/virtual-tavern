@@ -1,8 +1,10 @@
 import {
   type Drawing,
+  type HostVolumes,
   type PlayerId,
   type TableVolumes,
   drawingSchema,
+  hostVolumeAction,
   tableVolumeAction,
 } from '@vt/game-sdk';
 import { z } from 'zod';
@@ -103,6 +105,8 @@ export interface Settings {
   voice?: boolean;
   /** The table screen's volumes, from the host's sliders (the table has no input). */
   tableVolumes?: TableVolumes;
+  /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
+  hostVolumes?: HostVolumes;
   /** Missing in rooms saved before the announcers: `classic`. */
   announcer?: Announcer;
 }
@@ -250,6 +254,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     announcer: z.enum(['classic', 'first', 'animate', 'adult']).optional(),
   }),
   tableVolumeAction,
+  hostVolumeAction,
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
   z.object({ type: z.literal('back-to-lobby') }),

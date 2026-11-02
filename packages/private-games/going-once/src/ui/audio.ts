@@ -196,7 +196,9 @@ export function endTimes(view: GoingOnceView): {
  */
 export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: number } | null {
   const g = view.game;
-  if (view.phase === 'lobby' || !g) return { key: 'lobby', pick: 0 };
+  // Nothing musical plays in the lobby (the ▶ previews still do).
+  if (view.phase === 'lobby') return null;
+  if (!g) return { key: 'lobby', pick: 0 };
   switch (g.stage) {
     case 'intro':
       return { key: 'tutorial', pick: 0 };
