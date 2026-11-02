@@ -1,7 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { cn } from '@vt/ui';
 import {
-  FULL_VOLUMES,
+  DEFAULT_VOLUMES,
   LobbySound,
   PREVIEW_MS,
   type SoundChannel,
@@ -10,7 +10,10 @@ import {
   gainOf,
   soundEngineFor,
   soundPlan,
+  useHostVolumes,
+  useVolumeShare,
   useVolumes,
+  volumeShare,
   whereLine,
 } from '@vt/ui/sound';
 import { useEffect, useRef, useState } from 'react';
@@ -26,7 +29,7 @@ import { type Art, GAME_ID } from './assets.ts';
 // The host picks where they play. Phones also buzz on their owner's turn, wherever sound plays.
 
 const engine = () => soundEngineFor(GAME_ID);
-export const useRedHerringVolumes = () => useVolumes(GAME_ID, FULL_VOLUMES);
+export const useRedHerringVolumes = () => useVolumes(GAME_ID, DEFAULT_VOLUMES);
 
 export const SOUND_NAME: Record<SoundMode, string> = {
   off: 'Off',
@@ -47,8 +50,12 @@ interface Props {
   art: Art;
 }
 
-function useSections({ view, room, art }: Props) {
-  const [volumes, setVolume] = useVolumes(GAME_ID, FULL_VOLUMES);
+function useSections({ view, room, act, art }: Props) {
+  const [volumes, setVolume] = useRedHerringVolumes();
+  const shared = useVolumeShare(
+    volumeShare(GAME_ID, room.isHost, act, view.settings.hostVolumes),
+    setVolume,
+  );
   const mode = view.settings.sound;
   const plan = soundPlan(mode, room.isHost, ['effects']);
   const clip = art.sound.newWord ?? art.sound.winner;
@@ -64,7 +71,16 @@ function useSections({ view, room, art }: Props) {
       ]
     : [];
   const sections: SoundSection[] = [
-    { title: 'This phone', volumes, setVolume, channels, testId: 'red-herring-sound-mine' },
+    {
+      title: 'This phone',
+      volumes,
+      setVolume: shared.setVolume,
+      hostSet: shared.hostSet,
+      caption: shared.caption,
+      hostMode: shared.hostMode,
+      channels,
+      testId: 'red-herring-sound-mine',
+    },
   ];
   const host = room.players.find((p) => p.id === room.hostId)?.name ?? 'the host';
   return { sections, note: whereLine(mode, host, room.isHost), mode };
@@ -162,7 +178,9 @@ export function cuesOf(view: RedHerringView): { key: string; cue: 'newWord' | 'w
  */
 export function useCues(view: RedHerringView, art: Art, isHost: boolean, yourMove: boolean) {
   const unlocked = useUnlocked();
-  const [volumes] = useRedHerringVolumes();
+  const [volumes, setVolume] = useRedHerringVolumes();
+  // Takes the host's volumes in on every device (this hook runs in the lobby and in play).
+  useHostVolumes({ game: GAME_ID, host: view.settings.hostVolumes, isHost, setVolume });
   const mode = view.settings.sound;
   const here = mode === 'all' || (mode === 'host' && isHost);
   const gain = gainOf(volumes, 'effects');

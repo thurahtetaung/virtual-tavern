@@ -124,6 +124,8 @@ const GAMES: { id: string; host: string[]; guest: string[]; where: RegExp; previ
   },
   // The host's device by default: a guest keeps their own sounds.
   { id: 'cliffhanger', host: ['effects'], guest: ['effects'], where: /Hana’s phone/ },
+  // Every device by default; its two cues are private files, so no clip to preview here.
+  { id: 'red-herring', host: ['effects'], guest: ['effects'], where: /every phone/ },
 ];
 
 for (const g of GAMES)
@@ -200,6 +202,7 @@ const SHARED: Record<string, string> = {
   hogwarts: 'effects',
   'short-fuse': 'effects',
   cliffhanger: 'effects',
+  'red-herring': 'effects',
 };
 
 for (const [id, key] of Object.entries(SHARED))

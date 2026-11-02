@@ -7,6 +7,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  hostVolumeChange,
 } from '@vt/game-sdk';
 import { redHerringAwards } from './awards.ts';
 import { redHerringBot } from './bot.ts';
@@ -617,6 +618,15 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
   switch (action.type) {
     case 'update-settings':
       return updateSettings(state, action, ctx);
+    case 'host-volume': {
+      // The host's sliders set their own volume or everyone's, as the host chooses: any time,
+      // mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      const next = hostVolumeChange(state.settings, action, ctx.now);
+      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
+      return { ...state, settings: { ...state.settings, hostVolumes: next.hostVolumes } };
+    }
     case 'sit':
       return sit(state, action.playing, ctx);
     case 'start':

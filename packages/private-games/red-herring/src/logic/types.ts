@@ -1,4 +1,10 @@
-import { PLAYER_COLORS, type PlayerColor, type PlayerId } from '@vt/game-sdk';
+import {
+  type HostVolumes,
+  PLAYER_COLORS,
+  type PlayerColor,
+  type PlayerId,
+  hostVolumeAction,
+} from '@vt/game-sdk';
 import { ALL_CARDS } from '@vt/private-reverie/cards';
 import { z } from 'zod';
 
@@ -88,6 +94,8 @@ export interface Settings {
   timerMode: TimerMode;
   /** Where the two sound cues play. */
   sound: SoundMode;
+  /** Whose volume the host's sliders set, and their levels with "Everyone" (`host-volume`). */
+  hostVolumes?: HostVolumes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -218,6 +226,7 @@ const card = z
   .max(OURS_BASE + 2000);
 
 export const actionSchema = z.discriminatedUnion('type', [
+  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
     decks: z.object({ base: z.boolean(), noir: z.boolean(), ours: z.boolean() }).optional(),

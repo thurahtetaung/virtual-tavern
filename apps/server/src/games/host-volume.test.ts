@@ -15,6 +15,7 @@ const SOUND_GAMES = [
   'going-once',
   'sketchy',
   'cliffhanger',
+  'red-herring',
   'defuse',
 ];
 const TABLE_GAMES = new Set(['going-once', 'sketchy', 'cliffhanger', 'defuse']);
