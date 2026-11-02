@@ -88,7 +88,12 @@ export async function writeWord(p: Page, word: string) {
 /** What `p`'s notebook says (opened with Show, closed again). */
 export async function notebook(p: Page): Promise<string> {
   await p.getByRole('button', { name: 'Show your notebook' }).click();
-  const word = (await p.getByTestId('rh-word').textContent()) ?? '';
+  const page = p.getByTestId('rh-notebook-page');
+  await expect(page.getByTestId('rh-word').or(page.getByTestId('rh-conspirator'))).toBeVisible();
+  // The Conspirator's page has no word.
+  const word = (await page.getByTestId('rh-word').count())
+    ? ((await page.getByTestId('rh-word').textContent()) ?? '')
+    : '';
   await p.getByRole('button', { name: 'Hide your notebook' }).click();
   return word.trim();
 }

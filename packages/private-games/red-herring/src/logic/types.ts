@@ -330,8 +330,8 @@ export interface RoundView {
    */
   word: string | null;
   /**
-   * Your notebook (everyone but the word-picker, once the word is written): the word, or a blank
-   * page for the Conspirator. Same shape for every role.
+   * Your notebook (everyone but the word-picker, once the word is written): the word, or `null`
+   * for the Conspirator. Same shape for every role.
    */
   notebook: { word: string | null } | null;
   plays: Play[];

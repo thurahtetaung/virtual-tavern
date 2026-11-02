@@ -50,7 +50,7 @@ function base(art: GuideArt): GameGuide {
       id: 'conspirator',
       name: 'Conspirator',
       icon: '🐟',
-      text: 'Gets a blank notebook: no word. Watches the cards already played, guesses what they share, and plays along as if they knew.',
+      text: 'Their notebook says they’re the Conspirator, with no word. Watches the cards already played, guesses what they share, and plays along as if they knew.',
       meta: 'One a round, at random',
       tone: 'evil',
       win: 'Scores 5 when fewer than 2 players find them.',
@@ -59,7 +59,7 @@ function base(art: GuideArt): GameGuide {
       id: 'notebook',
       name: 'Notebook',
       icon: '📓',
-      text: 'Hold it to read it. Everyone’s works the same way; the Conspirator’s page is simply blank. Nobody can tell from your screen which you have.',
+      text: 'Hold it to read it: a Detective’s shows the word, the Conspirator’s says they’re the Conspirator. Everyone’s looks and works the same way, so nobody can tell from your screen which you have.',
       meta: 'One each but the word-picker',
       tone: 'neutral',
       ...(art.notebook && { art: art.notebook }),
@@ -82,7 +82,7 @@ function base(art: GuideArt): GameGuide {
     goal: 'Score the most points: as a Detective by finding the Conspirator, as the Conspirator by blending in, and as the word-picker by helping them get away.',
     quickStart: [
       'Each round one player is the word-picker: they play a picture card, then write a secret word.',
-      'Everyone else gets a notebook with the word, except one random player, the Conspirator, whose page is blank.',
+      'Everyone else gets a notebook with the word, except one random player, the Conspirator, whose notebook has no word.',
       'Taking turns, everyone plays two cards face up that fit the word. The Conspirator plays along.',
       'The word is said out loud and everyone explains their two cards, the word-picker first.',
       'Everyone but the word-picker votes for who they think the Conspirator is.',
@@ -97,7 +97,7 @@ function base(art: GuideArt): GameGuide {
       },
       {
         title: 'One player plays blind',
-        text: 'Everyone else gets a notebook with the word, except one: the Conspirator, chosen at random, gets a blank page. Nobody knows who, not even the word-picker.',
+        text: 'Everyone else gets a notebook with the word, except one: the Conspirator, chosen at random, whose notebook has no word. Nobody knows who, not even the word-picker.',
         icon: '📓',
         ...(art.notebook && { art: art.notebook }),
       },
@@ -135,7 +135,7 @@ function base(art: GuideArt): GameGuide {
         level: 'basics',
         bullets: [
           'The word-picker plays one card face up, then writes the word: it should fit that card and at least one more in their hand.',
-          'Everyone else gets a notebook. Hold it to read it: the word, or a blank page for the one Conspirator.',
+          'Everyone else gets a notebook. Hold it to read it: a Detective’s shows the word, and the one Conspirator’s says they’re the Conspirator, with no word.',
           'From the word-picker’s left, everyone plays a card face up. Then the word-picker plays their second card, and everyone else a second, in the same order.',
           'You see whose turn it is, never who is thinking.',
         ],
@@ -202,7 +202,7 @@ function base(art: GuideArt): GameGuide {
         title: 'The reveal and the end',
         level: 'details',
         bullets: [
-          'The votes are shown, then the Conspirator’s blank notebook, then the round’s points.',
+          'The votes are shown, then who the Conspirator was, then the round’s points.',
           'The host moves on to the next round; the word-picker’s turn passes to the left.',
           'The game ends after everyone has picked the word once with 5 or more players, or twice with 4.',
           'Most points wins. On a tie, the player who scored in more rounds wins; if that ties too, they share the win.',
@@ -382,7 +382,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         ? {
             name: 'Conspirator',
             icon: '🐟',
-            text: 'Your notebook is blank: play along with the cards on the table.',
+            text: 'Your notebook has no word: blend in with the cards on the table.',
             tile: 'conspirator',
           }
         : {

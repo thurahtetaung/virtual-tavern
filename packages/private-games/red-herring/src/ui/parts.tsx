@@ -49,8 +49,9 @@ const viewerItem = (card: number, caption?: string): ViewerItem => ({
 // ---- The notebook ----
 
 /**
- * Your notebook: hold to read it. The word-picker's shows their own word; everyone else's the word
- * or, for the Conspirator, a blank page, on the same screen with the same gestures.
+ * Your notebook: hold to read it. The word-picker's shows their own word; a Detective's the word and
+ * that they're a Detective; the Conspirator's says so instead of a word. Every page has the same
+ * cover, size and gestures, so a glance at someone's screen shows nothing.
  */
 export function Notebook({ view, you, art }: { view: RedHerringView; you: string; art: Art }) {
   const r = view.game!.round;
@@ -78,7 +79,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
     <div data-testid="rh-notebook">
       <Peek what={picker ? 'your word' : 'your notebook'} cover={cover} inline>
         <div
-          className="relative flex min-h-24 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-stone-900 shadow-inner ring-1 ring-line"
+          className="relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-stone-900 shadow-inner ring-1 ring-line"
           data-testid="rh-notebook-page"
         >
           {art.notebookPage && (
@@ -89,15 +90,26 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
             />
           )}
           {topic && <span className="relative text-xs text-stone-600">Topic: {topic}</span>}
-          <span
-            className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
-            data-testid="rh-word"
-          >
-            {word ?? ''}
-          </span>
+          {word !== null ? (
+            <span
+              className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
+              data-testid="rh-word"
+            >
+              {word}
+            </span>
+          ) : (
+            <span
+              className="relative flex min-h-9 items-center font-serif text-2xl font-bold italic"
+              data-testid="rh-conspirator"
+            >
+              You’re the Conspirator
+            </span>
+          )}
           {!picker && (
             <span className="relative text-[11px] text-stone-600">
-              A blank page means you’re the Conspirator: play along.
+              {word !== null
+                ? 'You’re a Detective: find who doesn’t know this word.'
+                : 'You don’t know the word. Blend in with your cards and your explanation.'}
             </span>
           )}
         </div>

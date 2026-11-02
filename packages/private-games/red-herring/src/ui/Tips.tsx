@@ -21,7 +21,10 @@ export function Tips() {
     >
       <p className="font-semibold">New here? Three things to know</p>
       <ul className="list-disc space-y-0.5 pl-5">
-        <li>Hold your notebook to read the word. A blank page: you’re the Conspirator.</li>
+        <li>
+          Hold your notebook to see your role: the word if you’re a Detective, or that you’re the
+          Conspirator.
+        </li>
         <li>Tap any card on the table to see it full screen.</li>
         <li>Tap the dot by a name to keep a private 🤔 / 👍 mark. Only you see it.</li>
       </ul>
