@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.85.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.84.0...v0.85.0) (2026-11-02)
+
+
+### Features
+
+* **drawing:** an eraser on the drawing pad ([#506](https://github.com/thurahtetaung/virtual-tavern/issues/506)) ([18dfb0a](https://github.com/thurahtetaung/virtual-tavern/commit/18dfb0a298ba828dc10fb82a13cdbe55b788ee93))
+
 ## [0.84.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.83.0...v0.84.0) (2026-11-02)
 
 
