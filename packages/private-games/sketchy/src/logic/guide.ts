@@ -48,13 +48,19 @@ const base: GameGuide = {
       title: 'A round, step by step',
       bullets: [
         'Draw: everyone draws their own secret prompt at once. Once a game you may swap it for a new one (🎲 New prompt) before sending.',
-        'The pad has four pens and an eraser (🧽), each in three widths: the eraser rubs out whatever it passes over, even part of a line. Undo takes back the last line or rub.',
         'Each drawing then comes up on every screen, with a quick replay of its strokes. Nobody is told whose it is.',
         'Write: everyone but the artist writes a fake title that could pass for the real one.',
         'Pick: the real title is shuffled in with the fakes. Pick the one you think is real (never your own). You can change your pick until everyone has picked.',
         'Like: once you’ve picked, tap 👍 on titles that made you laugh. The artist can like titles too.',
         'Reveal: the picked fakes turn over one by one, showing who wrote each and who fell for it. The real title comes last, with its artist.',
         'The host moves on to the next drawing, then the next round.',
+      ],
+    },
+    {
+      title: 'The drawing pad',
+      bullets: [
+        'The pad has four pens and an eraser (🧽), each in three widths.',
+        'The eraser rubs out whatever it passes over, even part of a line. Undo takes back the last line or rub.',
       ],
     },
     {
@@ -131,6 +137,7 @@ const shaped = (footer?: GuideFooter): GameGuide =>
       'A round, step by step': 'basics',
       'Writing a fake title': 'basics',
       Scoring: 'basics',
+      'The drawing pad': 'details',
     },
     reference: [
       {
