@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.86.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.85.0...v0.86.0) (2026-11-02)
+
+
+### Features
+
+* **sound:** the host chooses whether their sliders set everyone's volume, and volumes start at 50 % ([#512](https://github.com/thurahtetaung/virtual-tavern/issues/512)) ([bef0db2](https://github.com/thurahtetaung/virtual-tavern/commit/bef0db214e19a4c7a3fbfcf834d64a136d24d90d))
+
 ## [0.85.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.84.0...v0.85.0) (2026-11-02)
 
 
