@@ -186,7 +186,7 @@ describe('view()', () => {
         noDiscussion: rng.next() < 0.3,
         balanced: rng.next() < 0.3,
         scoring: (['rulebook', 'caught', 'fun'] as const)[rng.int(3)]!,
-        decks: { base: true, noir: true, ours: rng.next() < 0.2 },
+        sets: rng.next() < 0.2 ? ['base', 'noir', 'ours-set-3', 'ours-stellar'] : ['base', 'noir'],
       };
       const h = startedGame(ids, seed, settings);
       const check = () => {

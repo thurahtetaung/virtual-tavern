@@ -61,13 +61,10 @@ export const assetUrl = (path: string) =>
   `/api/backroom/assets/${GAME_ID}/${path.replace(/^\/+/, '')}`;
 
 /** The decks' names: the manifest's, else plain ones. */
-export function deckNames(
-  m: Manifest | null | undefined,
-): Record<'base' | 'noir' | 'ours', string> {
+export function deckNames(m: Manifest | null | undefined): Record<'base' | 'noir', string> {
   return {
     base: clean(m?.sets?.base?.name) ?? 'Classic deck',
     noir: clean(m?.sets?.noir?.name) ?? 'Noir deck',
-    ours: 'Our picture cards',
   };
 }
 

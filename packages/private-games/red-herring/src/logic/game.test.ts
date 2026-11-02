@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { redHerring, roundsFor, scoreRound, setTestDeal, startProblem } from './game.ts';
+import { CARD_SETS } from '@vt/private-reverie/cards';
+import {
+  cardsNeeded,
+  poolOf,
+  redHerring,
+  roundsFor,
+  scoreRound,
+  setTestDeal,
+  startProblem,
+} from './game.ts';
 import {
   FOUR,
   HOST,
@@ -17,7 +26,7 @@ import {
   talkAll,
   voteAll,
 } from './test-utils.ts';
-import { HAND_SIZE, LEFT_BEAT_MS, OURS_BASE } from './types.ts';
+import { HAND_SIZE, LEFT_BEAT_MS, OURS_BASE, OURS_SET_IDS, chosenSets, setById } from './types.ts';
 
 const ten = Array.from({ length: 10 }, (_, i) => (i ? `p${i}` : HOST));
 
@@ -60,22 +69,72 @@ describe('setting up', () => {
     expect(harness(FOUR.slice(0, 3)).reject({ type: 'start' })).toBe('cannot-start');
     expect(startProblem(harness(ten).state)).toBeNull();
     // 10 players need 200 cards: the Classic deck alone has 168.
-    const small = harness(ten, 3, { decks: { base: true, noir: false, ours: false } });
+    const small = harness(ten, 3, { sets: ['base'] });
     expect(startProblem(small.state)).toMatch(/200 cards.*168.*add the Noir deck/);
     expect(small.reject({ type: 'start' })).toBe('cannot-start');
     // Twice around at 8 needs 256: more than both decks.
     const eight = harness(ten.slice(0, 8), 3, { twice: true });
-    expect(startProblem(eight.state)).toMatch(/256 cards.*252.*add our picture cards/);
+    expect(startProblem(eight.state)).toMatch(/256 cards.*252.*add another picture set/);
     expect(
       harness(FOUR).reject({
         type: 'update-settings',
-        decks: { base: false, noir: false, ours: false },
+        sets: [],
       }),
     ).toBe('no-deck');
+    expect(harness(FOUR).reject({ type: 'update-settings', sets: ['base', 'ours-nope'] })).toBe(
+      'unknown-set',
+    );
+    // A small selection: one picture set (84 cards) is enough for 5 players once around (50).
+    const five = harness(ten.slice(0, 5), 3, { sets: ['ours-set-2'] });
+    expect(cardsNeeded(5, false)).toBe(50);
+    expect(startProblem(five.state)).toBeNull();
+    const twice = harness(ten.slice(0, 5), 3, { sets: ['ours-set-2'], twice: true });
+    expect(startProblem(twice.state)).toMatch(
+      /100 cards.*84.*add the Classic deck or play once around/,
+    );
+  });
+
+  it('starts with the Classic and Noir decks and every picture set off', () => {
+    const h = harness(FOUR);
+    expect(h.state.settings.sets).toEqual(['base', 'noir']);
+    expect(redHerring.view(h.state, HOST).settings.sets).toEqual(['base', 'noir']);
+  });
+
+  it('reads a room saved with the old deck switches as the matching sets', () => {
+    expect(chosenSets({ decks: { base: true, noir: false, ours: false } })).toEqual(['base']);
+    expect(chosenSets({ decks: { base: false, noir: true, ours: true } })).toEqual([
+      'noir',
+      ...OURS_SET_IDS,
+    ]);
+    expect(OURS_SET_IDS).toEqual(CARD_SETS.map((s) => `ours-${s.id}`));
+    const h = harness(FOUR);
+    const { sets: _s, ...old } = h.state.settings;
+    const saved = {
+      ...h.state,
+      settings: { ...old, decks: { base: false, noir: true, ours: true } },
+    };
+    const v = redHerring.view(saved as typeof h.state, HOST);
+    expect(v.settings.sets).toEqual(['noir', ...OURS_SET_IDS]);
+    expect('decks' in v.settings).toBe(false);
+    expect(poolOf(saved.settings as typeof h.state.settings)).toHaveLength(84 + 951);
+    // Changing the sets drops the old switches.
+    h.state = saved as typeof h.state;
+    h.act({ type: 'update-settings', sets: ['base'] });
+    expect(h.state.settings).toMatchObject({ sets: ['base'] });
+    expect(h.state.settings.decks).toBeUndefined();
+  });
+
+  it('deals only the chosen sets’ cards', () => {
+    const h = startedGame(FOUR, 3, { sets: ['noir', 'ours-stellar'] });
+    const all = [...game(h).deck, ...Object.values(game(h).hands).flat()];
+    const allowed = new Set([...setById('noir')!.cards, ...setById('ours-stellar')!.cards]);
+    expect(all).toHaveLength(84 + 84);
+    expect(all.every((c) => allowed.has(c))).toBe(true);
+    expect(all.filter((c) => c >= OURS_BASE).every((c) => c >= OURS_BASE + 878)).toBe(true);
   });
 
   it('plays our picture cards when asked, numbered after the game’s own', () => {
-    const h = startedGame(FOUR, 3, { decks: { base: false, noir: false, ours: true } });
+    const h = startedGame(FOUR, 3, { sets: [...OURS_SET_IDS] });
     const all = [...game(h).deck, ...Object.values(game(h).hands).flat()];
     expect(all.every((c) => c >= OURS_BASE)).toBe(true);
     expect(all).toHaveLength(951);

@@ -15,10 +15,7 @@ import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
   CATCH_VOTES,
-  DECK_CARDS,
-  DECK_IDS,
   DEFAULT_SETTINGS,
-  type DeckId,
   type Game,
   HAND_SIZE,
   LEFT_BEAT_MS,
@@ -35,10 +32,13 @@ import {
   type RoundResult,
   type RoundView,
   SEAT_COLORS,
+  SETS,
   type Seat,
   type SeatView,
   type Settings,
   actionSchema,
+  chosenSets,
+  setById,
 } from './types.ts';
 
 type Ctx = ActionCtx;
@@ -66,9 +66,9 @@ export function players(state: RedHerringState): PlayerId[] {
 /** Rounds in a game: everyone picks the word once, or twice under 5 players or "twice around". */
 export const roundsFor = (n: number, twice: boolean) => n * (twice || n < 5 ? 2 : 1);
 
-/** Every card of the chosen decks. */
-export const poolOf = (decks: Settings['decks']) =>
-  DECK_IDS.filter((d) => decks[d]).flatMap((d) => DECK_CARDS[d]);
+/** Every card of the chosen sets. */
+export const poolOf = (settings: Pick<Settings, 'sets' | 'decks'>) =>
+  chosenSets(settings).flatMap((id) => setById(id)!.cards);
 
 /** Cards a game needs: one for every play, so nobody's hand runs dry once draws stop. */
 export const cardsNeeded = (n: number, twice: boolean) => PLAYS_EACH * n * roundsFor(n, twice);
@@ -83,7 +83,7 @@ function draft(s: RedHerringState): RedHerringState {
   const g = s.game;
   return {
     ...s,
-    settings: { ...s.settings, decks: { ...s.settings.decks } },
+    settings: { ...s.settings, sets: [...chosenSets(s.settings)] },
     seats: { ...s.seats },
     winners: [...s.winners],
     game: g && {
@@ -170,10 +170,12 @@ function updateSettings(
   if (sound !== undefined) settings.sound = sound;
   if (Object.values(rest).some((v) => v !== undefined) && state.phase === 'playing')
     return err('in-progress', 'Settings can only change between games.');
-  if (action.decks) {
-    if (!DECK_IDS.some((d) => action.decks![d]))
-      return err('no-deck', 'Pick at least one deck of cards.');
-    settings.decks = { ...action.decks };
+  if (action.sets) {
+    if (action.sets.some((id) => !setById(id)))
+      return err('unknown-set', 'That card set does not exist.');
+    if (!action.sets.length) return err('no-deck', 'Pick at least one set of cards.');
+    settings.sets = chosenSets({ sets: action.sets });
+    delete settings.decks;
   }
   if (action.twice !== undefined) settings.twice = action.twice;
   if (action.openVote !== undefined) settings.openVote = action.openVote;
@@ -204,25 +206,28 @@ function sit(state: RedHerringState, playing: boolean, ctx: Ctx): Result {
   return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing } } };
 }
 
-const DECK_NAMES: Record<DeckId, string> = {
-  base: 'the Classic deck',
-  noir: 'the Noir deck',
-  ours: 'our picture cards',
-};
+const OWN_NAMES: Record<string, string> = { base: 'the Classic deck', noir: 'the Noir deck' };
+
+/** Settings as sent and kept: the chosen sets as a list, never the old switches. */
+function withSets(settings: Settings): Settings {
+  const { decks: _d, ...rest } = settings;
+  return { ...rest, sets: chosenSets(settings) };
+}
 
 /** Why the host can't start yet, or null. */
 export function startProblem(state: Pick<RedHerringState, 'seats' | 'settings'>): string | null {
   const n = Object.values(state.seats).filter((s) => s.playing).length;
   if (n < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed.`;
   if (n > MAX_PLAYERS) return `At most ${MAX_PLAYERS} can play.`;
-  const { decks, twice } = state.settings;
-  if (!DECK_IDS.some((d) => decks[d])) return 'Pick at least one deck of cards.';
+  const { twice } = state.settings;
+  const sets = chosenSets(state.settings);
+  if (!sets.length) return 'Pick at least one set of cards.';
   const need = cardsNeeded(n, twice);
-  const have = poolOf(decks).length;
+  const have = poolOf(state.settings).length;
   if (have < need) {
-    const add = DECK_IDS.filter((d) => !decks[d]).find((d) => have + DECK_CARDS[d].length >= need);
-    return `${n} players need ${need} cards and the chosen decks have ${have}: ${
-      add ? `add ${DECK_NAMES[add]}` : 'add more decks'
+    const add = SETS.filter((d) => !sets.includes(d.id)).find((d) => have + d.cards.length >= need);
+    return `${n} players need ${need} cards and the chosen sets have ${have}: ${
+      add ? `add ${OWN_NAMES[add.id] ?? 'another picture set'}` : 'add more sets'
     }${twice ? ' or play once around' : ''}.`;
   }
   return null;
@@ -235,7 +240,7 @@ function start(state: RedHerringState, ctx: Ctx): Result {
   const problem = startProblem(state);
   if (problem) return err('cannot-start', problem);
   const seated = players(state);
-  const pool = poolOf(state.settings.decks);
+  const pool = poolOf(state.settings);
   const deck = testDeal ? [...pool] : ctx.rng.shuffle(pool);
   const hands: Record<PlayerId, number[]> = {};
   for (const id of seated) hands[id] = deck.splice(0, HAND_SIZE);
@@ -846,7 +851,7 @@ function view(state: RedHerringState, viewer: PlayerId | null): RedHerringView {
   const g = state.game;
   return {
     phase: state.phase,
-    settings: { ...state.settings, decks: { ...state.settings.decks } },
+    settings: withSets(state.settings),
     seats,
     me: viewer === null ? null : (seats.find((s) => s.id === viewer) ?? null),
     game: g

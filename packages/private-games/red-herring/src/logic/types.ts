@@ -5,7 +5,7 @@ import {
   type PlayerId,
   hostVolumeAction,
 } from '@vt/game-sdk';
-import { ALL_CARDS } from '@vt/private-reverie/cards';
+import { CARD_SETS } from '@vt/private-reverie/cards';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 4;
@@ -39,30 +39,58 @@ export const DECKS = {
 export type OwnDeck = keyof typeof DECKS;
 
 /**
- * "Our picture cards" are Reverie's (Starlight's set included), numbered here from `OURS_BASE`
- * on: card `OURS_BASE + n` is Reverie's card `n`.
+ * Our picture cards are Reverie's sets (Starlight's included), numbered here from `OURS_BASE` on:
+ * card `OURS_BASE + n` is Reverie's card `n`. Each set is chosen on its own as `ours-<set id>`.
  */
 export const OURS_BASE = 1000;
-export const OURS_CARDS: readonly number[] = ALL_CARDS.map((n) => OURS_BASE + n);
+export const OURS_PREFIX = 'ours-';
 
 const range = ({ from, to }: { from: number; to: number }) =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
-export const DECK_CARDS: Record<DeckId, readonly number[]> = {
-  base: range(DECKS.base),
-  noir: range(DECKS.noir),
-  ours: OURS_CARDS,
-};
+/** A card set the host can pick: the game's own decks first, then Reverie's sets. */
+export interface CardSetDef {
+  id: string;
+  cards: readonly number[];
+  /** Reverie's set id, for our picture cards. */
+  reverie?: string;
+}
 
-export type DeckId = OwnDeck | 'ours';
-export const DECK_IDS: readonly DeckId[] = ['base', 'noir', 'ours'];
+export const SETS: readonly CardSetDef[] = [
+  { id: 'base', cards: range(DECKS.base) },
+  { id: 'noir', cards: range(DECKS.noir) },
+  ...CARD_SETS.map((s) => ({
+    id: OURS_PREFIX + s.id,
+    cards: s.cards.map((n) => OURS_BASE + n),
+    reverie: s.id,
+  })),
+];
+export const SET_IDS: readonly string[] = SETS.map((s) => s.id);
+const SET_BY_ID = new Map(SETS.map((s) => [s.id, s]));
+export const setById = (id: string): CardSetDef | undefined => SET_BY_ID.get(id);
+/** Every one of our picture cards' set ids. */
+export const OURS_SET_IDS: readonly string[] = SETS.filter((s) => s.reverie).map((s) => s.id);
 
 /** Reverie's card number for one of our picture cards, or null for the game's own. */
 export const oursCard = (card: number): number | null =>
   card >= OURS_BASE ? card - OURS_BASE : null;
 
-export const deckOf = (card: number): DeckId =>
-  card >= OURS_BASE ? 'ours' : card >= DECKS.noir.from ? 'noir' : 'base';
+/** How a room saved before the per-set picker kept its decks. */
+export interface LegacyDecks {
+  base: boolean;
+  noir: boolean;
+  ours: boolean;
+}
+
+/**
+ * The chosen sets, in picker order. A room saved with the old `decks` switches reads as the
+ * matching list (`ours` was every picture set at once).
+ */
+export function chosenSets(s: { sets?: readonly string[]; decks?: LegacyDecks }): string[] {
+  if (s.sets) return SET_IDS.filter((id) => s.sets!.includes(id));
+  const d = s.decks ?? { base: true, noir: true, ours: false };
+  return SET_IDS.filter((id) => (setById(id)!.reverie ? d.ours : d[id as OwnDeck]));
+}
 
 // ---- Settings ----
 
@@ -73,7 +101,10 @@ export type SoundMode = 'off' | 'host' | 'all';
 export const SOUND_MODES: readonly SoundMode[] = ['off', 'host', 'all'];
 
 export interface Settings {
-  decks: Record<DeckId, boolean>;
+  /** The chosen card sets (`base`, `noir`, `ours-<Reverie set id>`); read through `chosenSets`. */
+  sets: string[];
+  /** Before the per-set picker; saved rooms may still have it (and no `sets`). */
+  decks?: LegacyDecks;
   /** Everyone picks the word twice, at any table size (under 5 players it's always twice). */
   twice: boolean;
   /** The printed vote: one at a time, clockwise from the word-picker's left, in the open. */
@@ -99,7 +130,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  decks: { base: true, noir: true, ours: false },
+  sets: ['base', 'noir'],
   twice: false,
   openVote: false,
   noDiscussion: false,
@@ -229,7 +260,11 @@ export const actionSchema = z.discriminatedUnion('type', [
   hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
-    decks: z.object({ base: z.boolean(), noir: z.boolean(), ours: z.boolean() }).optional(),
+    sets: z
+      .array(z.string().min(1).max(40))
+      .max(SETS.length)
+      .refine((ids) => new Set(ids).size === ids.length, 'Card sets must be unique.')
+      .optional(),
     twice: z.boolean().optional(),
     openVote: z.boolean().optional(),
     noDiscussion: z.boolean().optional(),

@@ -1,6 +1,6 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { type Manifest, asManifest, assetUrl, clean, footerOf } from './manifest.ts';
-import type { RedHerringView } from './types.ts';
+import { OURS_PREFIX, type RedHerringView, chosenSets } from './types.ts';
 
 export { type Manifest, deckNames, footerOf } from './manifest.ts';
 
@@ -23,7 +23,7 @@ const CAUGHT: GuideOption = { key: 'caught', label: 'Score only a catch' };
 const FUN: GuideOption = { key: 'fun', label: 'Just for fun' };
 const BALANCED: GuideOption = { key: 'balanced', label: 'Balanced deal' };
 const TOPIC: GuideOption = { key: 'topic', label: 'Thematic Game' };
-const OURS: GuideOption = { key: 'ours', label: 'Our picture cards' };
+const OURS: GuideOption = { key: 'ours', label: 'A picture set from our other games' };
 
 function base(art: GuideArt): GameGuide {
   const tiles: GuideTile[] = [
@@ -246,20 +246,20 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
-        title: 'Decks',
+        title: 'Card sets',
         level: 'edge',
         bullets: [
-          'The host picks the decks: the Classic deck and the Noir deck are both in by default.',
-          'There must be a card for every play of the game: with many players (or twice around) the host may need to add a deck before starting.',
+          'The host picks the card sets under Picture cards: the Classic deck and the Noir deck are both in by default.',
+          'There must be a card for every play of the game: with many players (or twice around) the host may need to add a set before starting.',
           'Once the deck runs out, played cards simply aren’t replaced.',
         ],
       },
       {
-        title: 'Our picture cards',
+        title: 'Picture sets from our other games',
         level: 'edge',
         option: OURS,
         bullets: [
-          'Off by default: the host can shuffle in the picture cards from our other games. Every card shows this game’s back.',
+          'Off by default: the host can add any of the picture sets from our other games, each on its own. Every card shows this game’s back.',
         ],
       },
       {
@@ -340,7 +340,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
       s.scoring === 'fun' && FUN.key,
       s.balanced && BALANCED.key,
       !!s.topic && TOPIC.key,
-      s.decks.ours && OURS.key,
+      chosenSets(s).some((id) => id.startsWith(OURS_PREFIX)) && OURS.key,
     ].filter((k): k is string => !!k);
     const ctx: GuideContext = {
       summary: [
