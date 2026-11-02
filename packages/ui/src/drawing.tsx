@@ -5,15 +5,27 @@ import {
   DRAWING_COLORS,
   DRAWING_WIDTHS,
   type Drawing,
+  ERASER,
   type DrawingLimits,
   type Stroke,
   decodeDrawing,
   drawingPoints,
   encodeDrawing,
+  hasInk,
+  isEraser,
   storageKey,
   validateDrawing,
 } from '@vt/game-sdk';
-import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from './cn.ts';
 import { Button } from './components.tsx';
 import { useConfirm } from './confirm.tsx';
@@ -48,7 +60,16 @@ interface DrawIn {
   duration: number;
 }
 
-function StrokePath({ stroke, drawIn }: { stroke: Stroke; drawIn?: DrawIn }) {
+function StrokePath({
+  stroke,
+  drawIn,
+  color,
+}: {
+  stroke: Stroke;
+  drawIn?: DrawIn;
+  /** Paints it in this colour (an eraser stroke in its mask) instead of its pen's. */
+  color?: string;
+}) {
   return (
     <path
       d={strokePath(stroke.points)}
@@ -58,7 +79,7 @@ function StrokePath({ stroke, drawIn }: { stroke: Stroke; drawIn?: DrawIn }) {
         style: { animationDelay: `${drawIn.delay}ms`, animationDuration: `${drawIn.duration}ms` },
       })}
       fill="none"
-      stroke={DRAWING_COLORS[stroke.c]?.hex ?? DRAWING_COLORS[0].hex}
+      stroke={color ?? DRAWING_COLORS[stroke.c]?.hex ?? DRAWING_COLORS[0].hex}
       strokeWidth={DRAWING_WIDTHS[stroke.w]?.size ?? DRAWING_WIDTHS[0].size}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -87,6 +108,37 @@ const DRAW_IN_CSS =
   '@keyframes vt-draw-in{to{stroke-dashoffset:0}}' +
   '@media (prefers-reduced-motion:reduce){.vt-draw-in{animation:none;stroke-dashoffset:0}}';
 
+/** An SVG id from React's `useId` (which has colons, unsafe inside `url(#…)`). */
+const svgId = (id: string) => `vt-ink-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+/**
+ * A mask that keeps everything but where `erasers` went: the page white (kept), their strokes
+ * black (cleared). It covers the whole page, so ink outside an eraser's bounding box stays.
+ */
+function EraserMask({
+  id,
+  erasers,
+  times,
+}: {
+  id: string;
+  erasers: readonly Stroke[];
+  times?: readonly (DrawIn | undefined)[];
+}) {
+  return (
+    <mask id={id} maskUnits="userSpaceOnUse" x={0} y={0} width={DRAW_W} height={DRAW_H}>
+      <rect width={DRAW_W} height={DRAW_H} fill="#fff" />
+      {erasers.map((s, i) => (
+        <StrokePath key={i} stroke={s} drawIn={times?.[i]} color="#000" />
+      ))}
+    </mask>
+  );
+}
+
+/**
+ * The strokes in drawing order. Each run of eraser strokes masks everything drawn before it, so a
+ * later line over an erased patch shows again; the nesting keeps it one mask per run. Erasing
+ * clears the ink itself (the paper underneath shows through), so it suits any background.
+ */
 const Strokes = memo(function Strokes({
   strokes,
   drawInMs,
@@ -94,13 +146,41 @@ const Strokes = memo(function Strokes({
   strokes: readonly Stroke[];
   drawInMs?: number;
 }) {
+  const base = svgId(useId());
   const times = drawInMs ? drawInTimes(strokes, drawInMs) : null;
+  const masks: ReactNode[] = [];
+  let layer: ReactNode[] = [];
+  let i = 0;
+  while (i < strokes.length) {
+    if (!isEraser(strokes[i]!)) {
+      layer.push(<StrokePath key={i} stroke={strokes[i]!} drawIn={times?.[i]} />);
+      i++;
+      continue;
+    }
+    const start = i;
+    while (i < strokes.length && isEraser(strokes[i]!)) i++;
+    // Nothing drawn yet: nothing to rub out.
+    if (layer.length === 0) continue;
+    const id = `${base}-${start}`;
+    masks.push(
+      <EraserMask
+        key={id}
+        id={id}
+        erasers={strokes.slice(start, i)}
+        times={times?.slice(start, i)}
+      />,
+    );
+    layer = [
+      <g key={id} mask={`url(#${id})`}>
+        {layer}
+      </g>,
+    ];
+  }
   return (
     <>
       {times && <style>{DRAW_IN_CSS}</style>}
-      {strokes.map((s, i) => (
-        <StrokePath key={i} stroke={s} drawIn={times?.[i]} />
-      ))}
+      {masks.length > 0 && <defs>{masks}</defs>}
+      {layer}
     </>
   );
 });
@@ -271,6 +351,9 @@ export function DrawingPad({
   const pointers = useRef(new Map<number, { type: string; moved: boolean }>());
   const twoFinger = useRef<{ at: number; moved: boolean } | null>(null);
   const frame = useRef<number | null>(null);
+  const ring = useRef<SVGCircleElement>(null);
+  const liveMask = svgId(useId());
+  const erasing = color === ERASER;
   const strokesRef = useRef(strokes);
   useEffect(() => {
     strokesRef.current = strokes;
@@ -337,7 +420,22 @@ export function DrawingPad({
     paint();
   };
 
+  /** The eraser's size under a mouse or stylus, so you see what it will rub out. */
+  const moveRing = (e: React.PointerEvent<HTMLDivElement> | null) => {
+    const el = ring.current;
+    if (!el) return;
+    if (!e || e.pointerType === 'touch' || disabled) {
+      el.setAttribute('visibility', 'hidden');
+      return;
+    }
+    const [x, y] = toPage(e);
+    el.setAttribute('cx', String(x));
+    el.setAttribute('cy', String(y));
+    el.setAttribute('visibility', 'visible');
+  };
+
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    moveRing(e);
     const c = current.current;
     const p = pointers.current.get(e.pointerId);
     if (p) p.moved = true;
@@ -412,7 +510,7 @@ export function DrawingPad({
   const submit = useCallback(
     async (auto = false) => {
       const now = strokesRef.current;
-      if (!now.length) {
+      if (!hasInk(now)) {
         if (!auto) setProblem('You have to draw something!');
         return;
       }
@@ -444,10 +542,11 @@ export function DrawingPad({
         ref={sheet}
         className={cn(
           'relative mx-auto aspect-[4/5] w-full touch-none select-none overflow-hidden rounded-lg shadow-sm ring-1 ring-line [-webkit-touch-callout:none] [-webkit-user-select:none] dark:ring-stone-600',
-          disabled ? 'cursor-not-allowed opacity-70' : 'cursor-crosshair',
+          disabled ? 'cursor-not-allowed opacity-70' : erasing ? 'cursor-none' : 'cursor-crosshair',
         )}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
+        onPointerLeave={() => moveRing(null)}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         data-testid="drawing-pad"
@@ -459,12 +558,31 @@ export function DrawingPad({
           aria-label={`Drawing area, ${strokes.length} line${strokes.length === 1 ? '' : 's'}`}
         >
           <rect width={DRAW_W} height={DRAW_H} fill={PAPER} />
-          <Strokes strokes={strokes} />
-          {live && <StrokePath stroke={live} />}
+          {/* The line in progress: an eraser masks what is already drawn, a pen draws on top */}
+          {live && isEraser(live) && (
+            <defs>
+              <EraserMask id={liveMask} erasers={[live]} />
+            </defs>
+          )}
+          <g mask={live && isEraser(live) ? `url(#${liveMask})` : undefined}>
+            <Strokes strokes={strokes} />
+          </g>
+          {live && !isEraser(live) && <StrokePath stroke={live} />}
+          {erasing && (
+            <circle
+              ref={ring}
+              r={(DRAWING_WIDTHS[width]?.size ?? DRAWING_WIDTHS[0].size) / 2}
+              visibility="hidden"
+              fill="none"
+              stroke="#57534e"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+            />
+          )}
         </svg>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Pen colour">
+        <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Pen">
           {DRAWING_COLORS.map((c, i) => (
             <button
               key={c.id}
@@ -482,6 +600,23 @@ export function DrawingPad({
               style={{ background: c.hex, borderColor: PAPER }}
             />
           ))}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={erasing}
+            aria-label="Eraser"
+            title="Eraser: rub out what you drew"
+            onClick={() => setColor(ERASER)}
+            className={cn(
+              'flex size-9 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
+              erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
+            )}
+            style={{ background: PAPER }}
+          >
+            <span aria-hidden className="text-lg leading-none">
+              🧽
+            </span>
+          </button>
         </div>
         <div className="flex items-center gap-1" role="radiogroup" aria-label="Line width">
           {DRAWING_WIDTHS.map((w, i) => (
@@ -505,7 +640,10 @@ export function DrawingPad({
                 style={{
                   width: 4 + i * 6,
                   height: 4 + i * 6,
-                  background: DRAWING_COLORS[color]!.hex,
+                  // The eraser's size is a hollow ring, as its cursor shows
+                  ...(erasing
+                    ? { boxShadow: 'inset 0 0 0 1.5px #57534e' }
+                    : { background: DRAWING_COLORS[color]!.hex }),
                 }}
               />
             </button>
@@ -538,7 +676,7 @@ export function DrawingPad({
         <div className="min-w-0 flex-1">{footer}</div>
         <Button
           onClick={() => void submit()}
-          disabled={disabled || sending || !strokes.length}
+          disabled={disabled || sending || !hasInk(strokes)}
           data-testid="drawing-send"
         >
           {submitLabel} ▸

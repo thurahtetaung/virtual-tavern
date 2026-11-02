@@ -20,6 +20,19 @@ export const DRAWING_COLORS = [
   { id: 'green', name: 'Green', hex: '#009e73' },
 ] as const;
 
+/**
+ * The eraser, as a pen: a stroke with this `c` rubs out the ink drawn before it, wherever it goes
+ * (parts of lines too). It is a stroke like any other (same widths, encoding, limits and undo), and
+ * screens render it by clearing the drawing's own ink, never by painting the paper over it.
+ */
+export const ERASER = DRAWING_COLORS.length;
+
+/** Whether a stroke is the eraser's. */
+export const isEraser = (stroke: { c: number }) => stroke.c === ERASER;
+
+/** Whether any stroke puts ink down (a page of eraser strokes alone is blank). */
+export const hasInk = (strokes: readonly { c: number }[]) => strokes.some((s) => !isEraser(s));
+
 /** Line widths in page units. */
 export const DRAWING_WIDTHS = [
   { id: 'thin', name: 'Thin', size: 8 },
@@ -27,7 +40,7 @@ export const DRAWING_WIDTHS = [
   { id: 'thick', name: 'Thick', size: 36 },
 ] as const;
 
-/** One stroke as drawn: a pen, a width and its points as a flat `[x0, y0, x1, y1, …]`. */
+/** One stroke as drawn: a pen (or `ERASER`), a width and its points as a flat `[x0, y0, x1, y1, …]`. */
 export interface Stroke {
   c: number;
   w: number;
@@ -59,11 +72,7 @@ export const DEFAULT_DRAWING_LIMITS: DrawingLimits = { strokes: 300, points: 250
 export const drawingSchema = z
   .array(
     z.object({
-      c: z
-        .number()
-        .int()
-        .min(0)
-        .max(DRAWING_COLORS.length - 1),
+      c: z.number().int().min(0).max(ERASER),
       w: z
         .number()
         .int()
@@ -226,7 +235,7 @@ export function validateDrawing(
   if (!parsed.success)
     return { ok: false, code: 'drawing-invalid', message: 'That drawing could not be read.' };
   const drawing = parsed.data.map((s) => ({ c: s.c, w: s.w, p: s.p }));
-  if (drawing.length === 0)
+  if (!hasInk(drawing))
     return { ok: false, code: 'drawing-empty', message: 'You have to draw something!' };
   if (drawing.length > limits.strokes)
     return { ok: false, code: 'drawing-too-big', message: 'That drawing has too many lines.' };

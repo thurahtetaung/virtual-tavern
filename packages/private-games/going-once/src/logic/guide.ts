@@ -77,6 +77,7 @@ const base: GameGuide = {
       bullets: [
         'You get two titles, one from each of the game’s two title families, and one clock for both (90 seconds by default).',
         'Pick a pen, a width, draw, and tap Send. You must draw something to send it.',
+        'The eraser (🧽) rubs out whatever it passes over, even part of a line, in the same three widths. Undo takes back the last line or rub.',
         'Nobody else sees your title, ever, until your drawing is sold.',
         'A drawing not sent in time is replaced by a house picture of the same title, and you lose the commission on it.',
         'The auctioneer nudges you at half time and with ten seconds left; whatever is on your page is sent when time runs out.',
