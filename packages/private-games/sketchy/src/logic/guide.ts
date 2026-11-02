@@ -57,6 +57,13 @@ const base: GameGuide = {
       ],
     },
     {
+      title: 'The drawing pad',
+      bullets: [
+        'The pad has four pens and an eraser (🧽), each in three widths.',
+        'The eraser rubs out whatever it passes over, even part of a line. Undo takes back the last line or rub.',
+      ],
+    },
+    {
       title: 'Writing a fake title',
       bullets: [
         'Keep it short: one line, at most 45 characters. Everything on the board is shown in lowercase, real title included, so nobody stands out by their capitals.',
@@ -130,6 +137,7 @@ const shaped = (footer?: GuideFooter): GameGuide =>
       'A round, step by step': 'basics',
       'Writing a fake title': 'basics',
       Scoring: 'basics',
+      'The drawing pad': 'details',
     },
     reference: [
       {

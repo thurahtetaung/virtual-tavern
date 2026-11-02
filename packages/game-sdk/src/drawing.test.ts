@@ -3,7 +3,12 @@ import {
   DEFAULT_DRAWING_LIMITS,
   DRAW_H,
   DRAW_W,
+  DRAWING_COLORS,
+  ERASER,
+  type EncodedStroke,
   decodeDrawing,
+  hasInk,
+  isEraser,
   decodePoints,
   drawingPoints,
   encodeDrawing,
@@ -101,7 +106,8 @@ describe('validateDrawing', () => {
 
   it('refuses the wrong shape, bad pens and widths, and undecodable points', () => {
     expect(validateDrawing('nope')).toMatchObject({ ok: false, code: 'drawing-invalid' });
-    expect(validateDrawing([{ c: 4, w: 0, p: 'AA' }])).toMatchObject({ ok: false });
+    expect(validateDrawing([{ c: ERASER + 1, w: 0, p: 'AA' }])).toMatchObject({ ok: false });
+    expect(validateDrawing([{ c: -1, w: 0, p: 'AA' }])).toMatchObject({ ok: false });
     expect(validateDrawing([{ c: 0, w: 3, p: 'AA' }])).toMatchObject({ ok: false });
     expect(validateDrawing([{ c: 0, w: 0, p: 'A' }])).toMatchObject({
       ok: false,
@@ -137,5 +143,49 @@ describe('validateDrawing', () => {
     }));
     const r = validateDrawing(encodeDrawing(strokes));
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('the eraser', () => {
+  const line = { c: 1, w: 1, points: [10, 10, 400, 500] };
+  const rub = { c: ERASER, w: 2, points: [200, 250, 220, 260] };
+
+  it('is a pen after the colours, with the usual widths', () => {
+    expect(ERASER).toBe(DRAWING_COLORS.length);
+    expect(isEraser(rub)).toBe(true);
+    expect(isEraser(line)).toBe(false);
+    expect(hasInk([rub])).toBe(false);
+    expect(hasInk([rub, line])).toBe(true);
+  });
+
+  it('encodes and decodes like any stroke, in drawing order', () => {
+    const drawing = encodeDrawing([line, rub, { ...line, c: 2 }]);
+    expect(drawing.map((s) => s.c)).toEqual([1, ERASER, 2]);
+    expect(decodeDrawing(drawing)).toEqual([line, rub, { ...line, c: 2 }]);
+  });
+
+  it('is accepted with the same limits, which count its strokes and points', () => {
+    const drawing = encodeDrawing([line, rub]);
+    expect(validateDrawing(drawing)).toEqual({ ok: true, drawing });
+    expect(validateDrawing(drawing, { ...DEFAULT_DRAWING_LIMITS, strokes: 1 })).toMatchObject({
+      code: 'drawing-too-big',
+    });
+    expect(validateDrawing(drawing, { ...DEFAULT_DRAWING_LIMITS, points: 3 })).toMatchObject({
+      code: 'drawing-too-big',
+    });
+  });
+
+  it('alone is a blank page', () => {
+    expect(validateDrawing(encodeDrawing([rub]))).toMatchObject({ code: 'drawing-empty' });
+  });
+
+  it('leaves drawings saved before it unchanged', () => {
+    // As stored before the eraser: pens 0–3 only.
+    const old: EncodedStroke[] = [
+      { c: 0, w: 0, p: 'oBoBkI8L2JnB' },
+      { c: 3, w: 2, p: '0PkcUT' },
+    ];
+    expect(validateDrawing(old)).toEqual({ ok: true, drawing: old });
+    expect(decodeDrawing(old).some(isEraser)).toBe(false);
   });
 });
