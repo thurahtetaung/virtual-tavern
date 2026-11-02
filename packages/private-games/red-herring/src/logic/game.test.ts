@@ -8,6 +8,7 @@ import {
   scoreRound,
   setTestDeal,
   startProblem,
+  waitingOn,
 } from './game.ts';
 import {
   FOUR,
@@ -190,26 +191,52 @@ describe('a round', () => {
     expect(round(h).plays.map((p) => p.by)).toEqual([...order, ...order]);
     expect(round(h).plays.map((p) => p.lap)).toEqual([1, 1, 1, 1, 2, 2, 2, 2]);
     for (const id of FOUR) expect(game(h).hands[id]).toHaveLength(HAND_SIZE);
-    expect(round(h).stage).toBe('explain');
-    expect(round(h).turn).toBe(round(h).picker);
+    expect(round(h).stage).toBe('discuss');
+    expect(round(h).turn).toBeNull();
   });
 
-  it('explanations in order, then a discussion the host ends', () => {
+  it('one talk step after the cards: nobody is waited on, and only the host starts the vote', () => {
     const h = startedGame(FOUR);
     setWord(h);
     playAll(h);
-    const order = round(h).order;
-    expect(h.reject({ type: 'done' }, order[1])).toBe('not-your-turn');
-    h.act({ type: 'done' }, order[0]);
-    expect(round(h).turn).toBe(order[1]);
-    // The host may end someone's explanation.
-    const hostIsNext = order[1] === HOST;
-    h.act({ type: 'done' }, HOST);
-    expect(round(h).skipped).toEqual(hostIsNext ? [] : [order[1]]);
-    h.act({ type: 'done' }, order[2]);
-    h.act({ type: 'done' }, order[3]);
     expect(round(h).stage).toBe('discuss');
+    expect(waitingOn(round(h))).toEqual([]);
+    // Everyone sees the word now, the Conspirator too.
+    for (const id of FOUR) expect(redHerring.view(h.state, id).game!.round.word).toBe('Lighthouse');
     expect(h.reject({ type: 'end-discussion' }, 'ana')).toBe('not-host');
+    expect(h.reject({ type: 'act-for', player: 'ana' })).toBe('not-waiting');
+    h.act({ type: 'end-discussion' });
+    expect(round(h).stage).toBe('vote');
+    expect(h.reject({ type: 'end-discussion' })).toBe('wrong-stage');
+  });
+
+  it('reads a round saved while players explained one at a time as the talk step', () => {
+    const h = startedGame(FOUR, 3, { discussSeconds: 60, timerMode: 'strict' });
+    setWord(h);
+    playAll(h);
+    const g = game(h);
+    const saved = {
+      ...h.state,
+      settings: { ...h.state.settings, talkSeconds: 30 },
+      game: {
+        ...g,
+        round: {
+          ...g.round,
+          stage: 'explain',
+          turn: g.round.order[1],
+          explained: [g.round.order[0]],
+          skipped: [],
+        },
+      },
+    } as unknown as typeof h.state;
+    const v = redHerring.view(saved, FOUR[1]!);
+    expect(v.game!.round.stage).toBe('discuss');
+    expect(v.game!.round.turn).toBeNull();
+    expect(v.game!.round.word).toBe('Lighthouse');
+    expect('talkSeconds' in v.settings).toBe(false);
+    // The talk's own timer, never the old explaining one.
+    expect(redHerring.nextDeadline!(saved)).toBe(round(h).since + 60_000);
+    h.state = saved;
     h.act({ type: 'end-discussion' });
     expect(round(h).stage).toBe('vote');
   });
@@ -325,12 +352,11 @@ describe('balanced deal', () => {
 });
 
 describe('timers', () => {
-  it('soft timers never act; strict ones play a card, end explanations and the discussion, and vote', () => {
+  it('soft timers never act; strict ones play a card, end the talk, and vote', () => {
     const soft = startedGame(FOUR, 3, { turnSeconds: 30 });
     expect(redHerring.nextDeadline!(soft.state)).toBeNull();
     const h = startedGame(FOUR, 3, {
       turnSeconds: 30,
-      talkSeconds: 30,
       discussSeconds: 60,
       timerMode: 'strict',
     });
@@ -342,9 +368,6 @@ describe('timers', () => {
     expect(redHerring.nextDeadline!(h.state)).toBeNull();
     h.act({ type: 'word', word: 'Fog' }, round(h).picker);
     for (let i = 0; i < 7; i++) h.tick(30_000);
-    expect(round(h).stage).toBe('explain');
-    for (let i = 0; i < 4; i++) h.tick(30_000);
-    expect(round(h).skipped).toHaveLength(4);
     expect(round(h).stage).toBe('discuss');
     h.tick(60_000);
     expect(round(h).stage).toBe('vote');

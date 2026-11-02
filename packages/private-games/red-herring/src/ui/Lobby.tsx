@@ -48,14 +48,6 @@ const SCORING_HELP: Record<Scoring, string> = {
   fun: 'No points: just the bluffing and the reveal.',
 };
 
-const DISCUSS_OPTIONS: { label: string; value: number | null }[] = [
-  { label: 'No timer', value: null },
-  { label: '1 minute', value: 60 },
-  { label: '2 minutes', value: 120 },
-  { label: '3 minutes', value: 180 },
-  { label: '5 minutes', value: 300 },
-];
-
 export function Lobby({
   view,
   room,
@@ -93,7 +85,7 @@ export function Lobby({
       : `${chosen.length} card sets (${chosen.reduce((t, c) => t + c.count, 0)} cards)`;
   const timers = {
     clueSeconds: s.turnSeconds,
-    guessSeconds: s.talkSeconds,
+    guessSeconds: s.discussSeconds,
     timerMode: s.timerMode,
   };
   return (
@@ -182,7 +174,7 @@ export function Lobby({
           s.noDiscussion && 'no discussion',
           s.balanced && 'balanced deal',
           s.topic && `topic: ${s.topic}`,
-          timersLine(timers, { clue: 'turns', guess: 'explaining' }),
+          timersLine(timers, { clue: 'turns', guess: 'talk' }),
         ].filter((x): x is string => !!x)}
         className="space-y-4"
       >
@@ -222,7 +214,7 @@ export function Lobby({
             on={s.noDiscussion}
             editable={host}
             title="No Discussion"
-            help="Straight from the cards to the vote: the word isn’t said and nobody explains."
+            help="Straight from the cards to the vote: the word isn’t said and nobody talks it over."
             onChange={(v) => {
               set({ noDiscussion: v });
             }}
@@ -285,37 +277,17 @@ export function Lobby({
             editable={host}
             clueLabel="Turn timer"
             clueHelp="Time for the word, each card and the vote."
-            guessLabel="Explaining timer"
-            guessHelp="Time for each player’s explanation."
-            strictHelp="a random card is played, the explanation ends or a random vote is cast (the word is never written for anyone)"
+            guessLabel="Talk timer"
+            guessHelp="Time to talk it over before the vote. The host starts the vote."
+            strictHelp="a random card is played, the talk ends and the vote starts, or a random vote is cast (the word is never written for anyone)"
             onChange={(patch) => {
               set({
                 ...(patch.clueSeconds !== undefined && { turnSeconds: patch.clueSeconds }),
-                ...(patch.guessSeconds !== undefined && { talkSeconds: patch.guessSeconds }),
+                ...(patch.guessSeconds !== undefined && { discussSeconds: patch.guessSeconds }),
                 ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
               });
             }}
           />
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-semibold">Discussion timer</span>
-            <span className="text-xs text-ink-muted">
-              The host ends the discussion; this is a reminder (strict: the vote starts).
-            </span>
-            <select
-              value={s.discussSeconds ?? ''}
-              disabled={!host}
-              onChange={(e) => {
-                set({ discussSeconds: e.target.value === '' ? null : Number(e.target.value) });
-              }}
-              className="min-h-11 rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
-            >
-              {DISCUSS_OPTIONS.map((o) => (
-                <option key={o.label} value={o.value ?? ''}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
         </Group>
         <RefusalSlot anchor="rh-lobby" />
       </LobbySettings>

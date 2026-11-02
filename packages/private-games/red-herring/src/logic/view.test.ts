@@ -48,7 +48,7 @@ function leaks(s: RedHerringState, viewer: string | null): string[] {
   // The word: the word-picker once written; everyone once it is out; never the Conspirator before.
   const said =
     over ||
-    ['explain', 'discuss', 'reveal'].includes(r.stage) ||
+    ['discuss', 'reveal'].includes(r.stage) ||
     (r.stage === 'vote' && !s.settings.noDiscussion);
   const knows =
     viewer === r.picker || (r.order.slice(1).includes(viewer ?? '') && viewer !== r.conspirator);
@@ -78,7 +78,7 @@ function playedTo(stage: string, settings = {}) {
   setWord(h, WORD);
   if (stage === 'play') return h;
   playAll(h);
-  if (stage === 'explain' || stage === 'vote') {
+  if (stage === 'discuss' || stage === 'vote') {
     if (stage === 'vote') talkAll(h);
     return h;
   }
@@ -169,10 +169,13 @@ describe('view()', () => {
   });
 
   it('No Discussion: the word stays out of the Conspirator’s view until the reveal', () => {
-    const h = playedTo('explain', { noDiscussion: true });
+    const h = playedTo('discuss', { noDiscussion: true });
     expect(round(h).stage).toBe('vote');
     expect(json(h.state, round(h).conspirator)).not.toContain(WORD);
-    const talk = playedTo('explain');
+    const talk = playedTo('discuss');
+    expect(round(talk).stage).toBe('discuss');
+    // The talk step: everyone gets the word, watchers too.
+    expect(json(talk.state, null)).toContain(WORD);
     expect(json(talk.state, round(talk).conspirator)).toContain(WORD);
   });
 
@@ -224,9 +227,6 @@ function step(h: Harness, rng: ReturnType<typeof createRng>, ids: string[], chec
       }
       case 'word':
         h.act({ type: 'word', word: `${WORD}${r.no}` }, r.picker);
-        break;
-      case 'explain':
-        h.act({ type: 'done' }, r.turn!);
         break;
       case 'discuss':
         h.act({ type: 'end-discussion' });

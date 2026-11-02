@@ -424,50 +424,6 @@ export function HandStrip({
   );
 }
 
-// ---- Explanations ----
-
-/** The explainer's two cards, large, while they explain. */
-export function Spotlight({ view, room, act, art, name }: PartProps) {
-  const r = view.game!.round;
-  const who = r.turn;
-  if (!who) return null;
-  const cards = r.plays.filter((p) => p.by === who).sort((a, b) => a.lap - b.lap);
-  const me = who === room.you;
-  return (
-    <Panel className="flex flex-col gap-2" data-testid="rh-spotlight">
-      <p className="text-sm">
-        The word: <strong className="font-serif text-lg italic">{r.word}</strong>
-      </p>
-      <p className="font-semibold">
-        🗣️ {me ? 'You explain' : `${name(who)} explains`}{' '}
-        <span className="text-sm font-normal text-ink-muted">
-          · {r.explained.length + 1} of {r.order.length}
-        </span>
-      </p>
-      <div className="mx-auto grid w-full max-w-xs grid-cols-2 gap-2 lg:max-w-none">
-        {cards.map((p) => (
-          <Card key={p.card} card={p.card} art={art} big eager />
-        ))}
-      </div>
-      {me ? (
-        <Button size="lg" onClick={() => void act({ type: 'done' }, { anchor: 'rh-explain' })}>
-          Done
-        </Button>
-      ) : (
-        room.isHost && (
-          <Button
-            variant="secondary"
-            onClick={() => void act({ type: 'done' }, { anchor: 'rh-explain' })}
-          >
-            Skip to the next player
-          </Button>
-        )
-      )}
-      <RefusalSlot anchor="rh-explain" resetKey={r.explained.length} />
-    </Panel>
-  );
-}
-
 // ---- The vote ----
 
 export function Ballot({ view, room, act, art, name }: PartProps) {

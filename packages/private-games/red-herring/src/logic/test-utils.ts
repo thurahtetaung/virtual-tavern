@@ -102,9 +102,8 @@ export function playAll(h: Harness) {
   while (round(h).stage === 'play') playFirst(h);
 }
 
-/** Every explainer is done, then the host ends the discussion. */
+/** The host ends the talk and starts the vote. */
 export function talkAll(h: Harness) {
-  while (round(h).stage === 'explain') h.act({ type: 'done' }, round(h).turn!);
   if (round(h).stage === 'discuss') h.act({ type: 'end-discussion' });
 }
 

@@ -59,6 +59,13 @@ export function setTestDeal(offset: number | null) {
 
 // ---- Helpers ----
 
+/**
+ * The round's step. A round saved while players explained one at a time (`explain`, before the
+ * single talk step) reads as the talk.
+ */
+export const stageOf = (r: { stage: Round['stage'] }): Round['stage'] =>
+  (r.stage as string) === 'explain' ? 'discuss' : r.stage;
+
 export function players(state: RedHerringState): PlayerId[] {
   return Object.entries(state.seats).flatMap(([id, s]) => (s.playing ? [id] : []));
 }
@@ -99,12 +106,11 @@ function draft(s: RedHerringState): RedHerringState {
       history: [...g.history],
       round: {
         ...g.round,
+        ...(g.round.stage !== stageOf(g.round) && { stage: stageOf(g.round), turn: null }),
         order: [...g.round.order],
         plays: [...g.round.plays],
-        explained: [...g.round.explained],
         votes: { ...g.round.votes },
         autoVotes: [...g.round.autoVotes],
-        skipped: [...g.round.skipped],
       },
     },
   };
@@ -130,14 +136,12 @@ export const candidatesFor = (r: Pick<Round, 'order'>, voter: PlayerId) =>
   r.order.slice(1).filter((id) => id !== voter);
 
 function secondsFor(settings: Settings, stage: Round['stage']): number | null {
-  switch (stage) {
+  switch (stageOf({ stage })) {
     case 'card':
     case 'word':
     case 'play':
     case 'vote':
       return settings.turnSeconds;
-    case 'explain':
-      return settings.talkSeconds;
     case 'discuss':
       return settings.discussSeconds;
     case 'reveal':
@@ -189,7 +193,6 @@ function updateSettings(
     settings.topic = topic;
   }
   if (action.turnSeconds !== undefined) settings.turnSeconds = action.turnSeconds;
-  if (action.talkSeconds !== undefined) settings.talkSeconds = action.talkSeconds;
   if (action.discussSeconds !== undefined) settings.discussSeconds = action.discussSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
   return { ...state, settings };
@@ -208,9 +211,9 @@ function sit(state: RedHerringState, playing: boolean, ctx: Ctx): Result {
 
 const OWN_NAMES: Record<string, string> = { base: 'the Classic deck', noir: 'the Noir deck' };
 
-/** Settings as sent and kept: the chosen sets as a list, never the old switches. */
+/** Settings as sent: the chosen sets as a list, never the old switches or explaining timer. */
 function withSets(settings: Settings): Settings {
-  const { decks: _d, ...rest } = settings;
+  const { decks: _d, talkSeconds: _t, ...rest } = settings as Settings & { talkSeconds?: unknown };
   return { ...rest, sets: chosenSets(settings) };
 }
 
@@ -291,10 +294,8 @@ function newRound(seated: readonly PlayerId[], picker: PlayerId, no: number, now
     conspirator: null,
     plays: [],
     turn: picker,
-    explained: [],
     votes: {},
     autoVotes: [],
-    skipped: [],
     since: now,
     result: null,
   };
@@ -333,8 +334,10 @@ function playCard(s: RedHerringState, g: Game, by: PlayerId, card: number, auto:
   // Everyone has two cards out.
   if (s.settings.noDiscussion) startVote(s, r);
   else {
-    r.stage = 'explain';
-    r.turn = r.order[0]!;
+    // The talk: the word is said, everyone says why they played their cards, the table talks it
+    // over, and the host starts the vote.
+    r.stage = 'discuss';
+    r.turn = null;
   }
 }
 
@@ -393,30 +396,6 @@ function writeWord(s: RedHerringState, by: PlayerId, raw: string, ctx: Ctx): Gam
   r.stage = 'play';
   r.turn = r.order[1]!;
   r.since = ctx.now;
-  return null;
-}
-
-/** The explainer is done (or the host, a timer or their leaving ends it). */
-function finishExplaining(r: Round, skipped: boolean, now: number) {
-  const who = r.turn!;
-  r.explained.push(who);
-  if (skipped) r.skipped.push(who);
-  const next = r.order[r.explained.length];
-  r.since = now;
-  if (next !== undefined) {
-    r.turn = next;
-    return;
-  }
-  r.stage = 'discuss';
-  r.turn = null;
-}
-
-function done(s: RedHerringState, ctx: Ctx): GameError | null {
-  const r = s.game!.round;
-  if (r.stage !== 'explain') return err('wrong-stage', 'Nobody is explaining now.');
-  if (r.turn !== ctx.by && !ctx.isHost)
-    return err('not-your-turn', 'It isn’t your turn to explain.');
-  finishExplaining(r, r.turn !== ctx.by, ctx.now);
   return null;
 }
 
@@ -552,10 +531,6 @@ function autoMove(s: RedHerringState, id: PlayerId, rng: Rng, now: number): bool
       r.since = now;
       return true;
     }
-    case 'explain':
-      if (r.turn !== id) return false;
-      finishExplaining(r, true, now);
-      return true;
     case 'vote': {
       if (r.votes[id] !== undefined || !votersOf(r).includes(id)) return false;
       if (s.settings.openVote && r.turn !== id) return false;
@@ -648,14 +623,12 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
       });
     case 'word':
       return inPlay(state, ctx, (s) => writeWord(s, ctx.by, action.word, ctx));
-    case 'done':
-      return inPlay(state, ctx, (s) => done(s, ctx));
     case 'end-discussion':
       return inPlay(state, ctx, (s) => {
         const e = requireHost(ctx);
         if (e) return e;
-        if (s.game!.round.stage !== 'discuss')
-          return err('wrong-stage', 'Nobody is discussing now.');
+        if (stageOf(s.game!.round) !== 'discuss')
+          return err('wrong-stage', 'The table isn’t talking now.');
         endDiscussion(s, ctx.now);
         return null;
       });
@@ -736,11 +709,10 @@ type Due = { at: number; why: 'left' | 'timer'; who: PlayerId | null };
 
 /** Who the table is waiting on now. */
 export function waitingOn(r: Pick<Round, 'stage' | 'turn' | 'order' | 'votes'>): PlayerId[] {
-  switch (r.stage) {
+  switch (stageOf(r)) {
     case 'card':
     case 'word':
     case 'play':
-    case 'explain':
       return r.turn ? [r.turn] : [];
     case 'vote':
       return r.turn ? [r.turn] : votersOf(r).filter((v) => r.votes[v] === undefined);
@@ -783,7 +755,7 @@ function onDeadline(state: RedHerringState, now: number): RedHerringState {
   const r = g.round;
   const rng = hiddenRng(state, now);
   if (due.who) autoMove(s, due.who, rng, now);
-  else if (r.stage === 'discuss') endDiscussion(s, now);
+  else if (stageOf(r) === 'discuss') endDiscussion(s, now);
   else if (r.stage === 'vote' && !s.settings.openVote) {
     for (const id of waitingOn(r)) if (g.round.stage === 'vote') autoMove(s, id, rng, now);
   } else {
@@ -798,8 +770,7 @@ function onDeadline(state: RedHerringState, now: number): RedHerringState {
 
 /** Whether the word has been said out loud to the whole table. */
 const wordIsOut = (r: Round, settings: Settings) =>
-  r.stage === 'explain' ||
-  r.stage === 'discuss' ||
+  stageOf(r) === 'discuss' ||
   r.stage === 'reveal' ||
   (r.stage === 'vote' && !settings.noDiscussion);
 
@@ -821,16 +792,14 @@ function roundView(state: RedHerringState, g: Game, viewer: PlayerId | null): Ro
     no: r.no,
     picker: r.picker,
     order: [...r.order],
-    stage: r.stage,
+    stage: stageOf(r),
     word: sees ? r.word : null,
     notebook:
       atTable && viewer !== r.picker && r.word !== null
         ? { word: viewer === r.conspirator ? null : r.word }
         : null,
     plays: r.plays.map((p) => ({ ...p })),
-    turn: r.turn,
-    explained: [...r.explained],
-    skipped: [...r.skipped],
+    turn: stageOf(r) === 'discuss' ? null : r.turn,
     voted: votersOf(r).filter((v) => r.votes[v] !== undefined),
     myVote: viewer === null ? null : (r.votes[viewer] ?? null),
     votes: open ? { ...r.votes } : null,

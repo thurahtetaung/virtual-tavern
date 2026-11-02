@@ -84,7 +84,7 @@ function base(art: GuideArt): GameGuide {
       'Each round one player is the word-picker: they play a picture card, then write a secret word.',
       'Everyone else gets a notebook with the word, except one random player, the Conspirator, whose notebook has no word.',
       'Taking turns, everyone plays two cards face up that fit the word. The Conspirator plays along.',
-      'The word is said out loud and everyone explains their two cards, the word-picker first.',
+      'The word is shown to everyone. The table talks: each player says why they played their cards, then the host starts the vote.',
       'Everyone but the word-picker votes for who they think the Conspirator is.',
       'Fewer than 2 votes on the Conspirator: they score 5 and the word-picker 4. Each finder scores 3.',
     ],
@@ -108,8 +108,8 @@ function base(art: GuideArt): GameGuide {
         ...(art.back && { art: art.back }),
       },
       {
-        title: 'Explain yourself',
-        text: 'The word is said out loud. The word-picker explains their two cards, then everyone else in turn. Then talk it over.',
+        title: 'Talk it over',
+        text: 'The word is shown to everyone. Each player says why they played their two cards, the table talks it over, and the host starts the vote.',
         icon: '🗣️',
       },
       {
@@ -141,13 +141,13 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
-        title: 'Explaining and talking',
+        title: 'Talking it over',
         level: 'basics',
         option: TALK,
         bullets: [
           'Once everyone has two cards out, the word is shown to the whole table and said out loud.',
-          'The word-picker explains why their two cards fit it, then everyone else in turn from their left. The explainer’s cards show large; they tap Done.',
-          'Then the table talks it over. The host ends the discussion when everyone is ready to vote.',
+          'Each player says why they played their two cards (the rulebook starts with the word-picker and goes round from their left), then the table talks it over.',
+          'The app doesn’t run turns here: it shows the cards and a few lines on what to do, and the host presses Start the vote when the table is ready.',
           'You may never show the cards still in your hand.',
         ],
       },
@@ -226,7 +226,7 @@ function base(art: GuideArt): GameGuide {
         level: 'edge',
         option: NO_TALK,
         bullets: [
-          'A printed variant: the vote comes straight after the cards. The word isn’t said out loud and nobody explains.',
+          'A printed variant: the vote comes straight after the cards. The word isn’t said out loud and nobody talks it over.',
         ],
       },
       {
@@ -266,8 +266,8 @@ function base(art: GuideArt): GameGuide {
         title: 'Timers',
         level: 'edge',
         bullets: [
-          'The host can time each turn (the word, each card, the vote), each explanation and the discussion. By default the timers are reminders, and the host may Act for a slow player.',
-          'In Strict mode, when time runs out a random card is played, an explanation ends, the discussion ends, or a random vote is cast. The word is never written for anyone: its timer stays a reminder.',
+          'The host can time each turn (the word, each card, the vote) and the talk. By default the timers are reminders, and the host may Act for a slow player.',
+          'In Strict mode, when time runs out a random card is played, the talk ends and the vote starts, or a random vote is cast. The word is never written for anyone: its timer stays a reminder.',
           'Moves made for someone are marked ⏱.',
         ],
       },
@@ -291,6 +291,17 @@ function base(art: GuideArt): GameGuide {
       items: tiles,
     },
     reference: [
+      {
+        title: 'A round',
+        head: ['Step', 'Who'],
+        rows: [
+          ['A card, then the secret word', 'The word-picker'],
+          ['Two laps of cards', 'Everyone, from the word-picker’s left'],
+          ['Talk: why you played your cards', 'The whole table; the host starts the vote'],
+          ['The vote', 'Everyone but the word-picker'],
+        ],
+        note: 'No Discussion: straight from the cards to the vote.',
+      },
       {
         title: 'Scoring',
         head: ['Votes on the Conspirator', 'Each finder', 'Conspirator', 'Word-picker'],
@@ -400,7 +411,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         id: 'standard',
         label: 'The usual game',
         context: {
-          summary: 'Secret vote, rulebook scoring, explanations and a discussion.',
+          summary: 'Secret vote, rulebook scoring, and a talk before the vote.',
           options: [RULEBOOK.key],
         },
       },

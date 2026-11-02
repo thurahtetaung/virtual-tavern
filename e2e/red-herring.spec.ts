@@ -2,9 +2,9 @@ import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import {
   accuse,
-  explainAll,
   notebook,
   playLaps,
+  talk,
   roundOrder,
   table,
   writeWord,
@@ -85,7 +85,8 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
       for (const p of order.slice(1))
         expect(await notebook(p)).toBe(p === conspirator ? '' : `Clue${k + 1}`);
     await playLaps(order);
-    await explainAll(order, ana);
+    // The talk step: the word for everyone, the Conspirator too, until the host starts the vote.
+    await talk(pages, ana, `Clue${k + 1}`);
     for (const v of order.slice(1)) {
       const i = pages.indexOf(v);
       await accuse(v, NAMES[target(i, k)]!);

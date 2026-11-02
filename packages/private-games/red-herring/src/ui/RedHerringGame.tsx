@@ -21,7 +21,7 @@ import { DrawPile } from './Card.tsx';
 import { Lobby } from './Lobby.tsx';
 import { RedHerringSoundButton, useCues } from './Sound.tsx';
 import { Tips } from './Tips.tsx';
-import { Ballot, HandStrip, Notebook, Reveal, Spotlight, Table, WordForm } from './parts.tsx';
+import { Ballot, HandStrip, Notebook, Reveal, Table, WordForm } from './parts.tsx';
 import { type NameOf, statusFor, waitingIds } from './status.ts';
 
 export type RedHerringUiProps = GameUiProps<RedHerringView, RedHerringAction>;
@@ -104,15 +104,13 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   const inGame = r.order.includes(you);
   const handStage = r.stage === 'card' || r.stage === 'word' || r.stage === 'play';
   const timerLabel =
-    r.stage === 'explain'
-      ? 'to explain'
-      : r.stage === 'discuss'
-        ? 'to talk'
-        : r.stage === 'vote'
-          ? 'to vote'
-          : r.stage === 'word'
-            ? 'for the word'
-            : 'for this card';
+    r.stage === 'discuss'
+      ? 'to talk'
+      : r.stage === 'vote'
+        ? 'to vote'
+        : r.stage === 'word'
+          ? 'for the word'
+          : 'for this card';
   const strict = view.settings.timerMode === 'strict' && r.stage !== 'word';
   const panel = stagePanel({ view, room, act, art, name });
   const side = (
@@ -141,9 +139,14 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
               ? { atZero: atZeroOf(r.stage) }
               : {
                   soft: true,
-                  expiredHint: room.isHost
-                    ? 'Time’s up: you can Act for them below.'
-                    : 'Time’s up: the host can move things on.',
+                  expiredHint:
+                    r.stage === 'discuss'
+                      ? room.isHost
+                        ? 'Time’s up: start the vote when the table is ready.'
+                        : 'Time’s up: the host starts the vote.'
+                      : room.isHost
+                        ? 'Time’s up: you can Act for them below.'
+                        : 'Time’s up: the host can move things on.',
                 })}
           />
           {!wide && (
@@ -191,21 +194,17 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
 }
 
 const atZeroOf = (stage: string) =>
-  stage === 'explain'
-    ? 'then the next player explains'
-    : stage === 'discuss'
-      ? 'then the vote starts'
-      : stage === 'vote'
-        ? 'then a random vote is cast'
-        : 'then a random card is played';
+  stage === 'discuss'
+    ? 'then the vote starts'
+    : stage === 'vote'
+      ? 'then a random vote is cast'
+      : 'then a random card is played';
 
 function stagePanel(p: PartProps): ReactNode {
   const r = p.view.game!.round;
   switch (r.stage) {
     case 'word':
       return r.picker === p.room.you ? <WordForm view={p.view} act={p.act} art={p.art} /> : null;
-    case 'explain':
-      return <Spotlight {...p} />;
     case 'discuss':
       return <Discuss {...p} />;
     case 'vote':
@@ -217,23 +216,28 @@ function stagePanel(p: PartProps): ReactNode {
   }
 }
 
-function Discuss({ room, act }: PartProps) {
+/** The talk step: the word for everyone, a few lines on what to do, and the host's button. */
+function Discuss({ view, room, act }: PartProps) {
+  const word = view.game!.round.word;
   return (
     <Panel className="flex flex-col gap-2 text-sm" data-testid="rh-discuss">
+      {word && (
+        <p>
+          The word: <strong className="font-serif text-lg italic">{word}</strong>
+        </p>
+      )}
       <p className="font-semibold">💬 Talk it over</p>
-      <p className="text-ink-muted">
-        Who had nothing to go on? Ask about strange cards. When everyone is ready, the host starts
-        the vote.
-      </p>
-      {room.isHost ? (
+      <ol className="list-decimal space-y-0.5 pl-5 text-ink-muted">
+        <li>Each player says why they played their two cards.</li>
+        <li>Then talk it over: who had nothing to go on?</li>
+      </ol>
+      {room.isHost && (
         <>
           <Button onClick={() => void act({ type: 'end-discussion' }, { anchor: 'rh-discuss' })}>
             Start the vote
           </Button>
           <RefusalSlot anchor="rh-discuss" />
         </>
-      ) : (
-        <p className="text-ink-muted">{waitingForHost(room, 'start the vote')}</p>
       )}
     </Panel>
   );

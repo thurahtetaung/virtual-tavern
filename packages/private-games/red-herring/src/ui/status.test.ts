@@ -25,7 +25,7 @@ describe('the status line', () => {
       playFirst(h);
       same();
     }
-    expect(game(h).round.stage).toBe('explain');
+    expect(game(h).round.stage).toBe('discuss');
   });
 
   it('tells the word-picker and the player on turn what to do', () => {
@@ -37,6 +37,8 @@ describe('the status line', () => {
     const next = round(h).turn!;
     expect(line(h, next)).toMatchObject({ yourMove: true, text: /play your first card/ });
     playAll(h);
-    expect(line(h, picker).text).toMatch(/Your turn to explain/);
+    // The talk: nobody's move; everyone reads the same instructions.
+    for (const id of SIX)
+      expect(line(h, id)).toMatchObject({ yourMove: false, text: /say why you played your cards/ });
   });
 });

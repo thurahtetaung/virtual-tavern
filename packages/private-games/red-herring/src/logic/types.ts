@@ -26,7 +26,7 @@ export const MAX_TOPIC = 40;
 export const LEFT_BEAT_MS = 3000;
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
-/** The discussion's reminder by default. */
+/** The talk step's reminder by default. */
 export const DEFAULT_DISCUSS_SECONDS = 180;
 
 // ---- Cards ----
@@ -118,9 +118,7 @@ export interface Settings {
   topic: string;
   /** Seconds for the word, each card play and the vote; null: no timer. */
   turnSeconds: number | null;
-  /** Seconds for each explanation; null: no timer. */
-  talkSeconds: number | null;
-  /** Seconds for the discussion; null: no timer. */
+  /** Seconds for the talk step (a reminder; strict: the vote starts); null: no timer. */
   discussSeconds: number | null;
   timerMode: TimerMode;
   /** Where the two sound cues play. */
@@ -138,7 +136,6 @@ export const DEFAULT_SETTINGS: Settings = {
   balanced: false,
   topic: '',
   turnSeconds: null,
-  talkSeconds: null,
   discussSeconds: DEFAULT_DISCUSS_SECONDS,
   timerMode: 'soft',
   sound: 'all',
@@ -166,7 +163,8 @@ export interface Play {
   auto?: boolean;
 }
 
-export type Stage = 'card' | 'word' | 'play' | 'explain' | 'discuss' | 'vote' | 'reveal';
+/** `discuss` is the talk step: the word is said, everyone talks, and the host starts the vote. */
+export type Stage = 'card' | 'word' | 'play' | 'discuss' | 'vote' | 'reveal';
 
 export interface RoundResult {
   conspirator: PlayerId;
@@ -190,15 +188,12 @@ export interface Round {
   /** Secret until the reveal: never in a view before it. */
   conspirator: PlayerId | null;
   plays: Play[];
-  /** Whose card play, explanation or (open vote) vote it is. */
+  /** Whose card play or (open vote) vote it is. */
   turn: PlayerId | null;
-  explained: PlayerId[];
   /** Secret votes: voter → accused (only "voted" in views until the reveal). */
   votes: Record<PlayerId, PlayerId>;
   /** Votes made for players (strict timer, Act for, left). */
   autoVotes: PlayerId[];
-  /** Explanations the timer or the host ended. */
-  skipped: PlayerId[];
   /** When the current step began, for its timer. */
   since: number;
   result: RoundResult | null;
@@ -272,7 +267,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     balanced: z.boolean().optional(),
     topic: z.string().max(200).optional(),
     turnSeconds: timerSeconds.optional(),
-    talkSeconds: timerSeconds.optional(),
     discussSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
     sound: z.enum(['off', 'host', 'all']).optional(),
@@ -284,8 +278,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   /** A card from your hand onto the table (the word-picker's first card, or your turn's). */
   z.object({ type: z.literal('play'), card }),
   z.object({ type: z.literal('word'), word: z.string().max(200) }),
-  /** The explainer is done (the host may end anyone's explanation). */
-  z.object({ type: z.literal('done') }),
   z.object({ type: z.literal('end-discussion') }),
   z.object({ type: z.literal('vote'), player: id }),
   z.object({ type: z.literal('next-round') }),
@@ -336,8 +328,6 @@ export interface RoundView {
   notebook: { word: string | null } | null;
   plays: Play[];
   turn: PlayerId | null;
-  explained: PlayerId[];
-  skipped: PlayerId[];
   /** Who has voted (secret votes stay secret until the reveal). */
   voted: PlayerId[];
   myVote: PlayerId | null;
