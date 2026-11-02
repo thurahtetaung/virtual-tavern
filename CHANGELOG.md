@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.87.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.2...v0.87.0) (2026-11-02)
+
+
+### Features
+
+* **red-herring:** pick each card set, grouped settings, a notebook that names your role, one talk step and no sound ([#519](https://github.com/thurahtetaung/virtual-tavern/issues/519)) ([1066f11](https://github.com/thurahtetaung/virtual-tavern/commit/1066f114c481429b326ac5a7fdb224f7deb1e268))
+
 ## [0.86.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.1...v0.86.2) (2026-11-02)
 
 
