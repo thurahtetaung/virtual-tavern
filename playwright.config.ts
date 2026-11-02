@@ -29,6 +29,7 @@ export const SHARED_STATE = [
   /starlight\.spec\.ts$/,
   /thorns[\w-]*\.spec\.ts$/,
   /cliffhanger[\w-]*\.spec\.ts$/,
+  /red-herring[\w-]*\.spec\.ts$/,
   /iconic\.spec\.ts$/,
   /stampede[\w-]*\.spec\.ts$/,
   /jeweller[\w-]*\.spec\.ts$/,
@@ -78,6 +79,7 @@ export const GAME_IDS = [
   'conveyor',
   'defuse',
   'cliffhanger',
+  'red-herring',
 ];
 
 /**
@@ -200,6 +202,10 @@ export default defineConfig({
       DEFUSE_TEST_SEED: '418',
       // Cliffhanger's spec knows every hand: titles and categories dealt in the packs' own order.
       CLIFFHANGER_TEST_DECK: '1',
+      // Red Herring's spec knows every hand and role: cards dealt in number order (the first seat
+      // holds 1–6, the second 7–12…), the first seat picks the first word, and the Conspirator
+      // sits two seats after the word-picker.
+      RED_HERRING_TEST_DEAL: '2',
       // Defuse's room specs reach lights out: 40 s after each bomb's clock starts.
       DEFUSE_TEST_LIGHTS: '40000',
     },

@@ -159,6 +159,7 @@ describe('back room over HTTP', () => {
       'conveyor',
       'defuse',
       'cliffhanger',
+      'red-herring',
     ]);
   });
 

@@ -42,6 +42,10 @@ import {
   nameGuide as nameCliffhangerGuide,
 } from '@vt/private-cliffhanger/guide';
 import {
+  guide as redHerringGuide,
+  nameGuide as nameRedHerringGuide,
+} from '@vt/private-red-herring/guide';
+import {
   inquestLabels,
   manifestGuide,
   manifestTitle,
@@ -342,6 +346,16 @@ const games: ClientGame[] = [
     ),
     stage: lazyUi(() =>
       import('@vt/private-cliffhanger/stage').then((m) => ({ default: m.CliffhangerStage })),
+    ),
+  },
+  {
+    id: 'red-herring',
+    name: 'Red Herring',
+    guide: redHerringGuide,
+    namedGuide: manifestGuide('red-herring', nameRedHerringGuide),
+    icon: '🐟',
+    Component: lazyUi(() =>
+      import('@vt/private-red-herring/ui').then((m) => ({ default: m.RedHerringGame })),
     ),
   },
 ];

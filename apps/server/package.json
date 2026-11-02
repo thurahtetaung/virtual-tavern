@@ -44,6 +44,7 @@
     "@vt/private-masquerade-originals": "workspace:*",
     "@vt/private-mosaic": "workspace:*",
     "@vt/private-nightfall": "workspace:*",
+    "@vt/private-red-herring": "workspace:*",
     "@vt/private-reverie": "workspace:*",
     "@vt/private-royal-post": "workspace:*",
     "@vt/private-seance": "workspace:*",

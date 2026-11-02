@@ -58,6 +58,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   defuse: [],
   // Titles guessed, and the face-off categories.
   cliffhanger: ['guess', 'clue'],
+  // The secret words the word-pickers wrote.
+  'red-herring': ['clue'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -77,6 +79,7 @@ const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> =
   iconic: { clue: 'Words' },
   stampede: { guess: 'Answers' },
   sketchy: { guess: 'Fake titles' },
+  'red-herring': { clue: 'Secret words' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */

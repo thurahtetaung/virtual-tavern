@@ -118,6 +118,10 @@ import type { GameFigure } from '@vt/protocol';
 //              ms; recap: round, team, genre}, turn {got, own, steals, missed, clean; recap: round,
 //              team}, steal3 {recap: round, team, gave, took}, genre {recap: round, team, genre},
 //              outcome {rounds, endReason, comeback; recap: winner, goal, behind, collectedA/B}
+//   red-herring round {caught, against, voters, pickerPoints; recap: round, word, conspirator,
+//              players}, conspirator {against, caught, points, misled; recap: round},
+//              vote {right, asConspirator, points; recap: round, target},
+//              outcome {rounds, players, caught, scoring, endReason; recap: ranking, scores}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -2256,6 +2260,62 @@ function conveyorFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function redHerringCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome':
+      out.push(['f.games', 1]);
+      out.push(['f.rounds', num(props.rounds) ?? 0]);
+      break;
+    case 'round': {
+      out.push(['f.rounds_played', 1]);
+      if (props.caught === true) out.push(['f.caught', 1]);
+      const against = num(props.against) ?? 0;
+      if (against === 0) out.push(['f.unseen', 1]);
+      out.push(['f.against', against]);
+      out.push(['f.voters', Math.max(0, (num(props.voters) ?? 0) - 1)]);
+      break;
+    }
+    case 'vote':
+      if (props.asConspirator !== true) {
+        out.push(['f.detective_votes', 1]);
+        if (props.right === true) out.push(['f.right_votes', 1]);
+      }
+      break;
+  }
+  return out;
+}
+
+function redHerringFigures(get: (metric: string) => number): GameFigure[] {
+  const rounds = get('f.rounds_played');
+  return [
+    {
+      id: 'rounds',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.rounds'), get('f.games')),
+    },
+    {
+      id: 'caught',
+      label: 'Conspirators caught',
+      kind: 'percent',
+      value: pct(get('f.caught'), rounds),
+    },
+    {
+      id: 'right-votes',
+      label: 'Detective votes that found the Conspirator',
+      kind: 'percent',
+      value: pct(get('f.right_votes'), get('f.detective_votes')),
+    },
+    {
+      id: 'unseen',
+      label: 'Conspirators with no vote at all',
+      kind: 'percent',
+      value: pct(get('f.unseen'), rounds),
+    },
+  ];
+}
+
 function cliffhangerCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2595,6 +2655,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'conveyor') return conveyorCounters(type, props);
   if (gameId === 'defuse') return defuseCounters(type, props);
   if (gameId === 'cliffhanger') return cliffhangerCounters(type, props);
+  if (gameId === 'red-herring') return redHerringCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2822,6 +2883,8 @@ export function buildFigures(
       return conveyorFigures(get);
     case 'cliffhanger':
       return cliffhangerFigures(get);
+    case 'red-herring':
+      return redHerringFigures(get);
     case 'defuse':
       return defuseFigures(get);
     case 'codenames':

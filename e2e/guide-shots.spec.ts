@@ -39,6 +39,7 @@ const PRIVATE = [
   'conveyor',
   'defuse',
   'cliffhanger',
+  'red-herring',
 ];
 const only = (process.env.GUIDE_SHOTS ?? '').split(',').filter(Boolean);
 const games = [...PUBLIC, ...PRIVATE].filter((g) => !only.length || only.includes(g));

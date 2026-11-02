@@ -175,6 +175,7 @@ const FIXED_ORDER = [
   'conveyor',
   'defuse',
   'cliffhanger',
+  'red-herring',
 ];
 
 /**
