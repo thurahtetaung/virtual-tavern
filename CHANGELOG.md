@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.86.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.1...v0.86.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **sound:** a game's only volume slider is the real volume, not half of it ([#517](https://github.com/thurahtetaung/virtual-tavern/issues/517)) ([1143d45](https://github.com/thurahtetaung/virtual-tavern/commit/1143d452f3bbda81612b84cbcc49c3436b51c28f))
+
 ## [0.86.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.0...v0.86.1) (2026-11-02)
 
 
