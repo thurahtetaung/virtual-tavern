@@ -28,8 +28,10 @@ export interface TvAudit {
 export async function auditTv(page: Page, label: string, path?: string): Promise<TvAudit> {
   const audit = await page.evaluate((name): TvAudit => {
     const visible = (el: Element) => {
-      // Under an in-room table screen the page is inert (and covered): not on screen.
-      if (el.closest('[inert]')) return false;
+      // Under an in-room table screen the page is inert and covered: not on screen. Inert content
+      // with no poster over it (the TV's read-only bomb) is on screen and counts.
+      const covered = !!document.querySelector('[data-poster]') && !el.closest('[data-poster]');
+      if (covered && el.closest('[inert]')) return false;
       const r = el.getBoundingClientRect();
       if (r.width <= 1 || r.height <= 1) return false;
       if (r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false;
@@ -71,7 +73,13 @@ export async function auditTv(page: Page, label: string, path?: string): Promise
         'a[href],button,input,select,textarea,summary,[tabindex],[contenteditable="true"]',
       ),
     ]
-      .filter((e) => !(e as HTMLButtonElement).disabled && e.tabIndex >= 0 && visible(e))
+      .filter(
+        (e) =>
+          !(e as HTMLButtonElement).disabled &&
+          e.tabIndex >= 0 &&
+          !e.closest('[inert]') &&
+          visible(e),
+      )
       .map(
         (e) =>
           `${e.tagName.toLowerCase()}:${(e.textContent ?? e.getAttribute('aria-label') ?? '').trim().slice(0, 30)}`,
