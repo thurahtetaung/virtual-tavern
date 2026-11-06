@@ -1,10 +1,11 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 
 export const GAME_ID = 'reverie';
 
 /** What the private manifest in asset storage describes. */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   back: string;
   sets: { id: string; name: string; description?: string }[];
 }

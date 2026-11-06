@@ -32,6 +32,7 @@ import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
+import { useBackroomPage } from '../lib/backroom.ts';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
 import { TableScreen } from '../components/TableScreen.tsx';
@@ -399,6 +400,8 @@ function Room({
 
   // Remember this room for "Rejoin your last room" on the landing page.
   const backroomGame = isBackroomGame(game);
+  // A back-room game's room is in the back room: its deeper surfaces.
+  useBackroomPage(backroomGame);
   // Not a playtest: it is no room to come back to.
   useEffect(() => {
     if (playtest) {

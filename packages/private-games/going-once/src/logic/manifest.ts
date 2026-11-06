@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import { type Names, PLACEHOLDER_NAMES } from './names.ts';
 
 /**
@@ -12,7 +12,7 @@ import { type Names, PLACEHOLDER_NAMES } from './names.ts';
  * a "House picture" placeholder, the buyers go by their placeholder names, the game is silent and
  * the rest falls back to emoji and plain screens.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   names?: { bank?: string; buyers?: string[] };
   house?: Record<string, string>;
   ui?: Record<string, string | string[]>;

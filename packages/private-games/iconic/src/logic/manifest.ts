@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import type { SetId } from './types.ts';
 
 /**
@@ -23,7 +23,7 @@ export interface ManifestIcon {
   art?: string;
 }
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   icons?: Record<string, ManifestIcon>;
   markers?: Partial<Record<SetId, string>>;

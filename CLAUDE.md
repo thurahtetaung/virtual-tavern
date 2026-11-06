@@ -113,6 +113,7 @@ Every back-room game follows these unless its own `CLAUDE.md` says otherwise.
 - **Rulings.** "The owner's rulings" are deliberate rule choices, tested in the game's `game.test.ts` and listed in its guide; never change one without asking.
 - **Testing.** A game's env test rig (`<ID>_TEST_*`) is ignored when `NODE_ENV=production` and set in `playwright.config.ts`, so its e2e spec knows the deal; `<ID>_ART=<folder>` serves local art to its screenshot spec (`STARLIGHT_ART`, `SHORT_FUSE_ART`, `JEWELLER_ART`, `MOSAIC_ART`, `ENCORE_ART`, `SKYFIRE_ART`, `CONVEYOR_ART`, `DEFUSE_ART`, `CLIFFHANGER_ART`, `RED_HERRING_ART`). Specs that import made-up packs or decks run in the `back-room` project.
 - First-time tips and per-player marks use `storageKey()`.
+- **Cover.** A manifest may name `cover` (16:9, 800×450), `coverFull` and `coverDarkDim` (`ManifestCover` in `packages/game-sdk/src/cover.ts`); the back-room lobby shows the cover in the game's card, and a game without one shows its emoji emblem there.
 
 ## Each game
 

@@ -1,13 +1,25 @@
-import { Button, cn } from '@vt/ui';
+import {
+  Button,
+  Chip,
+  Chips,
+  type GameCover,
+  GameCard,
+  Icon,
+  Input,
+  Slate,
+  buttonClass,
+  coverOf,
+  loadManifest,
+} from '@vt/ui';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import type { GameSummary } from '@vt/protocol';
-import { CategoryFilter, NoGamesMatch } from '../components/CategoryFilter.tsx';
-import { GameCard } from '../components/GameCard.tsx';
-import { RoomOpening } from '../components/Layout.tsx';
+import { useGameGuide } from '../components/GuideView.tsx';
+import { Layout, RoomOpening } from '../components/Layout.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
-import { doorOf, lockedLine, useBackroom } from '../lib/backroom.ts';
+import { article } from '../lib/article.ts';
+import { doorOf, lockedLine, useBackroom, useBackroomPage } from '../lib/backroom.ts';
 import { chipsOf, shows, useCategoryFilter } from '../lib/categories.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
@@ -27,6 +39,80 @@ function usePrivateGames(unlocked: boolean) {
   return games;
 }
 
+/**
+ * The game's cover from its manifest (`cover`, see `ManifestCover`), asked for only once its card
+ * nears the screen: some manifests are large, and a phone shows two or three cards at first.
+ */
+function useCover(gameId: string) {
+  const box = useRef<HTMLDivElement>(null);
+  const [cover, setCover] = useState<GameCover | null>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let live = true;
+    const load = () =>
+      void loadManifest(gameId).then((m) => {
+        if (live) setCover(coverOf(gameId, m));
+      });
+    if (typeof IntersectionObserver === 'undefined') {
+      load();
+      return () => {
+        live = false;
+      };
+    }
+    const near = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        near.disconnect();
+        load();
+      },
+      { rootMargin: '400px 0px' },
+    );
+    near.observe(el);
+    return () => {
+      live = false;
+      near.disconnect();
+    };
+  }, [gameId]);
+  return { box, cover };
+}
+
+/** One game in the lobby: its cover in the art strip (its emblem until, or without, one). */
+function BackroomGameCard({
+  game,
+  creating,
+  onCreate,
+}: {
+  game: ClientGame;
+  creating: string | null;
+  onCreate: (id: string) => void;
+}) {
+  const guide = useGameGuide(game);
+  const { box, cover } = useCover(game.id);
+  return (
+    <div ref={box} className="flex">
+      <GameCard
+        className="w-full"
+        emblem={game.icon}
+        name={game.name}
+        meta={`${guide.players} · ${guide.duration}`}
+        tagline={guide.tagline}
+        cover={cover}
+        strip
+        createAriaLabel={`Create ${article(game.name)} ${game.name} room`}
+        creating={creating === game.id}
+        disabled={creating !== null}
+        onCreate={() => onCreate(game.id)}
+        howToPlay={
+          <Link to={`/rules/${game.id}`} className={buttonClass({ variant: 'quiet' })}>
+            How to play
+          </Link>
+        }
+      />
+    </div>
+  );
+}
+
 function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean }) {
   const loaded = usePrivateGames(true);
   const chips = useMemo(() => chipsOf(loaded?.offered ?? []), [loaded]);
@@ -40,20 +126,18 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
     document.getElementById('backroom-name')?.focus(),
   );
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="space-y-6">
       {creating && <RoomOpening />}
-      <header className="space-y-1 text-center">
-        <p className="text-5xl" aria-hidden>
-          🕯️
-        </p>
-        <h1 className="font-serif text-4xl font-bold tracking-wide">The Back Room</h1>
-        <p className="text-ink-muted dark:text-amber-200/70">
-          You're on the list. Pull up a chair.
-        </p>
+      <header className="grid justify-items-center gap-1 text-center">
+        <Icon name="flame" size={32} className="text-accent-text" />
+        <h1 className="font-display text-title font-semibold">The Back Room</h1>
+        <p className="text-ink-2">You're on the list. Pull up a chair.</p>
       </header>
-      <label className="mx-auto block max-w-sm">
-        <span className="text-sm text-ink-muted dark:text-amber-200/70">Your name</span>
-        <input
+      <div className="mx-auto flex max-w-sm flex-col gap-1.5 sm:max-w-md sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+        <label htmlFor="backroom-name" className="text-small font-semibold whitespace-nowrap">
+          Your name
+        </label>
+        <Input
           id="backroom-name"
           value={name}
           maxLength={24}
@@ -61,68 +145,80 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
           onBlur={() => name.trim() && saveName(name)}
           placeholder="What should we call you?"
           autoComplete="nickname"
-          className="mt-1 h-11 w-full rounded-lg bg-card px-4 text-ink ring-1 ring-line-strong placeholder:text-ink-muted/60 focus:ring-accent dark:bg-stone-900 dark:text-amber-50 dark:ring-amber-900 dark:placeholder:text-amber-200/30 dark:focus:ring-amber-500"
+          className="sm:max-w-xs"
         />
-      </label>
-      <CategoryFilter
-        chips={chips}
-        chosen={filter.chosen}
-        onToggle={filter.toggle}
-        onClear={filter.clear}
-        backroom
-      />
-      <section aria-label="Back room games" className="grid gap-4 sm:grid-cols-2">
+      </div>
+      {chips.length > 0 && (
+        <Chips label="Filter games by category">
+          <Chip pressed={filter.chosen.length === 0} onClick={filter.clear}>
+            All
+          </Chip>
+          {chips.map((c) => (
+            <Chip
+              key={c.id}
+              pressed={filter.chosen.includes(c.id)}
+              onClick={() => filter.toggle(c.id)}
+            >
+              <span aria-hidden>{c.emoji}</span>
+              {c.name}
+            </Chip>
+          ))}
+        </Chips>
+      )}
+      {/* The registry's order keeps the mostly white covers out of one desktop row. */}
+      <section
+        aria-label="Back room games"
+        className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
+      >
         {games?.map((game) => (
-          <GameCard
+          <BackroomGameCard
             key={game.id}
             game={game}
             creating={creating}
             onCreate={(id) => void create(id)}
-            backroom
           />
         ))}
         {games?.length === 0 && filter.chosen.length > 0 && (
-          <NoGamesMatch onClear={filter.clear} backroom />
+          <Slate
+            className="col-span-full"
+            title="No game has all of those categories."
+            action={
+              <Button variant="secondary" onClick={filter.clear}>
+                Show all games
+              </Button>
+            }
+          />
         )}
         {loaded && !loaded.offered.some((g) => !g.off) && (
-          <p className="col-span-full rounded-2xl border border-dashed border-line-strong p-8 text-center text-ink-muted italic dark:border-amber-900/60 dark:text-amber-200/60">
-            Nothing back here yet… The tables are still being set.
-          </p>
+          <Slate className="col-span-full" emoji="🕯️" title="Nothing back here yet…">
+            The tables are still being set.
+          </Slate>
         )}
-        {!games && (
-          <p className="col-span-full text-center text-ink-muted dark:text-amber-200/50">…</p>
-        )}
+        {!games && <Slate kind="loading" className="col-span-full" title="Setting the tables…" />}
       </section>
       <div className="flex flex-col items-center gap-2">
         {admin ? (
-          <p className="text-sm text-ink-muted dark:text-amber-200/60" data-testid="admin-key">
+          <p className="text-small text-ink-muted" data-testid="admin-key">
             You're signed in as the admin, so the door is always open to you.
           </p>
         ) : (
-          <button
-            type="button"
-            onClick={onLock}
-            className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold text-ink-muted transition hover:bg-accent-soft hover:text-accent-text dark:text-amber-200/60 dark:hover:bg-amber-950 dark:hover:text-amber-200"
-          >
+          <Button variant="quiet" size="sm" onClick={onLock}>
+            <Icon name="lock" />
             Lock the door on this device
-          </button>
+          </Button>
         )}
-        <Link
-          to="/"
-          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:hover:text-amber-200"
-        >
-          ← Back to the tavern
-        </Link>
+        <BackLink />
       </div>
     </div>
   );
 }
 
-/**
- * Candlelight in the dark theme; a warm, dim parlour in the light one (the site's warm tokens, with
- * a stronger glow than the front room).
- */
-const BACKROOM = 'bg-page text-ink dark:bg-stone-950 dark:text-amber-100';
+const BackLink = () => (
+  <Link to="/" className={buttonClass({ variant: 'quiet', size: 'sm' })}>
+    <Icon name="arrow-left" />
+    Back to the tavern
+  </Link>
+);
 
 /** Only allow returning to pages on this site. */
 const safeNext = (next: string | null) => (next && /^\/[\w/-]*$/.test(next) ? next : null);
@@ -149,6 +245,7 @@ export function BackroomPage() {
     return () => clearTimeout(timer);
   }, [wait]);
   usePageTitle('The Back Room');
+  useBackroomPage();
 
   const knock = async (e: FormEvent) => {
     e.preventDefault();
@@ -182,55 +279,35 @@ export function BackroomPage() {
   const door = doorOf(status);
   if (door === 'member' || door === 'admin') {
     return (
-      <div
-        className={cn(
-          'flex min-h-dvh justify-center px-4 py-10',
-          BACKROOM,
-          '[background-image:radial-gradient(ellipse_at_top,rgb(180_110_40/0.2),transparent_65%)] dark:[background-image:radial-gradient(ellipse_at_top,rgb(120_53_15/0.35),transparent_65%)]',
-        )}
-      >
+      <Layout>
         <Lobby onLock={() => void lock()} admin={door === 'admin'} />
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div
-      className={cn(
-        'flex min-h-dvh flex-col items-center justify-center p-4',
-        BACKROOM,
-        '[background-image:radial-gradient(ellipse_at_center,rgb(180_110_40/0.2),transparent_65%)] dark:[background-image:radial-gradient(ellipse_at_center,rgb(120_53_15/0.35),transparent_65%)]',
-      )}
-    >
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <p className="text-6xl" aria-hidden>
-          🕯️
-        </p>
-        <h1 className="font-serif text-4xl font-bold tracking-wide">The Back Room</h1>
+    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+      <div className="grid w-full max-w-sm justify-items-center gap-4 text-center">
+        <Icon name="flame" size={40} className="text-accent-text" />
+        <h1 className="font-display text-title font-semibold">The Back Room</h1>
         {!status ? (
-          <p className="text-ink-muted dark:text-amber-200/60">…</p>
+          <Slate kind="loading" title="Listening at the door…" />
         ) : !status.open ? (
-          <p className="text-ink-muted dark:text-amber-200/70">
+          <p className="text-ink-2">
             The door is locked and nobody answers. Try again another night.
           </p>
         ) : status.unlocked ? null : (
-          <form onSubmit={(e) => void knock(e)} className="space-y-3">
+          <form onSubmit={(e) => void knock(e)} className="grid w-full gap-3">
             {locked && (
-              <p role="status" className="text-accent-text dark:text-amber-200">
+              <p role="status" className="font-semibold text-accent-text">
                 {locked}
               </p>
             )}
-            {next && (
-              <p className="text-ink-muted dark:text-amber-200/70" data-testid="invite-note">
-                Your friend's table is through this door. They know the word: ask them for it, then
-                knock and you'll go straight to their game.
-              </p>
-            )}
-            <p className="text-ink-muted dark:text-amber-200/80">Members only. What's the word?</p>
+            <p className="text-ink-2">Members only. What's the word?</p>
             <label className="sr-only" htmlFor="backroom-word">
               The word
             </label>
-            <input
+            <Input
               id="backroom-word"
               ref={input}
               type="password"
@@ -241,32 +318,34 @@ export function BackroomPage() {
                 setWord(e.target.value);
                 setRefusal(null);
               }}
-              aria-invalid={refusal !== null}
+              invalid={refusal !== null}
               aria-describedby={refusal ? 'backroom-refusal' : undefined}
-              className="h-12 w-full rounded-lg bg-card px-4 text-center text-lg tracking-widest text-ink ring-1 ring-line-strong placeholder:text-ink-muted/60 focus:ring-accent dark:bg-stone-900 dark:text-amber-50 dark:ring-amber-900 dark:placeholder:text-amber-200/30 dark:focus:ring-amber-500"
+              className="text-center tracking-widest"
               placeholder="psst…"
             />
             {refusal && (
               <p
                 id="backroom-refusal"
                 role="alert"
-                className="text-sm font-semibold text-danger-ink dark:text-rose-300"
+                className="flex items-start justify-center gap-1.5 text-small font-semibold text-danger-ink"
               >
+                <Icon name="triangle-alert" className="mt-0.5 shrink-0" />
                 {refusal}
               </p>
             )}
             <Button type="submit" size="lg" className="w-full" disabled={!word || busy || wait > 0}>
               {wait > 0 ? `Knock again in ${wait} s` : 'Knock'}
             </Button>
+            {next && (
+              <p className="text-small text-ink-2" data-testid="invite-note">
+                Your friend's table is through this door. They know the word: ask them for it, then
+                knock and you'll go straight to their game.
+              </p>
+            )}
           </form>
         )}
-        <Link
-          to="/"
-          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:hover:text-amber-200"
-        >
-          ← Back to the tavern
-        </Link>
+        <BackLink />
       </div>
-    </div>
+    </main>
   );
 }

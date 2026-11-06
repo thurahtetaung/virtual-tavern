@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
@@ -19,7 +20,7 @@ export const GAME_ID = 'inquest';
  * Card art lives at `clue/<n>.webp` and `means/<n>.webp`. Everything is optional: without it,
  * cards and tiles show as numbered placeholders.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   roleBack?: string;
   roles?: Partial<Record<RoleId, { name?: string; art?: string; text?: string }>>;
   clue?: Record<string, string>;

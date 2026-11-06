@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
@@ -39,7 +40,7 @@ export const GAME_ID = 'nightfall';
  * }
  * ```
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   sets?: Partial<Record<string, { name?: string; roles?: string[]; artifacts?: string[] }>>;
   roles?: Partial<Record<string, { name?: string; text?: string; art?: string; card?: string }>>;
   tokens?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;

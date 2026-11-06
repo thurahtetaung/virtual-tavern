@@ -186,19 +186,21 @@ test('the back room follows the light and dark themes', async ({ browser, reques
   // The page's own surface and a game card: candlelit stone in the dark theme, warm parchment and
   // cards in the light one.
   const surface = (page: Page) =>
-    lightBehind(page.getByRole('heading', { name: 'The Back Room' }), '.min-h-dvh');
+    lightBehind(page.getByRole('heading', { name: 'The Back Room' }), 'html');
   const card = (page: Page) =>
     lightBehind(
       page
         .getByRole('region', { name: 'Back room games' })
         .getByRole('heading', { name: 'Reverie' }),
-      '.rounded-2xl',
+      '[data-ui="game-card"]',
     );
 
   for (const scheme of ['light', 'dark'] as const) {
     const page = await visitor(browser, 'Hana', scheme);
     await page.goto('/backroom');
     await expect(page.getByLabel('The word')).toBeVisible();
+    // The back room's deeper surfaces, on the door as in the lobby.
+    await expect(page.locator('html')).toHaveAttribute('data-room', 'back');
     await expect.poll(() => surface(page)).toBe(scheme === 'light');
     await page.getByLabel('The word').fill(TEST_BACKROOM_WORD);
     await page.getByRole('button', { name: 'Knock' }).click();
@@ -208,3 +210,56 @@ test('the back room follows the light and dark themes', async ({ browser, reques
     await page.context().close();
   }
 });
+
+test("the back-room lobby shows each game's cover, or its emblem without one", async ({
+  browser,
+  request,
+}) => {
+  const login = await request.post('/api/admin/login', { data: { password: TEST_ADMIN_PASSWORD } });
+  const admin = login
+    .headersArray()
+    .find((h) => h.name.toLowerCase() === 'set-cookie')!
+    .value.split(';')[0]!;
+  await request.put('/api/admin/backroom/password', {
+    headers: { cookie: admin },
+    data: { password: TEST_BACKROOM_WORD },
+  });
+  const page = await visitor(browser, 'Hana', 'dark');
+  // A manifest naming a cover (a 1×1 picture stands in for it), one naming a missing cover, and
+  // the rest without one (the e2e server has no asset storage).
+  await page.route('**/api/backroom/manifest/reverie*', (route) =>
+    route.fulfill({ json: { cover: 'cover.png', coverDarkDim: true } }),
+  );
+  await page.route('**/api/backroom/manifest/hoodwink*', (route) =>
+    route.fulfill({ json: { cover: 'missing.webp' } }),
+  );
+  await page.route('**/api/backroom/assets/reverie/cover.png', (route) =>
+    route.fulfill({ contentType: 'image/png', body: Buffer.from(PIXEL, 'base64') }),
+  );
+  await page.goto('/backroom');
+  await page.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+  await page.getByRole('button', { name: 'Knock' }).click();
+  const games = page.getByRole('region', { name: 'Back room games' });
+  const card = (name: string) =>
+    games.locator('[data-ui="game-card"]').filter({ has: page.getByRole('heading', { name }) });
+  const cover = card('Reverie').locator('img');
+  await expect(cover).toHaveAttribute('src', '/api/backroom/assets/reverie/cover.png');
+  await expect.poll(() => cover.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1);
+  // A white cover is dimmed in the dark theme only.
+  await expect
+    .poll(() => cover.evaluate((img) => getComputedStyle(img).filter))
+    .toMatch(/brightness/);
+  // A cover that won't load gives way to the emblem, as a game without one shows.
+  await expect(card('Hoodwink').locator('[data-ui="game-card-emblem-strip"]')).toBeVisible();
+  await expect(card('Royal Post').locator('[data-ui="game-card-emblem-strip"]')).toBeVisible();
+  await expect(card('Royal Post').locator('img')).toHaveCount(0);
+  // Leaving the back room takes its surfaces with it.
+  await expect(page.locator('html')).toHaveAttribute('data-room', 'back');
+  await page.getByRole('link', { name: 'Back to the tavern' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-room', 'back');
+  await page.context().close();
+});
+
+/** A 1×1 PNG. */
+const PIXEL =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

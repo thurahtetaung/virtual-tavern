@@ -214,6 +214,27 @@
 }
 
 /*
+ * The back room (`<html data-room="back">`, set on /backroom and in back-room games' rooms): the
+ * same tokens, only the surfaces a shade deeper and warmer, so it feels like a smaller, dimmer room
+ * without any component changing.
+ */
+:root[data-room='back']:not([data-theme='dark']) {
+  --vt-page: #ebe1d1;
+  --vt-panel: #f4ede1;
+  --vt-sunk: #e2d7c5;
+  --vt-line: #d6c9b4;
+  --vt-lamp: rgb(180 110 40 / 0.18);
+}
+:root[data-room='back'][data-theme='dark'] {
+  --vt-page: #15100c;
+  --vt-panel: #1f1711;
+  --vt-card: #291f17;
+  --vt-sunk: #0f0b08;
+  --vt-line: #3b2d21;
+  --vt-lamp: rgb(224 150 70 / 0.16);
+}
+
+/*
  * Type. Fraunces (self-hosted from /fonts/, OFL) is the display face: page titles, game names, the
  * wordmark. Everything else is the device's own sans. `font-display: swap` shows the fallback at
  * once; the fallback faces are local Georgia and Times scaled to Fraunces' width and line metrics,

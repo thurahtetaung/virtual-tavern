@@ -339,3 +339,16 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).not.toMatch(/\{\w+\}/);
   });
 });
+
+describe('the back-room lobby order', () => {
+  // The mostly white covers (`coverDarkDim` in their manifests). Three of them in one row of the
+  // three-column desktop grid would read as a glaring white band in the dark theme.
+  const WHITE_COVERS = ['iconic', 'stampede', 'sketchy'];
+  it('never puts all the white covers in one desktop row', () => {
+    const rows = WHITE_COVERS.map((id) =>
+      Math.floor(privateGames.findIndex((g) => g.id === id) / 3),
+    );
+    expect(rows).not.toContain(-1);
+    expect(new Set(rows).size).toBeGreaterThan(1);
+  });
+});

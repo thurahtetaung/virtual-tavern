@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { Announcer } from '../logic/types.ts';
@@ -11,7 +12,7 @@ export const GAME_ID = 'sketchy';
  * file) and `names` (the announcers' names). Without it the game plays as before, silent and
  * without the original's art.
  */
-export interface SketchyManifest {
+export interface SketchyManifest extends ManifestCover {
   audio?: AudioManifest;
   jokes?: JokeTable;
   names?: { announcers?: Partial<Record<Announcer, string>> };

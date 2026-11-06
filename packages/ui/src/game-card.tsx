@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { cn } from './cn.ts';
 import { Button } from './components.tsx';
 import { ProtectedImage } from './protected-image.tsx';
@@ -11,7 +11,8 @@ export interface GameCover {
 }
 
 /**
- * A game in a list (home page, back-room lobby): its cover strip if it has one, its own emoji
+ * A game in a list (home page, back-room lobby): its cover strip if it has one (with `strip`, the
+ * strip is always there and shows the emblem until, or instead of, a cover), its own emoji
  * emblem on a 44 px tile, its name, a line of facts and its pitch, then "Create a room" (`tint`)
  * and the caller's "How to play" link (style it with `buttonClass({ variant: 'quiet' })`).
  */
@@ -21,6 +22,7 @@ export function GameCard({
   meta,
   tagline,
   cover,
+  strip = false,
   createLabel = 'Create a room',
   createAriaLabel,
   creating = false,
@@ -35,7 +37,9 @@ export function GameCard({
   /** Players and duration: "4 or more · 15–20 minutes". */
   meta?: ReactNode;
   tagline?: ReactNode;
-  cover?: GameCover;
+  cover?: GameCover | null;
+  /** Always show the 16:9 art strip, with the emblem in it while there is no cover. */
+  strip?: boolean;
   createLabel?: string;
   createAriaLabel?: string;
   /** This card's room is being opened. */
@@ -46,6 +50,9 @@ export function GameCard({
   howToPlay?: ReactNode;
   className?: string;
 }) {
+  // A cover that fails to load (after its one retry) gives way to the emblem.
+  const [failed, setFailed] = useState<string | null>(null);
+  const art = cover && cover.src !== failed ? cover : null;
   return (
     <article
       data-ui="game-card"
@@ -54,16 +61,27 @@ export function GameCard({
         className,
       )}
     >
-      {cover && (
+      {(art || strip) && (
         <div className="bg-sunk p-2.5">
-          <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
-            <ProtectedImage
-              src={cover.src}
-              alt=""
-              loading="lazy"
-              className={cn('size-full object-cover', cover.dimInDark && 'dark:brightness-[0.87]')}
-            />
-          </div>
+          {art ? (
+            <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
+              <ProtectedImage
+                src={art.src}
+                alt=""
+                loading="lazy"
+                onError={() => setFailed(art.src)}
+                className={cn('size-full object-cover', art.dimInDark && 'dark:brightness-[0.87]')}
+              />
+            </div>
+          ) : (
+            <div
+              aria-hidden
+              data-ui="game-card-emblem-strip"
+              className="grid aspect-video place-items-center rounded-lg text-5xl leading-none"
+            >
+              {emblem}
+            </div>
+          )}
         </div>
       )}
       <div className="flex flex-1 flex-col gap-2.5 p-4">

@@ -1,4 +1,4 @@
-import type { PlayerColor } from '@vt/game-sdk';
+import type { ManifestCover, PlayerColor } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 
@@ -13,7 +13,7 @@ export type LanternColor = (typeof LANTERN_COLORS)[number];
  * are Reverie's (its manifest names the sets). Every field is optional; without one the screen
  * shows its emoji.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   components?: {
     lantern?: Partial<Record<LanternColor, { light?: string; dark?: string }>>;
     firstScout?: string;
