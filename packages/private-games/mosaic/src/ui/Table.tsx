@@ -316,9 +316,7 @@ function Market({
       >
         <span className="text-xs font-semibold text-ink-muted dark:text-stone-400">Centre</span>
         {g.marker === 'centre' && <Marker art={art} size={26} />}
-        {centre.length === 0 && (
-          <span className="text-xs text-ink-muted dark:text-stone-500">empty</span>
-        )}
+        {centre.length === 0 && <span className="text-xs text-ink-muted">empty</span>}
         {centre.map((c) => {
           const n = countOf(g.centre, c);
           const body = (
@@ -757,7 +755,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           {centrePiece}
           {!(tiling && !wide) && myBoard}
           {hostTools}
-          <p className="text-center text-xs text-ink-muted dark:text-stone-500">
+          <p className="text-center text-xs text-ink-muted">
             Round {g.round} ·{' '}
             <button type="button" className="underline" onClick={() => showGuide()}>
               rules

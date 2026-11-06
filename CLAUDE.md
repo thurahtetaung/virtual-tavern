@@ -50,7 +50,7 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout. Subsyste
   - Design every game screen to fit a phone viewport without long scrolling (tabs on phones, as Enigma's Play / Clues / Chat).
 - **Drawing canvas** (`packages/game-sdk/src/drawing.ts`, `packages/ui/src/drawing.tsx`): every drawing game uses it; drawings are checked in `reduce` with `validateDrawing`, and `view()` sends only those a viewer needs.
 - **Sound panel** (`packages/ui/src/sound/`): every game with sound uses the shared per-player sliders and host controls; nothing musical plays in the lobby.
-- **Colours:** UI code uses the semantic tokens in `apps/web/src/index.css`; `light-mode.test.ts` rejects light-mode chromatic classes, and dark mode stays unchanged.
+- **Colours:** UI code uses the semantic tokens in `apps/web/src/index.css`; `light-mode.test.ts` rejects light-mode chromatic classes; in dark mode the `stone` scale follows the token ramp.
 - **Rules guides** (`src/logic/guide.ts`, shown by `GuideView.tsx`): update the guide in the same change as any rule change. Back-room guides take their names from the manifest.
 - **Room host** (`apps/server/src/rooms/manager.ts`):
   - It is game-agnostic. better-sqlite3 is synchronous, so each call runs to completion and actions on a room are naturally serialised.

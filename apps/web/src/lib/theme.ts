@@ -5,7 +5,7 @@ export type ResolvedTheme = 'light' | 'dark';
 
 const THEME_KEY = 'vt.theme';
 /** Browser-chrome colours per theme; the same values are in index.html's boot script. */
-const THEME_COLORS: Record<ResolvedTheme, string> = { light: '#f2ece2', dark: '#0c0a09' };
+const THEME_COLORS: Record<ResolvedTheme, string> = { light: '#f1ebe0', dark: '#1a1512' };
 
 const systemQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 

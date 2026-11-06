@@ -493,7 +493,7 @@ export function Table(props: TableProps) {
           </ol>
         </details>
       )}
-      <p className="text-center text-xs text-ink-muted dark:text-stone-500">
+      <p className="text-center text-xs text-ink-muted">
         Round {r.number} · {g.players.filter((p) => !p.out).length} players in
       </p>
     </div>

@@ -11,23 +11,32 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /*
- * Semantic colours, shared by the shell, `@vt/ui` and every game (`bg-card`, `ring-line`,
- * `bg-warn-soft text-warn-ink ring-warn-line`, `bg-accent text-accent-fg`…). Light mode is warm
- * and muted: a parchment page, slightly tinted panels and cards with soft borders, one deep amber
- * accent for the main action, and soft tints with coloured text for notices. Dark mode maps the
- * same names to the stock dark values the site already used, so it looks exactly as before.
+ * Semantic colours ("Lamplight"), shared by the shell, `@vt/ui` and every game (`bg-card`,
+ * `ring-line`, `bg-warn-soft text-warn-ink ring-warn-line`, `bg-accent text-accent-fg`…). Light mode
+ * is the tavern by day: a parchment page, cream panels and cards, one ember accent. Dark mode is the
+ * same room by lamplight: warm charcoal, every value opaque so contrast is measurable and tints never
+ * stack. Every pair is measured (WCAG 2.x): text ≥ 4.5, marks and input borders ≥ 3.
  *
- * Layering: page < panel < card. Notices: info (sky), warn (amber), danger (rose), success
- * (emerald), special (violet). Teams: team-a (red), team-b (blue).
+ * Layering: sunk < page < panel < card. Text: ink (body), ink-2 (labels), ink-muted (captions),
+ * ink-faint (placeholders and resting icons only, 3:1). `X` is a fill (text on it is `on-fill`, or
+ * `accent-fg` on `accent`), `X-ink` is that meaning's text and marks, `X-soft` its tinted surface and
+ * `X-line` its border. Notices: info, warn, danger, success, special. Teams: team-a (red), team-b
+ * (blue).
  */
 @theme inline {
   --color-page: var(--vt-page);
   --color-panel: var(--vt-panel);
   --color-card: var(--vt-card);
+  --color-sunk: var(--vt-sunk);
   --color-line: var(--vt-line);
   --color-line-strong: var(--vt-line-strong);
+  --color-line-input: var(--vt-line-input);
   --color-ink: var(--vt-ink);
+  --color-ink-2: var(--vt-ink-2);
   --color-ink-muted: var(--vt-ink-muted);
+  --color-ink-faint: var(--vt-ink-faint);
+  --color-on-fill: var(--vt-on-fill);
+  --color-focus: var(--vt-focus);
   --color-accent: var(--vt-accent);
   --color-accent-hover: var(--vt-accent-hover);
   --color-accent-fg: var(--vt-accent-fg);
@@ -62,50 +71,66 @@
   --color-team-b-soft: var(--vt-team-b-soft);
   --color-team-b-line: var(--vt-team-b-line);
   --color-team-b-ink: var(--vt-team-b-ink);
+  --shadow-vt-1: var(--vt-shadow-1);
+  --shadow-vt-2: var(--vt-shadow-2);
+  --shadow-vt-3: var(--vt-shadow-3);
 }
 
 :root {
-  --vt-page: oklch(94.6% 0.014 80);
-  --vt-panel: oklch(97.4% 0.009 82);
-  --vt-card: oklch(99.2% 0.005 85);
-  --vt-line: oklch(88.5% 0.018 75);
-  --vt-line-strong: oklch(80% 0.026 70);
-  --vt-ink: oklch(23% 0.008 60);
-  --vt-ink-muted: oklch(46% 0.02 60);
-  --vt-accent: oklch(55% 0.11 58);
-  --vt-accent-hover: oklch(50% 0.105 55);
-  --vt-accent-fg: oklch(99% 0.008 85);
-  --vt-accent-soft: oklch(95.5% 0.026 80);
-  --vt-accent-line: oklch(84% 0.06 75);
-  --vt-accent-text: oklch(45% 0.1 55);
-  --vt-info: oklch(50% 0.1 240);
-  --vt-info-soft: oklch(96.5% 0.014 235);
-  --vt-info-line: oklch(86% 0.04 235);
-  --vt-info-ink: oklch(39% 0.08 245);
-  --vt-warn: oklch(62% 0.12 70);
-  --vt-warn-soft: oklch(96% 0.026 85);
-  --vt-warn-line: oklch(85% 0.06 80);
-  --vt-warn-ink: oklch(41% 0.085 60);
-  --vt-danger: oklch(52% 0.15 20);
-  --vt-danger-soft: oklch(96% 0.018 15);
-  --vt-danger-line: oklch(85% 0.05 15);
-  --vt-danger-ink: oklch(42% 0.12 20);
-  --vt-success: oklch(51% 0.1 158);
-  --vt-success-soft: oklch(96% 0.02 160);
-  --vt-success-line: oklch(85% 0.05 160);
-  --vt-success-ink: oklch(39% 0.08 160);
-  --vt-special: oklch(50% 0.13 295);
-  --vt-special-soft: oklch(96% 0.016 295);
-  --vt-special-line: oklch(86% 0.04 295);
-  --vt-special-ink: oklch(40% 0.1 295);
-  --vt-team-a: oklch(52% 0.14 27);
-  --vt-team-a-soft: oklch(95.5% 0.02 25);
-  --vt-team-a-line: oklch(84% 0.06 25);
-  --vt-team-a-ink: oklch(43% 0.12 27);
-  --vt-team-b: oklch(49% 0.12 255);
-  --vt-team-b-soft: oklch(95.5% 0.018 245);
-  --vt-team-b-line: oklch(84% 0.05 245);
-  --vt-team-b-ink: oklch(40% 0.1 255);
+  --vt-page: #f1ebe0;
+  --vt-panel: #f8f4ec;
+  --vt-card: #fdfbf7;
+  --vt-sunk: #eae3d6;
+  --vt-line: #ded5c6;
+  --vt-line-strong: #c9bda9;
+  --vt-line-input: #8e8478;
+  --vt-ink: #2a2420;
+  --vt-ink-2: #5c5248;
+  --vt-ink-muted: #655b51;
+  --vt-ink-faint: #8e8478;
+  --vt-on-fill: #fff8ee;
+  --vt-focus: #9b5b22;
+  --vt-accent: #9b5b22;
+  --vt-accent-hover: #85491a;
+  --vt-accent-fg: #fff8ee;
+  --vt-accent-soft: #f3e6d3;
+  --vt-accent-line: #d9be9b;
+  --vt-accent-text: #7a4414;
+  --vt-info: #3e6a8a;
+  --vt-info-soft: #e9eff3;
+  --vt-info-line: #bbccd9;
+  --vt-info-ink: #2f5068;
+  --vt-warn: #a86a17;
+  --vt-warn-soft: #f6ead3;
+  --vt-warn-line: #e0c58f;
+  --vt-warn-ink: #6e4408;
+  --vt-danger: #a4383a;
+  --vt-danger-soft: #f6e6e4;
+  --vt-danger-line: #e3b9b6;
+  --vt-danger-ink: #7e2a2c;
+  --vt-success: #3e7a55;
+  --vt-success-soft: #e6efe7;
+  --vt-success-line: #b6d0bc;
+  --vt-success-ink: #2b5a3c;
+  --vt-special: #6b4e9e;
+  --vt-special-soft: #eee9f4;
+  --vt-special-line: #c9bbe0;
+  --vt-special-ink: #4f3a7a;
+  --vt-team-a: #b03a33;
+  --vt-team-a-soft: #f7e5e2;
+  --vt-team-a-line: #e5b6b0;
+  --vt-team-a-ink: #8a2a26;
+  --vt-team-b: #2f5ea8;
+  --vt-team-b-soft: #e4ebf5;
+  --vt-team-b-line: #b3c4e0;
+  --vt-team-b-ink: #24488a;
+  /* The lamp: one warm glow at the top of the page, the only decoration. */
+  --vt-lamp: rgb(201 141 60 / 0.14);
+  /* Elevation: three warm shadows and the "lit from above" top edge. */
+  --vt-shadow-1: 0 1px 2px rgb(70 45 20 / 0.08), 0 1px 1px rgb(70 45 20 / 0.04);
+  --vt-shadow-2: 0 4px 12px rgb(70 45 20 / 0.1), 0 1px 2px rgb(70 45 20 / 0.06);
+  --vt-shadow-3: 0 16px 40px rgb(70 45 20 / 0.18), 0 2px 6px rgb(70 45 20 / 0.08);
+  --vt-edge: inset 0 1px 0 rgb(255 255 255 / 0.6);
 }
 
 /* Plain white surfaces become a faint ivory in light mode, so cards never glare on the page. */
@@ -113,65 +138,91 @@
   --color-white: oklch(99.4% 0.004 85);
 }
 
-/* The same names, at the stock dark values the site used before the tokens existed. */
+/* The same names by lamplight: warm charcoal, opaque throughout. */
 :root[data-theme='dark'] {
-  --vt-page: var(--color-stone-950);
-  --vt-panel: color-mix(in oklab, var(--color-stone-900) 80%, transparent);
-  --vt-card: var(--color-stone-900);
-  --vt-line: var(--color-stone-800);
-  --vt-line-strong: var(--color-stone-700);
-  --vt-ink: var(--color-stone-100);
-  --vt-ink-muted: var(--color-stone-400);
-  --vt-accent: var(--color-amber-500);
-  --vt-accent-hover: var(--color-amber-400);
-  --vt-accent-fg: var(--color-stone-950);
-  --vt-accent-soft: color-mix(in oklab, var(--color-amber-500) 15%, transparent);
-  --vt-accent-line: color-mix(in oklab, var(--color-amber-500) 40%, transparent);
-  --vt-accent-text: var(--color-amber-300);
-  --vt-info: var(--color-sky-600);
-  --vt-info-soft: color-mix(in oklab, var(--color-sky-500) 10%, transparent);
-  --vt-info-line: color-mix(in oklab, var(--color-sky-500) 30%, transparent);
-  --vt-info-ink: var(--color-sky-100);
-  --vt-warn: var(--color-amber-500);
-  --vt-warn-soft: color-mix(in oklab, var(--color-amber-500) 15%, transparent);
-  --vt-warn-line: color-mix(in oklab, var(--color-amber-500) 40%, transparent);
-  --vt-warn-ink: var(--color-amber-100);
-  --vt-danger: var(--color-rose-600);
-  --vt-danger-soft: color-mix(in oklab, var(--color-rose-500) 10%, transparent);
-  --vt-danger-line: color-mix(in oklab, var(--color-rose-500) 30%, transparent);
-  --vt-danger-ink: var(--color-rose-100);
-  --vt-success: var(--color-emerald-600);
-  --vt-success-soft: color-mix(in oklab, var(--color-emerald-500) 10%, transparent);
-  --vt-success-line: color-mix(in oklab, var(--color-emerald-500) 30%, transparent);
-  --vt-success-ink: var(--color-emerald-100);
-  --vt-special: var(--color-violet-600);
-  --vt-special-soft: color-mix(in oklab, var(--color-violet-500) 10%, transparent);
-  --vt-special-line: color-mix(in oklab, var(--color-violet-500) 30%, transparent);
-  --vt-special-ink: var(--color-violet-100);
-  --vt-team-a: var(--color-red-600);
-  --vt-team-a-soft: color-mix(in oklab, var(--color-red-500) 10%, transparent);
-  --vt-team-a-line: color-mix(in oklab, var(--color-red-500) 30%, transparent);
-  --vt-team-a-ink: var(--color-red-200);
-  --vt-team-b: var(--color-blue-600);
-  --vt-team-b-soft: color-mix(in oklab, var(--color-blue-500) 10%, transparent);
-  --vt-team-b-line: color-mix(in oklab, var(--color-blue-500) 30%, transparent);
-  --vt-team-b-ink: var(--color-blue-200);
+  --vt-page: #1a1512;
+  --vt-panel: #231c17;
+  --vt-card: #2c241e;
+  --vt-sunk: #130f0c;
+  --vt-line: #3b332b;
+  --vt-line-strong: #4f4438;
+  --vt-line-input: #857968;
+  --vt-ink: #f1e9dc;
+  --vt-ink-2: #cfc4b4;
+  --vt-ink-muted: #a89b88;
+  --vt-ink-faint: #7e7365;
+  --vt-on-fill: #fff4e8;
+  --vt-focus: #e0a456;
+  --vt-accent: #e0a456;
+  --vt-accent-hover: #ecb76e;
+  --vt-accent-fg: #1e1610;
+  --vt-accent-soft: #3a2c1c;
+  --vt-accent-line: #6a5030;
+  --vt-accent-text: #f0c27a;
+  --vt-info: #3f6e90;
+  --vt-info-soft: #1e2a35;
+  --vt-info-line: #355066;
+  --vt-info-ink: #cfe2f1;
+  --vt-warn: #8a5a14;
+  --vt-warn-soft: #352a14;
+  --vt-warn-line: #6a5420;
+  --vt-warn-ink: #f4dfa6;
+  --vt-danger: #a63e3a;
+  --vt-danger-soft: #3a1f1e;
+  --vt-danger-line: #6e3733;
+  --vt-danger-ink: #f6cfcb;
+  --vt-success: #3e7a55;
+  --vt-success-soft: #1c2f23;
+  --vt-success-line: #335a41;
+  --vt-success-ink: #cfe9d7;
+  --vt-special: #6b4e9e;
+  --vt-special-soft: #2a2238;
+  --vt-special-line: #4f4070;
+  --vt-special-ink: #e2d8f3;
+  --vt-team-a: #b5453c;
+  --vt-team-a-soft: #3b1f1c;
+  --vt-team-a-line: #7a3730;
+  --vt-team-a-ink: #f7c9c3;
+  --vt-team-b: #3b6bb8;
+  --vt-team-b-soft: #1d2738;
+  --vt-team-b-line: #37507a;
+  --vt-team-b-ink: #c9daf6;
+  --vt-lamp: rgb(224 164 86 / 0.1);
+  --vt-shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.2);
+  --vt-shadow-2: 0 4px 12px rgb(0 0 0 / 0.45), 0 1px 2px rgb(0 0 0 / 0.3);
+  --vt-shadow-3: 0 16px 40px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+  --vt-edge: inset 0 1px 0 rgb(255 240 220 / 0.05);
+  /*
+   * Older `dark:*-stone-*` classes (shell, `@vt/ui` and games) paint on the same charcoal: the stone
+   * scale follows the tokens' ramp step for step (950 page, 900 card, 800 line, 700 line-strong,
+   * 400 ink-muted, 300 ink-2, 100 ink), so those surfaces keep their layering and warmth until they
+   * move onto the tokens.
+   */
+  --color-stone-50: #faf6ef;
+  --color-stone-100: #f1e9dc;
+  --color-stone-200: #e2d8c9;
+  --color-stone-300: #cfc4b4;
+  --color-stone-400: #a89b88;
+  --color-stone-500: #857968;
+  --color-stone-600: #685d50;
+  --color-stone-700: #4f4438;
+  --color-stone-800: #3b332b;
+  --color-stone-900: #2c241e;
+  --color-stone-950: #1a1512;
 }
 
 @layer base {
   html {
     color-scheme: light;
-    @apply bg-page text-ink antialiased dark:bg-stone-950 dark:text-stone-100;
+    @apply bg-page text-ink antialiased;
   }
   html[data-theme='dark'] {
     color-scheme: dark;
   }
+  /* The lamp (--vt-lamp): its strongest point sits above the header, so no text is ever on it. */
   body {
     @apply min-h-dvh;
-    background-image: radial-gradient(ellipse at top, rgb(251 191 36 / 0.12), transparent 60%);
-  }
-  html:not([data-theme='dark']) body {
-    background-image: radial-gradient(ellipse at top, rgb(217 160 70 / 0.1), transparent 60%);
+    background-image: radial-gradient(120% 60% at 50% -10%, var(--vt-lamp), transparent 60%);
   }
   h1,
   h2 {

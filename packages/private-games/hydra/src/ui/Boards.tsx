@@ -359,7 +359,7 @@ export function DeckChip({ g, c, className }: { g: GameView; c: Content; classNa
           {blue} {c.policyName('blue')}
         </span>{' '}
         /{' '}
-        <span className="text-red-700 dark:text-red-400">
+        <span className="text-red-700 dark:text-red-300">
           {red} {c.policyName('red')}
         </span>
       </span>

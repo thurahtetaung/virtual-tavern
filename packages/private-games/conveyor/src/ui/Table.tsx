@@ -338,9 +338,7 @@ function Others({
         <span
           className={cn(
             'text-xs',
-            p.done
-              ? 'text-success-ink dark:text-emerald-300'
-              : 'text-ink-muted dark:text-stone-500',
+            p.done ? 'text-success-ink dark:text-emerald-300' : 'text-ink-muted',
           )}
         >
           {p.done && compact ? <span aria-label="picked">✓</span> : p.done ? '✓ picked' : '…'}
@@ -422,7 +420,7 @@ function TrayLine({ p, g, art }: { p: PlayerView; g: GameView; art: Art }) {
   const order = fullMenu(g.menu) as string[];
   const items = groups(p.tray, order);
   if (!items.length && !p.desserts.length)
-    return <span className="text-xs text-ink-muted dark:text-stone-500">Nothing yet</span>;
+    return <span className="text-xs text-ink-muted">Nothing yet</span>;
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {items.map(([t, cards]) => (

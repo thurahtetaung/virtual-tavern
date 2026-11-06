@@ -400,7 +400,7 @@ function FloorLine({
         className={cn(
           'ml-1 self-center font-bold tabular-nums',
           cell < 14 ? 'text-xs' : 'text-sm',
-          cost ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted dark:text-stone-500',
+          cost ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted',
           cracked && cost !== 0 && 'mo-pop',
         )}
       >

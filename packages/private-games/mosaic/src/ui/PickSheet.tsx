@@ -243,9 +243,7 @@ export function PickSheet({
                       )}
                       <span
                         className={
-                          p.penalty
-                            ? 'text-danger-ink dark:text-rose-300'
-                            : 'text-ink-muted dark:text-stone-500'
+                          p.penalty ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted'
                         }
                       >
                         {p.penalty ? `${p.penalty} now` : 'no cost'}

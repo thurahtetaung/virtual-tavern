@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { OUT, contrast, parseOklch, render, tailwindTheme } from './light-palette.mjs';
+import { OUT, contrast, parseHex, parseOklch, render, tailwindTheme } from './light-palette.mjs';
 
 const css = readFileSync(new URL('../apps/web/src/index.css', import.meta.url), 'utf8');
 
@@ -8,7 +8,10 @@ const css = readFileSync(new URL('../apps/web/src/index.css', import.meta.url), 
 function lightTokens() {
   const block = /^:root \{([^}]*)\}/m.exec(css)?.[1] ?? '';
   return Object.fromEntries(
-    [...block.matchAll(/--vt-([\w-]+):\s*(oklch\([^)]*\))/g)].map((m) => [m[1], parseOklch(m[2])]),
+    [...block.matchAll(/--vt-([\w-]+):\s*(oklch\([^)]*\)|#[\da-fA-F]{3,6})\s*;/g)].map((m) => [
+      m[1],
+      m[2].startsWith('#') ? parseHex(m[2]) : parseOklch(m[2]),
+    ]),
   );
 }
 
@@ -26,6 +29,9 @@ describe('light palette', () => {
       ['ink-muted', 'page'],
       ['ink-muted', 'panel'],
       ['ink-muted', 'card'],
+      ['ink-muted', 'sunk'],
+      ['ink-2', 'page'],
+      ['ink-2', 'sunk'],
       ['accent-fg', 'accent'],
       ['accent-fg', 'accent-hover'],
       ['accent-text', 'accent-soft'],
@@ -43,8 +49,14 @@ describe('light palette', () => {
       if (ratio < 4.5) low.push(`${fg} on ${bg}: ${ratio.toFixed(2)}`);
     }
     for (const fill of ['danger', 'success', 'info', 'special', 'team-a', 'team-b']) {
-      const ratio = contrast(white, t[fill]);
-      if (ratio < 4.5) low.push(`white on ${fill}: ${ratio.toFixed(2)}`);
+      for (const [name, fg] of [
+        ['white', white],
+        ['on-fill', t['on-fill']],
+      ]) {
+        expect(fg, name).toBeDefined();
+        const ratio = contrast(fg, t[fill]);
+        if (ratio < 4.5) low.push(`${name} on ${fill}: ${ratio.toFixed(2)}`);
+      }
     }
     expect(low).toEqual([]);
   });

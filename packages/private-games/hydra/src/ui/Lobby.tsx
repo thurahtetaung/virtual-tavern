@@ -163,7 +163,7 @@ export function Lobby({
                 {n - reds} {c.names.blues}
               </b>{' '}
               against{' '}
-              <b className="text-red-700 dark:text-red-400">
+              <b className="text-red-700 dark:text-red-300">
                 {reds - 1} {reds - 1 === 1 ? c.names.red : c.names.reds} + {c.names.leader}
               </b>
               .{' '}

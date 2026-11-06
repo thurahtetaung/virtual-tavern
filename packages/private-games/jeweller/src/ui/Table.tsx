@@ -156,7 +156,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
               'flex h-4 min-w-6 items-center justify-center rounded-sm text-[11px] font-black tabular-nums ring-1',
               p.bonuses[g]
                 ? 'bg-card text-ink ring-line dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600'
-                : 'text-ink-muted ring-transparent dark:text-stone-500',
+                : 'text-ink-muted ring-transparent',
             )}
             title="Cards (lasting discount)"
           >
@@ -1295,7 +1295,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           </div>
         )}
         <div className="lg:hidden">{log(false)}</div>
-        <p className="text-center text-xs text-ink-muted dark:text-stone-500">
+        <p className="text-center text-xs text-ink-muted">
           Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
           {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
           <button type="button" className="underline" onClick={() => showGuide()}>
