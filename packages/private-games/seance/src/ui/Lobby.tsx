@@ -176,12 +176,12 @@ export function Lobby({
           ))}
         </ul>
         {me && (
-          <div className="flex flex-wrap gap-2">
+          // Side by side, so the two 44 px buttons take one row of a phone's lobby.
+          <div className="grid grid-cols-2 gap-2">
             <Button
               id="seance-sit"
               variant="secondary"
               size="sm"
-              className="min-h-10"
               onClick={() => void act({ type: 'sit', playing: !me.playing })}
             >
               {me.playing ? 'Stand up (watch)' : 'Take a seat'}
@@ -190,7 +190,6 @@ export function Lobby({
               <Button
                 variant={me.volunteer ? 'primary' : 'secondary'}
                 size="sm"
-                className="min-h-10"
                 aria-pressed={me.volunteer}
                 onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
               >

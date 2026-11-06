@@ -1,4 +1,5 @@
 import { cn } from './cn.ts';
+import { FOCUS_RING, Select } from './components.tsx';
 
 export type TimerMode = 'soft' | 'strict';
 
@@ -60,11 +61,11 @@ export function TimerSettings({
 
   const select = (key: 'clueSeconds' | 'guessSeconds', label: string, help: string) => (
     <label className="block">
-      <span className="text-sm font-semibold">{label}</span>
-      <span className="block text-xs text-ink-muted">{help}</span>
+      <span className="text-small font-semibold text-ink">{label}</span>
+      <span className="block text-caption text-ink-muted">{help}</span>
       {editable ? (
-        <select
-          className="mt-1 min-h-11 w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+        <Select
+          className="mt-1.5"
           value={values[key] ?? ''}
           onChange={(e) =>
             onChange({ [key]: e.target.value === '' ? null : Number(e.target.value) })
@@ -75,7 +76,7 @@ export function TimerSettings({
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <span className="mt-1 block">{timerLabel(values[key])}</span>
       )}
@@ -105,14 +106,15 @@ export function TimerSettings({
                 aria-pressed={current === m.mode}
                 onClick={() => onChange({ timerMode: m.mode })}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-left ring-1 transition',
+                  'min-h-11 w-full rounded-lg px-3 py-2 text-left ring-1 transition-colors duration-[120ms]',
+                  FOCUS_RING,
                   current === m.mode
-                    ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                    : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
+                    ? 'bg-accent-soft ring-2 ring-accent'
+                    : 'bg-card ring-line hover:bg-panel',
                 )}
               >
                 <span className="block font-semibold">{m.title}</span>
-                <span className="block text-xs text-ink-muted">{m.help}</span>
+                <span className="block text-caption text-ink-muted">{m.help}</span>
               </button>
             ))}
           </div>

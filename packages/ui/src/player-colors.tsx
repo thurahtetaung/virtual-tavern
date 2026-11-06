@@ -118,14 +118,14 @@ export function ColorPicker({
             title={holder ? `${name}: ${holder}` : name}
             disabled={disabled}
             onClick={() => onPick(c)}
-            className="grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+            className="grid size-11 place-items-center rounded-full focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:opacity-50"
           >
             <span
               className={cn(
                 'grid size-8 place-items-center rounded-full',
                 RING,
                 PLAYER_DOT[c],
-                mine && 'ring-2 ring-ink ring-offset-2 ring-offset-card dark:ring-white',
+                mine && 'ring-2 ring-ink ring-offset-2 ring-offset-card',
                 holder && !mine && 'opacity-40',
               )}
             >

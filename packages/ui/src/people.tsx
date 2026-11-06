@@ -1,15 +1,13 @@
 import type { SpectatorPrompt } from '@vt/game-sdk';
 import { createContext, useContext, useEffect, useRef } from 'react';
 import { cn } from './cn.ts';
+import { Badge } from './components.tsx';
+import { Icon } from './icon.tsx';
 import { PlayerDot, usePlayerColor } from './player-colors.tsx';
 
-/** The 👑 every player list puts after the host's name. */
+/** The crown every player list puts after the host's name. */
 export function HostCrown() {
-  return (
-    <span role="img" aria-label="host">
-      👑
-    </span>
-  );
+  return <Icon name="crown" size={16} label="host" className="text-accent-text" />;
 }
 
 /**
@@ -19,8 +17,8 @@ export function HostCrown() {
 export const BotNames = createContext<ReadonlySet<string>>(new Set());
 
 /**
- * A player's name as every list shows it: their colour's dot before it, 👑 for the host, "(you)",
- * and a muted "offline" while their browser is away, so nobody waits on someone who has gone.
+ * A player's name as every list shows it: their colour's dot before it, a crown for the host, "(you)",
+ * and a muted name and an "offline" tag while their browser is away, so nobody waits on someone who has gone.
  * The dot comes after the name in the markup, so screen readers say "Leo, teal".
  */
 export function PlayerTag({
@@ -42,8 +40,8 @@ export function PlayerTag({
   const bot = useContext(BotNames).has(name);
   const color = usePlayerColor(name);
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
-      <span className={cn('truncate', offline && 'opacity-60')}>{name}</span>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 font-medium', className)}>
+      <span className={cn('truncate', offline && 'text-ink-muted')}>{name}</span>
       {dot && color && <PlayerDot color={color} className="order-first mr-0.5" />}
       {bot && (
         <span role="img" aria-label="bot">
@@ -51,12 +49,8 @@ export function PlayerTag({
         </span>
       )}
       {host && <HostCrown />}
-      {you && <span className="text-xs text-ink-muted">(you)</span>}
-      {offline && (
-        <span className="rounded-full bg-stone-200 px-1.5 text-[11px] font-medium text-stone-600 dark:bg-stone-700 dark:text-stone-300">
-          offline
-        </span>
-      )}
+      {you && <span className="text-caption font-normal text-ink-muted">(you)</span>}
+      {offline && <Badge>offline</Badge>}
     </span>
   );
 }
