@@ -1,12 +1,13 @@
 import {
   Fragment,
   type ReactNode,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
-import { cn } from './cn.ts';
+import { Tabs, tabPanelProps } from './tabs.tsx';
 
 /** Wider screens (Tailwind's `lg`) show the whole end screen at once, as they always have. */
 const WIDE = '(min-width: 1024px)';
@@ -87,6 +88,7 @@ export function EndTabs({
 }) {
   const parts = tabs.filter((t): t is EndTab => !!t);
   const isWide = useWideScreen();
+  const id = useId();
   const [chosen, setChosen] = useState(parts[0]?.id ?? '');
   const current = parts.find((t) => t.id === chosen) ?? parts[0];
   const { box, inner } = useFitToScreen(!isWide && parts.length > 1, current?.id ?? '');
@@ -100,43 +102,18 @@ export function EndTabs({
     );
   return (
     <>
-      <div
-        role="tablist"
-        aria-label={label}
-        data-testid={testId}
-        className={cn(
-          'flex shrink-0 gap-1 rounded-lg bg-page p-1 dark:bg-stone-900 [&>*]:min-w-0 [&>*]:flex-1',
-          className,
-        )}
-      >
-        {parts.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            type="button"
-            aria-selected={t.id === current?.id}
-            onClick={() => setChosen(t.id)}
-            data-testid={`${testId}-${t.id}`}
-            className={cn(
-              'truncate rounded-md py-1.5 font-semibold',
-              // More parts share a phone's width: smaller labels keep every word whole.
-              parts.length > 4
-                ? 'px-0.5 text-[11px]'
-                : parts.length > 3
-                  ? 'px-1 text-xs'
-                  : 'px-1 text-sm',
-              t.id === current?.id
-                ? 'bg-card shadow-sm dark:bg-stone-700'
-                : 'text-ink-muted dark:text-stone-400',
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        id={id}
+        label={label}
+        testId={testId}
+        tabs={parts.map((t) => ({ id: t.id, label: t.label }))}
+        value={current?.id ?? ''}
+        onChange={setChosen}
+        className={className}
+      />
       <div
         ref={box}
-        role="tabpanel"
+        {...tabPanelProps(id, current?.id ?? '')}
         aria-label={current?.label}
         className="min-w-0 overflow-y-auto overscroll-contain"
       >

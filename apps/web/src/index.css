@@ -417,3 +417,87 @@
     opacity: 0.6;
   }
 }
+
+/* The urgent countdown (@vt/ui Countdown): a 1 s ring pulse that moves a shadow, never the digits'
+   opacity, so they keep their contrast mid-pulse. It only starts when motion is welcome. */
+@keyframes vt-ring {
+  50% {
+    box-shadow: 0 0 0 4px var(--vt-danger-line);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vt-urgent {
+    animation: vt-ring 1s ease-in-out infinite;
+  }
+}
+
+/* A phone sheet (@vt/ui Modal) slides up from the bottom edge. */
+@keyframes vt-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 639px) {
+  .vt-sheet[open] {
+    animation: vt-sheet-in 240ms ease-out;
+  }
+}
+
+/* Range sliders (@vt/ui sound panel): a 44 px tall target, a 6 px track and a 24 px thumb. */
+.vt-range {
+  appearance: none;
+  height: 44px;
+  background: transparent;
+  cursor: pointer;
+}
+.vt-range:focus-visible {
+  outline: 3px solid var(--vt-focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.vt-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--vt-accent) var(--vt-fill, 50%),
+    var(--vt-line-strong) var(--vt-fill, 50%)
+  );
+}
+.vt-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--vt-line-strong);
+}
+.vt-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--vt-accent);
+}
+.vt-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: 9999px;
+  background: var(--vt-card);
+  border: 2px solid var(--vt-accent);
+  box-shadow: var(--vt-shadow-1);
+}
+.vt-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--vt-card);
+  border: 2px solid var(--vt-accent);
+  box-shadow: var(--vt-shadow-1);
+}
+
+/* Inside a room, the page keeps room at its foot for the fixed sticky bar and tab bar (their
+   heights are set while they are on screen), so they never cover the last of the content. */
+.vt-room-main {
+  padding-bottom: calc(1.5rem + var(--vt-sticky-h, 0px) + var(--vt-tabbar-h, 0px));
+}

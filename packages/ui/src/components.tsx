@@ -276,25 +276,65 @@ export function Notice({
   );
 }
 
-/** Highlighted "what should I do now?" message for newcomers: a centred `Notice`. */
+/**
+ * The status line: the one line under the room's header that says what is happening now ("Waiting
+ * for: Ana, Ben"). `me` is the viewer's own move: the accent's soft surface, bolder, with a hand.
+ * It replaces any separate "your turn" notice.
+ */
+export function StatusLine({
+  children,
+  me = false,
+  icon,
+  dense = false,
+  className,
+}: {
+  children: ReactNode;
+  /** It is the viewer's move. */
+  me?: boolean;
+  /** An icon for a neutral line (the `me` line always has the hand). */
+  icon?: IconName;
+  /** Less padding on phones, for game screens that must fit one screen. */
+  dense?: boolean;
+  className?: string;
+}) {
+  const name = me ? 'hand' : icon;
+  return (
+    <div
+      role="status"
+      data-ui="status"
+      data-me={me || undefined}
+      className={join(
+        'flex items-start gap-2.5 rounded-xl border px-3.5 leading-snug',
+        // Phones keep the line as snug as the screen needs; 16 px from `sm` up.
+        dense ? 'py-1.5 sm:py-2.5' : 'py-2 sm:py-2.5',
+        'text-small sm:text-body',
+        me
+          ? 'border-accent-line bg-accent-soft font-semibold text-accent-text'
+          : 'border-line bg-panel text-ink-2',
+        className,
+      )}
+    >
+      {name && <Icon name={name} className="mt-px sm:size-6" />}
+      <span className="min-w-0 flex-1">{children}</span>
+    </div>
+  );
+}
+
+/** The "what should I do now?" line: a `StatusLine`, the viewer's own when `tone` is `action`. */
 export function Hint({
   children,
   tone = 'neutral',
   dense = false,
 }: {
   children: ReactNode;
-  /** `action` (your move) is the warm notice; `neutral` the informational one. */
+  /** `action` (your move) is the `me` status line; `neutral` the plain one. */
   tone?: 'neutral' | 'action';
   dense?: boolean;
 }) {
   return (
-    <Notice
-      tone={tone === 'action' ? 'warn' : 'info'}
-      dense={dense}
-      className={join('text-center sm:text-body', tone === 'action' && 'font-semibold')}
-    >
+    <StatusLine me={tone === 'action'} dense={dense}>
       {children}
-    </Notice>
+    </StatusLine>
   );
 }
 

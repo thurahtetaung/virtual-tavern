@@ -1,6 +1,7 @@
-import type { KeyboardEvent, ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { cn } from './cn.ts';
 import { Icon, type IconName } from './icon.tsx';
+import { useReservedHeight } from './reserve.ts';
 
 export interface TabItem<T extends string = string> {
   id: T;
@@ -134,7 +135,8 @@ export interface TabBarItem<T extends string = string> {
 /**
  * A phone game's bottom navigation: fixed to the bottom of the screen, 56 px plus the safe area,
  * each tab an icon over a 12 px label, the current one in the accent with a mark on top. Games
- * opt in; `fixed={false}` lays it out in place (the component sheet).
+ * opt in; `fixed={false}` lays it out in place (the component sheet). While fixed and shown, the
+ * room keeps its height free at the foot of the page, and the sticky bar sits on top of it.
  */
 export function TabBar<T extends string>({
   id,
@@ -153,8 +155,11 @@ export function TabBar<T extends string>({
   fixed?: boolean;
   className?: string;
 }) {
+  const bar = useRef<HTMLDivElement>(null);
+  useReservedHeight('--vt-tabbar-h', bar, fixed);
   return (
     <div
+      ref={bar}
       role="tablist"
       aria-label={label}
       onKeyDown={(e) => arrowKeys(e, items, value, onChange)}

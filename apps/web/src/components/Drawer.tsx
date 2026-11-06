@@ -1,4 +1,4 @@
-import { Button } from '@vt/ui';
+import { Button, Icon } from '@vt/ui';
 import { type ReactNode, useEffect, useId, useRef } from 'react';
 
 /** Side sheet built on <dialog> (focus trap, Esc to close, backdrop for free). */
@@ -28,14 +28,14 @@ export function Drawer({
       // A dialog opened inside this one (a card sheet) closes too, and React bubbles its event.
       onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-xl bg-stone-50 p-0 text-stone-900 backdrop:bg-black/40 dark:bg-stone-900 dark:text-stone-100"
+      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-xl border-l border-line bg-page p-0 text-ink shadow-vt-3 backdrop:bg-black/40"
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-stone-200 bg-stone-50 px-4 py-2 dark:border-stone-800 dark:bg-stone-900">
-        <h2 id={titleId} className="text-xl font-bold">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-line bg-page px-4 py-2">
+        <h2 id={titleId} className="text-heading font-semibold">
           {title}
         </h2>
-        <Button variant="ghost" size="icon" className="-mr-2" onClick={onClose} aria-label="Close">
-          ✕
+        <Button variant="quiet" size="icon" className="-mr-2" onClick={onClose} aria-label="Close">
+          <Icon name="x" />
         </Button>
       </div>
       <div className="p-4">{children}</div>

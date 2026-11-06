@@ -1,5 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
-import { Button, Modal } from '@vt/ui';
+import { Button, Icon, Modal } from '@vt/ui';
 import { useCallback, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import { Stepper, useGameGuide } from './GuideView.tsx';
@@ -117,7 +117,7 @@ export function IntroButton({
         aria-label="New here? The game in 30 seconds"
         onClick={() => setSheet(true)}
       >
-        <span aria-hidden>👋</span>
+        <Icon name="info" size={24} />
         <span className={labelClassName}>New?</span>
       </Button>
       <Modal open={sheet} onClose={() => setSheet(false)} title={`${game.name} in 30 seconds`}>
