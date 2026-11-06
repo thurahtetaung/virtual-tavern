@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cn } from './cn.ts';
+import { Icon } from './icon.tsx';
 
 /** Whole seconds from `now` (server time, ms) until `deadline`, never below 0. */
 export const secondsUntil = (deadline: number, now: number) =>
@@ -92,26 +93,36 @@ export function Countdown({
             ? time
             : `${left} seconds left${label ? ` ${label}` : ''}${caption ? `, ${caption}` : ''}`
         }
+        data-ui="countdown"
+        data-urgent={urgent || undefined}
         className={cn(
-          'inline-flex min-w-16 flex-wrap items-baseline justify-center gap-x-1.5 rounded-lg px-2 py-1',
+          'inline-flex min-w-16 flex-wrap items-center justify-center gap-x-1.5 rounded-lg border px-2.5 py-1',
           urgent
-            ? 'animate-pulse bg-danger text-white motion-reduce:animate-none dark:bg-rose-600'
+            ? // The ring pulse (index.css) moves a shadow, never the digits' opacity.
+              'vt-urgent border-danger bg-danger text-on-fill'
             : expired
-              ? 'bg-warn-soft text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
-              : 'bg-panel text-stone-800 ring-1 ring-line dark:bg-stone-800 dark:ring-0 dark:text-stone-100',
+              ? 'border-warn-line bg-warn-soft text-warn-ink'
+              : 'border-line bg-card text-ink shadow-vt-1',
         )}
       >
-        <span className={cn('font-bold tabular-nums', expired ? 'text-base' : 'font-mono text-lg')}>
-          ⏱ {time}
+        <Icon name="clock" size={16} className="self-center" />
+        <span
+          className={cn(
+            'leading-none font-semibold tabular-nums',
+            expired ? 'text-body' : 'text-num',
+          )}
+        >
+          {time}
         </span>
-        {label && !expired && <span className="text-xs font-medium sm:text-sm">{label}</span>}
+        {label && !expired && (
+          <span className={cn('text-caption font-medium', !urgent && 'text-ink-muted')}>
+            {label}
+          </span>
+        )}
       </span>
       {caption && (
         <span
-          className={cn(
-            'text-xs',
-            tone === 'dark' ? 'text-stone-300' : 'text-stone-600 dark:text-stone-400',
-          )}
+          className={cn('text-xs', tone === 'dark' ? 'text-stone-300' : 'text-ink-muted')}
           aria-hidden
         >
           {caption}
@@ -130,7 +141,7 @@ export function TimeoutNote({ children, className }: { children: string; classNa
     <p
       role="status"
       className={cn(
-        'rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
+        'rounded-xl border border-info-line bg-info-soft px-3 py-2 text-small text-info-ink',
         className,
       )}
     >

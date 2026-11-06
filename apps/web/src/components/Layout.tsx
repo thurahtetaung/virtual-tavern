@@ -10,10 +10,23 @@ const NAV_LINK =
  * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
  * footer tagline make way so the table fits a phone screen.
  */
-export function Layout({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+export function Layout({
+  children,
+  wide = false,
+  room = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  /**
+   * A game room: on phones the site header makes way for the room's own (its 56 px go to the
+   * table; the theme switch moves into the Players drawer), and the page keeps the height of the
+   * fixed sticky bar and tab bar free at its foot.
+   */
+  room?: boolean;
+}) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line">
+      <header className={`${room ? 'max-sm:hidden ' : ''}border-b border-line`}>
         <div
           className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}
         >
@@ -38,7 +51,9 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
           </nav>
         </div>
       </header>
-      <main className={`mx-auto w-full flex-1 px-4 py-6 ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}>
+      <main
+        className={`mx-auto w-full flex-1 px-4 ${room ? 'vt-room-main pt-4 sm:pt-6' : 'py-6'} ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}
+      >
         {children}
       </main>
       {!wide && (
@@ -65,7 +80,7 @@ const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
  * choice can always be undone, and every tap but that last one visibly changes the page. It shows
  * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
-function ThemeSwitch() {
+export function ThemeSwitch() {
   const { theme, resolved, setTheme } = useTheme();
   const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
   const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';

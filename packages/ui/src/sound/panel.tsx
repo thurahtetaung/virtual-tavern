@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { cn } from '../cn.ts';
-import { Button } from '../components.tsx';
+import { Button, FoldSummary } from '../components.tsx';
+import { Icon } from '../icon.tsx';
 import { Modal } from '../modal.tsx';
 import type { PreviewHandle } from './engine.ts';
 import {
@@ -152,7 +153,9 @@ export function SoundSliders({
               }}
               aria-valuetext={value === 0 ? 'off' : pct(value)}
               data-testid={`sound-slider-${key}`}
-              className="h-11 min-w-0 flex-1 cursor-pointer accent-accent"
+              // The filled part of the track (WebKit draws it from this; Firefox has its own).
+              style={{ '--vt-fill': `${Math.round(value * 100)}%` } as CSSProperties}
+              className="vt-range min-w-0 flex-1"
             />
             <span className="w-11 shrink-0 text-right text-xs text-ink-muted tabular-nums">
               {value === 0 ? 'Off' : pct(value)}
@@ -304,13 +307,10 @@ export function LobbySound({
   const mine = sections[0];
   const any = sections.some((s) => s.channels.length);
   return (
-    <details
-      data-testid="lobby-sound"
-      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
-    >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden">
-        <span className="shrink-0 font-semibold">
-          <span aria-hidden>{any && !silent(sections) ? '🔊 ' : '🔇 '}</span>
+    <details data-testid="lobby-sound" className="group rounded-xl bg-panel ring-1 ring-line">
+      <FoldSummary>
+        <span className="flex shrink-0 items-center gap-2 font-semibold">
+          <Icon name={any && !silent(sections) ? 'volume-2' : 'volume-x'} />
           Sound
         </span>
         <span className="min-w-0 flex-1 truncate text-ink-muted" data-testid="lobby-sound-summary">
@@ -323,13 +323,7 @@ export function LobbySound({
               ? 'Table screen volume'
               : note}
         </span>
-        <span
-          aria-hidden
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-        >
-          ▾
-        </span>
-      </summary>
+      </FoldSummary>
       <div className="px-4 pb-4">
         <SoundSections sections={sections} note={note} />
         {children}
@@ -364,7 +358,7 @@ export function SoundButton({
         title="Sound"
         data-testid={testId}
       >
-        <span aria-hidden>{off ? '🔇' : '🔊'}</span>
+        <Icon name={off ? 'volume-x' : 'volume-2'} />
         <span className="sr-only">Sound volume</span>
       </Button>
       <Modal

@@ -1,9 +1,9 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Button, RefusalSlot } from '@vt/ui';
+import { Button, StickyBar } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CodenamesAction } from '../logic/types.ts';
 
-/** Where the server's refusal of a clue shows, right under the form. */
+/** Where the server's refusal of a clue shows: with the form (in the sticky bar on phones). */
 const CLUE_ANCHOR = 'codenames-clue';
 
 const COUNTS = Array.from({ length: 9 }, (_, i) => i + 1);
@@ -40,14 +40,17 @@ export function ClueForm({ act, max }: Props) {
     setBusy(false);
   };
 
+  // Phones keep the form in the sticky bar, with the board above it: the word and Give clue on one
+  // row, the numbers under them, and the labels for screen readers only (the status line and the
+  // placeholder say what to do).
   return (
-    <>
+    <StickyBar fixed refusal={CLUE_ANCHOR}>
       <form
         onSubmit={(e) => void submit(e)}
-        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+        className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row sm:items-end sm:gap-3"
       >
-        <label className="flex-1">
-          <span className="text-sm font-semibold">Your clue (one word)</span>
+        <label className="min-w-0 sm:flex-1">
+          <span className="text-sm font-semibold max-sm:sr-only">Your clue (one word)</span>
           <input
             ref={input}
             value={word}
@@ -56,7 +59,7 @@ export function ClueForm({ act, max }: Props) {
             aria-describedby={spaced ? 'clue-one-word' : undefined}
             maxLength={32}
             placeholder="e.g. Ocean"
-            className="mt-1 block w-full rounded-lg bg-white px-3 py-2 text-lg font-semibold uppercase ring-1 ring-stone-300 placeholder:normal-case placeholder:font-normal dark:bg-stone-800 dark:ring-stone-600"
+            className="block h-12 w-full rounded-lg sm:mt-1 sm:h-auto bg-white px-3 py-2 text-lg font-semibold uppercase ring-1 ring-stone-300 placeholder:normal-case placeholder:font-normal dark:bg-stone-800 dark:ring-stone-600"
           />
           {spaced && (
             <span id="clue-one-word" className="mt-1 block text-sm text-red-700 dark:text-red-400">
@@ -64,11 +67,11 @@ export function ClueForm({ act, max }: Props) {
             </span>
           )}
         </label>
-        <fieldset>
-          <legend className="text-sm font-semibold">
+        <fieldset className="col-span-2 row-start-2 min-w-0">
+          <legend className="text-sm font-semibold max-sm:sr-only">
             How many of your agents does it point to?
           </legend>
-          <div className="mt-1 grid grid-cols-9 gap-1">
+          <div className="grid grid-cols-9 gap-1 sm:mt-1">
             {COUNTS.map((c) => (
               <button
                 key={c}
@@ -92,12 +95,12 @@ export function ClueForm({ act, max }: Props) {
         <Button
           type="submit"
           size="lg"
+          className="max-sm:h-12 max-sm:min-h-12 max-sm:px-4 max-sm:text-body"
           disabled={!clue || spaced || count === null || busy || count > max}
         >
           {count === null && clue && !spaced ? 'Pick a number' : 'Give clue'}
         </Button>
       </form>
-      <RefusalSlot anchor={CLUE_ANCHOR} />
-    </>
+    </StickyBar>
   );
 }

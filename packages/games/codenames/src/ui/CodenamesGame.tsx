@@ -8,6 +8,9 @@ import {
   RefusalSlot,
   StickyBar,
   Superlatives,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   cn,
   revealElement,
   useSpectatorPrompt,
@@ -31,6 +34,15 @@ import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 import { Teams } from './Teams.tsx';
 
 export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
+
+/** Phones in play: the board, the log and the teams one at a time, from the tab bar. */
+type PlayTab = 'board' | 'log' | 'teams';
+const PLAY_TABS_ID = 'codenames-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'board', label: 'Board', icon: 'layout-grid' },
+  { id: 'log', label: 'Log', icon: 'scroll-text' },
+  { id: 'teams', label: 'Teams', icon: 'users' },
+];
 
 /** The seat controls a "Take a seat" link leads to. */
 const TEAMS_ID = 'codenames-teams';
@@ -190,6 +202,11 @@ function InGame({
 
   const result = latestResult(view);
   const wide = useWideScreen();
+  // Seated players on phones and tablets get the tab bar while the game is on; watchers keep
+  // everything on one page, where "Take a seat" leads them to the teams.
+  const tabbed = !wide && view.phase === 'playing' && me?.team != null;
+  const [tab, setTab] = useState<PlayTab>('board');
+  const shown: PlayTab | null = tabbed ? tab : null;
   // The banner also says when the timer, a forfeit or the host ended a turn.
 
   const guess = async () => {
@@ -283,7 +300,14 @@ function InGame({
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
       {confirmDialog}
-      <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
+      <div
+        className={cn(
+          'min-w-0 space-y-3',
+          canGuess && 'pb-4',
+          shown && shown !== 'board' && 'hidden',
+        )}
+        {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
+      >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
         {spymasterAlerts(view, room.isHost).map((alert) => (
@@ -367,14 +391,15 @@ function InGame({
         )}
 
         {canClue && (
-          <Panel>
+          // On phones the form lives in the sticky bar, so the panel gives way.
+          <Panel className="max-sm:contents">
             <ClueForm act={act} max={view.remaining[turn.team]} />
           </Panel>
         )}
 
         {canGuess && (
           // Sticky on phones, where the board scrolls; on desktop the board fits and the bar sits below it.
-          <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur lg:static dark:bg-stone-900/90 dark:ring-stone-700">
+          <div className="sticky bottom-[calc(var(--vt-tabbar-h,0px)+0.5rem)] z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur lg:static dark:bg-stone-900/90 dark:ring-stone-700">
             <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
               {selected === null
                 ? 'Pick a card to guess'
@@ -398,13 +423,30 @@ function InGame({
         )}
       </div>
 
-      <aside className={cn('space-y-4', !wide && view.phase === 'over' && 'hidden')}>
-        <Panel>
-          <h3 className="mb-2 font-bold">Game log</h3>
-          <GameLog view={view} />
-        </Panel>
-        <TeamsSection view={view} online={online} act={act} hostId={room.hostId} />
-        {room.isHost && view.phase === 'playing' && (
+      <aside
+        className={cn(
+          'space-y-4',
+          !wide && view.phase === 'over' && 'hidden',
+          shown === 'board' && 'hidden',
+        )}
+        {...(shown && shown !== 'board' && tabPanelProps(PLAY_TABS_ID, shown))}
+      >
+        {shown !== 'teams' && (
+          <Panel>
+            <h3 className="mb-2 font-bold">Game log</h3>
+            <GameLog view={view} />
+          </Panel>
+        )}
+        {shown !== 'log' && (
+          <TeamsSection
+            view={view}
+            online={online}
+            act={act}
+            hostId={room.hostId}
+            startOpen={tabbed}
+          />
+        )}
+        {room.isHost && view.phase === 'playing' && shown !== 'log' && (
           <div className="space-y-1">
             {/* Not on your own team's guessing turn: there, End turn follows the normal rule. */}
             {!canGuess && (
@@ -433,6 +475,16 @@ function InGame({
           </div>
         )}
       </aside>
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Codenames"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
@@ -496,11 +548,13 @@ function TeamsSection(props: {
   online: (id: string) => boolean;
   act: CodenamesUiProps['act'];
   hostId: string;
+  /** Open from the start (its own tab on phones). */
+  startOpen?: boolean;
 }) {
-  const { view } = props;
+  const { view, startOpen = false, ...teams } = props;
   // Spectators need the join buttons, so the section starts open for them on every screen.
   const [open, setOpen] = useState(
-    () => view.me?.team == null || window.matchMedia('(min-width: 1024px)').matches,
+    () => startOpen || view.me?.team == null || window.matchMedia('(min-width: 1024px)').matches,
   );
   const count = (team: 'red' | 'blue') => view.seats.filter((s) => s.team === team).length;
   const watching = view.seats.filter((s) => s.team === null).length;
@@ -519,7 +573,7 @@ function TeamsSection(props: {
           </span>
         </summary>
         <div id={TEAMS_ID} className="mt-3">
-          <Teams {...props} compact />
+          <Teams view={view} {...teams} compact />
         </div>
       </details>
     </Panel>

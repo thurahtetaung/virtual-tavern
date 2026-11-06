@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from 'react';
+import { cn } from './cn.ts';
+import { Icon } from './icon.tsx';
 
 /** How long a refusal stays next to its control. */
 const SHOW_MS = 8000;
@@ -154,15 +156,22 @@ export function RefusalSlot({
   }, [clear, anchor, resetKey]);
   const message = api?.messages.get(anchor);
   if (!message) return null;
+  return <Refusal className={className}>{message}</Refusal>;
+}
+
+/** How a refusal looks: the danger soft surface, its ink, a warning icon, read out at once. */
+export function Refusal({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p
       role="alert"
-      className={
-        'mt-2 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30 ' +
-        (className ?? '')
-      }
+      data-ui="refusal"
+      className={cn(
+        'mt-2 flex items-start gap-2 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-small font-medium text-danger-ink',
+        className,
+      )}
     >
-      {message}
+      <Icon name="triangle-alert" size={16} className="mt-0.5" />
+      <span className="min-w-0 flex-1">{children}</span>
     </p>
   );
 }

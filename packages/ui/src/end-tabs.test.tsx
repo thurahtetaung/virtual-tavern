@@ -30,9 +30,11 @@ describe('EndTabs', () => {
     expect(page).toBe('<p>SCORES</p>');
   });
 
-  it('uses smaller labels when four or more parts share the strip', () => {
-    const four = ['a', 'b', 'c', 'd'].map((id) => ({ id, label: id, content: id }));
-    expect(html(four)).toContain('text-xs');
-    expect(html(four.slice(0, 3))).not.toContain('text-xs');
+  it('keeps every label whole when many parts share the strip: the strip scrolls instead', () => {
+    const five = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, label: id, content: id }));
+    const page = html(five);
+    expect(page).toContain('overflow-x-auto');
+    expect(page).toContain('whitespace-nowrap');
+    expect(page).not.toContain('truncate');
   });
 });

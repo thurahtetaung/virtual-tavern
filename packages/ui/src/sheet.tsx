@@ -20,6 +20,7 @@ import {
   Rows,
   Select,
   Slate,
+  StatusLine,
   Stepper,
   type TagTone,
   buttonClass,
@@ -29,6 +30,9 @@ import { Icon } from './icon.tsx';
 import { LobbySettings } from './lobby-settings.tsx';
 import { BotNames, PlayerTag } from './people.tsx';
 import { PlayerColors } from './player-colors.tsx';
+import { Countdown } from './countdown.tsx';
+import { Refusal } from './refusal.tsx';
+import { Standings } from './standings.tsx';
 import { Switch } from './switch.tsx';
 import { TabBar, Tabs } from './tabs.tsx';
 import { TimerSettings, type TimerValues } from './timer-settings.tsx';
@@ -376,6 +380,55 @@ function Messages() {
   );
 }
 
+/** The room's own parts: the status line, a refusal, the countdown and the standings. */
+function RoomShell() {
+  // Read once, so the clocks show the same reading in every render of the sheet.
+  const [now] = useState(() => Date.now());
+  return (
+    <Group title="Room">
+      <Specimen name="status/neutral" wide>
+        <StatusLine icon="hourglass">Waiting for: Ana, Ben</StatusLine>
+      </Specimen>
+      <Specimen name="status/me" wide>
+        <StatusLine me>Your clue: one word, and how many agents it points to.</StatusLine>
+      </Specimen>
+      <Specimen name="refusal/rest" wide>
+        <Refusal className="mt-0">One word only, please.</Refusal>
+      </Specimen>
+      <Specimen name="countdown/rest">
+        <Countdown
+          deadline={now + 102_000}
+          clockOffset={0}
+          label="to clue"
+          atZero="then the turn ends"
+        />
+      </Specimen>
+      <Specimen name="countdown/urgent">
+        <Countdown deadline={now + 8_000} clockOffset={0} label="to guess" />
+      </Specimen>
+      <Specimen name="countdown/expired">
+        <Countdown
+          deadline={now - 1_000}
+          clockOffset={0}
+          soft
+          expiredHint="Finish up when you can."
+        />
+      </Specimen>
+      <Specimen name="standings/rest" wide>
+        <Standings
+          you="gil"
+          entries={[
+            { id: 'mei', name: 'Mei', score: 26, note: 'ended 2 rounds' },
+            { id: 'hana', name: 'Hana', score: 14 },
+            { id: 'gil', name: 'Gil', score: 11 },
+            { id: 'tom', name: 'Tom', score: 8 },
+          ]}
+        />
+      </Specimen>
+    </Group>
+  );
+}
+
 function Navigation() {
   const [tab, setTab] = useState('scores');
   const [bar, setBar] = useState('play');
@@ -561,6 +614,7 @@ export function ComponentSheet({ cover }: { cover?: string }) {
           <Toggles />
           <Messages />
           <Navigation />
+          <RoomShell />
           <Surfaces />
           <Games cover={cover} />
           <Settings />

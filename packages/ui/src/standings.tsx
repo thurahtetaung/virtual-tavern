@@ -77,11 +77,11 @@ export function Standings({
                 <div
                   aria-hidden
                   className={cn(
-                    'flex w-full items-start justify-center rounded-t-lg pt-1 text-sm font-bold tabular-nums',
+                    'flex w-full items-start justify-center rounded-t-lg border border-b-0 pt-1.5 font-display text-small font-semibold tabular-nums',
                     STEP[step],
                     step === 0
-                      ? 'bg-accent-soft text-accent-text ring-1 ring-accent-line dark:bg-amber-500 dark:text-stone-950 dark:ring-0'
-                      : 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-100',
+                      ? 'border-accent-line bg-accent-soft text-accent-text'
+                      : 'border-line bg-sunk text-ink-2',
                   )}
                 >
                   {scoreLabel(onPlace(place)[0]!.entry.score)}
@@ -92,18 +92,20 @@ export function Standings({
         </ol>
       )}
       <div>
-        <h3 className="mb-1 text-sm font-semibold text-stone-600 dark:text-stone-400">{title}</h3>
-        <ol className="divide-y divide-stone-200 rounded-xl ring-1 ring-stone-200 dark:divide-stone-800 dark:ring-stone-800">
+        <h3 className="mb-1 text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
+          {title}
+        </h3>
+        <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
           {ranked.map((r) => (
             <li
               key={r.entry.id}
               className={cn(
                 'flex items-center gap-3 px-3 py-2',
                 dense && 'max-lg:py-1 max-lg:text-sm',
-                r.entry.id === you && 'bg-accent-soft dark:bg-amber-500/10',
+                r.entry.id === you && 'bg-accent-soft',
               )}
             >
-              <span className="w-10 shrink-0 text-sm font-bold text-ink-muted tabular-nums dark:text-stone-400">
+              <span className="w-10 shrink-0 font-display text-small font-semibold text-ink-muted tabular-nums">
                 {r.tied ? '=' : ''}
                 {ordinal(r.place)}
               </span>
@@ -111,7 +113,7 @@ export function Standings({
                 <span className="flex items-center gap-1 font-medium">
                   <span className="truncate">
                     {r.entry.name}
-                    {r.entry.id === you && ' (you)'}
+                    {r.entry.id === you && <span className="text-ink-muted"> (you)</span>}
                   </span>
                   <NameDot name={r.entry.name} className="order-first" />
                 </span>

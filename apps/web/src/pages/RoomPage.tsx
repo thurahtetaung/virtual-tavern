@@ -10,6 +10,8 @@ import type { Ack, LockReason, PlayerColor, RecapTone, RoomInfo, RoomSnapshot } 
 import {
   Badge,
   Button,
+  Icon,
+  type IconName,
   Modal,
   Panel,
   BotNames,
@@ -25,13 +27,13 @@ import {
   useSecondsLeft,
 } from '@vt/ui';
 import { PosterInfoProvider, useShowProfile } from '@vt/ui/show';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
-import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
+import { Layout, LoadingStep, PageLoading, ThemeSwitch } from '../components/Layout.tsx';
 import { useBackroomPage } from '../lib/backroom.ts';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
@@ -462,6 +464,8 @@ function Room({
     if (!res.ok) toast(res.error.message);
   };
   const nightGames = night.recap?.games.length ?? 0;
+  const showNight = night.enabled && nightGames > 0;
+  const headerButtons = (playtest ? 2 : 3) + (showNight ? 1 : 0);
   const canWrap =
     isHost &&
     night.enabled &&
@@ -684,45 +688,42 @@ function Room({
   const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
 
   return (
-    <Layout wide>
-      {/* One compact row: on phones each button is an icon over a one-word label. On phones a long
-          title gets its own line, and buttons that leave a title too little room wrap below it. */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+    <Layout wide room>
+      {/* One row on every screen: the emblem and the game's name, then the header buttons (an
+          icon over a one-word label). A long name takes a smaller size and up to two lines. */}
+      <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
         <h1
           className={cn(
-            'line-clamp-2 min-w-0 flex-[1_1_9.5rem] text-xl leading-tight font-bold [overflow-wrap:anywhere] sm:text-2xl',
-            game.name.length > 16 && 'max-sm:basis-full',
+            'flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
+            game.name.length > 12 || headerButtons > 3
+              ? 'text-sub sm:text-heading'
+              : 'text-heading',
           )}
         >
-          <span aria-hidden>{game.icon}</span> {game.name}
+          <span
+            aria-hidden
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunk text-2xl leading-none sm:size-11"
+          >
+            {game.icon}
+          </span>
+          <span className="line-clamp-2 min-w-0 break-words">{game.name}</span>
         </h1>
-        <div className="ml-auto flex shrink-0 gap-1.5 sm:gap-2">
+        <div className="flex shrink-0 gap-1.5 sm:gap-2">
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
           {!playtest && <InviteButton />}
-          <Button
-            variant="secondary"
-            size="sm"
-            className={HEADER_BUTTON}
+          <HeaderButton
+            icon="users"
+            label={snapshot ? `${online} here` : 'Players'}
             aria-label={`Players (${online} online)`}
             onClick={() => setPeopleOpen(true)}
-          >
-            <span aria-hidden>
-              👥{snapshot ? <span className="sm:hidden"> {online}</span> : null}
-            </span>
-            <span className={HEADER_LABEL}>Players</span>
-            {snapshot ? <span className="-ml-1 hidden sm:inline">{online}</span> : null}
-          </Button>
-          {night.enabled && nightGames > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className={HEADER_BUTTON}
+          />
+          {showNight && (
+            <HeaderButton
+              icon="beer"
+              label="Night"
               aria-label={`Night recap (${nightGames} ${nightGames === 1 ? 'game' : 'games'})`}
               onClick={() => setRecapOpen(true)}
-            >
-              <span aria-hidden>🍻 {nightGames}</span>
-              <span className={HEADER_LABEL}>Night</span>
-            </Button>
+            />
           )}
           {phone && introOn ? (
             <IntroButton
@@ -733,16 +734,7 @@ function Room({
               labelClassName={HEADER_LABEL}
             />
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              className={HEADER_BUTTON}
-              aria-label="Rules"
-              onClick={() => showGuide()}
-            >
-              <span aria-hidden>❓</span>
-              <span className={HEADER_LABEL}>Rules</span>
-            </Button>
+            <HeaderButton icon="book-open" label="Rules" onClick={() => showGuide()} />
           )}
         </div>
       </div>
@@ -940,12 +932,37 @@ const backToTheDoor = (roomId: string, reason: LockReason) =>
   `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&locked=${reason}`;
 
 /**
- * Room header buttons: compact on desktop; on phones a full 44 px tap target with the icon over a
- * one-word label, so nobody has to guess what 🔗, 👥 and ❓ do.
+ * Room header buttons: 52 px, a 24 px icon over a one-word label, on every screen, so nobody has to
+ * guess what an icon does.
  */
-const HEADER_BUTTON =
-  'min-h-11 flex-col gap-0 px-2 leading-none sm:min-h-0 sm:flex-row sm:gap-2 sm:px-3';
-const HEADER_LABEL = 'text-[11px] font-semibold sm:text-sm';
+const HEADER_BUTTON = 'min-h-13 min-w-13 flex-col gap-0.5 px-2 py-1 leading-none';
+const HEADER_LABEL = 'text-caption font-semibold';
+
+function HeaderButton({
+  icon,
+  label,
+  variant = 'secondary',
+  ...props
+}: {
+  icon: IconName;
+  label: ReactNode;
+  variant?: 'secondary' | 'tint';
+  onClick: () => void;
+  'aria-label'?: string;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={variant}
+      className={HEADER_BUTTON}
+      aria-label={props['aria-label'] ?? (typeof label === 'string' ? label : undefined)}
+      {...props}
+    >
+      <Icon name={icon} size={24} />
+      <span className={HEADER_LABEL}>{label}</span>
+    </Button>
+  );
+}
 
 function InviteButton() {
   const toast = useToast();
@@ -968,19 +985,12 @@ function InviteButton() {
     }
   };
   return (
-    <Button
-      size="sm"
-      variant="soft"
-      className={HEADER_BUTTON}
+    <HeaderButton
+      icon={copied ? 'check' : 'link'}
+      label={copied ? 'Copied' : 'Invite'}
       aria-label={copied ? 'Link copied' : 'Invite friends'}
       onClick={() => void copy()}
-    >
-      <span aria-hidden>{copied ? '✓' : '🔗'}</span>
-      <span className={HEADER_LABEL}>
-        <span className="sm:hidden">{copied ? 'Copied' : 'Invite'}</span>
-        <span className="hidden sm:inline">{copied ? 'Link copied' : 'Invite friends'}</span>
-      </span>
-    </Button>
+    />
   );
 }
 
@@ -1199,6 +1209,11 @@ function People({
           )}
         </div>
       )}
+      {/* Phones: the site header (and its theme switch) makes way for the room's own. */}
+      <div className="flex items-center justify-between gap-2 sm:hidden">
+        <span className="text-small font-semibold">Theme</span>
+        <ThemeSwitch />
+      </div>
       <p className="text-sm text-ink-muted">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.
