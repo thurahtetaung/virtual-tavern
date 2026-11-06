@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.88.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.87.0...v0.88.0) (2026-11-06)
+
+
+### Features
+
+* **web:** warm parchment and lamplit charcoal colours across the site ([#522](https://github.com/thurahtetaung/virtual-tavern/issues/522)) ([ffc923e](https://github.com/thurahtetaung/virtual-tavern/commit/ffc923eb0b2f17b3c7eeae2cd4a8cfa957362448))
+
 ## [0.87.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.86.2...v0.87.0) (2026-11-02)
 
 
