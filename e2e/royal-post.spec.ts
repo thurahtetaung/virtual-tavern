@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import {
   type Exercised,
@@ -72,6 +73,9 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   await expect(host.getByText('5 tokens to win').first()).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(host.getByText('Round 1')).toBeVisible();
+  // A turn on a phone: the table, and the hand in the bar, on one screen.
+  const first = await whoseTurn(players, host);
+  if (first !== 'over') await expectPhoneFit(first, 'royal-post turn');
 
   const done: Exercised = { guard: false, priest: false, handmaid: false, chancellor: false };
   // Classic: play rounds until a Guard guess, a Priest peek and a Handmaid have all happened.

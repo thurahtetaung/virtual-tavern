@@ -46,12 +46,12 @@ export function Sheet({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'hy-rise flex w-full flex-col overflow-hidden bg-stone-50 text-stone-900 shadow-2xl outline-none sm:max-w-lg sm:rounded-3xl dark:bg-stone-900 dark:text-stone-100',
+          'hy-rise flex w-full flex-col overflow-hidden bg-panel text-ink shadow-2xl outline-none sm:max-w-lg sm:rounded-3xl',
           tone === 'red' && 'sm:ring-2 sm:ring-red-500/50',
           tone === 'blue' && 'sm:ring-2 sm:ring-sky-500/50',
         )}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 dark:border-stone-800">
+        <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
           <h2 className="text-lg font-bold">{title}</h2>
           <Button
             variant="ghost"
@@ -67,7 +67,7 @@ export function Sheet({
           <div className="flex min-h-full flex-col justify-center">{children}</div>
         </div>
         {footer && (
-          <div className="border-t border-stone-200 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-stone-800">
+          <div className="border-t border-line px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}
@@ -121,7 +121,7 @@ export function SecretHand({
   return (
     <div className="space-y-3" data-testid={testId}>
       {shuffleKey && (
-        <p className="text-center text-xs font-semibold text-stone-600 dark:text-stone-400">
+        <p className="text-center text-xs font-semibold text-ink-muted">
           {c.copy('hand.shuffled')}
         </p>
       )}
@@ -156,8 +156,8 @@ export function SecretHand({
                     : `Card ${i + 1} (face down)`
                 }
                 className={cn(
-                  'relative min-w-0 flex-1 rounded-xl transition-transform focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-                  isSel && '-translate-y-2 ring-4 ring-accent dark:ring-amber-400',
+                  'relative min-w-0 flex-1 rounded-xl transition-transform focus-visible:outline-2 focus-visible:outline-accent',
+                  isSel && '-translate-y-2 ring-4 ring-accent',
                   onSelect && 'cursor-pointer',
                   animOf(i),
                 )}
@@ -168,7 +168,7 @@ export function SecretHand({
                   back={<PolicyBack c={c} />}
                 />
                 {isSel && (
-                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[0.65rem] font-black text-stone-950 uppercase shadow">
+                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line px-2 text-[0.65rem] font-black text-ink uppercase shadow">
                     {verb ?? 'Picked'}
                   </span>
                 )}

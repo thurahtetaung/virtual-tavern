@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
 import { expectSummariesWhole, openSettings } from './lobby-settings.ts';
@@ -182,6 +183,8 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByTestId('marks-in-play')).toHaveCount(0);
     await dayTab(host, 'Table');
 
+    // The day on a phone: the table and Ready to vote in the bar, on one screen.
+    await expectPhoneFit(host, 'nightfall day');
     // The day names who it is waiting for, and the host may open the vote early.
     await host.getByRole('button', { name: 'Ready to vote' }).click();
     // Names come in seat order, which the shuffle decides.

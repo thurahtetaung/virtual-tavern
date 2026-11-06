@@ -26,7 +26,7 @@ export function FinalList({
         const now = g.stage === 'final' && i === f.index;
         const name = id === view.me?.id ? 'You' : nameOf(view, id);
         return (
-          <li key={id} className={cn(now && 'font-semibold text-amber-700 dark:text-amber-400')}>
+          <li key={id} className={cn(now && 'font-semibold text-accent-text')}>
             {a ? (
               <>
                 {a.correct ? '✅' : '❌'} <b>{name}</b> accused {nameOf(view, a.target)}’s{' '}

@@ -141,7 +141,7 @@ export function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             Watching:
             {watching.map((x) => (
               <PlayerTag
@@ -154,10 +154,7 @@ export function Lobby({
           </p>
         )}
         {ok && reds !== undefined && setup && (
-          <div
-            className="rounded-xl bg-stone-100 p-3 text-sm dark:bg-stone-800"
-            data-testid="composition"
-          >
+          <div className="rounded-xl bg-sunk p-3 text-sm" data-testid="composition">
             <p>
               <b className="text-sky-700 dark:text-sky-300">
                 {n - reds} {c.names.blues}
@@ -171,7 +168,7 @@ export function Lobby({
                 ? c.t('{Leader} and the {red} know each other.')
                 : c.t('The {reds} know each other and {leader}; {leader} knows nobody.')}
             </p>
-            <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+            <p className="mt-1 text-xs text-ink-muted">
               {c.t(
                 `Deck: ${setup.blue} {bluePolicy} and ${setup.red} {redPolicy} {policies}${
                   setup.redEnacted
@@ -244,7 +241,7 @@ export function Lobby({
           </span>
           {host ? (
             <select
-              className="mt-1 min-h-11 w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+              className="mt-1 min-h-11 w-full rounded-lg bg-card px-3 py-2 ring-1 ring-line-strong"
               value={s.claimSeconds}
               onChange={(e) => set({ claimSeconds: Number(e.target.value) })}
             >

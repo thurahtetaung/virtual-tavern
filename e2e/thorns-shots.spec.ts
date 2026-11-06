@@ -83,6 +83,15 @@ for (const [label, viewport, colorScheme] of [
       for (const p of pages.filter((x) => x !== c)) await flip(c, `${nameOf.get(p)}’s`);
       await expect(c.getByText(done)).toBeVisible();
     }
+    // Phones show the end in tabs: the stacks are their own.
+    await expect(
+      hana
+        .getByRole('tablist', { name: 'The end' })
+        .or(hana.getByRole('region', { name: 'Every stack' }))
+        .first(),
+    ).toBeVisible();
+    const stacks = hana.getByRole('tab', { name: '🌹 Stacks' });
+    if (await stacks.count()) await stacks.click();
     await expect(hana.getByRole('region', { name: 'Every stack' })).toBeVisible();
     await shot(hana, '09-end');
   });

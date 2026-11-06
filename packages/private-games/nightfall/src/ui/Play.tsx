@@ -8,12 +8,17 @@ import {
   Panel,
   Peek,
   EndTabs,
+  StickyBar,
   Superlatives,
+  TabBar,
+  type TabBarItem,
   cn,
+  tabPanelProps,
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useFitOnPhone } from './fit.ts';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -339,7 +344,7 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
                 </span>
               )}
             </span>
-            <span className="text-sm text-stone-600 dark:text-stone-400">
+            <span className="text-sm text-ink-muted">
               {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
               {winFor(r, roles, view.settings.artifacts)}
             </span>
@@ -384,7 +389,7 @@ function WhereYouStand({ view, deck }: { view: NightfallView; deck: Deck }) {
     <section
       aria-label="Where you stand now"
       data-testid="standing"
-      className="space-y-1 rounded-lg bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30"
+      className="space-y-1 rounded-lg bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent-line"
     >
       <p className="font-semibold">Where you stand now</p>
       <p className="flex flex-wrap items-center gap-1">
@@ -404,7 +409,7 @@ function WhereYouStand({ view, deck }: { view: NightfallView; deck: Deck }) {
         )}
       </p>
       {st.meaning.map((line) => (
-        <p key={line} className="text-stone-700 dark:text-stone-300">
+        <p key={line} className="text-ink-2">
           {line}
         </p>
       ))}
@@ -438,7 +443,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
       <WhereYouStand view={view} deck={deck} />
       <ol className="space-y-1.5" aria-label="What you learned tonight">
         {view.notes.map((n) => (
-          <li key={n.id} className="rounded-lg bg-stone-100 px-3 py-1.5 text-sm dark:bg-stone-800">
+          <li key={n.id} className="rounded-lg bg-sunk px-3 py-1.5 text-sm">
             {n.step >= 0 && view.night === null && (
               <span className="mr-1 text-xs text-ink-muted">{n.step + 1}.</span>
             )}
@@ -528,16 +533,17 @@ export function Ready({
               <p className="text-lg">
                 You are the <RoleChip role={role} deck={deck} />
               </p>
-              <p className="text-sm text-stone-600 dark:text-stone-400">{deck.text(role)}</p>
+              <p className="text-sm text-ink-muted">{deck.text(role)}</p>
             </div>
           </Peek>
           {!view.meReady ? (
-            <>
+            // Phones keep Ready in the bar at the foot of the screen.
+            <StickyBar fixed className="flex flex-col items-center gap-1">
               <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
                 Ready
               </Button>
               {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
-            </>
+            </StickyBar>
           ) : (
             <p className="text-sm">
               Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
@@ -654,7 +660,7 @@ function PromptPanel({
                   className={cn(
                     'flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold ring-1 transition',
                     picked
-                      ? 'bg-accent-line dark:bg-amber-400 text-stone-950 ring-accent dark:ring-amber-500'
+                      ? 'bg-accent-line text-ink ring-accent'
                       : 'bg-indigo-900/60 text-indigo-50 ring-special/40 dark:ring-indigo-400/40 hover:bg-indigo-800',
                     !legal && 'opacity-35',
                   )}
@@ -694,7 +700,7 @@ function PromptPanel({
                   onClick={() => toggleCentre(i)}
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
-                    picked && 'ring-4 ring-accent dark:ring-amber-400',
+                    picked && 'ring-4 ring-accent',
                     !legal && 'opacity-35',
                   )}
                 >
@@ -749,7 +755,7 @@ function PromptPanel({
         {!prompt.mandatory && (
           <button
             type="button"
-            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-special-line/60 dark:ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-accent dark:focus-visible:ring-amber-400 focus-visible:outline-none"
+            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-special-line/60 dark:ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
             {prompt.stage === 'point' ? 'Point at nobody' : 'Skip'}
@@ -806,7 +812,7 @@ function NightClock({
       aria-label={`${left} seconds left ${label}, ${atZero}`}
       title={atZero}
       // vt-contrast: the night screen is dark in both themes
-      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-stone-400 ring-1 ring-white/10"
+      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-ink-faint ring-1 ring-white/10"
     >
       <span className="font-mono text-lg font-bold tabular-nums">
         ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
@@ -882,7 +888,7 @@ export function Night({
     >
       {acting && (
         <div
-          className="flex flex-col items-center gap-2 bg-accent-line dark:bg-amber-300 px-4 pt-6 pb-4 text-center text-stone-950"
+          className="flex flex-col items-center gap-2 bg-accent-line px-4 pt-6 pb-4 text-center text-ink"
           data-testid="your-turn"
         >
           <p className="text-4xl font-black tracking-widest" role="alert">
@@ -1027,7 +1033,7 @@ export function Night({
                 {now.map((n) => (
                   <li
                     key={n.id}
-                    className="rounded-lg bg-accent-line dark:bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
+                    className="rounded-lg bg-accent-line px-3 py-2 text-sm font-semibold text-ink"
                   >
                     <WithChips
                       text={describeNote(
@@ -1122,51 +1128,6 @@ function useWide(): boolean {
   );
 }
 
-/**
- * The day's sections on a phone: a bottom tab bar like the other games'. From `lg` up every
- * section shows at once, so the bar hides.
- */
-function DayTabBar({
-  tabs,
-  tab,
-  onChange,
-  idOf,
-}: {
-  tabs: { id: DayTab; icon: string; label: string }[];
-  tab: DayTab;
-  onChange: (t: DayTab) => void;
-  idOf: (t: DayTab) => string;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="The day"
-      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
-    >
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          id={idOf(t.id)}
-          aria-selected={tab === t.id}
-          aria-controls={`${idOf(t.id)}-panel`}
-          onClick={() => onChange(t.id)}
-          className={cn(
-            'flex min-h-11 flex-col items-center justify-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === t.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
-          )}
-        >
-          <span aria-hidden className="text-lg leading-none">
-            {t.icon}
-          </span>
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** What a ripple's rule means for the players it names, for the table. */
 const RULE_BADGE = {
   'i-am-alien': ['👽', 'may only say “I am an alien”'],
@@ -1251,7 +1212,7 @@ function TableList({
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id || picked2 === p.id
                     ? 'bg-danger dark:bg-rose-600 text-white ring-danger dark:ring-rose-600'
-                    : 'bg-white ring-stone-300 hover:bg-danger-soft dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
+                    : 'bg-card ring-line-strong hover:bg-danger-soft dark:hover:bg-rose-950',
                 )}
               >
                 {body}
@@ -1267,9 +1228,7 @@ function TableList({
                 </span>
               </button>
             ) : (
-              <div className="flex min-h-12 flex-col rounded-lg bg-stone-100 px-3 py-1.5 dark:bg-stone-800/60">
-                {body}
-              </div>
+              <div className="flex min-h-12 flex-col rounded-lg bg-sunk px-3 py-1.5">{body}</div>
             )}
           </li>
         );
@@ -1317,30 +1276,30 @@ export function Day({
   const [tab, setTab] = useState<DayTab>('table');
   const [hand, setHand] = useState<1 | 2>(1);
   const wide = useWide();
+  // Phones: a big table scrolls inside its panel rather than the page.
+  const tablePanel = useRef<HTMLDivElement>(null);
+  useFitOnPhone(tablePanel);
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
   const deadline = voting ? (view.vote?.deadline ?? null) : (view.day?.deadline ?? null);
   const myArtifact = view.notes.find((n) => n.kind === 'artifact');
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const tabs: { id: DayTab; icon: string; label: string }[] = [
+  const tabs: readonly TabBarItem<DayTab>[] = [
     voting
-      ? { id: 'table', icon: '🗳️', label: 'Vote' }
-      : { id: 'table', icon: '🪑', label: 'Table' },
-    { id: 'learned', icon: '📝', label: 'Learned' },
-    { id: 'roles', icon: '🃏', label: 'Roles' },
+      ? { id: 'table', icon: 'hand', label: 'Vote' }
+      : { id: 'table', icon: 'armchair', label: 'Table' },
+    { id: 'learned', icon: 'scroll-text', label: 'Learned' },
+    { id: 'roles', icon: 'book-open', label: 'Roles' },
   ];
   const tabsId = useId();
-  const idOf = (t: DayTab) => `${tabsId}-${t}`;
   // On a phone only the chosen tab's panel shows; from `lg` up they all do.
   const panel = (t: DayTab) => ({
-    role: 'tabpanel',
-    id: `${idOf(t)}-panel`,
-    'aria-labelledby': idOf(t),
+    ...tabPanelProps(tabsId, t),
     className: tab === t ? undefined : 'hidden lg:block',
   });
   return (
-    <div className="mx-auto max-w-3xl space-y-3 pb-20 lg:grid lg:max-w-6xl lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0 lg:pb-0">
+    <div className="mx-auto max-w-3xl space-y-3 lg:grid lg:max-w-6xl lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
       <div className="space-y-3 lg:col-span-2">
         <div className="flex items-center justify-between gap-2">
           <span className="shrink-0 text-sm font-semibold whitespace-nowrap">
@@ -1369,118 +1328,141 @@ export function Day({
         />
         <Nudge view={view} room={room} />
       </div>
-      <DayTabBar tabs={tabs} tab={tab} onChange={setTab} idOf={idOf} />
+      <TabBar
+        id={tabsId}
+        label="The day"
+        items={tabs}
+        value={tab}
+        onChange={setTab}
+        className="lg:hidden"
+      />
       <div {...panel('table')}>
-        <Panel className="space-y-3">
-          {playing && view.myRole && (
-            <MySecrets>
-              <MyCardChip view={view} deck={deck} />
-              <MyMark view={view} deck={deck} />
-              {myArtifact?.kind === 'artifact' && (
-                <span className="text-sm">
-                  Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-                </span>
-              )}
-            </MySecrets>
-          )}
-          {(view.day?.centerUp?.length ?? 0) > 0 && (
-            <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
-              Face up in the centre:
-              {view.day!.centerUp!.map((c) => (
-                <span key={c.center} className="inline-flex items-center gap-1">
-                  {centreName(c.center, view.day!.centerKinds)}
-                  <RoleChip role={c.role} deck={deck} />
-                </span>
-              ))}
-            </p>
-          )}
-          {voting && playing && view.vote?.hands === 2 && (
-            <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
-              <span>✌️ You vote with both hands:</span>
-              {([1, 2] as const).map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-pressed={hand === h}
-                  onClick={() => setHand(h)}
-                  className={cn(
-                    'rounded-lg px-2 py-1 font-semibold ring-1 ring-stone-300 dark:ring-stone-700',
-                    hand === h && 'bg-danger dark:bg-rose-600 text-white ring-danger',
-                  )}
-                >
-                  {h === 1 ? 'First hand' : 'Second hand'}
-                  {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
-                </button>
-              ))}
-            </div>
-          )}
-          {voting && playing && protectPossible(view) && (
-            <Peek
-              what="what your pick does"
-              cover={
-                <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
-                  <span aria-hidden>🙈</span> Hold to see what your pick does
-                </span>
-              }
-            >
-              <p
-                className="rounded-xl bg-stone-100 px-3 py-2 text-sm font-semibold dark:bg-stone-800"
-                data-testid="vote-power"
+        <div ref={tablePanel} className="max-sm:overflow-y-auto max-sm:overscroll-contain">
+          <Panel className="space-y-3">
+            {playing && view.myRole && (
+              <MySecrets>
+                <MyCardChip view={view} deck={deck} />
+                <MyMark view={view} deck={deck} />
+                {myArtifact?.kind === 'artifact' && (
+                  <span className="text-sm">
+                    Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+                  </span>
+                )}
+              </MySecrets>
+            )}
+            {(view.day?.centerUp?.length ?? 0) > 0 && (
+              <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
+                Face up in the centre:
+                {view.day!.centerUp!.map((c) => (
+                  <span key={c.center} className="inline-flex items-center gap-1">
+                    {centreName(c.center, view.day!.centerKinds)}
+                    <RoleChip role={c.role} deck={deck} />
+                  </span>
+                ))}
+              </p>
+            )}
+            {voting && playing && view.vote?.hands === 2 && (
+              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
+                <span>✌️ You vote with both hands:</span>
+                {([1, 2] as const).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    aria-pressed={hand === h}
+                    onClick={() => setHand(h)}
+                    className={cn(
+                      'rounded-lg px-2 py-1 font-semibold ring-1 ring-line-strong',
+                      hand === h && 'bg-danger text-on-fill ring-danger',
+                    )}
+                  >
+                    {h === 1 ? 'First hand' : 'Second hand'}
+                    {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            {voting && playing && protectPossible(view) && (
+              <Peek
+                what="what your pick does"
+                cover={
+                  <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+                    <span aria-hidden>🙈</span> Hold to see what your pick does
+                  </span>
+                }
               >
-                {votePowerText(votePower(view))}
-              </p>
-            </Peek>
-          )}
-          <TableList
-            view={view}
-            deck={deck}
-            pick={
-              voting && playing
-                ? (id) => void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
-                : undefined
-            }
-            picked={view.vote?.myVote}
-            picked2={view.vote?.mySecond}
-            online={online}
-          />
-          {voting && playing && view.vote?.app && (
-            <Button
-              variant={
-                view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
-                  ? 'primary'
-                  : 'secondary'
+                <p
+                  className="rounded-xl bg-sunk px-3 py-2 text-sm font-semibold"
+                  data-testid="vote-power"
+                >
+                  {votePowerText(votePower(view))}
+                </p>
+              </Peek>
+            )}
+            <TableList
+              view={view}
+              deck={deck}
+              pick={
+                voting && playing
+                  ? (id) => void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
+                  : undefined
               }
-              className="w-full"
-              data-testid="vote-app"
-              onClick={() =>
-                void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
-              }
-            >
-              📱 Vote for the app (if it gets the most votes, nobody dies)
-              {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
-            </Button>
-          )}
-          {!voting && playing && (
-            <Button
-              size="lg"
-              className="w-full"
-              variant={view.day?.meReady ? 'secondary' : 'primary'}
-              onClick={() => void act({ type: 'ready-to-vote', ready: !view.day?.meReady })}
-            >
-              {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
-            </Button>
-          )}
-          {!voting && room.isHost && (
-            <div className="space-y-1 text-center">
-              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-vote' })}>
-                Start the vote now
+              picked={view.vote?.myVote}
+              picked2={view.vote?.mySecond}
+              online={online}
+            />
+            {voting && playing && view.vote?.app && (
+              <Button
+                variant={
+                  view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
+                    ? 'primary'
+                    : 'secondary'
+                }
+                className="w-full"
+                data-testid="vote-app"
+                onClick={() =>
+                  void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
+                }
+              >
+                📱 Vote for the app (if it gets the most votes, nobody dies)
+                {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
               </Button>
-              <p className="text-xs text-ink-muted">
-                Opens the vote without waiting for everyone to be ready (someone dropped out, say).
-              </p>
-            </div>
-          )}
-        </Panel>
+            )}
+            {!voting && (playing || room.isHost) && (
+              // Phones keep the day's move in the bar at the foot of the Table tab, the host's
+              // Start the vote now beside it.
+              <StickyBar fixed off={!wide && tab !== 'table'} className="space-y-1 text-center">
+                <div className="flex gap-2">
+                  {playing && (
+                    <Button
+                      size="lg"
+                      className="flex-1"
+                      variant={view.day?.meReady ? 'secondary' : 'primary'}
+                      onClick={() => void act({ type: 'ready-to-vote', ready: !view.day?.meReady })}
+                    >
+                      {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
+                    </Button>
+                  )}
+                  {room.isHost && (
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className={playing ? 'px-3' : 'flex-1'}
+                      onClick={() => void act({ type: 'start-vote' })}
+                    >
+                      Start the vote now
+                    </Button>
+                  )}
+                </div>
+                {room.isHost && (
+                  <p className="text-caption text-ink-muted">
+                    Opens the vote without waiting for everyone to be ready (someone dropped out,
+                    say).
+                  </p>
+                )}
+              </StickyBar>
+            )}
+          </Panel>
+        </div>
       </div>
       <div className="space-y-3">
         <div {...panel('learned')}>
@@ -1633,7 +1615,7 @@ export function Reveal({
               ? `${TEAM_LABEL[t.team]}: nobody on this side wins`
               : teamOutcome(t.team, t.won)}
           </span>{' '}
-          <span className="text-stone-600 dark:text-stone-400">
+          <span className="text-ink-muted">
             ({t.players.map(nameOf).join(', ')})
             {t.exceptions.length > 0 &&
               (t.won
@@ -1710,7 +1692,7 @@ export function Reveal({
   );
   const cardsPanel = (
     <Panel className="space-y-2">
-      <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="reveal-legend">
+      <p className="text-xs text-ink-muted" data-testid="reveal-legend">
         The picture is the card in front of each player at the end. The chips read{' '}
         <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
         decides their team.
@@ -1731,7 +1713,7 @@ export function Reveal({
               data-team={id.team}
               data-mark={pm?.id ?? ''}
               data-won={won}
-              className="flex items-start gap-2 rounded-lg bg-stone-100 px-2 py-1.5 text-sm dark:bg-stone-800/60"
+              className="flex items-start gap-2 rounded-lg bg-sunk px-2 py-1.5 text-sm"
             >
               <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
               <div className="min-w-0 flex-1 space-y-1">
@@ -1870,7 +1852,7 @@ export function Reveal({
       {wide ? (
         <>
           {resultPanel}
-          <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
+          <div role="tablist" className="flex gap-1 rounded-xl bg-sunk p-1">
             {(['cards', 'night'] as const).map((t) => (
               <button
                 key={t}
@@ -1880,7 +1862,7 @@ export function Reveal({
                 onClick={() => setTab(t)}
                 className={cn(
                   'h-9 flex-1 rounded-lg text-sm font-semibold',
-                  tab === t && 'bg-white shadow dark:bg-stone-950',
+                  tab === t && 'bg-card shadow',
                 )}
               >
                 {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
@@ -1911,7 +1893,7 @@ export function Reveal({
         </p>
       )}
       {room.isHost && (
-        <div className="flex flex-wrap gap-2">
+        <StickyBar className="flex flex-wrap gap-2">
           {blocker && seatedNow >= 3 ? (
             <Button
               size="lg"
@@ -1931,7 +1913,7 @@ export function Reveal({
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change setup
           </Button>
-        </div>
+        </StickyBar>
       )}
       {!room.isHost && (
         <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">

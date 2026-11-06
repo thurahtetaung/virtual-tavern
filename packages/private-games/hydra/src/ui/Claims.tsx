@@ -124,7 +124,7 @@ export function ClaimForm({
     <div className="space-y-4" data-testid="claim-form">
       {need.kind !== 'investigate' && <PipsLegend c={c} />}
       {memory && (
-        <div className="rounded-xl bg-stone-100 p-3 text-sm dark:bg-stone-800">
+        <div className="rounded-xl bg-sunk p-3 text-sm">
           <p className="font-semibold">Only you know what you really saw:</p>
           <p className="mt-1 flex items-center gap-2">
             {memory.kind === 'hand' && (
@@ -170,15 +170,15 @@ export function ClaimForm({
                   className={cn(
                     'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
                     on
-                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
-                      : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
+                      ? 'bg-accent-soft ring-2 ring-accent'
+                      : 'bg-card ring-line-strong hover:bg-panel',
                   )}
                 >
                   <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                  <span className="text-[0.7rem] leading-tight font-semibold text-stone-800 dark:text-stone-200">
+                  <span className="text-[0.7rem] leading-tight font-semibold text-ink">
                     {cardsText(c, bluesCards(b, n))}
                   </span>
-                  <span className="flex items-center gap-1 text-[0.65rem] text-stone-600 dark:text-stone-400">
+                  <span className="flex items-center gap-1 text-[0.65rem] text-ink-muted">
                     discarded <Pips cards={[d]} c={c} />
                     <span className={TEAM_TEXT[d]}>{c.policyName(d)}</span>
                   </span>
@@ -205,12 +205,12 @@ export function ClaimForm({
                 className={cn(
                   'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
                   blues === b
-                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
-                    : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
+                    ? 'bg-accent-soft ring-2 ring-accent'
+                    : 'bg-card ring-line-strong hover:bg-panel',
                 )}
               >
                 <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                <span className="text-[0.7rem] leading-tight font-semibold text-stone-800 dark:text-stone-200">
+                <span className="text-[0.7rem] leading-tight font-semibold text-ink">
                   {cardsText(c, bluesCards(b, n))}
                 </span>
               </button>
@@ -243,7 +243,7 @@ export function ClaimForm({
                         ? p === 'blue'
                           ? 'bg-sky-600 text-white ring-sky-800'
                           : 'bg-red-600 text-white ring-red-800'
-                        : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
+                        : 'bg-card ring-line-strong',
                     )}
                   >
                     {c.policyName(p)}
@@ -272,7 +272,7 @@ export function ClaimForm({
                 }}
                 className={cn(
                   'rounded-xl p-1 transition',
-                  team === p ? 'ring-4 ring-accent dark:ring-amber-400' : 'opacity-80',
+                  team === p ? 'ring-4 ring-accent' : 'opacity-80',
                 )}
               >
                 <PartyFace team={p} c={c} />
@@ -287,7 +287,7 @@ export function ClaimForm({
             Make this claim
           </Button>
         ) : (
-          <div className="hy-rise space-y-2 rounded-xl bg-accent-soft p-3 ring-1 ring-accent-line dark:ring-amber-300 dark:bg-amber-500/10">
+          <div className="hy-rise space-y-2 rounded-xl bg-accent-soft p-3 ring-1 ring-accent-line">
             <p className="text-center text-sm leading-7 font-semibold">
               Claim {summary}? Claims are final.
             </p>

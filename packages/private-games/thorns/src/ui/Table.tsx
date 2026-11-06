@@ -1,5 +1,17 @@
 import { type GameRoomInfo, type PlayerColor, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, PlayerTag, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  PlayerTag,
+  ProtectedImage,
+  RefusalSlot,
+  StickyBar,
+  TabBar,
+  type TabBarItem,
+  cn,
+  tabPanelProps,
+  useWideScreen,
+} from '@vt/ui';
 import { useMemo, useState } from 'react';
 import { discName } from '../logic/names.ts';
 import {
@@ -98,8 +110,8 @@ function Mat({
             className={cn(
               'shrink-0 rounded-full px-1.5 text-[11px] font-semibold ring-1',
               chip === 'Challenger'
-                ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/40'
-                : 'bg-panel text-ink-muted ring-line dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700',
+                ? 'bg-accent-soft text-accent-text ring-accent-line'
+                : 'bg-panel text-ink-muted ring-line',
             )}
           >
             {chip}
@@ -107,7 +119,7 @@ function Mat({
         )}
       </div>
       <div
-        className="relative flex min-h-14 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:bg-stone-800/70 dark:ring-0"
+        className="relative flex min-h-14 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
         {matArt && (
@@ -119,9 +131,7 @@ function Mat({
         )}
         <div className="relative flex items-center">
           {faces.length === 0 ? (
-            <span className="text-xs text-ink-muted dark:text-stone-400">
-              {p.out ? '—' : 'no discs'}
-            </span>
+            <span className="text-xs text-ink-muted">{p.out ? '—' : 'no discs'}</span>
           ) : (
             faces.map((d, i) => (
               <DiscView
@@ -139,7 +149,7 @@ function Mat({
           )}
         </div>
       </div>
-      <div className="flex items-center justify-between text-xs text-ink-muted dark:text-stone-400">
+      <div className="flex items-center justify-between text-xs text-ink-muted">
         <span aria-label={`${p.points} of ${POINTS_TO_WIN} points`}>
           {Array.from({ length: POINTS_TO_WIN }, (_, i) => (i < p.points ? '★' : '☆')).join('')}
         </span>
@@ -152,10 +162,10 @@ function Mat({
     </>
   );
   const box = cn(
-    'flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card/85 p-2 text-left shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-    waiting && 'ring-2 ring-accent dark:ring-amber-500',
+    'flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card/85 p-2 text-left shadow-sm ring-1 ring-line',
+    waiting && 'ring-2 ring-accent',
     p.out && 'opacity-50',
-    you && 'bg-accent-soft/40 dark:bg-amber-500/5',
+    you && 'bg-accent-soft/40',
   );
   return onFlip ? (
     <button
@@ -169,7 +179,7 @@ function Mat({
       data-flip={p.id}
     >
       {body}
-      <span className="rounded-lg bg-accent px-2 py-1 text-center text-xs font-bold text-accent-fg dark:bg-amber-500 dark:text-stone-950">
+      <span className="rounded-lg bg-accent px-2 py-1 text-center text-xs font-bold text-accent-fg">
         Turn over the top disc
       </span>
     </button>
@@ -228,15 +238,44 @@ function BidControls({ view, act }: { view: ThornsView; act: Act }) {
           Pass
         </Button>
       )}
-      <span className="w-full text-center text-xs text-ink-muted dark:text-stone-400">
+      <span className="w-full text-center text-xs text-ink-muted">
         {max} {max === 1 ? 'disc' : 'discs'} on the mats: the most anyone may bid.
       </span>
     </div>
   );
 }
 
-/** The viewer's own discs and every choice they can make right now. */
-function MyArea({ view, room, act, art, name }: TableProps) {
+/** Phones in play: the mats, your own discs and the log one at a time, from the tab bar. */
+type PlayTab = 'table' | 'me' | 'log';
+const PLAY_TABS_ID = 'thorns-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'me', label: 'Me', icon: 'hand' },
+  { id: 'log', label: 'Log', icon: 'scroll-text' },
+];
+
+/** Whether the viewer has a move to make in their own discs' area right now. */
+function hasMove(view: ThornsView, you: string) {
+  const g = view.game!;
+  const r = g.round;
+  const mine = view.mine;
+  const me = g.players.find((p) => p.id === you);
+  if (!mine || !me || view.phase !== 'playing') return false;
+  if (r.stage === 'lose' || r.stage === 'starter') return r.challenger === you;
+  const failed = r.result?.outcome === 'failed' && r.stage === 'result';
+  if (failed && me.stack > 0 && !me.shown) return true;
+  if (me.out) return false;
+  return (
+    (r.stage === 'place' && mine.stack.length === 0) ||
+    ((r.stage === 'turns' || r.stage === 'bid') && r.current === you)
+  );
+}
+
+/**
+ * The viewer's own discs and every choice they can make right now. `show` is the phone's Me tab:
+ * the same discs and what you lost, with no moves.
+ */
+function MyArea({ view, room, act, art, name, show = false }: TableProps & { show?: boolean }) {
   const g = view.game!;
   const r = g.round;
   const mine = view.mine;
@@ -246,19 +285,28 @@ function MyArea({ view, room, act, art, name }: TableProps) {
   const color = colorOf(room, room.you);
   const names = art.names;
   const canPlace =
+    !show &&
     !me.out &&
     ((r.stage === 'place' && mine.stack.length === 0) ||
       (r.stage === 'turns' && r.current === room.you));
-  const canBid = !me.out && (r.stage === 'turns' || r.stage === 'bid') && r.current === room.you;
+  const canBid =
+    !show && !me.out && (r.stage === 'turns' || r.stage === 'bid') && r.current === room.you;
   const kinds = (['rose', 'thorn', 'chance'] as const).filter((d) => mine.hand.includes(d));
   const failed = r.result?.outcome === 'failed' && ['lose', 'starter', 'result'].includes(r.stage);
-  const canShow = failed && me.stack > 0 && !me.shown;
+  const canShow = !show && failed && me.stack > 0 && !me.shown;
   return (
     <section
-      aria-label="Your discs"
-      className="flex flex-col gap-3 rounded-2xl bg-card/85 p-3 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+      aria-label={show ? 'Your discs in hand' : 'Your discs'}
+      className={cn(
+        'flex flex-col gap-3',
+        // In the phone's bar the bar is the surface.
+        !show && 'max-sm:gap-2',
+        'rounded-2xl bg-card/85 p-3 shadow-sm ring-1 ring-line',
+        !show &&
+          'max-sm:rounded-none max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:ring-0',
+      )}
     >
-      {r.stage === 'lose' && r.challenger === room.you ? (
+      {!show && r.stage === 'lose' && r.challenger === room.you ? (
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm font-semibold">Choose the disc you lose for good:</p>
           <div className="flex gap-3">
@@ -277,7 +325,7 @@ function MyArea({ view, room, act, art, name }: TableProps) {
               ))}
           </div>
         </div>
-      ) : r.stage === 'starter' && r.challenger === room.you ? (
+      ) : !show && r.stage === 'starter' && r.challenger === room.you ? (
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm font-semibold">Who starts the next round?</p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -298,7 +346,7 @@ function MyArea({ view, room, act, art, name }: TableProps) {
         <>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {mine.hand.length === 0 ? (
-              <span className="text-sm text-ink-muted dark:text-stone-400">
+              <span className="text-sm text-ink-muted">
                 {me.out ? 'You’re out: watch the rest.' : 'No discs left in hand.'}
               </span>
             ) : (
@@ -334,7 +382,7 @@ function MyArea({ view, room, act, art, name }: TableProps) {
         </>
       )}
       {(mine.lost.length > 0 || canShow) && (
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-ink-muted dark:text-stone-400">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-ink-muted">
           {mine.lost.length > 0 && (
             <span>Lost (only you know): {mine.lost.map((d) => discName(names, d)).join(', ')}</span>
           )}
@@ -349,7 +397,6 @@ function MyArea({ view, room, act, art, name }: TableProps) {
           )}
         </div>
       )}
-      <RefusalSlot anchor="th-play" resetKey={view.log.at(-1)?.id ?? 0} />
     </section>
   );
 }
@@ -359,6 +406,14 @@ export function Table(props: TableProps) {
   const { view, room, act, art, name } = props;
   const g = view.game!;
   const r = g.round;
+  const wide = useWideScreen();
+  const playing = view.phase === 'playing';
+  const seated = playing && !!view.mine && g.players.some((p) => p.id === room.you);
+  // Seated players on phones get the tab bar while the game is on.
+  const tabbed = !wide && seated;
+  const [tab, setTab] = useState<PlayTab>('table');
+  const shown: PlayTab | null = tabbed ? tab : null;
+  const move = hasMove(view, room.you);
   const strict = view.settings.timerMode === 'strict';
   const flipping = r.stage === 'flip' && r.challenger === room.you;
   const targets = useMemo(() => {
@@ -386,116 +441,146 @@ export function Table(props: TableProps) {
     .slice(-8)
     .reverse();
   return (
-    <div className="flex flex-col gap-3">
-      {(clock?.deadline || r.stage === 'starter') && view.phase === 'playing' && (
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <span className="text-sm text-ink-muted dark:text-stone-400">
-            {clock ? waitingFor(clock.who, room.players, { you: room.you }) : ''}
-          </span>
-          {r.stage === 'starter' && r.result ? (
-            <Countdown
-              deadline={r.result.until}
-              clockOffset={room.clockOffset}
-              label="to name who starts"
-              atZero="then the next player starts"
-            />
-          ) : (
-            <Countdown
-              deadline={clock?.deadline ?? null}
-              clockOffset={room.clockOffset}
-              label="to decide"
-              soft={!strict}
-              expiredHint={
-                room.isHost ? 'You can act for them below.' : 'The host can act for them.'
-              }
-              atZero={strict ? 'then a safe move is made' : undefined}
-            />
-          )}
-        </div>
-      )}
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="The table">
-        {g.players.map((p, seat) => (
-          <li key={p.id} className="min-w-0">
-            <Mat
-              p={p}
-              seat={seat}
-              view={view}
-              room={room}
-              art={art}
-              onFlip={
-                targets.has(p.id)
-                  ? () => void act({ type: 'flip', owner: p.id }, { anchor: 'th-play' })
-                  : null
-              }
-            />
-          </li>
-        ))}
-      </ul>
-      {view.phase === 'playing' && <MyArea {...props} />}
-      {view.phase === 'playing' && away.length > 0 && (
-        <section
-          aria-label="Players who left"
-          className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
-        >
-          <p>
-            {away.map((p) => p.name).join(', ')} left the room:{' '}
-            {away.length === 1 ? 'they’re' : 'they’re all'} skipped (a skipped bidder passes), and
-            their discs stay on the mat.{' '}
-            {room.isHost
-              ? 'Wait for them to come back, or remove them.'
-              : 'The host can wait for them or remove them.'}
-          </p>
-          {room.isHost && (
-            <div className="flex flex-wrap justify-end gap-1.5">
-              {away.map((p) => (
-                <Button
-                  key={p.id}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void act({ type: 'remove', player: p.id }, { anchor: 'th-away' })}
-                >
-                  Remove {p.name}
-                </Button>
-              ))}
-            </div>
-          )}
-          <RefusalSlot anchor="th-away" />
-        </section>
-      )}
-      {nudge && nudge.length > 0 && (
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {nudge.map((id) => (
-            <Button
-              key={id}
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'th-host' })}
-            >
-              Act for {name(id)}
-            </Button>
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      <div
+        className={cn('flex min-w-0 flex-col gap-3', shown && shown !== 'table' && 'hidden')}
+        {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+      >
+        {(clock?.deadline || r.stage === 'starter') && view.phase === 'playing' && (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <span className="text-sm text-ink-muted">
+              {clock ? waitingFor(clock.who, room.players, { you: room.you }) : ''}
+            </span>
+            {r.stage === 'starter' && r.result ? (
+              <Countdown
+                deadline={r.result.until}
+                clockOffset={room.clockOffset}
+                label="to name who starts"
+                atZero="then the next player starts"
+              />
+            ) : (
+              <Countdown
+                deadline={clock?.deadline ?? null}
+                clockOffset={room.clockOffset}
+                label="to decide"
+                soft={!strict}
+                expiredHint={
+                  room.isHost ? 'You can act for them below.' : 'The host can act for them.'
+                }
+                atZero={strict ? 'then a safe move is made' : undefined}
+              />
+            )}
+          </div>
+        )}
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="The table">
+          {g.players.map((p, seat) => (
+            <li key={p.id} className="min-w-0">
+              <Mat
+                p={p}
+                seat={seat}
+                view={view}
+                room={room}
+                art={art}
+                onFlip={
+                  targets.has(p.id)
+                    ? () => void act({ type: 'flip', owner: p.id }, { anchor: 'th-play' })
+                    : null
+                }
+              />
+            </li>
           ))}
-          <RefusalSlot anchor="th-host" />
+        </ul>
+        {seated && (
+          // Phones keep your move in the bar while you have one; wider screens show it here.
+          <StickyBar
+            fixed
+            off={!move || shown !== 'table'}
+            refusal="th-play"
+            refusalKey={view.log.at(-1)?.id ?? 0}
+          >
+            {(move || !tabbed) && <MyArea {...props} />}
+          </StickyBar>
+        )}
+        {view.phase === 'playing' && away.length > 0 && (
+          <section
+            aria-label="Players who left"
+            className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+          >
+            <p>
+              {away.map((p) => p.name).join(', ')} left the room:{' '}
+              {away.length === 1 ? 'they’re' : 'they’re all'} skipped (a skipped bidder passes), and
+              their discs stay on the mat.{' '}
+              {room.isHost
+                ? 'Wait for them to come back, or remove them.'
+                : 'The host can wait for them or remove them.'}
+            </p>
+            {room.isHost && (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {away.map((p) => (
+                  <Button
+                    key={p.id}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      void act({ type: 'remove', player: p.id }, { anchor: 'th-away' })
+                    }
+                  >
+                    Remove {p.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <RefusalSlot anchor="th-away" />
+          </section>
+        )}
+        {nudge && nudge.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {nudge.map((id) => (
+              <Button
+                key={id}
+                variant="secondary"
+                size="sm"
+                onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'th-host' })}
+              >
+                Act for {name(id)}
+              </Button>
+            ))}
+            <RefusalSlot anchor="th-host" />
+          </div>
+        )}
+        <p className="text-center text-xs text-ink-muted">
+          Round {r.number} · {g.players.filter((p) => !p.out).length} players in
+        </p>
+      </div>
+      {shown === 'me' && (
+        <div {...tabPanelProps(PLAY_TABS_ID, 'me')}>
+          <MyArea {...props} show />
         </div>
       )}
-      {lines.length > 0 && (
+      {lines.length > 0 && (!shown || shown === 'log') && (
         <details
-          className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+          className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
           open
+          {...(shown === 'log' && tabPanelProps(PLAY_TABS_ID, 'log'))}
         >
           <summary className="cursor-pointer font-semibold">Table talk</summary>
-          <ol
-            className="mt-1 flex flex-col gap-0.5 text-ink-muted dark:text-stone-400"
-            aria-label="Log"
-          >
+          <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
             {lines.map((l) => (
               <li key={l.id}>{l.text}</li>
             ))}
           </ol>
         </details>
       )}
-      <p className="text-center text-xs text-ink-muted">
-        Round {r.number} · {g.players.filter((p) => !p.out).length} players in
-      </p>
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Thorns"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export function Board({
               key={i}
               aria-hidden
               className={cn(
-                'absolute rounded-full bg-accent-line dark:bg-amber-300 ring-2 ring-white',
+                'absolute rounded-full bg-accent-line ring-2 ring-white',
                 g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-danger dark:bg-rose-500',
               )}
               style={{
@@ -109,7 +109,7 @@ export function Board({
 
 function VetoRibbon({ c }: { c: Content }) {
   return (
-    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-accent-line dark:bg-amber-400 px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-stone-950 uppercase shadow sm:text-xs">
+    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-accent-line px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-ink uppercase shadow sm:text-xs">
       {c.copy('ribbon.veto')}
     </span>
   );
@@ -161,9 +161,7 @@ function DrawnBoard({
               className={cn(
                 'relative flex items-center justify-center rounded-md bg-black/25 p-0.5 text-center',
                 compact ? 'h-12 sm:h-14' : 'h-20 xl:h-24',
-                team === 'red' &&
-                  i >= LEADER_ZONE &&
-                  'ring-1 ring-accent-line/40 dark:ring-amber-300/40',
+                team === 'red' && i >= LEADER_ZONE && 'ring-1 ring-accent-line/40',
               )}
             >
               {i < count ? (
@@ -216,7 +214,7 @@ export function TrackerLamps({ tracker, className }: { tracker: number; classNam
             i < tracker
               ? tracker === TRACKER_MAX - 1
                 ? 'hy-lamp bg-danger dark:bg-rose-500 ring-danger-line dark:ring-rose-300'
-                : 'bg-accent-line dark:bg-amber-400 ring-accent-line dark:ring-amber-200'
+                : 'bg-accent-line ring-accent-line'
               : 'bg-white/20 ring-white/50',
           )}
         />
@@ -261,7 +259,7 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
               i < g.enacted.red
                 ? 'bg-red-500 ring-red-300'
                 : i >= LEADER_ZONE
-                  ? 'bg-red-950/50 ring-accent/60 dark:ring-amber-400/60'
+                  ? 'bg-red-950/50 ring-accent/60'
                   : 'bg-red-950/40 ring-red-400/40',
             )}
           />
@@ -308,14 +306,14 @@ export function ScoreLegend({ g, c, onClose }: { g: GameView; c: Content; onClos
   return (
     <section
       aria-label={c.copy('legend.title')}
-      className="hy-rise rounded-2xl bg-white p-3 text-sm shadow-md ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700"
+      className="hy-rise rounded-2xl bg-card p-3 text-sm shadow-md ring-1 ring-line"
       data-testid="score-legend"
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <h3 className="font-bold">{c.copy('legend.title')}</h3>
         <button
           type="button"
-          className="min-h-8 rounded-full px-2 text-xs font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+          className="min-h-8 rounded-full px-2 text-xs font-semibold ring-1 ring-line-strong"
           onClick={onClose}
         >
           Close
@@ -344,7 +342,7 @@ export function DeckChip({ g, c, className }: { g: GameView; c: Content; classNa
   return (
     <p
       className={cn(
-        'flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-stone-200/80 px-3 py-1 text-xs font-semibold text-stone-700 dark:bg-stone-800 dark:text-stone-300',
+        'flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-full bg-sunk px-3 py-1 text-xs font-semibold text-ink-2',
         className,
       )}
       data-testid="deck-chip"

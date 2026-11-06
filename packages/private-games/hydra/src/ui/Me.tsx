@@ -80,7 +80,7 @@ export function RoleCard({
             {/* The envelope the card slides out of. */}
             <span
               aria-hidden
-              className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900 dark:ring-amber-600/50"
+              className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900"
             />
             <RoleBack c={c} className="relative" />
             <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[0.65rem] font-bold text-white drop-shadow">
@@ -161,7 +161,7 @@ export function MeTab({
   return (
     <div className="space-y-3">
       {r && (
-        <section className="space-y-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+        <section className="space-y-3 rounded-2xl bg-card p-3 shadow-sm ring-1 ring-line">
           <RoleCard view={view} c={c} reveal={reveal} big={big} />
           {/* Only with the card up: a glance at a face-down card must give nothing away. */}
           {!reveal.shown ? (
@@ -170,7 +170,7 @@ export function MeTab({
             </p>
           ) : (
             <div className="space-y-2 text-sm" data-testid="role-details">
-              <p className="rounded-lg bg-stone-100 px-3 py-2 dark:bg-stone-800">
+              <p className="rounded-lg bg-sunk px-3 py-2">
                 <b>How you win: </b>
                 {c.copy(`me.goal.${r.role}`)}
               </p>
@@ -180,7 +180,7 @@ export function MeTab({
                   {r.known.map((k) => (
                     <li
                       key={k.id}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-card py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-line-strong"
                     >
                       {nameOf(view, k.id)}
                       <NameDot name={nameOf(view, k.id)} className="order-first" />
@@ -196,7 +196,7 @@ export function MeTab({
         </section>
       )}
       {reveal.shown && g.memories.length > 0 && (
-        <section className="rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+        <section className="rounded-2xl bg-card p-3 text-sm shadow-sm ring-1 ring-line">
           <h3 className="mb-1 font-bold">🔒 What only you saw</h3>
           <ul className="space-y-1">
             {g.memories.map((m, i) => (
@@ -207,7 +207,7 @@ export function MeTab({
           </ul>
         </section>
       )}
-      <section className="rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+      <section className="rounded-2xl bg-card p-3 text-sm shadow-sm ring-1 ring-line">
         <h3 className="mb-1 font-bold">Quick reference: {g.players.length} players</h3>
         <ol className="space-y-0.5">
           {track.map((p, i) => (
@@ -218,14 +218,8 @@ export function MeTab({
                 : p
                   ? `${POWER_EMOJI[p]} ${c.powerName(p)}`
                   : 'no power'}
-              {i === 2 && (
-                <span className="text-amber-700 dark:text-amber-400"> · danger zone starts</span>
-              )}
-              {i === 4 && (
-                <span className="text-amber-700 dark:text-amber-400">
-                  {c.t(' · {veto} unlocks')}
-                </span>
-              )}
+              {i === 2 && <span className="text-accent-text"> · danger zone starts</span>}
+              {i === 4 && <span className="text-accent-text">{c.t(' · {veto} unlocks')}</span>}
             </li>
           ))}
         </ol>
@@ -233,7 +227,7 @@ export function MeTab({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
-            className="text-sm font-semibold text-amber-700 underline dark:text-amber-400"
+            className="text-sm font-semibold text-accent-text underline"
             onClick={showGuide}
           >
             Full rules →
@@ -243,7 +237,7 @@ export function MeTab({
             role="switch"
             aria-checked={moments}
             onClick={() => setMoments(!moments)}
-            className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+            className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
           >
             Big moments: {moments ? 'on' : 'off'}
           </button>
@@ -253,7 +247,7 @@ export function MeTab({
               role="switch"
               aria-checked={plain}
               onClick={() => setPlain(!plain)}
-              className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+              className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
             >
               Plain headings: {plain ? 'on' : 'off'}
             </button>
@@ -271,9 +265,9 @@ export function CreditBlock({ c }: { c: Content }) {
   return (
     <section
       aria-label={cr.title}
-      className="rounded-2xl bg-stone-100 p-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-800"
+      className="rounded-2xl bg-sunk p-3 text-xs text-ink-muted ring-1 ring-line"
     >
-      <h3 className="mb-1 font-bold text-stone-800 dark:text-stone-200">{cr.title}</h3>
+      <h3 className="mb-1 font-bold text-ink">{cr.title}</h3>
       <p>{cr.text}</p>
       {cr.changes.length > 0 && (
         <details className="mt-1">

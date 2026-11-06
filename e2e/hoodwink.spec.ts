@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { openSettings } from './lobby-settings.ts';
 
@@ -216,6 +217,8 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   const offered = await offerOf(ana);
   await ben.getByRole('button', { name: '🎲 Lie for me' }).click();
   const benOffered = await offerOf(ben);
+  // Writing on a phone with ready-made lies offered: the question and the whole form fit.
+  await expectPhoneFit(ben, 'hoodwink write');
   for (const fake of [...offered, ...benOffered]) expect(DECOYS).toContain(fake);
   const shared = offered.find((f) => benOffered.includes(f))!;
   expect(shared).toBeDefined();

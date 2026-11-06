@@ -89,9 +89,9 @@ export function Card({
     </span>
   );
   const classes = cn(
-    'relative block aspect-[5/7] w-full overflow-hidden rounded-lg bg-stone-200 shadow ring-1 ring-black/10 transition dark:bg-stone-800',
+    'relative block aspect-[5/7] w-full overflow-hidden rounded-lg bg-sunk shadow ring-1 ring-black/10 transition',
     size === 'xs' && 'rounded',
-    selected && 'ring-4 ring-accent dark:ring-amber-400',
+    selected && 'ring-4 ring-accent',
     dimmed && 'opacity-50',
     onClick &&
       'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-none',

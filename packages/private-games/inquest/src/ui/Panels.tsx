@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  StickyBar,
   Countdown,
   NameDot,
   Panel,
@@ -106,13 +107,13 @@ export function RoleCard({
           {role === 'former-forensic' ? 'Former Forensic Scientist' : content.roleName(dealt)}
         </h3>
         {open && (
-          <p className="inline-block rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+          <p className="inline-block rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-info-ink">
             🔬 Everyone knows you{role === 'former-forensic' ? ' were' : '’re'} the Forensic
             Scientist.
           </p>
         )}
         <p>{info.goal}</p>
-        <p className="text-stone-600 dark:text-stone-400">{info.win}</p>
+        <p className="text-ink-muted">{info.win}</p>
         <Knowledge view={view} content={content} />
       </div>
     </div>
@@ -141,7 +142,7 @@ export function RoleCard({
               </span>
               <span className="min-w-0 space-y-1 text-sm">
                 <span className="block text-base font-bold">Your role</span>
-                <span className="block text-stone-600 dark:text-stone-400">
+                <span className="block text-ink-muted">
                   Hold the card to look, when nobody is watching.
                 </span>
               </span>
@@ -153,7 +154,7 @@ export function RoleCard({
       )}
       <button
         type="button"
-        className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-amber-700 underline dark:text-amber-400"
+        className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-accent-text underline"
         onClick={showGuide}
       >
         How to play your role
@@ -194,7 +195,7 @@ function Knowledge({ view, content }: { view: InquestView; content: Content }) {
     );
   if (!lines.length) return null;
   return (
-    <ul className="space-y-0.5 rounded-lg bg-danger-soft p-2 text-rose-950 ring-1 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30">
+    <ul className="space-y-0.5 rounded-lg bg-danger-soft p-2 text-danger-ink ring-1 ring-danger-line">
       {lines.map((l) => (
         <li key={l}>🤫 {l}</li>
       ))}
@@ -213,9 +214,9 @@ export function ForensicLine({ view }: { view: InquestView }) {
   return (
     <p
       aria-label="Forensic Scientist"
-      className="flex flex-wrap items-center gap-x-1.5 text-xs text-stone-600 dark:text-stone-400"
+      className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted"
     >
-      <span className="rounded-full bg-info-soft px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+      <span className="rounded-full bg-info-soft px-2 py-0.5 font-semibold text-info-ink">
         🔬 Forensic Scientist: {nameOf(view, g.fs)}
       </span>
       {former.length > 0 && <span>took over from {former.join(', ')}</span>}
@@ -229,7 +230,7 @@ export function SolutionPin({ view, content }: { view: InquestView; content: Con
   const s = g.solution;
   if (!s || g.stage === 'done') return null;
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-rose-950/90 p-1.5 text-rose-50 ring-1 ring-danger dark:ring-rose-500">
+    <div className="flex items-center gap-2 rounded-xl bg-rose-950/90 p-1.5 text-rose-50 ring-1 ring-danger">
       <div className="w-10 shrink-0">
         <ArtCard deck="clue" n={s.clue} content={content} size="thumb" />
       </div>
@@ -370,17 +371,13 @@ export function NightPanel({
         <p className="font-semibold">Night falls. The Murderer is choosing the crime…</p>
         <div className="flex justify-center">{clock(true)}</div>
         {/* vt-contrast: on the dark night panel in both themes */}
-        <p className="text-sm text-stone-400">
+        <p className="text-sm text-ink-faint">
           Look at your role card on the Me tab, and study the suspects meanwhile.
         </p>
       </Panel>
     );
   return (
-    <Panel
-      role="region"
-      aria-label="Choose your crime"
-      className="space-y-2 ring-2 ring-danger dark:ring-rose-500"
-    >
+    <Panel role="region" aria-label="Choose your crime" className="space-y-2 ring-2 ring-danger">
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">🔪 Choose your crime</h3>
         {clock()}
@@ -457,7 +454,7 @@ export function FlipPanel({
     <Panel
       role="region"
       aria-label="Flip a Clue card"
-      className={cn('space-y-2', mine && 'ring-2 ring-accent dark:ring-amber-500')}
+      className={cn('space-y-2', mine && 'ring-2 ring-accent')}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="min-w-0 font-bold">🃏 {content.eventName('ruled-out')}</h3>
@@ -473,10 +470,9 @@ export function FlipPanel({
           <li
             key={id}
             className={cn(
-              'flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-stone-300 dark:ring-stone-600',
+              'flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-line-strong',
               i < ev.index && 'line-through opacity-60',
-              i === ev.index &&
-                'bg-accent dark:bg-amber-500 font-bold text-accent-fg dark:text-stone-950 ring-accent',
+              i === ev.index && 'bg-accent font-bold text-accent-fg ring-accent',
             )}
           >
             <span>{id === me?.id ? 'you' : nameOf(view, id)}</span>
@@ -563,11 +559,7 @@ export function ReversalPanel({
   const tappedBy = (id: string) =>
     team.filter((t) => t.id !== view.me?.id && keyOf(t.role) && r[keyOf(t.role)] === id);
   return (
-    <Panel
-      role="region"
-      aria-label="The Reversal"
-      className="space-y-2 ring-2 ring-danger dark:ring-rose-500"
-    >
+    <Panel role="region" aria-label="The Reversal" className="space-y-2 ring-2 ring-danger">
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">⚖️ The Reversal</h3>
         <Countdown
@@ -698,9 +690,7 @@ export function OverScreen({
       <Panel
         className={cn(
           'space-y-2 text-center',
-          r.winner === 'investigators'
-            ? 'ring-2 ring-success dark:ring-emerald-500'
-            : 'ring-2 ring-danger dark:ring-rose-500',
+          r.winner === 'investigators' ? 'ring-2 ring-success' : 'ring-2 ring-danger',
         )}
       >
         <p className="text-3xl">{r.winner === 'investigators' ? '🕵️' : '🩸'}</p>
@@ -750,22 +740,27 @@ export function OverScreen({
         />
       )}
       {room.isHost ? (
-        <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
-          >
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </div>
+        <StickyBar refusal="inquest-again">
+          <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
+            >
+              Play again
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => void act({ type: 'back-to-lobby' })}
+            >
+              Change setup
+            </Button>
+          </div>
+        </StickyBar>
       ) : (
         <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
       )}
-      <RefusalSlot anchor="inquest-again" />
     </div>
   );
 }

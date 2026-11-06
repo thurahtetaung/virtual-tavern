@@ -23,7 +23,7 @@ function PlayerChip({
   label?: string;
 }) {
   return (
-    <li className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800">
+    <li className="inline-flex items-center gap-1.5 rounded-full bg-sunk px-2.5 py-1 text-sm">
       <PlayerTag name={name} you={you} host={host} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
@@ -127,7 +127,7 @@ export function Table({
         ))}
       </ul>
       {watching.length > 0 && (
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
           <span className="font-semibold">Watching:</span>
           {watching.map((s) => (
             <PlayerTag
@@ -161,7 +161,7 @@ export function Scores({ view, revealing }: { view: HoodwinkView; revealing: boo
             </span>
             <NameDot name={s.name} className="order-first" />
             {gained?.[s.id] ? (
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="text-xs font-semibold text-success-ink">
                 +{points(gained[s.id]!)}
               </span>
             ) : null}

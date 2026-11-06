@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 import {
   YOUR_TURN,
@@ -31,6 +32,8 @@ test('a full game: a won challenge, failed ones, the Last Chance disc and the wi
   await Promise.all(pages.map((p) => putDown(p)));
   const c = await whoseTurn(pages);
   const [v, w] = pages.filter((p) => p !== c) as [Page, Page];
+  // A turn on a phone: the mats, and your discs with the bid in the bar, on one screen.
+  await expectPhoneFit(c, 'thorns turn');
   await expect(yourDiscs(c).getByRole('button', { name: 'Pass' })).toHaveCount(0);
   await bidAll(c);
   await expect(c.getByText(/Turn over your own discs first/)).toBeVisible();

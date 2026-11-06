@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndTabs, NameDot, Superlatives, cn } from '@vt/ui';
+import { Button, EndTabs, NameDot, StickyBar, Superlatives, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { claimLied, presidentLies } from '../logic/claims.ts';
@@ -102,10 +102,7 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
         {rounds.map((r) => {
           const t = end.truth.find((x) => x.round === r.n);
           return (
-            <li
-              key={r.n}
-              className="rounded-xl bg-white p-2.5 text-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
-            >
+            <li key={r.n} className="rounded-xl bg-card p-2.5 text-sm ring-1 ring-line">
               <p className="mb-1 text-xs font-bold text-ink-muted">
                 #{r.n} · {nameOf(view, r.president)} ➜ {nameOf(view, r.chancellor)}
                 {r.session?.enacted && (
@@ -222,14 +219,14 @@ export function End({
         </>
       )}
       {room.isHost ? (
-        <div className="flex flex-wrap justify-center gap-2">
+        <StickyBar className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change setup
           </Button>
-        </div>
+        </StickyBar>
       ) : (
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}

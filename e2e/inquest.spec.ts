@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   type Player,
   commitCrime,
@@ -87,7 +88,14 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
       host.page.getByRole('button', { name: `Tile: Location ${letter}`, exact: true }),
     ).toBeVisible();
 
-  await firstRound(host.page);
+  // The Location tile, then a bullet chosen: on a phone the scene and its Place bar fit.
+  await host.page.locator('button[data-tile]:visible').first().click();
+  await host.page.getByRole('button', { name: /^Use Location [A-D] / }).click();
+  await host.page.locator('button[data-item]:visible').first().click();
+  await expect(host.page.getByRole('button', { name: /^Place bullet on/ })).toBeVisible();
+  await expectPhoneFit(host.page, 'inquest place bullet');
+  await host.page.getByRole('button', { name: /^Place bullet on/ }).click();
+  await placeBullets(host.page, 5);
   await expect(
     host.page.getByRole('list', { name: 'Bullet order' }).getByRole('listitem'),
   ).toHaveCount(6);

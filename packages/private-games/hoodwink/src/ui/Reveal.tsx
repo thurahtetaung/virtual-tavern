@@ -86,9 +86,7 @@ export function RevealSequence({
               key={o.index}
               className={cn(
                 'flex items-baseline justify-between gap-2 rounded-lg px-3 py-1 text-sm ring-1',
-                o.truth
-                  ? 'bg-success-soft ring-success dark:bg-emerald-500/10 dark:ring-emerald-500'
-                  : 'bg-white ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700',
+                o.truth ? 'bg-success-soft ring-success' : 'bg-card ring-line',
               )}
             >
               <span className="min-w-0 font-semibold break-words">{o.text}</span>
@@ -107,10 +105,10 @@ export function RevealSequence({
         className={cn(
           'space-y-3 rounded-2xl px-4 py-6 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
           progress.flipped && current.truth
-            ? 'bg-success-soft ring-success dark:bg-emerald-500/15 dark:ring-emerald-500'
+            ? 'bg-success-soft ring-success'
             : progress.flipped
-              ? 'bg-danger-soft ring-danger-line dark:bg-rose-500/15 dark:ring-rose-500/50'
-              : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
+              ? 'bg-danger-soft ring-danger-line'
+              : 'bg-card ring-line-strong',
         )}
       >
         <p className="text-2xl font-bold text-balance break-words sm:text-3xl">{current.text}</p>
@@ -129,9 +127,7 @@ export function RevealSequence({
             data-testid="reveal-verdict"
             className={cn(
               'text-xl font-extrabold motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
-              current.truth
-                ? 'text-emerald-800 dark:text-emerald-200'
-                : 'text-rose-800 dark:text-rose-200',
+              current.truth ? 'text-success-ink' : 'text-danger-ink',
             )}
           >
             {verdict(current, name)}

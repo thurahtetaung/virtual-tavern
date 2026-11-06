@@ -145,7 +145,7 @@ export function BallotFace({
           className={cn(
             'flex h-full w-full items-center justify-center rounded-[8%] text-lg font-black shadow ring-2',
             ballot === 'yes'
-              ? 'bg-white text-stone-900 ring-stone-800'
+              ? 'bg-white text-ink ring-stone-800'
               : 'bg-stone-800 text-white ring-stone-950',
           )}
         >
@@ -202,7 +202,7 @@ export function RoleFace({
           className={cn(
             'flex h-full w-full flex-col items-center justify-center gap-[3cqw] rounded-[7%] p-[6cqw] text-center text-white shadow-lg ring-2',
             role === 'leader'
-              ? 'bg-gradient-to-b from-red-700 to-stone-900 ring-accent dark:ring-amber-400'
+              ? 'bg-gradient-to-b from-red-700 to-stone-900 ring-accent'
               : TEAM_BG[team],
           )}
         >
@@ -253,10 +253,10 @@ export function PartyFace({ team, c, className }: { team: Team; c: Content; clas
       ) : (
         <span
           className={cn(
-            'flex h-full w-full flex-col items-center justify-center gap-1 rounded-[7%] bg-accent-line dark:bg-amber-300 text-center shadow ring-2 ring-accent dark:ring-amber-600',
+            'flex h-full w-full flex-col items-center justify-center gap-1 rounded-[7%] bg-accent-line text-center shadow ring-2 ring-accent',
           )}
         >
-          <span className="text-[0.55rem] font-bold tracking-widest text-stone-800 uppercase">
+          <span className="text-[0.55rem] font-bold tracking-widest text-ink uppercase">
             {c.t('{Party}')}
           </span>
           <span
@@ -370,7 +370,7 @@ export function Pips({
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1 align-middle">
       {pips}
-      <span className="text-[0.75em] font-semibold text-stone-600 dark:text-stone-300">
+      <span className="text-[0.75em] font-semibold text-ink-muted">
         {cardsText(c, cards, text === 'order')}
       </span>
     </span>
@@ -382,7 +382,7 @@ export function PipsLegend({ c, className }: { c: Content; className?: string })
   return (
     <p
       className={cn(
-        'flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-stone-600 dark:text-stone-400',
+        'flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-ink-muted',
         className,
       )}
       data-testid="pips-legend"

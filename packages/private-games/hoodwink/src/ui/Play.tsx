@@ -1,5 +1,15 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndTabs, NameDot, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
+import {
+  Button,
+  EndTabs,
+  Input,
+  NameDot,
+  Panel,
+  Standings,
+  StickyBar,
+  Superlatives,
+  cn,
+} from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
@@ -59,8 +69,8 @@ export function Prompt({ prompt, fill }: { prompt: string; fill?: string | null 
         className={cn(
           'mx-0.5 inline-block min-w-[4ch] rounded-md px-1.5 align-baseline',
           fill
-            ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
-            : 'border-b-4 border-accent dark:border-amber-500 bg-accent-soft text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+            ? 'bg-success-soft text-success-ink'
+            : 'border-b-4 border-accent bg-accent-soft text-accent-text',
         )}
       >
         {fill ?? '\u00a0?\u00a0'}
@@ -77,9 +87,6 @@ function Progress({ done, of, verb }: { done: number; of: number; verb: string }
     </p>
   );
 }
-
-const INPUT =
-  'block h-12 w-full rounded-lg bg-white px-3 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
 
 function LieForm({ round, act }: { round: RoundView; act: Act }) {
   const [text, setText] = useState(round.myLie ?? '');
@@ -110,102 +117,102 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
     setBusy(false);
   };
   const fakes = round.myFakes;
+  // Phones keep the whole form (the lie, its picks and Send) in the bar at the foot of the screen.
   return (
-    <form onSubmit={(e) => void submit(e)} className="space-y-3">
-      <label className="block">
-        <span className="text-sm font-semibold">Your lie</span>
-        <input
-          value={text}
-          maxLength={MAX_LIE_LENGTH}
-          autoComplete="off"
-          spellCheck={false}
-          enterKeyHint="send"
-          aria-invalid={blocked ? true : undefined}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Something believable…"
-          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-danger dark:ring-rose-500')}
-        />
-        {problem && (
-          <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
-            {problem}
-          </span>
+    <StickyBar fixed refusal={LIE_ANCHOR}>
+      <form onSubmit={(e) => void submit(e)} className="space-y-3 max-sm:space-y-2">
+        <label className="block">
+          <span className="text-sm font-semibold">Your lie</span>
+          <Input
+            value={text}
+            maxLength={MAX_LIE_LENGTH}
+            autoComplete="off"
+            spellCheck={false}
+            enterKeyHint="send"
+            invalid={blocked}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Something believable…"
+            className="mt-1 text-lg"
+          />
+          {problem && (
+            <span role="alert" className="mt-1 block text-sm text-danger-ink">
+              {problem}
+            </span>
+          )}
+        </label>
+        {fakes && (
+          <fieldset data-testid="fake-choices" className="space-y-2">
+            <legend className="text-sm font-semibold">
+              🎲 Pick a ready-made lie{' '}
+              <span className="font-normal text-ink-muted">(scores half)</span>
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {fakes.map((fake, i) => {
+                const chosen = round.myLie === fake;
+                return (
+                  <button
+                    key={fake}
+                    type="button"
+                    aria-pressed={chosen}
+                    disabled={busy}
+                    onClick={() => void lieForMe(i)}
+                    className={cn(
+                      'flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-lg font-semibold ring-1 transition',
+                      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                      chosen
+                        ? 'bg-accent-soft ring-2 ring-accent'
+                        : 'bg-card ring-line-strong hover:bg-accent-soft',
+                    )}
+                  >
+                    <span className="min-w-0 break-words">{fake}</span>
+                    {chosen && (
+                      <span className="shrink-0 text-sm" aria-hidden>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {fakes.length === 0 && (
+              <p className="text-sm text-ink-muted">
+                The others picked them all. Type your own above.
+              </p>
+            )}
+            {round.myLie === null && fakes.length > 0 && (
+              <p className="text-sm text-ink-muted">Or type your own above: it scores in full.</p>
+            )}
+          </fieldset>
         )}
-      </label>
-      {fakes && (
-        <fieldset data-testid="fake-choices" className="space-y-2">
-          <legend className="text-sm font-semibold">
-            🎲 Pick a ready-made lie{' '}
-            <span className="font-normal text-ink-muted">(scores half)</span>
-          </legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {fakes.map((fake, i) => {
-              const chosen = round.myLie === fake;
-              return (
-                <button
-                  key={fake}
-                  type="button"
-                  aria-pressed={chosen}
-                  disabled={busy}
-                  onClick={() => void lieForMe(i)}
-                  className={cn(
-                    'flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-lg font-semibold ring-1 transition',
-                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-                    chosen
-                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
-                      : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
-                  )}
-                >
-                  <span className="min-w-0 break-words">{fake}</span>
-                  {chosen && (
-                    <span className="shrink-0 text-sm" aria-hidden>
-                      ✓
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {fakes.length === 0 && (
-            <p className="text-sm text-stone-600 dark:text-stone-400">
-              The others picked them all. Type your own above.
-            </p>
-          )}
-          {round.myLie === null && fakes.length > 0 && (
-            <p className="text-sm text-stone-600 dark:text-stone-400">
-              Or type your own above: it scores in full.
-            </p>
-          )}
-        </fieldset>
-      )}
-      {round.myLieAuto && unchanged && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          🎲 Picked for you: it scores half. Type your own to replace it.
-        </p>
-      )}
-      {round.myLieShared && unchanged && (
-        <p data-testid="lie-shared" className="text-sm text-amber-800 dark:text-amber-300">
-          👯 Someone else wrote that too: it’ll be shared, and so will the points. Change it to keep
-          them all.
-        </p>
-      )}
-      <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
-        <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
-          {sent ? (unchanged ? '✓ Sent' : 'Change my lie') : 'Send lie'}
-        </Button>
-        {offerLieForMe && (
-          <Button
-            variant="secondary"
-            size="lg"
-            className="px-3 whitespace-nowrap max-sm:text-base"
-            disabled={busy}
-            onClick={() => void lieForMe()}
-          >
-            🎲 Lie for me
+        {round.myLieAuto && unchanged && (
+          <p className="text-sm text-ink-muted">
+            🎲 Picked for you: it scores half. Type your own to replace it.
+          </p>
+        )}
+        {round.myLieShared && unchanged && (
+          <p data-testid="lie-shared" className="text-sm text-accent-text">
+            👯 Someone else wrote that too: it’ll be shared, and so will the points. Change it to
+            keep them all.
+          </p>
+        )}
+        <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
+          <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
+            {sent ? (unchanged ? '✓ Sent' : 'Change my lie') : 'Send lie'}
           </Button>
-        )}
-      </div>
-      <RefusalSlot anchor={LIE_ANCHOR} />
-    </form>
+          {offerLieForMe && (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="px-3 whitespace-nowrap max-sm:text-base"
+              disabled={busy}
+              onClick={() => void lieForMe()}
+            >
+              🎲 Lie for me
+            </Button>
+          )}
+        </div>
+      </form>
+    </StickyBar>
   );
 }
 
@@ -231,12 +238,12 @@ function OptionCard({
       onClick={onPick}
       className={cn(
         'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 transition',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
-          ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
+          ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
           : chosen
-            ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
-            : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
+            ? 'bg-accent-soft ring-2 ring-accent'
+            : 'bg-card ring-line-strong hover:bg-accent-soft',
       )}
     >
       <span className="min-w-0 break-words">{option.text}</span>
@@ -288,7 +295,7 @@ function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label:
       {ids.map((id) => (
         <span
           key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-stone-100 py-0.5 pr-2 pl-1.5 text-xs font-semibold dark:bg-stone-700/70"
+          className="inline-flex items-center gap-1 rounded-full bg-sunk py-0.5 pr-2 pl-1.5 text-xs font-semibold"
         >
           {id === view.me?.id ? 'You' : nameOf(view, id)}
           <NameDot name={nameOf(view, id)} className="order-first" />
@@ -313,9 +320,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           style={{ transitionDelay: `${i * 120}ms` }}
           className={cn(
             'space-y-1 rounded-xl px-4 py-2 ring-1 motion-safe:transition motion-safe:duration-500 motion-safe:starting:translate-y-2 motion-safe:starting:opacity-0',
-            o.truth
-              ? 'bg-success-soft ring-2 ring-success dark:ring-emerald-500 sm:col-span-2 dark:bg-emerald-500/10'
-              : 'bg-white ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700',
+            o.truth ? 'bg-success-soft ring-2 ring-success sm:col-span-2' : 'bg-card ring-line',
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
@@ -323,9 +328,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
             <span
               className={cn(
                 'shrink-0 text-xs font-semibold',
-                o.truth
-                  ? 'text-emerald-700 dark:text-emerald-300'
-                  : 'text-rose-700 dark:text-rose-300',
+                o.truth ? 'text-success-ink' : 'text-danger-ink',
               )}
             >
               {o.truth
@@ -357,10 +360,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
 /** What the final round's ×2 means in points. */
 function DoubleNote() {
   return (
-    <p
-      data-testid="double-note"
-      className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300"
-    >
+    <p data-testid="double-note" className="text-center text-xs font-semibold text-accent-text">
       Final round ×2: the truth scores {points(TRUTH_POINTS * 2)}, each player fooled{' '}
       {points(FOOL_POINTS * 2)} ({points(AUTO_FOOL_POINTS * 2)} for a ready-made lie).
     </p>
@@ -380,20 +380,14 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
       {round.double && <DoubleNote />}
       <ul aria-label="Points this round" className="grid gap-1.5 sm:grid-cols-2">
         {gained.map(([id, p]) => (
-          <li
-            key={id}
-            className="rounded-lg bg-success-soft px-3 py-1.5 text-sm dark:bg-emerald-500/10"
-          >
-            <span className="flex items-center gap-1 font-semibold text-emerald-900 dark:text-emerald-200">
+          <li key={id} className="rounded-lg bg-success-soft px-3 py-1.5 text-sm">
+            <span className="flex items-center gap-1 font-semibold text-success-ink">
               <span className="min-w-0 flex-1 truncate">{nameOf(view, id)}</span>
               <NameDot name={nameOf(view, id)} className="order-first" />
               <span className="tabular-nums">+{points(p)}</span>
             </span>
             {pointsBreakdown(view, round, id).map((line, i) => (
-              <span
-                key={i}
-                className="flex justify-between gap-2 text-xs text-stone-600 dark:text-stone-400"
-              >
+              <span key={i} className="flex justify-between gap-2 text-xs text-ink-muted">
                 <span className="min-w-0">{line.reason}</span>
                 <span className="shrink-0 tabular-nums">+{points(line.points)}</span>
               </span>
@@ -416,7 +410,7 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
         <div className="space-y-4">
           <Prompt prompt={round.prompt} />
           {round.answerSize && round.players.includes(me) && (
-            <p className="text-center text-sm text-stone-600 dark:text-stone-400">
+            <p className="text-center text-sm text-ink-muted">
               💡 The real answer is {ANSWER_SIZE[round.answerSize]}: make your lie match.
             </p>
           )}
@@ -461,9 +455,11 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
           <RevealBoard view={view} round={round} />
           <RoundPoints view={view} round={round} />
           {isHost && (
-            <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-round' })}>
-              {round.number >= round.rounds ? 'Finish' : 'Next round'}
-            </Button>
+            <StickyBar fixed>
+              <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-round' })}>
+                {round.number >= round.rounds ? 'Finish' : 'Next round'}
+              </Button>
+            </StickyBar>
           )}
         </div>
       );
@@ -521,7 +517,7 @@ export function GameOver({
               <Superlatives lines={room.superlatives} />
             ) : (
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
+                <div className="rounded-xl bg-danger-soft px-3 py-2">
                   <dt className="font-semibold">🎭 Best liar</dt>
                   <dd>
                     {bestLiar.length > 0
@@ -529,7 +525,7 @@ export function GameOver({
                       : 'Nobody fooled anyone!'}
                   </dd>
                 </div>
-                <div className="rounded-xl bg-success-soft px-3 py-2 dark:bg-emerald-500/10">
+                <div className="rounded-xl bg-success-soft px-3 py-2">
                   <dt className="font-semibold">🔎 Truth seeker</dt>
                   <dd>
                     {truthSeeker.length > 0
@@ -544,14 +540,14 @@ export function GameOver({
         ]}
       />
       {isHost ? (
-        <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+        <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change setup
           </Button>
-        </div>
+        </StickyBar>
       ) : (
         <p>{waitingForHost(room, 'start the next game')}</p>
       )}

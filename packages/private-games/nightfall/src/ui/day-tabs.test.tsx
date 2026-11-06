@@ -56,7 +56,7 @@ describe('the day’s sections', () => {
       const id = /\bid="([^"]+)"/.exec(tab)![1]!;
       const controls = /aria-controls="([^"]+)"/.exec(tab)![1]!;
       expect(html).toContain(`role="tabpanel" id="${controls}" aria-labelledby="${id}"`);
-      expect(tab).toContain('min-h-11');
+      expect(tab).toContain('min-h-14');
     }
     expect(tabs.filter((t) => t.includes('aria-selected="true"'))).toHaveLength(1);
   });
