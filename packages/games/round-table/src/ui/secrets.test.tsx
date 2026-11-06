@@ -91,9 +91,7 @@ describe('the header and tips with your role hidden', () => {
     'servant',
   ]);
   const topBar = (id: string) =>
-    renderToStaticMarkup(
-      <TopBar view={h.view(id)} room={room(id)} yourMove={false} onRole={() => {}} />,
-    );
+    renderToStaticMarkup(<TopBar view={h.view(id)} room={room(id)} onRole={() => {}} />);
 
   it('shows the same “My role” button to every seat, with no emblem or role word', () => {
     const html = topBar(players[0]!);

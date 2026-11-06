@@ -1,5 +1,5 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Button, StickyBar } from '@vt/ui';
+import { Button, Input, StickyBar, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { CodenamesAction } from '../logic/types.ts';
 
@@ -50,25 +50,25 @@ export function ClueForm({ act, max }: Props) {
         className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row sm:items-end sm:gap-3"
       >
         <label className="min-w-0 sm:flex-1">
-          <span className="text-sm font-semibold max-sm:sr-only">Your clue (one word)</span>
-          <input
+          <span className="text-small font-semibold max-sm:sr-only">Your clue (one word)</span>
+          <Input
             ref={input}
             value={word}
             onChange={(e) => setWord(e.target.value)}
-            aria-invalid={spaced}
+            invalid={spaced}
             aria-describedby={spaced ? 'clue-one-word' : undefined}
             maxLength={32}
             placeholder="e.g. Ocean"
-            className="block h-12 w-full rounded-lg sm:mt-1 sm:h-auto bg-white px-3 py-2 text-lg font-semibold uppercase ring-1 ring-stone-300 placeholder:normal-case placeholder:font-normal dark:bg-stone-800 dark:ring-stone-600"
+            className="text-sub font-semibold uppercase placeholder:font-normal placeholder:normal-case sm:mt-1"
           />
           {spaced && (
-            <span id="clue-one-word" className="mt-1 block text-sm text-red-700 dark:text-red-400">
+            <span id="clue-one-word" role="alert" className="mt-1 block text-small text-danger-ink">
               One word only: try {clue.replace(/\s+/g, '-').toUpperCase()} or a single word.
             </span>
           )}
         </label>
         <fieldset className="col-span-2 row-start-2 min-w-0">
-          <legend className="text-sm font-semibold max-sm:sr-only">
+          <legend className="text-small font-semibold max-sm:sr-only">
             How many of your agents does it point to?
           </legend>
           <div className="grid grid-cols-9 gap-1 sm:mt-1">
@@ -80,12 +80,12 @@ export function ClueForm({ act, max }: Props) {
                 disabled={c > max}
                 title={c > max ? `Only ${max} left to find` : undefined}
                 onClick={() => setCount(c)}
-                className={
-                  'h-11 min-w-8 rounded-lg text-sm font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ' +
-                  (count === c
-                    ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-                    : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600')
-                }
+                className={cn(
+                  'h-11 min-w-8 rounded-lg text-small font-bold ring-1 transition disabled:cursor-not-allowed disabled:bg-sunk disabled:text-ink-muted disabled:ring-line',
+                  count === c
+                    ? 'bg-accent text-accent-fg ring-accent'
+                    : 'bg-card text-ink ring-line-strong hover:bg-panel',
+                )}
               >
                 {c}
               </button>

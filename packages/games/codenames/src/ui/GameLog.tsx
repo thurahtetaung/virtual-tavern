@@ -1,4 +1,4 @@
-import { cn } from '@vt/ui';
+import { Row, Rows, cn } from '@vt/ui';
 import { useEffect, useRef } from 'react';
 import type { CodenamesView, EndTurnReason, LogEntry } from '../logic/types.ts';
 import { KIND_LABEL, TEAM_LABEL, TEAM_TEXT } from './theme.ts';
@@ -56,8 +56,12 @@ function Entry({
   }
 }
 
+/** The row's team dot: the team that gave the clue, guessed, ended its turn or won. */
+const dot = (entry: LogEntry) =>
+  (entry.type === 'game-over' ? entry.winner : entry.team) === 'red' ? 'bg-team-a' : 'bg-team-b';
+
 export function GameLog({ view }: { view: CodenamesView }) {
-  const end = useRef<HTMLLIElement>(null);
+  const end = useRef<HTMLDivElement>(null);
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   // Someone who left keeps the name they had (older logs lack it).
   const name = (id: string, fallback?: string) =>
@@ -68,22 +72,24 @@ export function GameLog({ view }: { view: CodenamesView }) {
   }, [view.log.length]);
 
   return (
-    <ol className="max-h-72 space-y-1.5 overflow-y-auto pr-1 text-sm lg:max-h-[28rem]">
-      {view.log.length === 0 && (
-        <li className="text-ink-muted italic">Clues and guesses will appear here.</li>
-      )}
-      {view.log.map((entry, i) => (
-        <li
-          key={i}
-          className={cn(
-            entry.type === 'clue' &&
-              'mt-2 border-t border-stone-200 pt-2 first:mt-0 first:border-0 first:pt-0 dark:border-stone-800',
-          )}
-        >
-          <Entry entry={entry} name={name} />
-        </li>
-      ))}
-      <li ref={end} aria-hidden />
-    </ol>
+    <div className="max-h-72 overflow-y-auto pr-1 text-small lg:max-h-[28rem]">
+      <Rows>
+        {view.log.length === 0 && (
+          <Row className="text-ink-muted italic">Clues and guesses will appear here.</Row>
+        )}
+        {view.log.map((entry, i) => (
+          <Row
+            key={i}
+            className={cn('min-h-9 items-baseline gap-2', entry.type === 'clue' && 'pt-2')}
+          >
+            <span aria-hidden className={cn('size-2 shrink-0 rounded-full', dot(entry))} />
+            <span className="min-w-0">
+              <Entry entry={entry} name={name} />
+            </span>
+          </Row>
+        ))}
+      </Rows>
+      <div ref={end} aria-hidden />
+    </div>
   );
 }

@@ -3,32 +3,50 @@ import type { CardKind, Team } from '../logic/types.ts';
 export const TEAM_LABEL: Record<Team, string> = { red: 'Red', blue: 'Blue' };
 
 export const TEAM_TEXT: Record<Team, string> = {
-  red: 'text-red-600 dark:text-red-400',
-  blue: 'text-blue-600 dark:text-blue-400',
+  red: 'text-team-a-ink',
+  blue: 'text-team-b-ink',
 };
 
+/** A team's soft surface and its line (panels, the role tag). */
 export const TEAM_PANEL: Record<Team, string> = {
-  red: 'bg-team-a-soft ring-team-a-line dark:bg-red-950/40 dark:ring-red-900',
-  blue: 'bg-team-b-soft ring-team-b-line dark:bg-blue-950/40 dark:ring-blue-900',
+  red: 'bg-team-a-soft ring-team-a-line',
+  blue: 'bg-team-b-soft ring-team-b-line',
 };
+
+/** A team's 2 px line along a panel's top edge. */
+export const TEAM_LINE: Record<Team, string> = { red: 'border-team-a', blue: 'border-team-b' };
+
+/** A team's own button. */
+export const TEAM_BUTTON = { red: 'team-a', blue: 'team-b' } as const satisfies Record<
+  Team,
+  string
+>;
+
+/**
+ * The assassin is near-black with cream text in both themes (a card colour that never changes),
+ * framed by the strong line so it doesn't sink into a dark page.
+ */
+// vt-palette: the assassin card
+const ASSASSIN = 'bg-[#1C1816] text-[#F3ECE2] ring-1 ring-line-strong';
 
 /** Revealed card faces. */
 export const REVEALED: Record<CardKind, string> = {
-  red: 'bg-team-a dark:bg-red-600 text-white ring-team-a dark:ring-red-700',
-  blue: 'bg-team-b dark:bg-blue-600 text-white ring-team-b dark:ring-blue-700',
-  bystander:
-    'bg-stone-300 text-stone-600 ring-stone-400 dark:bg-stone-600 dark:text-stone-200 dark:ring-stone-500',
-  assassin: 'bg-stone-950 text-stone-200 ring-black',
+  red: 'bg-team-a text-on-fill ring-1 ring-team-a',
+  blue: 'bg-team-b text-on-fill ring-1 ring-team-b',
+  bystander: 'bg-sunk text-ink-2 ring-1 ring-line-strong',
+  assassin: ASSASSIN,
 };
 
 /** Spymaster's key overlay on face-down cards. */
 export const KEY_TINT: Record<CardKind, string> = {
-  red: 'bg-team-a-soft text-red-900 ring-2 ring-team-a dark:bg-red-950 dark:text-red-100 dark:ring-red-700',
-  blue: 'bg-team-b-soft text-blue-900 ring-2 ring-team-b dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-700',
-  bystander:
-    'bg-accent-soft text-stone-800 ring-1 ring-accent-line dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700',
-  assassin: 'bg-stone-800 text-white ring-2 ring-stone-950 dark:bg-black dark:ring-stone-500',
+  red: 'bg-team-a-soft text-team-a-ink ring-2 ring-team-a',
+  blue: 'bg-team-b-soft text-team-b-ink ring-2 ring-team-b',
+  bystander: 'bg-sunk text-ink ring-1 ring-line-strong',
+  assassin: ASSASSIN,
 };
+
+/** A face-down card nobody's key colours. */
+export const FACE_DOWN = 'bg-card text-ink ring-1 ring-line shadow-vt-1';
 
 export const KIND_LABEL: Record<CardKind, string> = {
   red: 'Red agent',

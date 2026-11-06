@@ -196,11 +196,17 @@ test('on a phone the card stays covered until you peek, and the board marks noth
   await local.mouse.up();
   await expect(local.getByTestId('card-title')).toHaveCount(0);
   // The Locations tab rings nothing for a local, and the Ideas tab keeps the card's ideas peeked.
-  await local.getByRole('navigation', { name: 'Game sections' }).getByText('Locations').click();
+  await local
+    .getByRole('tablist', { name: 'Masquerade' })
+    .getByRole('tab', { name: 'Locations' })
+    .click();
   const board = local.getByRole('region', { name: 'Locations' });
   await expect(board.getByRole('button', { name: location, exact: true })).toBeVisible();
   await expect(board.getByText('📍 Here')).toHaveCount(0);
-  await local.getByRole('navigation', { name: 'Game sections' }).getByText('Ideas').click();
+  await local
+    .getByRole('tablist', { name: 'Masquerade' })
+    .getByRole('tab', { name: 'Ideas' })
+    .click();
   const ideas = local.getByRole('region', { name: 'Question ideas' });
   await expect(ideas.getByText(`📍 For ${location}`)).toHaveCount(0);
   await ideas.getByRole('button', { name: 'Show ideas for your card' }).click();

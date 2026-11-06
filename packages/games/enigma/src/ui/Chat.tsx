@@ -1,4 +1,4 @@
-import { Button, NameDot, Panel, cn } from '@vt/ui';
+import { Button, Input, NameDot, Panel, Row, Rows, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView } from '../logic/types.ts';
 import { MAX_CHAT_LENGTH } from '../logic/types.ts';
@@ -14,7 +14,7 @@ export function TeamChat({
 }) {
   const team = view.me?.team;
   const [text, setText] = useState('');
-  const end = useRef<HTMLLIElement>(null);
+  const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Block body: scrollIntoView may return a Promise, which React must not treat as a cleanup.
     void end.current?.scrollIntoView({ block: 'nearest' });
@@ -33,20 +33,24 @@ export function TeamChat({
   return (
     <Panel aria-label="Team chat">
       <h3 className={cn('font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]} team chat</h3>
-      <p className="mb-2 text-xs text-ink-muted">
+      <p className="mb-2 text-caption text-ink-muted">
         Only your team can read this. Keep your guesses off the voice call!
       </p>
-      <ol className="max-h-64 space-y-1 overflow-y-auto pr-1 text-sm lg:max-h-80">
-        {view.chat.map((m, i) => (
-          <li key={i}>
-            <Author name={view.seats.find((s) => s.id === m.by)?.name} /> {m.text}
-          </li>
-        ))}
-        {view.chat.length === 0 && <li className="text-ink-muted italic">No messages yet.</li>}
-        <li ref={end} aria-hidden />
-      </ol>
+      <div className="max-h-64 overflow-y-auto pr-1 text-small lg:max-h-80">
+        <Rows>
+          {view.chat.map((m, i) => (
+            <Row key={i} className="block min-h-9 py-1.5">
+              <Author name={view.seats.find((s) => s.id === m.by)?.name} /> {m.text}
+            </Row>
+          ))}
+          {view.chat.length === 0 && (
+            <Row className="min-h-9 text-ink-muted italic">No messages yet.</Row>
+          )}
+        </Rows>
+        <div ref={end} aria-hidden />
+      </div>
       <form onSubmit={(e) => void send(e)} className="mt-2 flex gap-2">
-        <input
+        <Input
           value={text}
           maxLength={MAX_CHAT_LENGTH}
           disabled={muted}
@@ -55,14 +59,14 @@ export function TeamChat({
             muted ? 'Encryptors stay quiet until the codes are revealed' : 'Message your team…'
           }
           aria-label="Message your team"
-          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 disabled:opacity-60 dark:bg-stone-800 dark:ring-stone-600"
+          className="flex-1"
         />
-        <Button type="submit" disabled={muted || !text.trim()}>
+        <Button type="submit" variant="secondary" disabled={muted || !text.trim()}>
           Send
         </Button>
       </form>
       {muted && (
-        <p className="mt-1 text-xs text-ink-muted">
+        <p className="mt-1 text-caption text-ink-muted">
           You know the code, so you stay quiet in chat and notes until it is revealed.
         </p>
       )}

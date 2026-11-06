@@ -1,25 +1,35 @@
 import { cn } from '@vt/ui';
-import type { GuessResult, ResultTone } from './result.ts';
+import type { CardKind } from '../logic/types.ts';
+import type { GuessResult } from './result.ts';
 
-const TONE: Record<ResultTone, string> = {
-  correct: 'bg-success dark:bg-emerald-700 text-white ring-success dark:ring-emerald-700',
-  wrong: 'bg-team-a dark:bg-rose-600 text-white ring-team-a dark:ring-rose-700',
-  assassin: 'bg-stone-950 text-stone-100 ring-black dark:ring-stone-600',
-  skipped:
-    'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600',
-};
+/** The banner's surface: by what the guessed card was, so a miss reads as whose card it hit. */
+function tone(result: GuessResult, kind: CardKind | null): string {
+  if (result.tone === 'skipped') return 'bg-accent-soft text-accent-text border-accent-line';
+  if (result.tone === 'correct') return 'bg-success-soft text-success-ink border-success-line';
+  switch (kind) {
+    case 'red':
+      return 'bg-team-a-soft text-team-a-ink border-team-a-line';
+    case 'blue':
+      return 'bg-team-b-soft text-team-b-ink border-team-b-line';
+    case 'assassin':
+      // vt-palette: the assassin card
+      return 'bg-[#1C1816] text-[#F3ECE2] border-line-strong';
+    default:
+      return 'bg-sunk text-ink border-line-strong';
+  }
+}
 
 /** Big, unmissable outcome of the latest guess or skipped turn, announced to screen readers too. */
-export function ResultBanner({ result }: { result: GuessResult }) {
+export function ResultBanner({ result, kind }: { result: GuessResult; kind: CardKind | null }) {
   return (
     <div
       role="status"
       aria-live="assertive"
-      className={cn('rounded-2xl px-4 py-3 text-center shadow-md ring-2', TONE[result.tone])}
+      className={cn('rounded-xl border px-4 py-2.5 text-center shadow-vt-1', tone(result, kind))}
     >
-      {result.who && <p className="text-sm font-medium opacity-90">{result.who}</p>}
-      <p className="text-xl font-extrabold sm:text-2xl">{result.headline}</p>
-      <p className="mt-0.5 font-semibold">{result.next}</p>
+      {result.who && <p className="text-small font-medium">{result.who}</p>}
+      <p className="text-sub font-extrabold sm:text-heading">{result.headline}</p>
+      <p className="mt-0.5 text-small font-semibold sm:text-body">{result.next}</p>
     </div>
   );
 }

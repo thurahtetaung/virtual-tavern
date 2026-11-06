@@ -130,7 +130,12 @@ export interface TabBarItem<T extends string = string> {
   id: T;
   label: string;
   icon: IconName;
+  /** A count (unread messages) or a dot (this tab needs you) on the icon; 0 shows nothing. */
+  badge?: number | 'dot';
 }
+
+/** What a tab's badge says to a screen reader. */
+const badgeLabel = (badge: number | 'dot') => (badge === 'dot' ? 'needs you' : `${badge} unread`);
 
 /**
  * A phone game's bottom navigation: fixed to the bottom of the screen, 56 px plus the safe area,
@@ -191,8 +196,26 @@ export function TabBar<T extends string>({
                 : 'text-ink-muted hover:text-ink',
             )}
           >
-            <Icon name={t.icon} size={24} />
+            <span className="relative">
+              <Icon name={t.icon} size={24} />
+              {t.badge !== undefined && t.badge !== 0 && (
+                <span
+                  data-testid={`${id}-badge-${t.id}`}
+                  className={cn(
+                    'absolute -top-1 left-full -ml-2 rounded-full bg-accent text-accent-fg ring-2 ring-panel',
+                    t.badge === 'dot'
+                      ? 'size-2.5'
+                      : 'min-w-[1.125rem] px-1 text-center text-caption leading-[1.125rem] tabular-nums',
+                  )}
+                >
+                  {t.badge === 'dot' ? null : <span aria-hidden>{t.badge}</span>}
+                </span>
+              )}
+            </span>
             {t.label}
+            {t.badge !== undefined && t.badge !== 0 && (
+              <span className="sr-only">, {badgeLabel(t.badge)}</span>
+            )}
           </button>
         );
       })}

@@ -1,4 +1,4 @@
-import { Modal, NameDot, Peek, cn } from '@vt/ui';
+import { Button, Card, Icon, Modal, NameDot, Peek, cn } from '@vt/ui';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
 import type { Known, RoleId, RoundTableView } from '../logic/types.ts';
@@ -19,13 +19,12 @@ export function openRoleGuide(showGuide: (topic?: unknown) => void, role: RoleId
 
 /** How a known player is labelled, given which of Merlin and Morgana are in the deck. */
 function knownLabel(k: Known, deck: readonly RoleId[]): { text: string; cls: string } {
-  if (k.as === 'evil')
-    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-400 dark:text-red-950' };
+  if (k.as === 'evil') return { text: 'Evil', cls: 'bg-team-a text-on-fill' };
   const merlin = deck.includes('merlin');
   const morgana = deck.includes('morgana');
   return {
     text: merlin && morgana ? 'Merlin or Morgana' : merlin ? 'Merlin' : 'Morgana',
-    cls: 'bg-special text-white dark:bg-violet-400 dark:text-violet-950',
+    cls: 'bg-special text-on-fill',
   };
 }
 
@@ -64,12 +63,19 @@ export function RoleDetails({
   const checks = g.lady?.mine ?? [];
   return (
     <div className="space-y-3 text-left" data-testid="role-details">
+      {/* The role band: the loyalty's colour, as the emblem shows it. */}
+      <div
+        aria-hidden
+        className={cn('h-1 rounded-full', role.loyalty === 'good' ? 'bg-team-b' : 'bg-team-a')}
+      />
       <div className="flex items-center gap-3">
         <Emblem role={role.role} className="size-16" />
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">You are</p>
+          <p className="text-caption font-semibold tracking-wide text-ink-muted uppercase">
+            You are
+          </p>
           <p
-            className={cn('text-2xl leading-tight font-bold', SIDE_TEXT[role.loyalty])}
+            className={cn('text-heading leading-tight font-bold', SIDE_TEXT[role.loyalty])}
             data-testid="role-name"
           >
             {def.name}
@@ -82,13 +88,13 @@ export function RoleDetails({
           </p>
         </div>
       </div>
-      <p className="rounded-lg bg-stone-100 px-3 py-2 text-sm dark:bg-stone-800">
+      <p className="rounded-lg bg-sunk px-3 py-2 text-small">
         <b>Your goal: </b>
         {ROLE_GOAL[role.loyalty]}
       </p>
       <p className="text-sm">{def.detail}</p>
       {role.assassin && (
-        <p className="rounded-lg bg-team-a-soft px-3 py-2 text-sm text-red-900 ring-1 ring-team-a-line dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30">
+        <p className="rounded-lg bg-team-a-soft px-3 py-2 text-small text-team-a-ink ring-1 ring-team-a-line">
           🗡️{' '}
           {role.designated
             ? 'There’s no Assassin card this game: you name Merlin if Good wins three quests. Nobody else is told.'
@@ -96,7 +102,7 @@ export function RoleDetails({
         </p>
       )}
       <div>
-        <p className="text-sm font-semibold">{knowledgeLine(role.role, role.known, g.deck)}</p>
+        <p className="text-small font-semibold">{knowledgeLine(role.role, role.known, g.deck)}</p>
         {role.known.length > 0 && (
           <ul className="mt-1 flex flex-wrap gap-2" aria-label="What you know">
             {role.known.map((k) => {
@@ -104,11 +110,11 @@ export function RoleDetails({
               return (
                 <li
                   key={k.id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card py-1 pr-1 pl-3 text-small font-semibold ring-1 ring-line-strong"
                 >
                   {nameOf(view, k.id)}
                   <NameDot name={nameOf(view, k.id)} className="order-first" />
-                  <span className={cn('rounded-full px-2 py-0.5 text-xs', label.cls)}>
+                  <span className={cn('rounded-full px-2 py-0.5 text-caption', label.cls)}>
                     {label.text}
                   </span>
                 </li>
@@ -119,10 +125,10 @@ export function RoleDetails({
       </div>
       {checks.length > 0 && (
         <div>
-          <p className="text-sm font-semibold">
+          <p className="text-small font-semibold">
             🌊 Your Lady of the Lake checks (only you see these):
           </p>
-          <ul className="text-sm">
+          <ul className="text-small">
             {checks.map((c) => (
               <li key={c.round}>
                 {nameOf(view, c.target)} is{' '}
@@ -132,13 +138,14 @@ export function RoleDetails({
           </ul>
         </div>
       )}
-      <button
-        type="button"
-        className="text-sm font-semibold text-amber-700 underline dark:text-amber-400"
+      <Button
+        variant="quiet"
+        size="sm"
+        className="-ml-3"
         onClick={() => openRoleGuide(showGuide, role.role)}
       >
         About {def.name} in the rules →
-      </button>
+      </Button>
     </div>
   );
 }
@@ -162,19 +169,20 @@ export function RoleReveal({
         what="my role"
         slide
         cover={
-          <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-950 text-stone-100">
+          // vt-palette: the face-down card back, dark in both themes
+          <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl bg-[#2A2420] text-[#F1E9DC] shadow-vt-2">
             <span aria-hidden className="text-3xl">
               ⬆️
             </span>
             <span className="font-semibold">Slide up, or hold, to see your role</span>
             {/* vt-contrast: on the dark cover in both themes */}
-            <span className="text-xs text-stone-400">Keep it hidden from the others</span>
+            <span className="text-caption opacity-85">Keep it hidden from the others</span>
           </span>
         }
       >
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+        <Card className="shadow-vt-3">
           <RoleDetails view={view} showGuide={showGuide} />
-        </div>
+        </Card>
       </Peek>
     </section>
   );
@@ -215,14 +223,19 @@ export function RoleSheet({
  */
 export function KnowledgePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
   const bar =
-    'flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700';
+    'flex min-h-11 items-center gap-1.5 rounded-xl bg-sunk px-3 text-caption text-ink-2 ring-1 ring-line';
   return (
     <div data-testid="knowledge-peek">
       <Peek
         what="what you know"
         inline
         onShownChange={onShownChange}
-        cover={<span className={bar}>🔒 Hidden: hold to see what you know</span>}
+        cover={
+          <span className={bar}>
+            <Icon name="lock" size={16} />
+            Hidden: hold to see what you know
+          </span>
+        }
       >
         <p className={bar}>👁️ Showing what you know on the seats</p>
       </Peek>

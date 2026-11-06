@@ -1,15 +1,15 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Badge, Button, Panel, Peek, PlayerTag, RefusalSlot, cn } from '@vt/ui';
+import { Button, Input, Notice, Panel, Peek, PlayerTag, Row, Rows, StickyBar, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
 import { MAX_CLUE_LENGTH, TOKENS_TO_END } from '../logic/types.ts';
 import { cluesByKeyword, lockedOnText } from './status.ts';
-import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT, formatCode } from './theme.ts';
+import { TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT, formatCode } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: ActOptions) => Promise<boolean>;
 
-/** Where the server's refusal of a set of clues shows, right under the form. */
+/** Where the server's refusal of a set of clues shows: with Send clues (in the sticky bar on phones). */
 const CLUES_ANCHOR = 'enigma-clues';
 
 const nameOf = (view: EnigmaView, id: string) =>
@@ -59,13 +59,13 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <div className="text-center">
-        <span className="text-sm text-ink-muted">Your secret code</span>
+        <span className="text-small text-ink-muted">Your secret code</span>
         <Peek
           what="your code"
           className="mt-1"
           onShownChange={setShown}
           cover={
-            <span className="block rounded-lg bg-stone-100 px-3 py-2 text-center text-sm text-ink-muted dark:bg-stone-800 dark:text-stone-400">
+            <span className="block rounded-lg bg-sunk px-3 py-2 text-center text-small text-ink-muted">
               🔒 Covered so your teammates can’t read it over your shoulder: hold to see it
             </span>
           }
@@ -77,7 +77,7 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
       </div>
       {tx.code?.map((digit, i) => (
         <label key={i} className="block">
-          <span className="text-sm">
+          <span className="text-small font-semibold">
             Clue {i + 1}
             {shown && (
               <>
@@ -87,41 +87,44 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
               </>
             )}
           </span>
-          <input
+          <Input
             value={clues[i]}
             maxLength={MAX_CLUE_LENGTH}
             autoFocus={i === 0}
             onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="A hint only your team will get"
-            aria-invalid={!!problems[i]}
-            className="mt-1 block w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+            invalid={!!problems[i]}
+            className="mt-1"
           />
           {problems[i] && (
-            <span className="mt-1 block text-sm text-red-700 dark:text-red-400">{problems[i]}</span>
+            <span role="alert" className="mt-1 block text-small text-danger-ink">
+              {problems[i]}
+            </span>
           )}
         </label>
       ))}
       {alone && (
-        <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+        <Notice tone="info">
           Nobody else is on your team right now, so nobody could decode your clues. If a teammate
           comes back before you send them, they decode as usual.
-        </p>
+        </Notice>
       )}
       {view.settings.timerMode === 'strict' && view.settings.clueSeconds !== null && (
-        <p className="text-xs text-stone-600 dark:text-stone-400">
+        <p className="text-caption text-ink-muted">
           ⏱ Strict timer: send before it runs out. Clues that aren't sent don't count, and your team
           gets a miscommunication 💥.
         </p>
       )}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={busy || clues.some((c) => !c.trim()) || problems.some(Boolean)}
-      >
-        Send clues
-      </Button>
-      <RefusalSlot anchor={CLUES_ANCHOR} />
+      <StickyBar fixed refusal={CLUES_ANCHOR}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={busy || clues.some((c) => !c.trim()) || problems.some(Boolean)}
+        >
+          Send clues
+        </Button>
+      </StickyBar>
     </form>
   );
 }
@@ -135,7 +138,7 @@ function PickBoxes({ draft }: { draft: readonly number[] }) {
         <span
           key={i}
           aria-hidden
-          className="inline-flex size-4 items-center justify-center rounded-sm bg-white text-[0.7rem] font-bold tabular-nums ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-600"
+          className="inline-flex size-4 items-center justify-center rounded-sm bg-card text-caption leading-none font-bold tabular-nums ring-1 ring-line-strong"
         >
           {d || ''}
         </span>
@@ -155,26 +158,21 @@ function Picks({
   online: (id: string) => boolean;
 }) {
   return (
-    <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-      <p className="mb-1 text-xs font-semibold text-ink-muted">Your team's picks</p>
-      <ul className="flex flex-wrap gap-1.5">
+    <div className="rounded-xl bg-sunk px-3 py-2">
+      <p className="text-caption font-semibold text-ink-muted">Your team's picks</p>
+      <Rows className="text-small">
         {tx.voters.map((id) => {
           const v = tx.teamVotes[id];
           return (
-            <li key={id}>
-              <Badge
-                className={cn(
-                  v?.locked &&
-                    'bg-success-soft text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
-                )}
-              >
-                <PlayerTag name={nameOf(view, id)} offline={!online(id)} />{' '}
+            <Row key={id} className="min-h-9 justify-between gap-2 py-1">
+              <PlayerTag name={nameOf(view, id)} offline={!online(id)} />
+              <span className={cn('shrink-0', v?.locked && 'font-semibold text-success-ink')}>
                 {v ? <PickBoxes draft={v.draft} /> : 'picking…'} {v?.locked ? '🔒' : ''}
-              </Badge>
-            </li>
+              </span>
+            </Row>
           );
         })}
-      </ul>
+      </Rows>
     </div>
   );
 }
@@ -219,8 +217,8 @@ function CodePicker({
       {history && <PastClues columns={history} guesses={ourGuesses} />}
       {tx.clues?.map((clue, row) => (
         <div key={row}>
-          <p className="text-sm">
-            Clue {row + 1}: <b className="text-base">“{clue}”</b>
+          <p className="text-small">
+            Clue {row + 1}: <b className="text-body">“{clue}”</b>
           </p>
           <div className="mt-1 grid grid-cols-4 gap-1">
             {[1, 2, 3, 4].map((digit) => {
@@ -234,15 +232,15 @@ function CodePicker({
                   disabled={locked}
                   onClick={() => pick(row, digit)}
                   className={cn(
-                    'min-w-0 rounded-lg px-1 py-1.5 text-center ring-1 transition disabled:cursor-not-allowed',
+                    'min-h-11 min-w-0 rounded-lg px-1 py-1 text-center ring-1 transition disabled:cursor-not-allowed',
                     draft[row] === digit
-                      ? 'bg-accent dark:bg-amber-500 font-bold text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-                      : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
+                      ? 'bg-accent font-bold text-accent-fg ring-accent'
+                      : 'bg-card text-ink ring-line-strong hover:bg-panel',
                   )}
                 >
                   <span className="block text-lg leading-none font-black">{digit}</span>
                   {hint && (
-                    <span className="block truncate text-[0.6rem] uppercase opacity-80">
+                    <span className="block truncate text-caption leading-tight uppercase">
                       {hint}
                     </span>
                   )}
@@ -256,24 +254,19 @@ function CodePicker({
       <Picks view={view} tx={tx} online={online} />
 
       {lockedOnText(tx) && (
-        <p
-          role="status"
-          className="rounded-lg bg-success-soft px-3 py-2 text-sm font-semibold text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
-        >
+        <Notice tone="success" className="font-semibold">
           🔒 {lockedOnText(tx)}
-        </p>
+        </Notice>
       )}
 
       {tx.disagree && (
-        <p
-          role="alert"
-          className="rounded-lg bg-team-a-soft px-3 py-2 text-sm font-semibold text-rose-900 dark:bg-rose-950 dark:text-rose-100"
-        >
+        <Notice tone="danger" role="alert" className="font-semibold">
           Your team disagrees: everyone locked in, but not on the same code. Compare picks!
-        </p>
+        </Notice>
       )}
 
-      <div className="flex gap-2">
+      {/* Your own team's code sits in the sticky bar on phones; an interception keeps its button here. */}
+      <StickyBar fixed off={!decoding} className="flex gap-2">
         {locked ? (
           <Button
             variant="secondary"
@@ -293,7 +286,7 @@ function CodePicker({
             {complete ? `Lock in ${formatCode(draft)}` : 'Pick a number for each clue'}
           </Button>
         )}
-      </div>
+      </StickyBar>
     </div>
   );
 }
@@ -310,18 +303,18 @@ function PastClues({
   guesses: string[];
 }) {
   return (
-    <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-      <p className="mb-1 text-xs font-semibold text-ink-muted">Their past clues</p>
+    <div className="rounded-xl bg-sunk p-2">
+      <p className="mb-1 text-caption font-semibold text-ink-muted">Their past clues</p>
       <div className="grid grid-cols-4 gap-1">
         {columns.map((clues, i) => (
           <div key={i} className="min-w-0" aria-label={`Their past clues for keyword ${i + 1}`}>
-            <p className="truncate text-xs font-black">
+            <p className="truncate text-caption font-black">
               {i + 1}
               {guesses[i] && (
                 <span className="ml-1 font-semibold text-ink-muted uppercase">{guesses[i]}</span>
               )}
             </p>
-            <ul className="text-xs leading-snug break-words">
+            <ul className="text-caption leading-snug break-words">
               {clues.map((c) => (
                 <li key={`${c.round}-${c.clue}`}>{c.clue}</li>
               ))}
@@ -350,13 +343,13 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
   return (
     <div className="space-y-2">
       <p className="text-center">
-        <span className="text-sm text-ink-muted">The code was</span>
+        <span className="text-small text-ink-muted">The code was</span>
         <span className="block font-mono text-3xl font-black tracking-widest">
           {formatCode(tx.code)}
         </span>
       </p>
       {tx.expired && (
-        <p className="text-center text-sm font-semibold">
+        <p className="text-center text-small font-semibold">
           {tx.timedOut
             ? `⏱ Time ran out before ${nameOf(view, tx.encryptor)} sent clues.`
             : 'No clues were sent: nobody was left on the team.'}
@@ -370,7 +363,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
             return (
               <li key={i}>
                 <b>“{clue}”</b> → <b className="font-mono">#{tx.code![i]}</b>
-                {keyword && <span className="text-sm text-ink-muted uppercase"> {keyword}</span>}
+                {keyword && <span className="text-small text-ink-muted uppercase"> {keyword}</span>}
               </li>
             );
           })}
@@ -378,10 +371,10 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       )}
       <p
         className={cn(
-          'rounded-lg px-3 py-2 font-semibold',
+          'rounded-lg px-3 py-2 font-semibold ring-1 ring-inset',
           r.decoded
-            ? 'bg-success dark:bg-emerald-700 text-white'
-            : 'bg-team-a dark:bg-rose-600 text-white',
+            ? 'bg-success-soft text-success-ink ring-success-line'
+            : 'bg-danger-soft text-danger-ink ring-danger-line',
         )}
       >
         {r.decoded
@@ -402,7 +395,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
         <p
           className={cn(
             'rounded-lg px-3 py-2 font-semibold',
-            r.intercepted ? 'bg-stone-950 text-white' : 'bg-stone-200 dark:bg-stone-800',
+            r.intercepted ? 'bg-ink text-page' : 'bg-sunk text-ink',
           )}
         >
           {r.intercepted
@@ -417,7 +410,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
         </p>
       )}
       {view.phase === 'playing' && view.teams[tx.team].nextEncryptor && (
-        <p className="text-center text-sm text-ink-muted">
+        <p className="text-center text-small text-ink-muted">
           Next {sender} Encryptor: <b>{nameOf(view, view.teams[tx.team].nextEncryptor!)}</b>
         </p>
       )}
@@ -440,12 +433,12 @@ function SkipOffline({
   const offline = tx.waitingOn.filter((id) => !online(id));
   if (offline.length === 0) return null;
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm">
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-small">
       {offline.map((id) => (
         <Button
           key={id}
           size="sm"
-          variant="secondary"
+          variant="quiet"
           // One line however long the name: the name gives way.
           className="max-w-full gap-0"
           onClick={() => void act({ type: 'skip-voter', team: tx.team, player: id })}
@@ -480,7 +473,7 @@ export function TransmissionCard({
       tx.role === 'encryptor' && !tx.clues ? (
         <ClueForm view={view} tx={tx} act={act} />
       ) : (
-        <p className="text-center text-stone-600 dark:text-stone-400">
+        <p className="text-center text-ink-2">
           {tx.clues
             ? 'Clues sent. Waiting for the other Encryptor…'
             : `${encryptor} is writing clues…`}
@@ -499,7 +492,7 @@ export function TransmissionCard({
             </li>
           ))}
         </ol>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-small text-ink-2">
           {tx.role === 'waiting'
             ? view.round < 2 && tx.team !== view.me?.team
               ? 'Interception starts in round 2. Just watch for now.'
@@ -521,12 +514,12 @@ export function TransmissionCard({
   }
   return (
     <Panel
-      className={cn('ring-1', TEAM_PANEL[tx.team])}
+      className={cn('border-t-2 ring-1', TEAM_PANEL[tx.team], TEAM_LINE[tx.team])}
       aria-label={`${TEAM_LABEL[tx.team]}'s transmission`}
     >
       <header className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className={cn('font-bold', TEAM_TEXT[tx.team])}>{TEAM_LABEL[tx.team]}'s code</h3>
-        <span className="text-xs text-ink-muted">Encryptor: {encryptor}</span>
+        <span className="text-caption text-ink-muted">Encryptor: {encryptor}</span>
       </header>
       {body}
       {isHost && view.stage === 'guess' && !tx.revealed && (

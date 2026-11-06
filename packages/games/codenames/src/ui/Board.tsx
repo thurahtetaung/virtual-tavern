@@ -1,8 +1,8 @@
-import { cn } from '@vt/ui';
+import { Icon, cn } from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import type { CodenamesView } from '../logic/types.ts';
 import { type Measure, canvasMeasure, estimate, fitSize, fitsAlone, softBreaks } from './fit.ts';
-import { KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
+import { FACE_DOWN, KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
 
 interface Props {
   view: CodenamesView;
@@ -27,91 +27,122 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
     if (section.current)
       setMeasure(() => canvasMeasure(getComputedStyle(section.current!).fontFamily));
   }, []);
+  const legend = view.board.some(
+    (card) => card.kind !== null && (card.revealed || showKey || view.phase === 'over'),
+  );
   return (
-    <section ref={section} className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Word cards">
-      {view.board.map((card, i) => {
-        const interactive = onPick !== null && !card.revealed;
-        // The kind is printed, not just tinted, whenever the viewer may know it.
-        const captioned = card.kind !== null && (card.revealed || showKey || view.phase === 'over');
-        const face = card.revealed
-          ? REVEALED[card.kind!]
-          : card.kind && (showKey || view.phase === 'over')
-            ? KEY_TINT[card.kind]
-            : 'bg-accent-soft text-stone-900 ring-1 ring-accent-line/80 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-700';
-        const label = `${card.word}${card.kind ? `, ${KIND_LABEL[card.kind]}` : ''}${card.revealed ? ', revealed' : ''}`;
-        return (
-          <button
-            key={i}
-            type="button"
-            aria-label={label}
-            aria-pressed={selected === i}
-            disabled={!interactive}
-            onClick={() => onPick?.(i)}
-            className={cn(
-              // Wide cells from lg up, so five rows plus the header fit a 900px desktop window.
-              // The caption's and the corner mark's sizes are shared with the word (`CardWord`),
-              // which keeps clear of them.
-              '[--cap-at:0.125rem] [--cap-size:min(0.55rem,15cqw)] [--mark-size:min(0.75rem,20cqw)] sm:[--cap-at:0.25rem] sm:[--cap-size:min(0.65rem,9cqw)] sm:[--mark-size:min(0.875rem,13cqw)] lg:[--cap-size:min(0.65rem,7cqw)] lg:[--mark-size:min(0.875rem,9.5cqw)]',
-              '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-sm transition sm:aspect-[3/2] sm:rounded-xl sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
-              face,
-              interactive &&
-                'cursor-pointer hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-none',
-              selected === i && 'ring-4 ring-accent dark:ring-amber-400',
-              lastGuessed === i &&
-                'z-10 scale-105 ring-4 ring-accent dark:ring-amber-400 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950',
-              card.revealed && lastGuessed !== i && 'opacity-90',
-              view.phase === 'over' && !card.revealed && 'opacity-70',
-            )}
-          >
-            <CardWord
-              word={card.word}
-              measure={measure}
-              captioned={captioned}
-              marked={card.revealed || (card.kind === 'assassin' && captioned)}
-            />
-            {captioned && (
-              // Capped by the card's width too, so larger browser text can't make it run into the word.
-              <span className="absolute inset-x-0 bottom-[var(--cap-at)] text-center text-[length:var(--cap-size)] leading-none font-semibold uppercase opacity-90 sm:tracking-wide">
-                {KIND_CAPTION[card.kind!]}
-              </span>
-            )}
-            {card.revealed && card.kind !== 'assassin' && (
-              // Every revealed card gets the same mark, so a guessed bystander never differs from
-              // an unguessed one by shade alone.
-              <span
-                aria-hidden
-                data-card-mark
-                className="absolute top-0.5 left-1 text-[length:var(--mark-size)] leading-none"
-              >
-                ✓
-              </span>
-            )}
-            {card.kind === 'assassin' && captioned && (
-              <span
-                aria-hidden
-                data-card-mark
-                className="absolute top-0.5 left-1 text-[length:var(--mark-size)] leading-none"
-              >
-                ☠
-              </span>
-            )}
-            {card.suggestedBy.length > 0 && (
-              <span className="absolute -top-1.5 -right-1 flex gap-0.5">
-                {card.suggestedBy.slice(0, 3).map((id) => (
-                  <span
-                    key={id}
-                    title={names.get(id)}
-                    className="rounded-full bg-accent dark:bg-amber-500 px-1 text-[0.625rem] font-bold text-accent-fg dark:text-stone-950 shadow sm:text-[0.65rem]"
-                  >
-                    {initials(names.get(id) ?? '?')}
-                  </span>
-                ))}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </section>
+    <div>
+      <section ref={section} className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Word cards">
+        {view.board.map((card, i) => {
+          const interactive = onPick !== null && !card.revealed;
+          // The kind is printed, not just tinted, whenever the viewer may know it.
+          const captioned =
+            card.kind !== null && (card.revealed || showKey || view.phase === 'over');
+          const face = card.revealed
+            ? REVEALED[card.kind!]
+            : card.kind && (showKey || view.phase === 'over')
+              ? KEY_TINT[card.kind]
+              : FACE_DOWN;
+          const label = `${card.word}${card.kind ? `, ${KIND_LABEL[card.kind]}` : ''}${card.revealed ? ', revealed' : ''}`;
+          return (
+            <button
+              key={i}
+              type="button"
+              aria-label={label}
+              aria-pressed={selected === i}
+              disabled={!interactive}
+              onClick={() => onPick?.(i)}
+              className={cn(
+                // Wide cells from lg up, so five rows plus the header fit a 900px desktop window.
+                // The caption's and the corner mark's sizes are shared with the word (`CardWord`),
+                // which keeps clear of them.
+                // Phones show no caption (the legend under the board says what each colour is); from `sm` up
+                // it is 12 px, the smallest text on the site, as is the mark.
+                '[--cap-at:0px] [--cap-size:0px] [--mark-size:0.75rem] sm:[--cap-at:0.25rem] sm:[--cap-size:0.75rem] sm:[--mark-size:0.875rem]',
+                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
+                face,
+                interactive &&
+                  'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',
+                // The selection rule: a 3 px accent ring, 2 px out.
+                selected === i && 'z-10 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
+                lastGuessed === i &&
+                  'z-10 scale-105 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
+                card.revealed && lastGuessed !== i && 'opacity-90',
+                view.phase === 'over' && !card.revealed && 'opacity-70',
+              )}
+            >
+              <CardWord
+                word={card.word}
+                measure={measure}
+                captioned={captioned}
+                marked={card.revealed || (card.kind === 'assassin' && captioned)}
+              />
+              {captioned && (
+                // Capped by the card's width too, so larger browser text can't make it run into the word.
+                <span className="absolute inset-x-0 bottom-[var(--cap-at)] text-center text-[length:var(--cap-size)] leading-none font-semibold uppercase max-sm:hidden sm:tracking-wide">
+                  {KIND_CAPTION[card.kind!]}
+                </span>
+              )}
+              {card.revealed && card.kind !== 'assassin' && (
+                // Every revealed card gets the same mark, so a guessed bystander never differs from
+                // an unguessed one by shade alone.
+                <span
+                  aria-hidden
+                  data-card-mark
+                  className="absolute top-0.5 left-0.5 leading-none sm:left-1"
+                >
+                  <Icon name="check" className="size-[var(--mark-size)]" />
+                </span>
+              )}
+              {card.kind === 'assassin' && captioned && (
+                <span
+                  aria-hidden
+                  data-card-mark
+                  className="absolute top-0.5 left-0.5 leading-none sm:left-1"
+                >
+                  <Icon name="skull" className="size-[var(--mark-size)]" />
+                </span>
+              )}
+              {card.suggestedBy.length > 0 && (
+                <span className="absolute -top-1.5 -right-1 flex gap-0.5">
+                  {card.suggestedBy.slice(0, 3).map((id) => (
+                    <span
+                      key={id}
+                      title={names.get(id)}
+                      className="rounded-full bg-accent px-1 text-caption leading-tight font-bold text-accent-fg shadow-vt-1"
+                    >
+                      {initials(names.get(id) ?? '?')}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </section>
+      {legend && <Legend />}
+    </div>
+  );
+}
+
+/** Phones: what each card colour means, in place of the captions the cells have no room for. */
+function Legend() {
+  const swatch = (face: string, label: string) => (
+    <span className="inline-flex items-center gap-1">
+      <span aria-hidden className={cn('size-3 rounded-sm', face)} />
+      {label}
+    </span>
+  );
+  return (
+    <p
+      data-testid="board-legend"
+      className="mt-1.5 flex flex-wrap justify-center gap-x-3 text-caption text-ink-muted sm:hidden"
+    >
+      {swatch(REVEALED.red, KIND_LABEL.red)}
+      {swatch(REVEALED.blue, KIND_LABEL.blue)}
+      {swatch(REVEALED.bystander, KIND_LABEL.bystander)}
+      {swatch(REVEALED.assassin, KIND_LABEL.assassin)}
+    </p>
   );
 }
 
@@ -284,10 +315,10 @@ function CardWord({
           // Each size tier is capped at the size that fits the card's width (`--fit`), so long
           // words shrink instead of breaking; the measured fit above shrinks further when needed.
           word.length >= 9
-            ? 'text-[length:min(0.6rem,var(--fit))] tracking-tight sm:text-[length:min(0.75rem,var(--fit))] sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
+            ? 'text-[length:min(0.75rem,var(--fit))] tracking-tight sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
             : word.length >= 8
-              ? 'text-[length:min(0.625rem,var(--fit))] sm:text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
-              : 'text-[length:min(0.7rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
+              ? 'text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
+              : 'text-[length:min(0.75rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
         )}
       >
         {shown?.text ?? softBreaks(word)}

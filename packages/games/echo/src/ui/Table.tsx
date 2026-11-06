@@ -22,9 +22,7 @@ function PlayerChip({
 }) {
   return (
     <li
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800',
-      )}
+      className={cn('inline-flex items-center gap-1.5 rounded-full bg-sunk px-2.5 py-1 text-small')}
     >
       <span className="text-xs font-bold text-ink-muted tabular-nums">{order}</span>
       <PlayerTag name={name} host={host} you={you} offline={!online} />
@@ -123,7 +121,7 @@ export function Table({
         ))}
       </ul>
       {watching.length > 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-small text-ink-muted">
           <span className="font-semibold">Watching:</span>{' '}
           {watching.map((s, i) => (
             <span key={s.id}>

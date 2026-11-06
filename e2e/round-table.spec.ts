@@ -147,7 +147,7 @@ test('seven players with the Lady of the Lake: private checks, a sunk quest and 
   const t = await openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eli', 'Fay']);
   const { host } = t;
   await host.getByRole('button', { name: /^Classic\+/ }).click();
-  await expect(host.getByRole('checkbox', { name: /Lady of the Lake/ })).toBeChecked();
+  await expect(host.getByRole('switch', { name: /Lady of the Lake/ })).toBeChecked();
   await expect(host.getByTestId('balance')).toContainText('4 Good vs 3 Evil');
   await host.getByRole('button', { name: 'Start game' }).click();
   await readRoles(t);
