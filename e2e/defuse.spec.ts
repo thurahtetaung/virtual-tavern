@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { defuseAll, flat, lightsOn, open, results, settings, table } from './defuse-play.ts';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // The e2e server builds every bomb from a fixed seed (see defuse-play.ts).
@@ -62,4 +63,19 @@ test('a bomb defused on a phone while the expert reads, then one that goes off',
   for (const p of [ana, ben]) await results(p, 'Exploded');
   await expect(ana.getByTestId('outcome-line')).toContainText('Too many strikes');
   await expect(ana.getByTestId('result')).toContainText('✕');
+});
+
+test('an expert reads the manual on one phone screen, a long page scrolling in its own panel', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];
+  await flat([ana, ben]);
+  await ana.getByTestId('start').click();
+  await expect(ben.getByTestId('status')).toContainText('Ana is defusing bomb 1');
+  await expectPhoneFit(ben, [ben.getByTestId('manual-search'), ben.getByTestId('index-password')]);
+  await ben.getByTestId('index-password').click();
+  await expect(ben.getByTestId('page-password')).toBeVisible();
+  await expectPhoneFit(ben, [ben.getByTestId('page-body')]);
 });

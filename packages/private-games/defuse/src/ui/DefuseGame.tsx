@@ -6,6 +6,7 @@ import {
   LobbySettings,
   PHONE,
   Modal,
+  Fold,
   Panel,
   PlayerTag,
   ProtectedImage,
@@ -376,9 +377,11 @@ function Defuser({
   const [tip, setTip] = useState(() => !seen('vt.defuse.defuser-tip'));
   return (
     <div className="mx-auto max-w-6xl space-y-3" data-testid="defuser">
-      <p className="text-center text-sm font-semibold" data-testid="status">
-        💣 You are defusing. Describe what you see; your experts have the manual.
-      </p>
+      <div data-testid="status">
+        <Hint tone="action" dense>
+          💣 You are defusing. Describe what you see; your experts have the manual.
+        </Hint>
+      </div>
       {tip && (
         <Hint>
           <span>
@@ -417,7 +420,7 @@ function ExpertClock({ v, offset }: { v: DefuseView; offset: number }) {
   const left = leftAt({ ...v.clock, end: v.clock.end }, now);
   return (
     <span className="flex items-center gap-2 font-mono font-bold" data-testid="expert-clock">
-      <span style={{ color: '#dc2626' }}>{timerText(left)}</span>
+      <span className="text-danger-ink">{timerText(left)}</span>
       <span className="text-xs font-normal text-ink-muted">
         {v.clock.strikes} of {v.clock.strikeLimit} strikes
       </span>
@@ -448,10 +451,12 @@ function Expert({
   const defuserHere = v.seats.some((p) => p.id === v.defuser);
   return (
     <div className="mx-auto max-w-3xl space-y-3" data-testid="expert">
-      <Panel className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2">
-        <span className="min-w-0 flex-1 text-sm font-semibold" data-testid="status">
+      <div data-testid="status">
+        <Hint tone={v.role === 'expert' ? 'action' : 'neutral'} dense>
           📖 {defuser} is defusing bomb {v.bombNo}: read them the manual.
-        </span>
+        </Hint>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <ExpertClock v={v} offset={offset} />
         {isHost && defuserHere && (
           <button
@@ -462,7 +467,7 @@ function Expert({
             Hand the bomb over
           </button>
         )}
-      </Panel>
+      </div>
       {!defuserHere && (
         <Hint>
           {defuser} has left. The clock is still running.
@@ -480,12 +485,9 @@ function Expert({
         names={names}
         act={v.role === 'expert' ? (a) => send(a) : undefined}
       />
-      <details className="rounded-xl bg-card px-3 py-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800">
-        <summary className="cursor-pointer text-sm font-semibold">Who has claimed what</summary>
-        <div className="pt-2">
-          <ClaimsSummary v={v} names={names} art={art} />
-        </div>
-      </details>
+      <Fold summary="Who has claimed what">
+        <ClaimsSummary v={v} names={names} art={art} />
+      </Fold>
       <Modal open={hand} onClose={() => setHand(false)} title="Hand the bomb to…">
         <div className="grid gap-2">
           {v.seats
@@ -533,7 +535,7 @@ function SettingsForm({
           disabled={!editable}
           value={mission?.id ?? ''}
           onChange={(e) => set({ mission: e.target.value || null })}
-          className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+          className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line"
           data-testid="set-mission"
         >
           <option value="">Free Play (your own settings)</option>
@@ -581,10 +583,7 @@ function MissionCard({ id, art }: { id: string; art: Art }) {
   const { name, description } = art.mission(id);
   const needy = m.pools.some((p) => p.kinds.every(isNeedy));
   return (
-    <div
-      className="space-y-1 rounded-xl bg-panel p-3 text-sm dark:bg-stone-800"
-      data-testid="mission-card"
-    >
+    <div className="space-y-1 rounded-xl bg-panel p-3 text-sm" data-testid="mission-card">
       <p className="font-semibold">
         {missionNumber(m)} {name}
       </p>
@@ -652,7 +651,7 @@ function FreePlayForm({
             disabled={!editable}
             value={s.time}
             onChange={(e) => set({ time: Number(e.target.value) })}
-            className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+            className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line"
             data-testid="set-time"
           >
             {Array.from({ length: 20 }, (_, i) => (i + 1) * 30).map((t) => (
@@ -668,7 +667,7 @@ function FreePlayForm({
             disabled={!editable}
             value={s.modules}
             onChange={(e) => set({ modules: Number(e.target.value) })}
-            className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+            className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line"
             data-testid="set-modules"
           >
             {Array.from({ length: 9 }, (_, i) => i + 3).map((n) => (
@@ -835,7 +834,7 @@ function SettingsPanel({
     );
   return (
     <details
-      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line"
       data-testid="settings"
     >
       <summary
@@ -1021,6 +1020,15 @@ function Lobby({
   const ready = s.defuserMode !== 'volunteer' || !!v.defuser;
   return (
     <div className="mx-auto max-w-2xl space-y-3" data-testid="lobby">
+      {isHost ? (
+        (!enough || !ready) && (
+          <Hint dense>{enough ? 'Waiting for a defuser' : 'Waiting for an expert'}</Hint>
+        )
+      ) : (
+        <div data-testid="waiting">
+          <Hint dense>Waiting for the host to start the bomb.</Hint>
+        </div>
+      )}
       {intro && (
         <TalkIntro
           onDone={() => {
@@ -1033,7 +1041,7 @@ function Lobby({
         <h3 className="font-semibold">At the table ({v.seats.length})</h3>
         <ul className="flex flex-wrap gap-2">
           {v.seats.map((p) => (
-            <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm dark:bg-stone-800">
+            <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm">
               <PlayerTag name={p.name} you={p.id === you} />
             </li>
           ))}
@@ -1051,7 +1059,7 @@ function Lobby({
       <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
           {desk && (
-            <Button size="lg" variant="soft" onClick={desk} data-testid="to-desk">
+            <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
               🧳 To the desk
             </Button>
           )}
@@ -1069,12 +1077,8 @@ function Lobby({
                   : 'Waiting for a defuser'
                 : 'Waiting for an expert'}
             </Button>
-          ) : (
-            <p className="flex-1 text-center text-sm text-ink-muted" data-testid="waiting">
-              Waiting for the host to start the bomb.
-            </p>
-          )}
-          <Button variant="ghost" onClick={() => showGuide()}>
+          ) : null}
+          <Button variant="quiet" onClick={() => showGuide()}>
             How to play
           </Button>
         </div>
@@ -1171,9 +1175,7 @@ function Result({
             onClick={() => setTab(t)}
             className={cn(
               'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1',
-              tab === t
-                ? 'bg-accent text-accent-fg ring-accent dark:bg-amber-500 dark:text-stone-950'
-                : 'bg-card ring-line dark:bg-stone-800 dark:ring-stone-700',
+              tab === t ? 'bg-accent text-accent-fg ring-accent' : 'bg-card ring-line',
             )}
             data-testid={`result-tab-${t}`}
           >
@@ -1191,7 +1193,7 @@ function Result({
                 <li key={m.id}>
                   <button
                     type="button"
-                    className="flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left leading-tight hover:bg-panel dark:hover:bg-stone-800"
+                    className="flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left leading-tight hover:bg-panel"
                     onClick={() => setPeek(m.id)}
                   >
                     <span aria-hidden>{isNeedy(m.kind) ? '⚠️' : m.solved ? '✅' : '⬜'}</span>

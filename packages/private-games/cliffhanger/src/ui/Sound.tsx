@@ -121,8 +121,8 @@ function SoundModes({ room, act, mode }: Props & { mode: SoundMode }) {
               className={cn(
                 'h-11 rounded-lg text-sm font-semibold ring-1 transition',
                 mode === m
-                  ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
-                  : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800', // vt-palette
+                  ? 'bg-accent-soft ring-2 ring-accent' // vt-palette
+                  : 'ring-line hover:bg-panel', // vt-palette
               )}
             >
               {SOUND_NAME[m]}

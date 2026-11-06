@@ -53,10 +53,7 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th
-                key={i}
-                className="border-b border-line px-2 py-1 text-left font-semibold dark:border-stone-700"
-              >
+              <th key={i} className="border-b border-line px-2 py-1 text-left font-semibold">
                 {h}
               </th>
             ))}
@@ -64,7 +61,7 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="odd:bg-panel/60 dark:odd:bg-stone-800/40">
+            <tr key={i} className="odd:bg-panel/60">
               {r.map((c, j) => (
                 <td key={j} className="px-2 py-1 align-top">
                   {c}
@@ -222,7 +219,7 @@ function PageContent({ page, art, rules }: { page: PageId; art: Art; rules: Rule
           </p>
           <div className="grid grid-cols-6 gap-1 text-center">
             {rules.keypad.map((col, i) => (
-              <div key={i} className="space-y-1 rounded-md bg-panel p-1 dark:bg-stone-800">
+              <div key={i} className="space-y-1 rounded-md bg-panel p-1">
                 {col.map((n) => (
                   <div key={n} className="flex h-10 items-center justify-center">
                     <Glyph n={n} art={art} />
@@ -531,14 +528,14 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
           </Button>
           <h3 className="min-w-0 flex-1 truncate text-lg font-semibold">{pageName(art, page)}</h3>
           {pics.length > 0 && (
-            <Button size="sm" variant="ghost" onClick={() => setImage(!image)}>
+            <Button size="sm" variant="quiet" onClick={() => setImage(!image)}>
               {image ? 'Text' : 'Page'}
             </Button>
           )}
           {act && seated && (
             <Button
               size="sm"
-              variant={mine ? 'secondary' : 'soft'}
+              variant={mine ? 'secondary' : 'tint'}
               onClick={() => act({ type: 'claim', page, on: !mine })}
             >
               {mine ? 'Unclaim' : 'Claim'}
@@ -546,7 +543,14 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
           )}
         </div>
         <ClaimLine list={claims[page]} names={names} you={you} />
-        <div className="rounded-xl bg-card p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800">
+        {/* Phones: the page reads inside its own bounded panel, so the screen never scrolls. */}
+        <div
+          className="rounded-xl bg-card p-3 ring-1 ring-line max-sm:max-h-[52dvh] max-sm:overflow-y-auto"
+          role="region"
+          tabIndex={0}
+          aria-label={`${pageName(art, page)} page`}
+          data-testid="page-body"
+        >
           {image && pics.length ? (
             <div className="space-y-2">
               {pics.map((src) => (
@@ -574,7 +578,7 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search the manual (a word, a symbol)…"
-        className="h-11 w-full rounded-lg bg-card px-3 ring-1 ring-line focus:outline-2 focus:outline-accent dark:bg-stone-900 dark:ring-stone-700"
+        className="h-12 w-full rounded-lg border border-line-input bg-card px-3.5 text-ink placeholder:text-ink-faint focus:border-focus"
         aria-label="Search the manual"
         data-testid="manual-search"
       />
@@ -585,7 +589,7 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
             type="button"
             onClick={() => setPage(p)}
             className={cn(
-              'flex min-h-11 flex-col items-start justify-center rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel sm:min-h-14 sm:py-2 dark:bg-stone-900 dark:ring-stone-800',
+              'flex min-h-11 flex-col items-start justify-center rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel sm:min-h-14 sm:py-2',
               claims[p]?.includes(you) && 'ring-2 ring-accent',
             )}
             data-testid={`index-${p}`}
@@ -693,7 +697,7 @@ function Notes({
           const value = e.target.value;
           timer.current = setTimeout(() => act({ type: 'note', page, text: value }), 800);
         }}
-        className="w-full rounded-lg bg-card p-2 text-sm ring-1 ring-line focus:outline-2 focus:outline-accent dark:bg-stone-900 dark:ring-stone-700"
+        className="w-full rounded-lg bg-card p-2 text-sm ring-1 ring-line focus:outline-2 focus:outline-accent"
         placeholder="Serial, batteries, what was pressed…"
         data-testid="notes"
       />

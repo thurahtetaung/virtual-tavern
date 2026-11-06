@@ -11,6 +11,7 @@ import {
   sfVisitor,
 } from './short-fuse-play.ts';
 import { openSettings } from './lobby-settings.ts';
+import { PHONE, expectPhoneFit } from './phone-fit.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -109,4 +110,38 @@ test('three players: a Favor, a pair, a Nope chain, an attack, a Defuse and two 
   await host.getByTestId('play-again').click();
   await expect(ana!.page.getByTestId('hand')).toBeVisible();
   await expect(ben!.page.getByTestId('hand')).toBeVisible();
+});
+
+test('a Short Fuse turn and a Nope window fit one phone screen, the actions in the bar', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const look = { viewport: PHONE, isMobile: true, hasTouch: true };
+  await openBackroom(await sfVisitor(browser, 'Admin', pageErrors));
+  const [hana, ana] = await sfTable(browser, ['Hana', 'Ana', 'Ben', 'Cy'], pageErrors, look);
+  const host = hana!.page;
+  await riggedStart(host, {
+    hands: [
+      ['favor', 'cat1', 'cat1', 'attack', 'skip', 'shuffle', 'peek3', 'defuse'],
+      ['nope', 'cat2', 'cat3', 'defuse', 'skip', 'attack', 'favor', 'cat4'],
+      ['nope', 'cat4'],
+      ['cat5'],
+    ],
+    top: ['cat5', 'bomb', 'bomb'],
+  });
+  // The player on turn: the table and hand above, Play and Draw in the bar over the tab bar.
+  await expect(host.getByRole('tablist', { name: 'Short Fuse' })).toBeVisible();
+  await expectPhoneFit(host, [
+    host.getByTestId('hand').locator('[data-card]').last(),
+    host.getByTestId('play'),
+    host.getByTestId('draw'),
+  ]);
+  // A Nope holder in the window: the countdown above, the Nope button in the bar.
+  await host.getByTestId('hand').locator('[data-card="skip"]').click();
+  await host.getByTestId('play').click();
+  await expect(ana!.page.getByTestId('nope-panel')).toBeVisible();
+  await expectPhoneFit(ana!.page, [
+    ana!.page.getByTestId('nope-panel'),
+    ana!.page.getByTestId('nope-button'),
+  ]);
 });

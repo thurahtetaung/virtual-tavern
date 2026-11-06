@@ -113,9 +113,9 @@ for (const [label, viewport, colorScheme] of [
     await shot(ana, '10-describer-after-got');
     // Phones show the board on a tab; desktops beside the play.
     if (viewport.width < 1024) {
-      await cleo.getByTestId('tab-board').click();
+      await cleo.getByRole('tab', { name: 'Board' }).click();
       await shot(cleo, '11-board-tab');
-      await cleo.getByTestId('tab-play').click();
+      await cleo.getByRole('tab', { name: 'Play' }).click();
     }
     await describeCards(ana, 5);
     await faceOff([ana, ben, cleo, dev], cleo);

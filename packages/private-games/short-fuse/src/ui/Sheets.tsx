@@ -26,16 +26,16 @@ function Sheet({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="sf-sheet flex max-h-[88dvh] w-full flex-col rounded-t-2xl bg-panel text-ink shadow-2xl ring-1 ring-line sm:w-[min(40rem,calc(100vw-2rem))] sm:rounded-2xl"
+        className="sf-sheet flex max-h-[88dvh] w-full flex-col rounded-t-2xl border-t border-line bg-card text-ink shadow-vt-3 sm:w-[min(40rem,calc(100vw-2rem))] sm:rounded-xl sm:border"
       >
-        <h2 className="border-b border-line px-4 py-2.5 text-lg font-bold">{title}</h2>
+        <h2 className="border-b border-line px-4 py-2.5 text-sub font-semibold">{title}</h2>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
         <div className="border-t border-line px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {footer}
@@ -594,7 +594,7 @@ export function BombStrip({
                   >
                     Yes, explode
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setDying(false)}>
+                  <Button variant="quiet" size="sm" onClick={() => setDying(false)}>
                     No
                   </Button>
                 </div>
@@ -811,7 +811,7 @@ export function TargetSheet({
             {prompt.options.map((id) => (
               <Button
                 key={id}
-                variant="soft"
+                variant="tint"
                 onClick={() => void act({ type: 'target', player: id }, { anchor: 'target' })}
               >
                 {name(id)}

@@ -5,10 +5,14 @@ import {
   Hint,
   Modal,
   Panel,
+  TabBar,
+  type TabBarItem,
   cn,
   revealElement,
+  tabPanelProps,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { nounOf } from '../logic/genres.ts';
@@ -71,23 +75,23 @@ function Tips({ view }: { view: CliffhangerView }) {
     <>
       <aside
         data-testid="tips"
-        className="cl-rise hidden flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+        className="cl-rise hidden flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex"
       >
         <p className="font-semibold">New here? Three things to know</p>
         {list}
-        <Button variant="ghost" size="sm" className="self-end" onClick={dismiss}>
+        <Button variant="quiet" size="sm" className="self-end" onClick={dismiss}>
           Got it
         </Button>
       </aside>
       <aside
         data-testid="tips-line"
-        className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+        className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden"
       >
         <span className="min-w-0 flex-1 truncate">New here? The app never judges: you do.</span>
-        <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        <Button variant="quiet" size="sm" onClick={() => setOpen(true)}>
           Tips
         </Button>
-        <Button variant="ghost" size="sm" aria-label="Hide the tips" onClick={dismiss}>
+        <Button variant="quiet" size="sm" aria-label="Hide the tips" onClick={dismiss}>
           ✕
         </Button>
       </aside>
@@ -113,6 +117,12 @@ function useOnTheClock(view: CliffhangerView) {
 }
 
 type Tab = 'play' | 'board';
+
+const TABS_ID = 'cliffhanger-tabs';
+const TABS: readonly TabBarItem<Tab>[] = [
+  { id: 'play', label: 'Play', icon: 'gamepad-2' },
+  { id: 'board', label: 'Board', icon: 'layout-grid' },
+];
 
 function Board({
   view,
@@ -157,6 +167,7 @@ function Game(props: CliffhangerUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const status = statusFor(view, room);
   const [tab, setTab] = useState<Tab>('play');
+  const wide = useWideScreen();
   const [volumes, setVolume] = useCliffhangerVolumes();
   useHostVolumes({
     game: GAME_ID,
@@ -223,37 +234,18 @@ function Game(props: CliffhangerUiProps) {
     <div className="space-y-3">
       {profile !== 'stage' && <MomentOverlay view={view} clockOffset={room.clockOffset} />}
       <div className="flex items-center gap-2">
-        <div
-          role="tablist"
-          aria-label="Show"
-          className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-card p-1 ring-1 ring-line lg:hidden dark:bg-stone-800 dark:ring-0"
-        >
-          {(['play', 'board'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              data-testid={`tab-${t}`}
-              onClick={() => setTab(t)}
-              className={cn(
-                'h-10 rounded-lg text-sm font-semibold',
-                tab === t ? 'bg-panel shadow-sm dark:bg-stone-900' : 'text-ink-muted',
-              )}
-            >
-              {t === 'play' ? 'Play' : 'Board'}
-            </button>
-          ))}
-        </div>
         <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => showGuide()} aria-label="Rules">
+          <Button variant="quiet" size="sm" onClick={() => showGuide()} aria-label="Rules">
             📖
           </Button>
           <CliffhangerSoundButton {...soundProps} />
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <div className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}>
+        <div
+          className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}
+          {...(!wide && tab === 'play' && tabPanelProps(TABS_ID, 'play'))}
+        >
           <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
             {status.text}
           </Hint>
@@ -276,10 +268,23 @@ function Game(props: CliffhangerUiProps) {
             </>
           )}
         </div>
-        <aside className={cn('min-w-0', tab !== 'board' && 'hidden lg:block')}>
+        <aside
+          className={cn('min-w-0', tab !== 'board' && 'hidden lg:block')}
+          {...(!wide && tab === 'board' && tabPanelProps(TABS_ID, 'board'))}
+        >
           <Board view={view} room={room} act={act} online={online} />
         </aside>
       </div>
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Cliffhanger"
+          items={TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }

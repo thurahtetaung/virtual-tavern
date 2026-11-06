@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 import {
   YOUR_TURN,
@@ -78,11 +79,11 @@ test('four players on phones play Stampede to 5: a typo grouped by itself, a tie
   await answerAll(pages, ['Mars', 'Moon', 'moon', 'Moon']);
   await revealed(pages);
   await expect(pinkLine(ben)).toContainText('Cy → Hana');
-  // The holder is marked on the scoreboard (the phone's Scores tab).
-  await ben.getByTestId('tab-scores').click();
+  // The holder is marked on the scoreboard (the phone's Herd tab).
+  await ben.getByRole('tab', { name: 'Herd' }).click();
   await expect(ben.locator('[data-testid^="score-"]', { hasText: 'Hana' })).toContainText('🩷');
   await expect(ben.getByTestId('scoreboard')).toContainText('Hana holds the Pink Cow');
-  await ben.getByTestId('tab-play').click();
+  await ben.getByRole('tab', { name: 'Play' }).click();
 
   // Rounds 4–5: Ana, Ben and Cy herd up; Hana stays alone with the cow.
   for (let i = 0; i < 2; i++) {
@@ -96,4 +97,20 @@ test('four players on phones play Stampede to 5: a typo grouped by itself, a tie
   await expect(ana.getByText('🏆 You win!')).toBeVisible();
   await expect(ben.getByText('🏆 Ana wins!')).toBeVisible();
   await expect(cy.getByRole('region', { name: 'Final standings' })).toContainText('Ana');
+});
+
+test('a Stampede question and its answer form fit one phone screen', async ({ browser }) => {
+  const admin = await visitor(browser, 'Admin');
+  await openBackroom(admin);
+  const deckId = await importDeck(admin);
+  cleanup.push(() => admin.request.delete(`/api/admin/question-decks/${deckId}`));
+  const [hana] = await table(browser, ['Hana', 'Ana', 'Ben'], { viewport: PHONE });
+  await hana!.getByRole('button', { name: 'Start game' }).click();
+  await expect(hana!.getByTestId('answer-input')).toBeVisible();
+  await expect(hana!.getByRole('tablist', { name: 'Stampede' })).toBeVisible();
+  await expectPhoneFit(hana!, [
+    hana!.getByTestId('answer-input'),
+    hana!.getByTestId('answer-send'),
+    hana!.getByTestId('tips'),
+  ]);
 });

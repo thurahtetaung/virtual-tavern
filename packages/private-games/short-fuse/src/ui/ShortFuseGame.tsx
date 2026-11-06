@@ -6,7 +6,11 @@ import {
   Modal,
   NameDot,
   RefusalSlot,
+  StickyBar,
+  TabBar as BottomTabs,
+  type TabBarItem,
   cn,
+  tabPanelProps,
   useRefusalWording,
   useSpectatorPrompt,
   useConfirm,
@@ -57,6 +61,9 @@ import { NopePanel } from './Window.tsx';
 type Props = GameUiProps<ShortFuseView, ShortFuseAction>;
 type Act = Props['act'];
 type Tab = 'table' | 'log' | 'me';
+
+/** An action dock: its own panel on wider screens, the sticky bar's content on phones. */
+const DOCK = 'space-y-2 sm:rounded-2xl sm:bg-panel sm:p-2.5 sm:ring-1 sm:ring-line';
 /** Who a targeted play may pick: anyone with cards to take, anyone at all, or a special rule. */
 type Need = 'steal' | 'any' | 'mark' | 'mine' | 'ghost';
 
@@ -208,7 +215,7 @@ function WaitingChips({
             )}
             {room.isHost && !mine && (!online || late) && (
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 className="h-6 px-1.5 text-xs"
                 onClick={() =>
@@ -234,42 +241,14 @@ function WaitingChips({
   );
 }
 
-function TabBar({
-  tab,
-  onChange,
-  memory,
-}: {
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  memory: number;
-}) {
-  const items: [Tab, string][] = [
-    ['table', '🃏 Table'],
-    ['log', '📜 Log'],
-    ['me', `🔒 Me${memory ? ` (${memory})` : ''}`],
+const TABS_ID = 'short-fuse-tabs';
+
+function tabItems(memory: number): TabBarItem<Tab>[] {
+  return [
+    { id: 'table', label: 'Table', icon: 'layout-grid' },
+    { id: 'log', label: 'Log', icon: 'scroll-text' },
+    { id: 'me', label: `Me${memory ? ` (${memory})` : ''}`, icon: 'lock' },
   ];
-  return (
-    <div
-      className="grid grid-cols-3 gap-1 rounded-xl bg-panel p-1 ring-1 ring-line lg:hidden"
-      role="tablist"
-    >
-      {items.map(([id, label]) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={tab === id}
-          onClick={() => onChange(id)}
-          className={cn(
-            'min-h-9 rounded-lg text-sm font-semibold',
-            tab === id ? 'bg-card text-ink shadow-sm ring-1 ring-line' : 'text-ink-muted',
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 /** The latest public event, as a short banner over the table. */
@@ -671,7 +650,13 @@ export function ShortFuseGame({
         </div>
       </div>
       {view.stage === 'window' && g.window && g.pending && (
-        <NopePanel view={view} c={c} clockOffset={room.clockOffset} act={act} />
+        <NopePanel
+          view={view}
+          c={c}
+          clockOffset={room.clockOffset}
+          act={act}
+          bar={!myTurn && !(nowOnly && selCards.length > 0)}
+        />
       )}
     </div>
   );
@@ -680,7 +665,7 @@ export function ShortFuseGame({
   const slotPicked = blindSlot?.key === selKey ? blindSlot.slot : null;
   const nowTargets = needs === 'ghost' ? targetsFor(g, me, 'ghost') : null;
   const nowDock = nowOnly && selCards.length > 0 && (
-    <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="now-dock">
+    <div className={DOCK} data-testid="now-dock">
       {nowTargets ? (
         <div className="space-y-1.5">
           <p className="text-sm font-semibold text-ink">
@@ -688,7 +673,7 @@ export function ShortFuseGame({
           </p>
           <div className="flex flex-wrap gap-1.5" data-testid="targets">
             {nowTargets.map((id) => (
-              <Button key={id} variant="soft" onClick={() => play(id)}>
+              <Button key={id} variant="tint" onClick={() => play(id)}>
                 👻 {id === me ? 'yourself' : who(view, id)}
                 <NameDot name={who(view, id, false)} className="order-first" />
               </Button>
@@ -711,7 +696,7 @@ export function ShortFuseGame({
     </div>
   );
   const blindDock = myTurn && blindMe && (
-    <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="dock">
+    <div className={DOCK} data-testid="dock">
       <div className="grid grid-cols-2 gap-2">
         <Button
           variant="secondary"
@@ -743,7 +728,7 @@ export function ShortFuseGame({
     </div>
   );
   const dock = myTurn && !blindMe && (
-    <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="dock">
+    <div className={DOCK} data-testid="dock">
       {isPicking && needs ? (
         <div className="space-y-2">
           <p className="text-sm font-semibold text-ink">
@@ -775,7 +760,7 @@ export function ShortFuseGame({
             {(targets ?? []).map((id) => (
               <Button
                 key={id}
-                variant="soft"
+                variant="tint"
                 disabled={!!(plan && 'named' in plan && plan.named && !picking?.named)}
                 onClick={() => play(id, picking?.named)}
               >
@@ -790,7 +775,7 @@ export function ShortFuseGame({
             {targets?.length === 0 && (
               <p className="text-sm text-ink-muted">Nobody can be picked right now.</p>
             )}
-            <Button variant="ghost" onClick={() => setPicking(null)}>
+            <Button variant="quiet" onClick={() => setPicking(null)}>
               Cancel
             </Button>
           </div>
@@ -895,11 +880,15 @@ export function ShortFuseGame({
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4">
           <div className="space-y-2">
-            <TabBar tab={tab} onChange={setTab} memory={g.memory.length} />
-            <div className={cn('space-y-2', tab !== 'table' && 'max-lg:hidden')}>
-              {table}
-              <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+            <div
+              className={cn('space-y-2', tab !== 'table' && 'max-lg:hidden')}
+              {...(!wide && tab === 'table' && tabPanelProps(TABS_ID, 'table'))}
+            >
+              <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
+                {status.text}
+              </Hint>
               <WaitingChips view={view} room={room} act={act} now={now} />
+              {table}
               {tip && (
                 <p className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-special-ink ring-1 ring-special-line">
                   <span className="flex-1">💡 {tip[1]}</span>
@@ -924,16 +913,36 @@ export function ShortFuseGame({
                 />
               )}
               {handBlock}
-              {dock}
-              {blindDock}
-              {nowDock}
+              {(dock || blindDock || nowDock) && (
+                <StickyBar fixed>
+                  {dock}
+                  {blindDock}
+                  {nowDock}
+                </StickyBar>
+              )}
             </div>
-            <div className={cn('lg:hidden', tab !== 'log' && 'hidden')}>
+            <div
+              className={cn('lg:hidden', tab !== 'log' && 'hidden')}
+              {...(!wide && tab === 'log' && tabPanelProps(TABS_ID, 'log'))}
+            >
               <Log view={view} c={c} />
             </div>
-            <div className={cn('lg:hidden', tab !== 'me' && 'hidden')}>
+            <div
+              className={cn('lg:hidden', tab !== 'me' && 'hidden')}
+              {...(!wide && tab === 'me' && tabPanelProps(TABS_ID, 'me'))}
+            >
               <MeTab view={view} c={c} />
             </div>
+            {!wide && (
+              <BottomTabs
+                id={TABS_ID}
+                label="Short Fuse"
+                items={tabItems(g.memory.length)}
+                value={tab}
+                onChange={setTab}
+                className="lg:hidden"
+              />
+            )}
           </div>
           <aside className="hidden space-y-4 lg:block">
             <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">

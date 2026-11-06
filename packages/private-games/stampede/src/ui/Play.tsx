@@ -56,7 +56,7 @@ export function Question({ prompt, small = false }: { prompt: string; small?: bo
 }
 
 const INPUT =
-  'block h-12 w-full rounded-lg bg-white px-3 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
+  'block h-12 w-full rounded-lg border border-line-input bg-card px-3.5 text-lg text-ink placeholder:text-ink-faint focus:border-focus';
 
 function AnswerForm({ round, act }: { round: RoundView; act: Act }) {
   const [text, setText] = useState(round.myAnswer ?? '');
@@ -73,42 +73,47 @@ function AnswerForm({ round, act }: { round: RoundView; act: Act }) {
     setBusy(false);
   };
   return (
-    <form onSubmit={(e) => void submit(e)} className="space-y-2">
-      <label className="block">
-        <span className="sr-only">Your answer</span>
-        <input
-          data-testid="answer-input"
-          value={text}
-          maxLength={MAX_ANSWER_LENGTH}
-          autoComplete="off"
-          autoCapitalize="none"
-          spellCheck
-          enterKeyHint="send"
-          aria-invalid={problem ? true : undefined}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Your answer"
-          className={cn(INPUT, problem && 'ring-2 ring-danger dark:ring-rose-500')}
-        />
-        <span className="mt-1 block text-xs text-ink-muted">
-          One or two words is best. Nobody sees it until everyone has answered.
-        </span>
-        {problem && (
-          <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
-            {problem}
+    <StickyBar fixed refusal={ANSWER_ANCHOR} refusalKey={round.number}>
+      <form onSubmit={(e) => void submit(e)} className="space-y-2">
+        <label className="block">
+          <span className="sr-only">Your answer</span>
+          <input
+            data-testid="answer-input"
+            value={text}
+            maxLength={MAX_ANSWER_LENGTH}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck
+            enterKeyHint="send"
+            aria-invalid={problem ? true : undefined}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Your answer"
+            className={cn(INPUT, problem && 'ring-2 ring-danger')}
+          />
+          <span className="mt-1 block text-xs text-ink-muted">
+            One or two words is best. Nobody sees it until everyone has answered.
           </span>
-        )}
-      </label>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={busy || !trimmed || problem !== null || unchanged}
-        data-testid="answer-send"
-      >
-        {sent ? (unchanged ? `✓ Locked in: ${round.myAnswer}` : 'Change my answer') : 'Lock in 🐮'}
-      </Button>
-      <RefusalSlot anchor={ANSWER_ANCHOR} resetKey={round.number} />
-    </form>
+          {problem && (
+            <span role="alert" className="mt-1 block text-sm text-danger-ink">
+              {problem}
+            </span>
+          )}
+        </label>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={busy || !trimmed || problem !== null || unchanged}
+          data-testid="answer-send"
+        >
+          {sent
+            ? unchanged
+              ? `✓ Locked in: ${round.myAnswer}`
+              : 'Change my answer'
+            : 'Lock in 🐮'}
+        </Button>
+      </form>
+    </StickyBar>
   );
 }
 
@@ -132,7 +137,7 @@ function AnswerTicks({
       {round.players.map((id) => (
         <li
           key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line"
         >
           <PlayerTag name={nameOf(view, id)} you={id === view.me?.id} />
           {view.pinkCow === id && <PinkMark names={names} />}
@@ -274,10 +279,8 @@ function GroupRow({
       data-label={g.label}
       className={cn(
         'sp-rise rounded-xl px-3 py-2 ring-1',
-        herd
-          ? 'bg-success-soft text-success-ink ring-success-line dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-500/40'
-          : 'bg-card ring-line dark:bg-stone-800/70 dark:ring-stone-700',
-        mine && !herd && 'ring-2 ring-accent dark:ring-amber-500',
+        herd ? 'bg-success-soft text-success-ink ring-success-line' : 'bg-card ring-line',
+        mine && !herd && 'ring-2 ring-accent',
       )}
     >
       <p className={cn('font-bold', herd ? 'text-2xl lg:text-4xl' : 'text-lg lg:text-2xl')}>
@@ -327,7 +330,7 @@ function PinkLine({ view, round, names }: { view: StampedeView; round: RoundView
   return (
     <p
       data-testid="pink-line"
-      className="rounded-xl bg-special-soft px-3 py-2 text-center font-semibold text-special-ink ring-1 ring-special-line dark:bg-fuchsia-500/15 dark:text-fuchsia-100 dark:ring-fuchsia-500/40"
+      className="rounded-xl bg-special-soft px-3 py-2 text-center font-semibold text-special-ink ring-1 ring-special-line"
     >
       <PinkMark names={names} className={cn(r.pinkTo !== r.pinkFrom && 'sp-walk')} /> {names.pink}:{' '}
       {text}
@@ -368,10 +371,7 @@ function PickPanel({ view, room, act, names }: Props) {
               {nameOf(view, id)} · “{answerOf(id)}”
             </Button>
           ) : (
-            <p
-              key={id}
-              className="rounded-lg bg-card px-3 py-2 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
-            >
+            <p key={id} className="rounded-lg bg-card px-3 py-2 ring-1 ring-line">
               {who(view, id)} · “{answerOf(id)}”
             </p>
           ),
@@ -398,7 +398,7 @@ export function Reveal({ view, room, act, names, final = false }: Props & { fina
       {!herd && (
         <p
           data-testid="no-herd"
-          className="rounded-xl bg-warn-soft px-3 py-2 text-center font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40"
+          className="rounded-xl bg-warn-soft px-3 py-2 text-center font-semibold text-warn-ink ring-1 ring-warn-line"
         >
           {r.tie
             ? f(
@@ -433,7 +433,7 @@ export function Reveal({ view, room, act, names, final = false }: Props & { fina
       )}
       <PinkLine view={view} round={round} names={names} />
       {r.raisedTo && (
-        <p className="rounded-xl bg-info-soft px-3 py-2 text-center text-sm font-semibold text-info-ink ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40">
+        <p className="rounded-xl bg-info-soft px-3 py-2 text-center text-sm font-semibold text-info-ink ring-1 ring-info-line">
           {f(`A tie at the target! Now it’s first to ${cowCount(names, r.raisedTo)}.`)}
         </p>
       )}
@@ -441,8 +441,8 @@ export function Reveal({ view, room, act, names, final = false }: Props & { fina
         <PickPanel view={view} room={room} act={act} names={names} online={() => true} />
       )}
       {!final && round.stage === 'reveal' && room.isHost && (
-        <StickyBar>
-          <div className="border-t border-line pt-3 dark:border-stone-800">
+        <StickyBar fixed>
+          <div className="sm:border-t sm:border-line sm:pt-3">
             <Button
               size="lg"
               className="w-full"

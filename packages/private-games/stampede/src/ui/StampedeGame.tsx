@@ -2,12 +2,17 @@ import { type GameUiProps, storageKey } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  Fold,
   Hint,
   Panel,
+  TabBar,
+  type TabBarItem,
   cn,
+  tabPanelProps,
   revealElement,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { type Names, cowCount, fillNames } from '../logic/names.ts';
@@ -50,7 +55,7 @@ function useMoo(view: StampedeView, clockOffset: number): string | null {
 const TIPS_KEY = 'stampede.tips.v1';
 
 /** First-time tips, until dismissed (per seat in a playtest). */
-function Tips({ names }: { names: Names }) {
+function Tips({ names, open }: { names: Names; open: boolean }) {
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
@@ -61,11 +66,13 @@ function Tips({ names }: { names: Names }) {
   if (seen) return null;
   const f = (s: string) => fillNames(s, names);
   return (
-    <aside
-      data-testid="tips"
-      className="sp-rise flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+    <Fold
+      testId="tips"
+      open={open}
+      summary="New here? Three things to know"
+      className="bg-info-soft text-info-ink ring-info-line"
+      bodyClassName="flex flex-col gap-2 text-sm"
     >
-      <p className="font-semibold">New here? Three things to know</p>
       <ul className="list-disc space-y-1 pl-5">
         <li>Don’t write your favourite: write what you think most people here will say.</li>
         <li>
@@ -78,7 +85,7 @@ function Tips({ names }: { names: Names }) {
         </li>
       </ul>
       <Button
-        variant="ghost"
+        variant="quiet"
         size="sm"
         className="self-end"
         onClick={() => {
@@ -92,7 +99,7 @@ function Tips({ names }: { names: Names }) {
       >
         Got it
       </Button>
-    </aside>
+    </Fold>
   );
 }
 
@@ -128,7 +135,14 @@ function TopBar({
   );
 }
 
-type Tab = 'play' | 'scores';
+type Tab = 'play' | 'herd' | 'rounds';
+
+const TABS_ID = 'stampede-tabs';
+const TABS: readonly TabBarItem<Tab>[] = [
+  { id: 'play', label: 'Play', icon: 'gamepad-2' },
+  { id: 'herd', label: 'Herd', icon: 'users' },
+  { id: 'rounds', label: 'Rounds', icon: 'list-ordered' },
+];
 
 export function StampedeGame({
   view,
@@ -145,6 +159,7 @@ export function StampedeGame({
   const status = statusFor(view, room, names, title);
   const moo = useMoo(view, room.clockOffset);
   const [tab, setTab] = useState<Tab>('play');
+  const wide = useWideScreen();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -189,49 +204,29 @@ export function StampedeGame({
     );
   }
 
-  const mine = view.scores.find((s) => s.id === view.me?.id);
   const props = { view, room, act, names, online };
   return (
     <div className="space-y-3">
       <StampedeStyles />
-      {/* Phones: one screen at a time. Desktop: the scores sit beside the game. */}
-      <div
-        role="tablist"
-        aria-label="Show"
-        className="grid grid-cols-2 gap-1 rounded-xl bg-card p-1 ring-1 ring-line lg:hidden dark:bg-stone-800 dark:ring-0"
-      >
-        {(['play', 'scores'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            data-testid={`tab-${t}`}
-            onClick={() => setTab(t)}
-            className={cn(
-              'h-10 rounded-lg text-sm font-semibold',
-              tab === t ? 'bg-panel shadow-sm dark:bg-stone-900' : 'text-ink-muted',
-            )}
-          >
-            {t === 'play' ? 'Play' : `Scores${mine ? ` · 🐄 ${mine.cows}` : ''}`}
-            {t === 'scores' && view.pinkCow === view.me?.id && ' 🩷'}
-          </button>
-        ))}
-      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}>
+        <div
+          className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}
+          {...(!wide && tab === 'play' && tabPanelProps(TABS_ID, 'play'))}
+        >
+          <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
+            {status.text}
+          </Hint>
           <TopBar view={view} clockOffset={room.clockOffset} names={names} />
           {moo && (
             <p
               role="alert"
               data-testid="mooed"
-              className="rounded-xl bg-warn-soft px-3 py-2 text-center font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40"
+              className="rounded-xl bg-warn-soft px-3 py-2 text-center font-semibold text-warn-ink ring-1 ring-warn-line"
             >
               <span className="sp-moo">🐮</span> {moo} mooed at you! Hurry up!
             </p>
           )}
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && <Tips names={names} />}
+          {view.phase === 'playing' && <Tips names={names} open={wide} />}
           {view.phase === 'over' ? (
             <GameOver {...props} />
           ) : (
@@ -240,16 +235,37 @@ export function StampedeGame({
             </Panel>
           )}
         </div>
-        <aside className={cn('space-y-3', tab !== 'scores' && 'hidden lg:block')}>
-          <Panel className="space-y-3">
+        <aside className={cn('space-y-3', tab === 'play' && 'hidden lg:block')}>
+          <Panel
+            className={cn('space-y-3', tab === 'rounds' && 'max-lg:hidden')}
+            {...(!wide && tab === 'herd' && tabPanelProps(TABS_ID, 'herd'))}
+          >
             <Scoreboard view={view} names={names} />
-            <RoundLog view={view} names={names} />
+            {wide && <RoundLog view={view} names={names} />}
           </Panel>
-          <Panel>
+          {!wide && (
+            <Panel
+              className={cn(tab !== 'rounds' && 'hidden')}
+              {...(tab === 'rounds' && tabPanelProps(TABS_ID, 'rounds'))}
+            >
+              <RoundLog view={view} names={names} />
+            </Panel>
+          )}
+          <Panel className={cn(tab === 'rounds' && 'max-lg:hidden')}>
             <Table view={view} online={online} act={act} hostId={room.hostId} names={names} />
           </Panel>
         </aside>
       </div>
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Stampede"
+          items={TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
