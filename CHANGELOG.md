@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.93.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.92.0...v0.93.0) (2026-11-06)
+
+
+### Features
+
+* **web:** new home, games list, guide and FAQ pages ([#532](https://github.com/thurahtetaung/virtual-tavern/issues/532)) ([ff0e6de](https://github.com/thurahtetaung/virtual-tavern/commit/ff0e6de6446507ffcb225a50543b3ceb7c0fe594))
+
 ## [0.92.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.91.0...v0.92.0) (2026-11-06)
 
 
