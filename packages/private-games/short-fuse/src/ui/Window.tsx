@@ -138,16 +138,20 @@ export function NopePanel({
         data-testid="nope-panel"
       >
         <div className="flex items-center gap-3">
-          <span className="flex shrink-0 -space-x-6">
+          {/* Phones: the status line and the table's last move already say what was played. */}
+          <span className="flex shrink-0 -space-x-6 max-sm:hidden">
             {p.cards.slice(0, 3).map((card) => (
               <CardFace key={card.id} card={card} art={g.art} c={c} size="sm" label={false} />
             ))}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm leading-snug font-semibold text-warn-ink">
+            <p className="text-sm leading-snug font-semibold text-warn-ink max-sm:hidden">
               {pendingLine(view, c, p)}
             </p>
-            <p className="mt-0.5 text-xs text-warn-ink" data-testid="nope-state">
+            <p
+              className="mt-0.5 text-xs text-warn-ink max-sm:mt-0 max-sm:text-sm max-sm:font-semibold"
+              data-testid="nope-state"
+            >
               {revive
                 ? w.seers.length
                   ? `${c.name('seer')}: ${w.seers

@@ -605,7 +605,7 @@ export function ShortFuseGame({
 
   const table = (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 items-start justify-items-center gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:justify-items-start sm:gap-4 sm:p-3">
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3">
         <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} onInspect={openVoidTop} />
         <div className="flex flex-col items-center gap-1 text-xs text-ink-muted">
           {top ? (
@@ -619,7 +619,7 @@ export function ShortFuseGame({
               <CardFace card={top} art={g.art} c={c} size="md" />
             </button>
           ) : (
-            <span className="block aspect-[5/7] w-[4.75rem] rounded-[0.55rem] border-2 border-dashed border-line sm:w-24" />
+            <span className="block aspect-[5/7] w-16 rounded-[0.55rem] border-2 border-dashed border-line sm:w-24" />
           )}
           <button
             type="button"
@@ -631,7 +631,7 @@ export function ShortFuseGame({
             Discard ({g.discard.length})
           </button>
         </div>
-        <div className="col-span-2 flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:col-span-1 sm:flex-col sm:items-start">
+        <div className="flex w-full min-w-0 flex-col items-start gap-2">
           <LastAction view={view} c={c} />
           {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
             <Countdown
@@ -806,7 +806,10 @@ export function ShortFuseGame({
       )}
       {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       {!plan && (
-        <p className="text-xs text-ink-muted">Tap cards to play them, or draw to end your turn.</p>
+        // Phones: the status line already says it, and the bar keeps to the actions.
+        <p className="text-xs text-ink-muted max-sm:hidden">
+          Tap cards to play them, or draw to end your turn.
+        </p>
       )}
       <RefusalSlot anchor="play" />
     </div>
@@ -856,7 +859,7 @@ export function ShortFuseGame({
     />
   );
   return (
-    <div className="space-y-2 pb-4" data-testid="short-fuse">
+    <div className="space-y-2 sm:pb-4" data-testid="short-fuse">
       <ShortFuseStyles />
       <div className="flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-xs text-ink-muted">

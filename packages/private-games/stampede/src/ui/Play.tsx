@@ -515,18 +515,20 @@ export function GameOver(props: Props) {
           ]}
         />
         {room.isHost ? (
-          <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-            <Button size="lg" onClick={() => void act({ type: 'start' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
+          <StickyBar>
+            <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+              <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </div>
+          </StickyBar>
         ) : (
           <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
         )}

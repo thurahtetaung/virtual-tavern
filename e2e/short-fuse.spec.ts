@@ -140,8 +140,10 @@ test('a Short Fuse turn and a Nope window fit one phone screen, the actions in t
   await host.getByTestId('hand').locator('[data-card="skip"]').click();
   await host.getByTestId('play').click();
   await expect(ana!.page.getByTestId('nope-panel')).toBeVisible();
-  await expectPhoneFit(ana!.page, [
-    ana!.page.getByTestId('nope-panel'),
-    ana!.page.getByTestId('nope-button'),
-  ]);
+  // The window lasts four seconds, so it is measured quickly.
+  await expectPhoneFit(
+    ana!.page,
+    [ana!.page.getByTestId('nope-panel'), ana!.page.getByTestId('nope-button')],
+    { quick: true },
+  );
 });

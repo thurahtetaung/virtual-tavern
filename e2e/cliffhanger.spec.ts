@@ -106,7 +106,10 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
     'Pretend horror 1',
     'Pretend family 1',
   ]);
+  // The race is on the phone's Board tab.
+  await dev.getByRole('tab', { name: 'Board' }).click();
   await expect(dev.getByTestId('race-a').first().getByText('6/8')).toBeVisible({ timeout: 15_000 });
+  await dev.getByRole('tab', { name: 'Play' }).click();
 
   // Round 2: Cleo against Dev (Ben and Dev's team is behind and picks the category).
   await faceOff(all, cleo);

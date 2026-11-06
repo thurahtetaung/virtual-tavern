@@ -108,7 +108,7 @@ function SaidIt({ onPress, disabled }: { onPress: () => void; disabled?: boolean
       disabled={disabled}
       onClick={onPress}
       className={cn(
-        'mx-auto grid aspect-square w-full max-w-72 place-items-center rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
+        'mx-auto grid aspect-square w-full max-w-72 place-items-center max-sm:max-w-[13.75rem] rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
         // vt-palette: the buzzer's own pink
         !src && 'bg-pink-600 text-4xl shadow-[0_10px_0_#9d174d] active:shadow-[0_4px_0_#9d174d]',
       )}

@@ -1,5 +1,14 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, EndTabs, NameDot, Panel, Superlatives, cn, useWideScreen } from '@vt/ui';
+import {
+  Button,
+  EndTabs,
+  NameDot,
+  Panel,
+  StickyBar,
+  Superlatives,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import type { ReactNode } from 'react';
 import type { ShortFuseAction, ShortFuseView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -151,22 +160,24 @@ export function End({
         {wide && outOrder}
         {wide && <Superlatives lines={room.superlatives} />}
         {room.isHost && (
-          <div className="flex flex-wrap justify-center gap-2 pt-1">
-            <Button
-              size="lg"
-              onClick={() => void act({ type: 'play-again' })}
-              data-testid="play-again"
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
+          <StickyBar>
+            <div className="flex flex-wrap justify-center gap-2 pt-1">
+              <Button
+                size="lg"
+                onClick={() => void act({ type: 'play-again' })}
+                data-testid="play-again"
+              >
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </div>
+          </StickyBar>
         )}
       </Panel>
 

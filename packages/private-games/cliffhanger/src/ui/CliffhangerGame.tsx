@@ -233,22 +233,25 @@ function Game(props: CliffhangerUiProps) {
   return (
     <div className="space-y-3">
       {profile !== 'stage' && <MomentOverlay view={view} clockOffset={room.clockOffset} />}
-      <div className="flex items-center gap-2">
-        <div className="ml-auto flex items-center gap-1">
-          <Button variant="quiet" size="sm" onClick={() => showGuide()} aria-label="Rules">
-            📖
-          </Button>
-          <CliffhangerSoundButton {...soundProps} />
-        </div>
-      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
         <div
           className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}
           {...(!wide && tab === 'play' && tabPanelProps(TABS_ID, 'play'))}
         >
-          <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
-            {status.text}
-          </Hint>
+          {/* The guide and sound sit beside the status line. */}
+          <div className="flex items-start gap-1">
+            <div className="min-w-0 flex-1">
+              <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
+                {status.text}
+              </Hint>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button variant="quiet" size="sm" onClick={() => showGuide()} aria-label="Rules">
+                📖
+              </Button>
+              <CliffhangerSoundButton {...soundProps} />
+            </div>
+          </div>
           {/* Never between a player on the clock and their buttons. */}
           {view.phase === 'playing' && !status.yourMove && <Tips view={view} />}
           {view.phase === 'over' ? (
@@ -257,11 +260,6 @@ function Game(props: CliffhangerUiProps) {
             </Panel>
           ) : (
             <>
-              <div className="space-y-1 lg:hidden">
-                {TEAMS.map((t) => (
-                  <GenreRace key={t} view={view} team={t} compact />
-                ))}
-              </div>
               <Panel>
                 <Stage view={view} room={room} act={act} cue={cue} />
               </Panel>
