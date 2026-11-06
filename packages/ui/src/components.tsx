@@ -305,14 +305,16 @@ export function StatusLine({
       data-me={me || undefined}
       className={join(
         'flex items-start gap-2.5 rounded-xl border px-3.5 leading-snug',
-        dense ? 'py-1.5 sm:py-2.5' : 'py-2.5',
+        // Phones keep the line as snug as the screen needs; 16 px from `sm` up.
+        dense ? 'py-1.5 sm:py-2.5' : 'py-2 sm:py-2.5',
+        'text-small sm:text-body',
         me
-          ? 'border-accent-line bg-accent-soft text-body font-semibold text-accent-text'
-          : 'border-line bg-panel text-small text-ink-2 sm:text-body',
+          ? 'border-accent-line bg-accent-soft font-semibold text-accent-text'
+          : 'border-line bg-panel text-ink-2',
         className,
       )}
     >
-      {name && <Icon name={name} size={me ? 24 : 20} className={me ? '-my-0.5' : 'mt-px'} />}
+      {name && <Icon name={name} className="mt-px sm:size-6" />}
       <span className="min-w-0 flex-1">{children}</span>
     </div>
   );

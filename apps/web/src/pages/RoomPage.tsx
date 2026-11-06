@@ -691,7 +691,7 @@ function Room({
     <Layout wide room>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
           icon over a one-word label). A long name takes a smaller size and up to two lines. */}
-      <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
+      <div data-ui="room-header" className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
         <h1
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
