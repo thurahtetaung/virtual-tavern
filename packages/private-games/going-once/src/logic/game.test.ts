@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { enableTestRig, timing } from './game.ts';
@@ -277,7 +278,7 @@ describe('bidding', () => {
     bid(h, 'p1', 600);
     const seq = game(h).auction!.seq;
     expect(h.refuse('p1', { type: 'bid', amount: 700, seq }).code).toBe('leading');
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p2!.cash = 650;
     h.state = s;
     expect(h.refuse('p2', { type: 'bid', amount: 700, seq }).code).toBe('cash');
@@ -428,7 +429,7 @@ describe('screws', () => {
 
   it('are wasted when the target can’t afford it or nobody is picked', () => {
     const h = toSecondHalf();
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p3!.cash = 300;
     h.state = s;
     h.act('p1', { type: 'screw' });
@@ -449,7 +450,7 @@ describe('the clock around a screw (the owner’s ruling, 2026-10-26, and the or
   /** Hana leads at going twice with a moment left, then screws someone. */
   function leaderScrewsLate(targetCash: number) {
     const h = toSecondHalf();
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p3!.cash = targetCash;
     h.state = s;
     bid(h, 'p1', 600);
@@ -511,7 +512,7 @@ describe('the clock around a screw (the owner’s ruling, 2026-10-26, and the or
 describe('the bank', () => {
   it('opens by itself once someone has $1,000 or less, and lends $1,000 for $1,500', () => {
     const h = auctioning(3, 3);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.cash = 1400;
     h.state = s;
     bid(h, 'p1', 400);
@@ -533,7 +534,7 @@ describe('the bank', () => {
     const h = auctioning(3, 3);
     expect(goingOnce.view(h.state, 'p2').mine!.bankRefusal).toBeNull();
     expect(h.refuse('p2', { type: 'call-bank' }).code).toBe('no-bank');
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.bankOpened = true;
     h.state = s;
     h.act('p2', { type: 'call-bank' });
@@ -551,7 +552,7 @@ describe('the bank', () => {
     // Called without a loan: the bank says so next.
     expect(game(h).players.p2!.messages.at(-1)!.kind).toBe('prankCall');
     expect(game(h).players.p3!.messages.at(-1)!.kind).toBe('prankCall');
-    const t = structuredClone(h.state);
+    const t = clone(h.state);
     t.game!.players.p2!.bankCalls = 3;
     h.state = t;
     expect(h.refuse('p2', { type: 'call-bank' }).message).toMatch(/Stop calling/);
@@ -559,7 +560,7 @@ describe('the bank', () => {
 
   it('gives at most three loans', () => {
     const h = auctioning(3, 3);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.loans = 3;
     s.game!.stage = 'bank';
     s.game!.bankDone = [];
@@ -569,7 +570,7 @@ describe('the bank', () => {
 
   it('times out and moves on', () => {
     const h = auctioning(3, 3);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.cash = 900;
     h.state = s;
     hammer(h);
@@ -686,7 +687,7 @@ describe('the original’s timings and redraw', () => {
 
   it('opens the bank for 30 seconds the first time and 10 after', () => {
     const h = auctioning(3, 3);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.cash = 900;
     h.state = s;
     hammer(h);
@@ -729,7 +730,7 @@ describe('the original’s timings and redraw', () => {
     expect(after).not.toEqual(before);
     expect(goingOnce.view(h.state, 'p1').game!.redraw).toBe(true);
     // Drawing in the redraw plays on as usual.
-    const h2 = structuredClone(h.state);
+    const h2 = clone(h.state);
     for (let i = 0; i < 3; i++) h.tick();
     expect(h.state.phase).toBe('over');
     expect(game(h).ended).toBe('no-drawings');

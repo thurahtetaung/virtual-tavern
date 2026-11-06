@@ -1,4 +1,4 @@
-import { type ContentProvider, type Rng, createRng, isGameError } from '@vt/game-sdk';
+import { clone, type ContentProvider, type Rng, createRng, isGameError } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { awaited, flipTargets, thorns } from './game.ts';
 import { HOST, ids, rigStacks, started } from './test-utils.ts';
@@ -13,7 +13,7 @@ const swap = (d: Disc): Disc => (d === 'rose' ? 'thorn' : d === 'thorn' ? 'rose'
  * and the hidden seed. A view that leaks nothing is the same for both.
  */
 function scramble(state: ThornsState, viewer: string | null): ThornsState {
-  const s = structuredClone(state);
+  const s = clone(state);
   s.seed = (s.seed + 12345) >>> 0;
   const g = s.game;
   if (!g || s.phase === 'over') return s;
@@ -104,7 +104,7 @@ describe('view()', () => {
 
   it('reveals everything at the end', () => {
     const h = started(3, { first: 'p1' });
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.points = 1;
     h.state = s;
     rigStacks(h, { p1: ['rose'], p2: ['rose'], p3: ['thorn'] }, 'p1');

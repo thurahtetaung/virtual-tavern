@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -59,7 +60,7 @@ type Ctx = ActionCtx;
 type ResultOf = SkyfireState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: SkyfireState): SkyfireState => structuredClone(s);
+const draft = (s: SkyfireState): SkyfireState => clone(s);
 const hiddenRng = (state: SkyfireState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -764,7 +765,7 @@ function gameView(state: SkyfireState, g: Game, viewer: PlayerId | null): GameVi
         g.hands[pid]!.map((id) => ({
           id,
           card: pid === viewer && !over ? null : { ...g.cards[id]! },
-          know: memory ? null : structuredClone(g.know[id] ?? noKnowledge()),
+          know: memory ? null : clone(g.know[id] ?? noKnowledge()),
         })),
       ]),
     ),
@@ -787,12 +788,12 @@ function gameView(state: SkyfireState, g: Game, viewer: PlayerId | null): GameVi
             reminded: g.clock.reminded,
           }
         : null,
-    result: g.result ? structuredClone(g.result) : null,
+    result: g.result ? clone(g.result) : null,
     replay: over
       ? {
-          cards: structuredClone(g.cards),
-          start: structuredClone(g.start),
-          turns: structuredClone(g.turns),
+          cards: clone(g.cards),
+          start: clone(g.start),
+          turns: clone(g.turns),
         }
       : null,
   };
@@ -817,9 +818,7 @@ function view(state: SkyfireState, viewer: PlayerId | null): SkyfireView {
     seats,
     me: seats.find((s) => s.id === viewer) ?? null,
     game: g ? gameView(state, g, viewer) : null,
-    log: state.log
-      .filter((e) => !(e.kind === 'clue' && e.id < forget))
-      .map((e) => structuredClone(e)),
+    log: state.log.filter((e) => !(e.kind === 'clue' && e.id < forget)).map((e) => clone(e)),
     reactions: state.reactions.map((r) => ({ ...r })),
   };
 }

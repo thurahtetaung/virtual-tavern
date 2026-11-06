@@ -1,4 +1,4 @@
-import { createRng } from '@vt/game-sdk';
+import { clone, createRng } from '@vt/game-sdk';
 import { type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from '../logic/definition.ts';
@@ -37,7 +37,7 @@ describe('moments', () => {
     expect(steps(draw, 'timer')[0]).toMatchObject({ kind: 'anim', track: 'timer.Appear' });
     expect(steps(draw, 'sign')[0]).toMatchObject({ on: ['stage'] });
     // With the voice's instructions first, the hourglass comes as its clock starts.
-    const said = structuredClone(v);
+    const said = clone(v);
     said.game!.drawFrom = said.game!.since + 40_000;
     const voicedDraw = stage(said).find((m) => m.id.startsWith('draw:'))!;
     expect(steps(voicedDraw, 'timer')[0]).toMatchObject({ t: 40_000, track: 'timer.Appear' });

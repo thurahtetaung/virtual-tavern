@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -73,7 +74,7 @@ type Ctx = ActionCtx;
 type Result = JewellerState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: JewellerState): JewellerState => structuredClone(s);
+const draft = (s: JewellerState): JewellerState => clone(s);
 const hiddenRng = (state: JewellerState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -1049,7 +1050,7 @@ function gameView(state: JewellerState, g: Game, viewer: PlayerId | null): GameV
     market: { 1: [...g.market[1]], 2: [...g.market[2]], 3: [...g.market[3]] },
     nobles: [...g.nobles],
     cities: [...(g.cities ?? [])],
-    holds: structuredClone(g.holds ?? {}),
+    holds: clone(g.holds ?? {}),
     bank: { ...g.bank },
     current: g.current,
     stage: g.stage,

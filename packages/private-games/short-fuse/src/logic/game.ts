@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -275,8 +276,8 @@ export function typesIn(
  */
 function draftOf(state: S): S {
   const g = state.game;
-  if (!g) return structuredClone(state);
-  const copy = structuredClone({ ...state, game: { ...g, cards: {} } });
+  if (!g) return clone(state);
+  const copy = clone({ ...state, game: { ...g, cards: {} } });
   copy.game.cards = g.cards;
   normalize(copy.game);
   return copy;

@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import type { BotCtx, PlayerId } from '@vt/game-sdk';
 import { RANKS, type Rank, type Suit } from './cards.ts';
 import { type Clue, clued, colourChoices, learn, touches } from './clues.ts';
@@ -71,7 +72,7 @@ export function skyfireBot(view: SkyfireView, ctx: BotCtx): SkyfireAction | null
     for (const s of touched) {
       if (!s.card) continue;
       const k0 = knowledgeOf(view, to, s.id);
-      const k = structuredClone(k0);
+      const k = clone(k0);
       learn(k, clue, true);
       const before = holderPossibilities(view, to, s.id, k0);
       const after = holderPossibilities(view, to, s.id, k);

@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -60,7 +61,7 @@ type Ctx = ActionCtx;
 type Result = ConveyorState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: ConveyorState): ConveyorState => structuredClone(s);
+const draft = (s: ConveyorState): ConveyorState => clone(s);
 const hiddenRng = (state: ConveyorState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -1261,8 +1262,8 @@ function gameView(state: ConveyorState, g: Game, viewer: PlayerId | null): GameV
         name: state.seats[id]?.name ?? g.names[id] ?? 'Gone',
         hand: p.hand.length,
         pile: p.pile.length,
-        tray: structuredClone(p.tray),
-        desserts: structuredClone(p.desserts),
+        tray: clone(p.tray),
+        desserts: clone(p.desserts),
         ura: p.ura,
         score: p.score,
         done: g.stage === 'pick' ? p.pick !== null : g.stage === 'scores' ? p.ready : false,
@@ -1286,8 +1287,8 @@ function gameView(state: ConveyorState, g: Game, viewer: PlayerId | null): GameV
     myPick: mine?.pick ? { ...mine.pick } : null,
     myChop: viewer && chopStep?.choices[viewer] ? { ...chopStep.choices[viewer] } : null,
     claimed: g.claimed,
-    results: structuredClone(g.results),
-    dessertRows: g.dessertRows ? structuredClone(g.dessertRows) : null,
+    results: clone(g.results),
+    dessertRows: g.dessertRows ? clone(g.dessertRows) : null,
     clock:
       g.clock && state.phase === 'playing'
         ? {
@@ -1320,11 +1321,11 @@ function view(state: ConveyorState, viewer: PlayerId | null): ConveyorView {
   const g = state.game;
   return {
     phase: state.phase,
-    settings: structuredClone(state.settings),
+    settings: clone(state.settings),
     seats,
     me: seats.find((s) => s.id === viewer) ?? null,
     game: g ? gameView(state, g, viewer) : null,
-    log: state.log.map((e) => structuredClone(e)),
+    log: state.log.map((e) => clone(e)),
   };
 }
 

@@ -1,5 +1,6 @@
 import { nightfallBot } from './bot.ts';
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -65,7 +66,6 @@ const at = (stage: Stage): Pick<NightfallState, 'stage' | 'phase'> => ({
 
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 const hiddenRng = (state: NightfallState, now: number) => createRng((state.seed ^ now) >>> 0);
-const clone = <T>(v: T): T => structuredClone(v);
 
 /** Seated players, in seat order. */
 export function seated(state: Pick<NightfallState, 'seats'>): PlayerId[] {
@@ -415,7 +415,7 @@ function updateSettings(
   if (a.weights !== undefined) {
     const problem = weightsProblem(a.weights);
     if (problem) return new GameError('bad-weights', problem);
-    settings.weights = structuredClone(a.weights);
+    settings.weights = clone(a.weights);
   }
   return { ...state, settings };
 }
@@ -722,7 +722,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
         : null;
     // The narrator says the step's random instruction out loud: everyone hears it, never who acts.
     const said = night.index >= 0 ? night.picks?.[night.index] : undefined;
-    const pick = said && structuredClone(said);
+    const pick = said && clone(said);
     if (pick?.kind === 'alien') delete pick.forced;
     out.night = {
       index: night.index,

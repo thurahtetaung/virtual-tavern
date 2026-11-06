@@ -1,4 +1,4 @@
-import { createRng } from '@vt/game-sdk';
+import { clone, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { LIGHTS } from './bomb.ts';
 import { setBotMistakes } from './bot.ts';
@@ -18,7 +18,7 @@ const WATCHER = 'zed';
 
 /** The state with every hidden part of the bomb changed. */
 function hiddenChanged(s: State): State {
-  const c = structuredClone(s);
+  const c = clone(s);
   c.seed = (c.seed + 1) >>> 0;
   // The night's manual seed: a live bomb's readers get its own bomb's rules, never this.
   if (c.nightManual) c.nightManual += 1;

@@ -1,4 +1,4 @@
-import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
+import { clone, GameError, type PlayerId, type Rng } from '@vt/game-sdk';
 import {
   NIGHT_ORDER,
   ORACLE_REPLY_MS,
@@ -1994,7 +1994,7 @@ function drawPick(c: StepCtx) {
     ? night.picks?.[night.plan.indexOf(c.def.id.slice(REPEAT.length))]
     : null;
   const pick =
-    (before ? structuredClone(before) : null) ??
+    (before ? clone(before) : null) ??
     pickFor(role, {
       rng: c.rng,
       n: c.r.order.length,

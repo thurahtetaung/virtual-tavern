@@ -1,4 +1,4 @@
-import { type Rng, createRng, isGameError } from '@vt/game-sdk';
+import { clone, type Rng, createRng, isGameError } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { encoreBot } from './bot.ts';
 import { HAND_SIZE } from './cards.ts';
@@ -14,7 +14,7 @@ import type { EncoreAction, EncoreState } from './types.ts';
  * nothing is the same for both.
  */
 function scramble(state: EncoreState, viewer: string | null): EncoreState {
-  const s = structuredClone(state);
+  const s = clone(state);
   s.seed = (s.seed + 12345) >>> 0;
   const g = s.game;
   if (!g) return s;

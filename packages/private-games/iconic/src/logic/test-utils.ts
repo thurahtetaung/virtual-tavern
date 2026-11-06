@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { iconic } from './game.ts';
 import type { IconicAction, IconicState, Settings } from './types.ts';
 
@@ -86,7 +86,7 @@ export function started(
   const h = harness(n, opts.seed ?? 7, opts.settings);
   h.act(HOST, { type: 'start' });
   if (opts.first) {
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     const g = s.game!;
     const size = g.round.givers.length;
     const at = g.order.indexOf(opts.first);

@@ -1,4 +1,4 @@
-import { type Rng, createRng, isGameError } from '@vt/game-sdk';
+import { clone, type Rng, createRng, isGameError } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { jewellerBot } from './bot.ts';
 import { cardOf } from './cards.ts';
@@ -22,7 +22,7 @@ import {
  * deck, the log entry too) and the hidden seed. A view that leaks nothing is the same for both.
  */
 function scramble(state: JewellerState, viewer: string | null): JewellerState {
-  const s = structuredClone(state);
+  const s = clone(state);
   s.seed = (s.seed + 12345) >>> 0;
   const g = s.game;
   if (!g) return s;

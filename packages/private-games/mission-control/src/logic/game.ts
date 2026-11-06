@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type ContentProvider,
   type CreateCtx,
@@ -728,7 +729,7 @@ function begin(
     crew,
     captain,
     hands: dealt.hands,
-    dealt: structuredClone(dealt.hands),
+    dealt: clone(dealt.hands),
     dummy: dealt.dummy,
     total,
     tasks,
@@ -985,7 +986,7 @@ function afterDistress(a: Attempt, now: number): Attempt {
 }
 
 function doPass(a: Attempt): Attempt {
-  const hands = structuredClone(a.hands);
+  const hands = clone(a.hands);
   const dummy = a.dummy && { up: [...a.dummy.up], down: [...a.dummy.down] };
   const received: Record<string, CardId> = {};
   const moves = a.crew.map((seat) => ({
@@ -1011,7 +1012,7 @@ function doPass(a: Attempt): Attempt {
     ...a,
     hands,
     dummy,
-    dealt: structuredClone(hands),
+    dealt: clone(hands),
     distress: { ...a.distress, received },
   };
 }

@@ -1,4 +1,4 @@
-import { createRng } from '@vt/game-sdk';
+import { clone, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { redHerring } from './game.ts';
 import {
@@ -64,7 +64,7 @@ function leaks(s: RedHerringState, viewer: string | null): string[] {
 
 /** The view with the notebook taken out. */
 const withoutNotebook = (v: RedHerringView) => {
-  const copy = structuredClone(v);
+  const copy = clone(v);
   if (copy.game) {
     copy.game.round.notebook = copy.game.round.notebook ? { word: null } : null;
     copy.game.hand = [];
@@ -133,7 +133,7 @@ describe('view()', () => {
     const r = round(h);
     const others = r.order.slice(1).filter((id) => id !== r.conspirator);
     const [a, b] = others as [string, string];
-    const swapped = structuredClone(h.state);
+    const swapped = clone(h.state);
     swapped.game!.round.conspirator = b;
     expect(json(swapped, a)).toBe(json(h.state, a));
     for (const v of r.order.slice(1)) {
@@ -156,7 +156,7 @@ describe('view()', () => {
       expect(v.game!.round.myVote).toBe(id === a ? c : null);
     }
     // Who someone voted for is invisible: two different votes look alike to everyone else.
-    const other = structuredClone(h.state);
+    const other = clone(h.state);
     other.game!.round.votes[a] = b;
     for (const id of [b, c, r.picker, null]) expect(json(other, id)).toBe(json(h.state, id));
 

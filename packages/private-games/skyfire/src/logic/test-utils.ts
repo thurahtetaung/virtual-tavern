@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { type Card, SUIT_LETTER } from './cards.ts';
 import { noKnowledge } from './clues.ts';
 import { skyfire } from './game.ts';
@@ -55,7 +55,7 @@ export function harness(
       return h.state;
     },
     rig(fn) {
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       fn(s);
       h.state = s;
     },

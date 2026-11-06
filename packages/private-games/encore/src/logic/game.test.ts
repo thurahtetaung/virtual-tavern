@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CARDS, HAND_SIZE, START_CARD, deckFor } from './cards.ts';
 import { encore, parseTestDeck, setTestDeck } from './game.ts';
@@ -160,7 +161,7 @@ describe('the flip', () => {
     const v = encore.view(h.state, 'p1').game!;
     expect(v.players.find((p) => p.id === 'p2')!.done).toBe(true);
     expect(v.myFlip).toBeNull();
-    const other = structuredClone(h.state);
+    const other = clone(h.state);
     other.game!.players.p2!.flip = false;
     expect(encore.view(other, 'p1')).toEqual(encore.view(h.state, 'p1'));
     expect(encore.view(h.state, 'p2').game!.myFlip).toBe(true);
@@ -321,7 +322,7 @@ describe('the round ends when a Show comes back unbeaten', () => {
 describe('Recruit & Show', () => {
   it('is all or nothing: refused whole when the Show doesn’t beat what is left', () => {
     const h = playing(3, { p1: '1/2 2/3' }, { table: '7/1 7/2 7/3', owner: 'p3' });
-    const before = structuredClone(h.state);
+    const before = clone(h.state);
     expect(
       h.refuse('p1', { type: 'recruit-show', end: 'left', flip: false, at: 0, from: 1, to: 2 }),
     ).toBe('too-weak');
@@ -502,7 +503,7 @@ describe('timers and leaving', () => {
     const h = harness(3);
     h.act(HOST, { type: 'start' });
     keepAll(h);
-    const before = structuredClone(game(h).players);
+    const before = clone(game(h).players);
     h.tick();
     expect(h.now).toBe(NOW + DEFAULT_SECONDS * 1000);
     expect(game(h).clock!.reminded).toBe(true);

@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { stampede } from './game.ts';
 import { HOST, answerAll, cows, deck, harness, next, playRound, started } from './test-utils.ts';
@@ -162,7 +163,7 @@ describe('automatic grouping', () => {
     const h = started(3);
     answerAll(h, ['a', 'a']);
     // What an older version saved: the writing over, the host still checking.
-    const old = structuredClone(h.state);
+    const old = clone(h.state);
     old.round = {
       ...old.round!,
       stage: 'merge',

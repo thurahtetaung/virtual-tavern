@@ -1,4 +1,4 @@
-import { type PlayerColor, createRng } from '@vt/game-sdk';
+import { clone, type PlayerColor, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { HOST, SQUIGGLE, bid, game, hammer, harness, nextLot, pastIntro } from './test-utils.ts';
@@ -284,7 +284,7 @@ describe('the voiced clock around a screw', () => {
       hammer(h);
       nextLot(h);
     }
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p3!.cash = 300;
     h.state = s;
     bid(h, 'p1', 600);
@@ -345,7 +345,7 @@ describe('the voiced wrap-up of a lot', () => {
       const item = g.items[g.lots[lot]!]!;
       const buyer = ['p1', 'p2', 'p3'].find((p) => p !== item.artist)!;
       // A $300 profit: lot 1 says nothing about it, later lots call it a windfall.
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       s.game!.items[s.game!.lots[lot]!]!.value = 700;
       h.state = s;
       bid(h, buyer, 400);
@@ -425,7 +425,7 @@ describe('the voiced wrap-up of a lot', () => {
 
   it('lets the bank’s phone ring before the line', () => {
     const h = voicedAuction(3, 7);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     // Low enough to stay under $1,000 with a commission.
     for (const id of ['p2', 'p3']) s.game!.players[id]!.cash = 500;
     h.state = s;
@@ -448,7 +448,7 @@ describe('the voiced wrap-up of a lot', () => {
 
   it('keeps the bank open until its piece is said, however short its window', () => {
     const h = voicedAuction(3, 7);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     for (const id of ['p2', 'p3']) s.game!.players[id]!.cash = 500;
     // A quick clock (the browser tests' rig) makes the window shorter than the bank's piece.
     s.rig = { scale: 0.1, fixed: false };

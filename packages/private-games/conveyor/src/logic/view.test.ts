@@ -1,4 +1,4 @@
-import { type Rng, createRng, isGameError } from '@vt/game-sdk';
+import { clone, type Rng, createRng, isGameError } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { conveyorBot } from './bot.ts';
 import { PRESETS } from './cards.ts';
@@ -13,7 +13,7 @@ import type { Card, ConveyorAction, ConveyorState } from './types.ts';
  * viewer made it or must answer it) and the hidden seed. A view that leaks nothing is the same.
  */
 function scramble(state: ConveyorState, viewer: string | null): ConveyorState {
-  const s = structuredClone(state);
+  const s = clone(state);
   s.seed = (s.seed + 12345) >>> 0;
   const g = s.game;
   if (!g || s.phase === 'over') return s;

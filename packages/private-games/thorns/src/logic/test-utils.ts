@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { thorns } from './game.ts';
 import type { Disc, ThornsAction, ThornsState } from './types.ts';
 
@@ -60,7 +60,7 @@ export function started(
   const h = harness(n, opts.seed ?? 7, opts.settings);
   h.act(HOST, { type: 'start' });
   if (opts.first) {
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.round.starter = opts.first;
     h.state = s;
   }
@@ -88,7 +88,7 @@ export const round = (h: Harness) => h.state.game!.round;
 
 /** Gives players these discs for the round about to be placed (before anyone has put one down). */
 export function setDiscs(h: Harness, discs: Record<string, Disc[]>) {
-  const s = structuredClone(h.state);
+  const s = clone(h.state);
   for (const [id, d] of Object.entries(discs)) {
     const p = s.game!.players[id]!;
     p.discs = [...d];
@@ -108,7 +108,7 @@ export function setDiscs(h: Harness, discs: Record<string, Disc[]>) {
  * the turn to `current` before any bid: a rig for testing the bidding and the flip.
  */
 export function rigStacks(h: Harness, stacks: Record<string, Disc[]>, current: string) {
-  const s = structuredClone(h.state);
+  const s = clone(h.state);
   const g = s.game!;
   for (const [id, stack] of Object.entries(stacks)) {
     const p = g.players[id]!;

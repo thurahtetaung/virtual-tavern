@@ -3,6 +3,7 @@ export * from './rng.ts';
 export * from './types.ts';
 export * from './ui.ts';
 export * from './words.ts';
+export * from './clone.ts';
 export * from './people.ts';
 export * from './standings.ts';
 export * from './timeouts.ts';
