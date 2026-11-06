@@ -570,7 +570,7 @@ function Hand({
     [pickCard, selected, setSelected],
   );
   return (
-    <div ref={ref} className="w-full" role="region" aria-label="Your hand">
+    <div ref={ref} className="isolate w-full" role="region" aria-label="Your hand">
       {n === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">No cards in hand.</p>
       ) : (

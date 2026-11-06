@@ -2,7 +2,7 @@ import { cn, usePhone } from '@vt/ui';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 /** Never shrink the panel below this: past it the page scrolls instead. */
-const MIN_PX = 160;
+const MIN_PX = 128;
 
 /**
  * On a phone, the screen's one dense panel takes what the page has left and scrolls inside, so
@@ -32,8 +32,8 @@ export function PhoneFill({ children, className }: { children: ReactNode; classN
     };
     measure();
     const seen = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    seen?.observe(document.body);
-    seen?.observe(el);
+    // Every box around the panel: whatever grows on the screen grows one of them.
+    for (let n: HTMLElement | null = el; n; n = n.parentElement) seen?.observe(n);
     window.addEventListener('resize', measure);
     return () => {
       seen?.disconnect();

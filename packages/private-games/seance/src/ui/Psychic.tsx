@@ -214,41 +214,41 @@ export function MineTab({
             </Button>
           )}
         </div>
-        <VisionStrip
-          p={me}
-          g={g}
-          content={content}
-          onOpen={(i) => openCompare(i)}
-          onLook={(i) =>
-            look(
-              cardsOf(
-                'vision',
-                me.visions.map((v) => v.card),
-                visionCaptions(me, g.hour),
-              ),
-              i,
-              'Your vision',
-            )
-          }
-        />
-        <h3 className="text-sm font-bold">
-          {g.stage === 'reveal' ? (
-            // Between hours: these are next hour's cards, not something to guess now.
-            <>
-              Next: your {pillarWord}{' '}
-              <span className="font-normal text-ink-muted">
-                · {content.pillarPlural(pillar).toLowerCase()} on the table
-              </span>
-            </>
-          ) : (
-            <>
-              {content.pillarPlural(pillar)} on the table{' '}
-              <span className="font-normal text-ink-muted">· tap to look</span>
-            </>
-          )}
-        </h3>
-        {/* Phones: the candidates take what the screen has left and scroll inside it. */}
-        <PhoneFill className="-mx-1 px-1 py-1">
+        {/* Phones: your vision and the cards on the table take what the screen has left and scroll inside it. */}
+        <PhoneFill className="-mx-1 space-y-2 px-1 py-1">
+          <VisionStrip
+            p={me}
+            g={g}
+            content={content}
+            onOpen={(i) => openCompare(i)}
+            onLook={(i) =>
+              look(
+                cardsOf(
+                  'vision',
+                  me.visions.map((v) => v.card),
+                  visionCaptions(me, g.hour),
+                ),
+                i,
+                'Your vision',
+              )
+            }
+          />
+          <h3 className="text-sm font-bold">
+            {g.stage === 'reveal' ? (
+              // Between hours: these are next hour's cards, not something to guess now.
+              <>
+                Next: your {pillarWord}{' '}
+                <span className="font-normal text-ink-muted">
+                  · {content.pillarPlural(pillar).toLowerCase()} on the table
+                </span>
+              </>
+            ) : (
+              <>
+                {content.pillarPlural(pillar)} on the table{' '}
+                <span className="font-normal text-ink-muted">· tap to look</span>
+              </>
+            )}
+          </h3>
           <ul
             className={cn(
               'grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-4',
