@@ -419,7 +419,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
           <div className="flex items-center gap-1.5">
             <Button
               size="md"
-              className="h-auto! min-h-10 min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
+              className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
               onClick={confirm.run}
             >
               {confirm.label}

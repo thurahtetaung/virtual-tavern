@@ -55,7 +55,7 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
           <Button
             size="sm"
             variant="ghost"
-            className="min-h-9 px-2"
+            className="px-2"
             disabled={ending}
             onClick={() => void end()}
           >

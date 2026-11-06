@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from './cn.ts';
+import { FoldSummary } from './components.tsx';
 import { PHONE } from './phone.ts';
 import { HostOnlyNote } from './switch.tsx';
 import { fitSummary, summaryText, type SummaryPart } from './summary-fit.ts';
@@ -45,21 +46,15 @@ export function LobbySettings({
         setOpen(e.currentTarget.open);
       }}
       data-testid={editable ? 'host-settings' : undefined}
-      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+      className="group rounded-xl bg-panel ring-1 ring-line"
     >
-      <summary className="relative flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden">
-        <span className="shrink-0 font-semibold">
+      <FoldSummary>
+        <span className="shrink-0 font-semibold text-ink">
           <span aria-hidden>⚙️ </span>
           {title}
         </span>
         <Summary parts={summary.filter((p): p is string => !!p)} />
-        <span
-          aria-hidden
-          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
-        >
-          ▾
-        </span>
-      </summary>
+      </FoldSummary>
       <div className={cn('px-4 pb-4', className)}>
         {!editable && <HostOnlyNote />}
         {children}

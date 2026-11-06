@@ -74,6 +74,8 @@
   --shadow-vt-1: var(--vt-shadow-1);
   --shadow-vt-2: var(--vt-shadow-2);
   --shadow-vt-3: var(--vt-shadow-3);
+  /* Cards and secondary buttons: the first shadow plus the "lit from above" top edge. */
+  --shadow-vt-1-edge: var(--vt-shadow-1), var(--vt-edge);
 }
 
 :root {

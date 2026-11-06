@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./sheet": "./src/sheet.tsx",
     "./show": "./src/show/index.ts",
     "./sound": "./src/sound/index.ts"
   },

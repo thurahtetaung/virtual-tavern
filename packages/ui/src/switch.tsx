@@ -1,14 +1,11 @@
 import { cn } from './cn.ts';
-
-const TAG = {
-  danger: 'bg-danger-soft text-danger-ink ring-danger-line',
-  special: 'bg-special-soft text-special-ink ring-special-line',
-} as const;
+import { Badge, FOCUS_RING } from './components.tsx';
 
 /**
- * A setting's on/off switch, with its title and a line of help. Read-only (`editable` false: a
- * guest, or an option that doesn't apply yet) it stays readable by screen readers and shows its
- * state, but muted: no accent, no hover, `aria-disabled`.
+ * A setting's on/off switch, with its title and a line of help: a 44 × 24 track, and the whole row
+ * (at least 44 px) is what you tap. Read-only (`editable` false: a guest, or an option that doesn't
+ * apply yet) it stays readable by screen readers and shows its state, but muted: no accent, no
+ * hover, `aria-disabled`.
  */
 export function Switch({
   on,
@@ -27,13 +24,14 @@ export function Switch({
   onChange: (v: boolean) => void;
   /** A small badge after the title ("legacy", "community"). */
   tag?: string;
-  tagTone?: keyof typeof TAG;
+  tagTone?: 'danger' | 'special';
   testId?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
+      data-ui="switch"
       aria-checked={on}
       aria-disabled={!editable || undefined}
       onClick={() => {
@@ -41,39 +39,40 @@ export function Switch({
       }}
       data-testid={testId}
       className={cn(
-        'flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left ring-1 transition',
+        'flex min-h-11 w-full items-start gap-3 rounded-xl p-3 text-left ring-1 transition-colors duration-[180ms]',
+        FOCUS_RING,
         !editable
           ? 'cursor-default bg-panel ring-line'
           : on
-            ? 'bg-accent-soft ring-2 ring-accent'
+            ? 'bg-accent-soft ring-accent-line'
             : 'bg-card ring-line hover:bg-panel',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition',
-          on ? 'justify-end' : 'justify-start',
-          !editable ? (on ? 'bg-ink-muted/60' : 'bg-line') : on ? 'bg-accent' : 'bg-line-strong',
+          'mt-0.5 flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-[180ms]',
+          !editable ? (on ? 'bg-ink-faint' : 'bg-line') : on ? 'bg-accent' : 'bg-line-strong',
         )}
       >
-        <span className={cn('size-4 rounded-full bg-card', editable && 'shadow')} />
+        <span
+          className={cn(
+            'size-5 rounded-full bg-card transition-transform duration-[180ms] ease-out',
+            editable && 'shadow-vt-1',
+            on && 'translate-x-5',
+          )}
+        />
       </span>
       <span className="min-w-0">
         <span className={cn('block font-semibold', editable ? 'text-ink' : 'text-ink-muted')}>
           {title}
           {tag && (
-            <span
-              className={cn(
-                'ml-1.5 rounded px-1.5 py-0.5 text-[0.6rem] font-bold tracking-wide uppercase ring-1',
-                TAG[tagTone],
-              )}
-            >
+            <Badge tone={tagTone} className="ml-1.5 align-middle">
               {tag}
-            </span>
+            </Badge>
           )}
         </span>
-        <span className="block text-xs text-ink-muted">{help}</span>
+        <span className="block text-caption text-ink-muted">{help}</span>
       </span>
     </button>
   );
@@ -81,5 +80,7 @@ export function Switch({
 
 /** The line at the top of settings a guest can see but not change. */
 export function HostOnlyNote({ className }: { className?: string }) {
-  return <p className={cn('text-xs text-ink-muted', className)}>Only the host can change these.</p>;
+  return (
+    <p className={cn('text-caption text-ink-muted', className)}>Only the host can change these.</p>
+  );
 }

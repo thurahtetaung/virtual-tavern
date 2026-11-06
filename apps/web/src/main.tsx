@@ -31,6 +31,10 @@ const StagePage = lazy(() =>
 const StageShowPage = lazy(() =>
   import('./pages/StageShowPage.tsx').then((m) => ({ default: m.StageShowPage })),
 );
+// The component sheet, for the tavern keeper and the screenshot spec.
+const ComponentsPage = lazy(() =>
+  import('./pages/ComponentsPage.tsx').then((m) => ({ default: m.ComponentsPage })),
+);
 // The stats page carries the chart library, so it gets a chunk of its own.
 const StatsPage = lazy(() =>
   import('./pages/StatsPage.tsx').then((m) => ({ default: m.StatsPage })),
@@ -53,6 +57,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/tavern-keeper/games" element={<GamesPage />} />
               <Route path="/tavern-keeper/stats" element={<StatsPage />} />
               <Route path="/tavern-keeper/playtest" element={<PlaytestPage />} />
+              <Route path="/tavern-keeper/components" element={<ComponentsPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
               <Route path="/stage" element={<StagePage />} />
               <Route path="/stage/:roomId" element={<StageShowPage />} />

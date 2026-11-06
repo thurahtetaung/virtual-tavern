@@ -177,7 +177,7 @@ export function NextTableBanner({
         >
           Join them
         </Link>
-        <Button variant="ghost" size="sm" className="min-h-9" onClick={onDismiss}>
+        <Button variant="ghost" size="sm" onClick={onDismiss}>
           Not now
         </Button>
       </span>
