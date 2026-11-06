@@ -245,12 +245,14 @@ const NOTICE_ICONS: Record<NoticeTone, IconName> = {
 /** One line on a meaning's soft surface, with its icon if `icon` is set. */
 export function Notice({
   tone = 'info',
+  role = 'status',
   icon,
   dense = false,
   className,
   children,
 }: {
   tone?: NoticeTone;
+  role?: 'status' | 'alert';
   /** `true` for the tone's own icon, or a named one. */
   icon?: boolean | IconName;
   /** Less padding on phones, for game screens that must fit one screen. */
@@ -261,7 +263,7 @@ export function Notice({
   const name = icon === true ? NOTICE_ICONS[tone] : icon || null;
   return (
     <div
-      role="status"
+      role={role}
       className={join(
         // A ring rather than a border, and snug lines: a notice takes no more height than its words.
         'flex items-start gap-2 rounded-xl px-3.5 text-small leading-snug ring-1 ring-inset',
@@ -437,6 +439,8 @@ export function Stepper({
   step = 1,
   disabled = false,
   format = String,
+  fewerLabel = 'Fewer',
+  moreLabel = 'More',
   className,
 }: {
   value: number;
@@ -448,6 +452,8 @@ export function Stepper({
   step?: number;
   disabled?: boolean;
   format?: (value: number) => ReactNode;
+  fewerLabel?: string;
+  moreLabel?: string;
   className?: string;
 }) {
   return (
@@ -464,7 +470,7 @@ export function Stepper({
     >
       <button
         type="button"
-        aria-label="Fewer"
+        aria-label={fewerLabel}
         disabled={disabled || value - step < min}
         onClick={() => onChange(Math.max(min, value - step))}
         className={STEP_BUTTON}
@@ -479,7 +485,7 @@ export function Stepper({
       </output>
       <button
         type="button"
-        aria-label="More"
+        aria-label={moreLabel}
         disabled={disabled || value + step > max}
         onClick={() => onChange(Math.min(max, value + step))}
         className={STEP_BUTTON}

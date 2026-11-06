@@ -1,5 +1,5 @@
 import type { PlaytestMeta, PlaytestSpeed, PlaytestStatus } from '@vt/protocol';
-import { cn } from '@vt/ui';
+import { Button, Chip, Chips, cn } from '@vt/ui';
 import { useState } from 'react';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -40,41 +40,30 @@ export function BotControls({
       setBusy(false);
     }
   };
-  const chip =
-    'inline-flex min-h-9 items-center justify-center rounded-lg px-2 text-sm font-semibold ring-1 ring-black/10 disabled:opacity-50 dark:ring-white/15';
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
-      <button
-        type="button"
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+      <Button
+        variant="secondary"
+        size="sm"
         disabled={busy}
-        className={cn(chip, 'bg-white/70 dark:bg-black/20')}
         onClick={() => void send({ paused: !playtest.paused })}
       >
         {playtest.paused ? '▶ Resume bots' : '⏸ Pause bots'}
-      </button>
-      <div role="radiogroup" aria-label="Bot speed" className="flex gap-1">
+      </Button>
+      <Chips label="Bot speed" className="m-0 gap-1 overflow-visible p-0">
         {SPEEDS.map((s) => (
-          <button
+          <Chip
             key={s.id}
-            type="button"
-            role="radio"
-            aria-checked={playtest.speed === s.id}
+            pressed={playtest.speed === s.id}
             aria-label={`${s.label} bots`}
             title={`${s.label} bots`}
             disabled={busy}
-            className={cn(
-              chip,
-              'w-9',
-              playtest.speed === s.id
-                ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900'
-                : 'bg-white/70 dark:bg-black/20',
-            )}
             onClick={() => void send({ speed: s.id })}
           >
             <span aria-hidden>{s.icon}</span>
-          </button>
+          </Chip>
         ))}
-      </div>
+      </Chips>
     </div>
   );
 }

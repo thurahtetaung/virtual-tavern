@@ -1,3 +1,4 @@
+import { FoldSummary, Panel } from '@vt/ui';
 import { type ReactNode, useId, useState } from 'react';
 
 const STORE = 'vt.adminSections';
@@ -19,6 +20,7 @@ export function AdminSection({
   title,
   summary,
   label,
+  aside,
   defaultOpen = false,
   children,
 }: {
@@ -28,6 +30,8 @@ export function AdminSection({
   summary?: ReactNode;
   /** The section's accessible name, when the title has an emoji or more. */
   label?: string;
+  /** A tag at the end of the header ("Open"), before the chevron. */
+  aside?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
@@ -42,42 +46,27 @@ export function AdminSection({
     }
   };
   return (
-    <section
-      aria-label={label}
-      aria-labelledby={label ? undefined : headingId}
-      className="rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
-    >
-      <details
-        open={open}
-        onToggle={(e) => {
-          if (e.currentTarget.open !== open) toggle(e.currentTarget.open);
-        }}
-        className="group"
-      >
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-2xl p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500 [&::-webkit-details-marker]:hidden">
-          <span className="min-w-0 flex-1">
-            <h2 id={headingId} className="text-xl font-bold">
-              {title}
-            </h2>
-            {summary && <span className="block text-sm text-ink-muted">{summary}</span>}
-          </span>
-          <svg
-            aria-hidden
-            viewBox="0 0 20 20"
-            className="size-5 shrink-0 text-ink-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
-          >
-            <path
-              d="m5 7.5 5 5 5-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </summary>
-        <div className="space-y-3 px-4 pb-4">{children}</div>
-      </details>
+    <section aria-label={label} aria-labelledby={label ? undefined : headingId}>
+      <Panel className="p-0">
+        <details
+          open={open}
+          onToggle={(e) => {
+            if (e.currentTarget.open !== open) toggle(e.currentTarget.open);
+          }}
+          className="group"
+        >
+          <FoldSummary className="gap-3 py-3 lg:px-5">
+            <span className="min-w-0 flex-1">
+              <h2 id={headingId} className="flex items-center gap-2 text-sub font-semibold">
+                {title}
+              </h2>
+              {summary && <span className="block text-small text-ink-muted">{summary}</span>}
+            </span>
+            {aside}
+          </FoldSummary>
+          <div className="space-y-3 px-4 pb-4 lg:px-5 lg:pb-5">{children}</div>
+        </details>
+      </Panel>
     </section>
   );
 }

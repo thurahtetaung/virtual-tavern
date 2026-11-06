@@ -1643,10 +1643,13 @@ for (const [label, viewport] of [
     await admin.goto('/tavern-keeper');
     await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
     await admin.getByRole('button', { name: 'Sign in' }).click();
-    await admin.getByRole('link', { name: '🧪 Playtest' }).click();
-    await admin.getByRole('radio', { name: /^Round Table/ }).click();
+    await admin.getByRole('link', { name: 'Playtest', exact: true }).click();
+    await admin.getByRole('button', { name: /^Round Table/ }).click();
     // Ben is a second human seat; the other three are bots.
-    await admin.getByRole('button', { name: 'Seat 2: bot' }).click();
+    await admin
+      .getByRole('group', { name: 'Seat 2: bot' })
+      .getByRole('button', { name: 'Human', exact: true })
+      .click();
     await admin.screenshot({
       path: `test-results/shots/${label}-playtest-setup.png`,
       fullPage: true,

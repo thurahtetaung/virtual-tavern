@@ -14,6 +14,7 @@ export function Layout({
   children,
   wide = false,
   room = false,
+  admin = false,
 }: {
   children: ReactNode;
   wide?: boolean;
@@ -22,12 +23,14 @@ export function Layout({
    * table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
    */
   room?: boolean;
+  /** The tavern keeper's pages: a wider column for the side navigation and charts. */
+  admin?: boolean;
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className={`${room ? 'max-sm:hidden ' : ''}border-b border-line`}>
         <div
-          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}
+          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
         >
           <Link
             to="/"
@@ -51,7 +54,7 @@ export function Layout({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-4 ${room ? 'vt-room-main pt-4 sm:pt-6' : 'py-6'} ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}
+        className={`mx-auto w-full flex-1 px-4 ${room ? 'vt-room-main pt-4 sm:pt-6' : 'py-6'} ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
       >
         {children}
       </main>

@@ -118,11 +118,11 @@ test('admins list, switch, download and delete question decks', async ({ browser
   });
 
   // Deleting asks first; dismissing keeps the deck.
-  admin.once('dialog', (d) => void d.dismiss());
   await row.getByRole('button', { name: 'Delete E2E Oddities' }).click();
+  await admin.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
   await expect(row).toBeVisible();
-  admin.once('dialog', (d) => void d.accept());
   await row.getByRole('button', { name: 'Delete E2E Oddities' }).click();
+  await admin.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(row).toBeHidden();
   await expect(section.getByText('No decks yet.')).toBeVisible();
 });

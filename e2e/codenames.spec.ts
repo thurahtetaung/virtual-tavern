@@ -201,7 +201,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await openAdminSection(admin, 'Word lists');
-  await expect(admin.getByRole('button', { name: '+ New list' })).toBeVisible();
+  await expect(admin.getByRole('button', { name: 'New list', exact: true })).toBeVisible();
   // Deleted again at the end, so the shared server doesn't collect lists.
   const removeList = async () => {
     const all = (await (await admin.request.get('/api/admin/word-lists')).json()) as {
@@ -212,7 +212,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
       expect((await admin.request.delete(`/api/admin/word-lists/${l.id}`)).ok()).toBe(true);
   };
 
-  await admin.getByRole('button', { name: '+ New list' }).click();
+  await admin.getByRole('button', { name: 'New list', exact: true }).click();
   await admin.getByLabel('Name', { exact: true }).fill(NAME);
   await admin.getByLabel(/^Words/).fill('Moon\nmoon\nMars, Venus\nComet');
   await expect(admin.getByText('4 unique words')).toBeVisible();
@@ -222,13 +222,13 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   // default for every later Codenames room here.)
   const usedBy = admin.getByRole('group', { name: 'Used by' });
   const WORD_GAMES = ['Codenames', 'Enigma', 'Echo', 'Starlight', 'Iconic'];
-  await expect(usedBy.getByRole('checkbox')).toHaveCount(WORD_GAMES.length);
-  for (const game of WORD_GAMES)
-    await expect(usedBy.getByRole('checkbox', { name: game })).toBeChecked();
-  for (const game of WORD_GAMES) await usedBy.getByRole('checkbox', { name: game }).uncheck();
+  const chip = (game: string) => usedBy.getByRole('button', { name: game, exact: true });
+  await expect(usedBy.getByRole('button')).toHaveCount(WORD_GAMES.length);
+  for (const game of WORD_GAMES) await expect(chip(game)).toHaveAttribute('aria-pressed', 'true');
+  for (const game of WORD_GAMES) await chip(game).click();
   await expect(admin.getByText('Pick at least one game.')).toBeVisible();
   await expect(admin.getByRole('button', { name: 'Save list' })).toBeDisabled();
-  for (const game of WORD_GAMES) await usedBy.getByRole('checkbox', { name: game }).check();
+  for (const game of WORD_GAMES) await chip(game).click();
   await admin.getByRole('button', { name: 'Save list' }).click();
   await expect(
     admin.getByRole('button', {

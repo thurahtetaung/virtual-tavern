@@ -128,8 +128,8 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await expect(friend.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
 
   // Signing everyone out bounces players back to the door straight away, saying why.
-  admin.on('dialog', (d) => void d.accept());
   await admin.getByRole('button', { name: 'Sign everyone out' }).click();
+  await admin.getByRole('dialog').getByRole('button', { name: 'Sign everyone out' }).click();
   await expect(admin.getByText('Everyone has been signed out')).toBeVisible();
   await expect(friend).toHaveURL(/\/backroom\?next=/);
   await expect(friend.getByText('The word has changed — ask for the new one.')).toBeVisible();

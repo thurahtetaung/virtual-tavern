@@ -15,5 +15,20 @@ const snapshot = (): ChartTheme =>
 
 export function useChartTokens(): ChartTokens {
   const theme = useSyncExternalStore(subscribe, snapshot, () => 'light' as const);
-  return useMemo(() => tokensFor(theme), [theme]);
+  return useMemo(() => {
+    const base = tokensFor(theme);
+    const css = getComputedStyle(document.documentElement);
+    const token = (name: string, fallback: string) =>
+      css.getPropertyValue(`--vt-${name}`).trim() || fallback;
+    return {
+      ...base,
+      surface: token('card', base.surface),
+      ink: token('ink', base.ink),
+      inkSecondary: token('ink-2', base.inkSecondary),
+      muted: token('ink-muted', base.muted),
+      grid: token('line', base.grid),
+      axis: token('line', base.axis),
+      empty: token('sunk', base.empty),
+    };
+  }, [theme]);
 }

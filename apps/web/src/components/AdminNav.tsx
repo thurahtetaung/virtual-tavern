@@ -1,7 +1,43 @@
-import { cn } from '@vt/ui';
+import { Button, Icon, cn, type IconName } from '@vt/ui';
+import { type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { api } from '../lib/api.ts';
 
-/** Switches between the admin pages. */
+/** The admin pages' title row: "Tavern keeper", and Sign out once signed in. */
+export function AdminTitle({ signedIn, onSignOut }: { signedIn?: boolean; onSignOut: () => void }) {
+  return (
+    <div className="mb-6 flex items-center justify-between gap-2">
+      <h1 className="font-display text-title font-semibold">Tavern keeper</h1>
+      {signedIn && (
+        <Button
+          variant="quiet"
+          onClick={() => void api('/api/admin/logout', { method: 'POST' }).then(onSignOut)}
+        >
+          <Icon name="log-out" />
+          Sign out
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** An admin page's grid: the navigation (side column on desktop, tabs on phones), then its panels. */
+export function AdminFrame({
+  current,
+  children,
+}: {
+  current: 'lists' | 'games' | 'stats' | 'playtest';
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+      <AdminNav current={current} />
+      <div className="min-w-0 space-y-3 lg:space-y-4">{children}</div>
+    </div>
+  );
+}
+
+/** Route links share the underline strip on phones and a sticky side navigation on desktop. */
 export function AdminNav({
   current,
   className,
@@ -9,17 +45,25 @@ export function AdminNav({
   current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
-  // `short` stands in for the label on phones, so the four tabs fit one row.
-  const items: readonly { id: string; to: string; label: string; short?: string }[] = [
-    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room', short: 'Lists' },
-    { id: 'games', to: '/tavern-keeper/games', label: 'Games' },
-    { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
-    { id: 'playtest', to: '/tavern-keeper/playtest', label: '🧪 Playtest' },
+  const items: { id: string; to: string; label: string; short?: string; icon: IconName }[] = [
+    {
+      id: 'lists',
+      to: '/tavern-keeper',
+      label: 'Lists & back room',
+      short: 'Lists',
+      icon: 'list-ordered',
+    },
+    { id: 'games', to: '/tavern-keeper/games', label: 'Games', icon: 'gamepad-2' },
+    { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats', icon: 'chart-bar' },
+    { id: 'playtest', to: '/tavern-keeper/playtest', label: 'Playtest', icon: 'dice-5' },
   ];
   return (
     <nav
       aria-label="Admin"
-      className={cn('flex gap-1 rounded-xl bg-stone-200/70 p-1 dark:bg-stone-800/70', className)}
+      className={cn(
+        'flex min-w-0 self-start overflow-x-auto border-b border-line lg:sticky lg:top-4 lg:flex-col lg:border-0',
+        className,
+      )}
     >
       {items.map((item) => (
         <Link
@@ -27,20 +71,15 @@ export function AdminNav({
           to={item.to}
           aria-current={current === item.id ? 'page' : undefined}
           className={cn(
-            'flex min-h-11 flex-1 items-center justify-center rounded-lg px-2 text-center text-sm font-semibold whitespace-nowrap transition-colors sm:flex-none sm:px-3',
+            'flex min-h-11 min-w-11 flex-1 items-center justify-center gap-3 border-b-2 px-3 text-small font-semibold whitespace-nowrap focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus lg:justify-start lg:rounded-lg lg:border-0',
             current === item.id
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-stone-900 dark:text-stone-100'
-              : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100',
+              ? 'border-accent text-accent-text lg:bg-sunk lg:text-ink'
+              : 'border-transparent text-ink-2 hover:bg-panel',
           )}
         >
-          {item.short ? (
-            <>
-              <span className="sm:hidden">{item.short}</span>
-              <span className="hidden sm:inline">{item.label}</span>
-            </>
-          ) : (
-            item.label
-          )}
+          <Icon name={item.icon} className="hidden lg:block" />
+          <span className="lg:hidden">{item.short ?? item.label}</span>
+          <span className="hidden lg:inline">{item.label}</span>
         </Link>
       ))}
     </nav>

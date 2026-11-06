@@ -1,9 +1,22 @@
 import type { GameSummary, StatsGameName, StatsRange } from '@vt/protocol';
 import { STATS_RANGES } from '@vt/protocol';
-import { Button, Modal, Panel } from '@vt/ui';
+import {
+  Button,
+  Modal,
+  Panel,
+  Slate,
+  buttonClass,
+  Tabs,
+  Chips,
+  Chip,
+  Field,
+  Input,
+  Select,
+  tabPanelProps,
+} from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AdminNav } from '../components/AdminNav.tsx';
+import { AdminFrame, AdminTitle } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { clientGames, usePrivateGames } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
@@ -39,7 +52,6 @@ import {
   updateParams,
   writeParams,
 } from '../stats/range.ts';
-import { Chip, ChipRow } from '../stats/ui.tsx';
 import { fetchGames } from '../lib/games.ts';
 
 interface Session {
@@ -55,25 +67,27 @@ export function StatsPage() {
   }, []);
 
   return (
-    <Layout>
-      <h1 className="mb-4 text-3xl font-bold">Tavern keeper</h1>
+    <Layout admin>
+      <AdminTitle
+        signedIn={session?.signedIn}
+        onSignOut={() => setSession((s) => s && { ...s, signedIn: false })}
+      />
       {!session ? (
-        <p className="text-ink-muted">Loading…</p>
+        <Slate kind="loading" title="Loading…" />
       ) : !session.enabled || !session.signedIn ? (
-        <Panel className="mx-auto max-w-sm space-y-3 text-center">
-          <p>The stats are for the tavern keeper. Sign in first.</p>
-          <Link
-            to="/tavern-keeper"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-accent px-4 font-semibold text-white hover:bg-accent-hover dark:hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
-          >
+        <Slate
+          icon="lock"
+          className="mx-auto max-w-sm"
+          title={<>The stats are for the tavern keeper. Sign in first.</>}
+        >
+          <Link to="/tavern-keeper" className={buttonClass()}>
             Sign in
           </Link>
-        </Panel>
+        </Slate>
       ) : (
-        <>
-          <AdminNav current="stats" className="mb-4" />
+        <AdminFrame current="stats">
           <Stats />
-        </>
+        </AdminFrame>
       )}
     </Layout>
   );
@@ -154,21 +168,15 @@ function Stats() {
   return (
     <StatsContext.Provider value={ctx}>
       <div className="space-y-4">
-        <div role="tablist" aria-label="Stats sections" className="flex flex-wrap gap-1.5">
-          {STATS_TABS.map((tab) => (
-            <Chip
-              key={tab}
-              role="tab"
-              controls="stats-panel"
-              selected={params.tab === tab}
-              onClick={() => setParams({ tab, player: undefined })}
-            >
-              {TAB_LABELS[tab]}
-            </Chip>
-          ))}
-        </div>
+        <Tabs
+          id="stats"
+          label="Stats sections"
+          tabs={STATS_TABS.map((id) => ({ id, label: TAB_LABELS[id] }))}
+          value={params.tab}
+          onChange={(tab) => setParams({ tab, player: undefined })}
+        />
         {params.tab !== 'live' && <RangePicker />}
-        <div id="stats-panel" role="tabpanel" aria-label={TAB_LABELS[params.tab]}>
+        <div {...tabPanelProps('stats', params.tab)} aria-label={TAB_LABELS[params.tab]}>
           <TabBody tab={params.tab} />
         </div>
         <DataTools onReset={() => setEpoch((e) => e + 1)} />
@@ -198,13 +206,13 @@ function RangePicker() {
   const buckets = bucketsFor(params.range, params.from, params.to);
   const today = todayUtc();
   return (
-    <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-stone-200/80 bg-stone-100/90 px-4 py-2 backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
+    <div className="sticky top-0 z-20 space-y-2 border-b border-line bg-panel p-2 backdrop-blur ">
       <div className="flex items-center gap-2">
-        <ChipRow label="Time range" bleed={false} className="min-w-0 flex-1">
+        <Chips label="Time range" className="min-w-0 flex-1">
           {STATS_RANGES.map((range: StatsRange) => (
             <Chip
               key={range}
-              selected={params.range === range}
+              pressed={params.range === range}
               onClick={() =>
                 setParams(
                   range === 'custom'
@@ -216,43 +224,43 @@ function RangePicker() {
               {RANGE_LABELS[range]}
             </Chip>
           ))}
-        </ChipRow>
+        </Chips>
         <label className="shrink-0">
           <span className="sr-only">Group by</span>
-          <select
+          <Select
             value={params.bucket}
             onChange={(e) => setParams({ bucket: e.target.value as StatsParams['bucket'] })}
-            className="h-11 rounded-lg bg-white px-2 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+            className="w-32"
           >
             {buckets.map((b) => (
               <option key={b} value={b}>
                 {BUCKET_LABELS[b]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       {params.range === 'custom' && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <label className="flex items-center gap-1.5">
             From
-            <input
+            <Input
               type="date"
               value={params.from ?? ''}
               max={params.to ?? today}
               onChange={(e) => e.target.value && setParams({ from: e.target.value })}
-              className="h-11 rounded-lg bg-white px-2 ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+              className="w-auto"
             />
           </label>
           <label className="flex items-center gap-1.5">
             to
-            <input
+            <Input
               type="date"
               value={params.to ?? ''}
               min={params.from}
               max={today}
               onChange={(e) => e.target.value && setParams({ to: e.target.value })}
-              className="h-11 rounded-lg bg-white px-2 ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+              className="w-auto"
             />
           </label>
         </div>
@@ -287,10 +295,10 @@ function DataTools({ onReset }: { onReset: () => void }) {
   };
 
   return (
-    <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:p-5">
       <div>
-        <h2 className="font-semibold">Stats data</h2>
-        <p className="text-xs text-ink-muted">
+        <h2 className="text-sub font-semibold">Stats data</h2>
+        <p className="text-small text-ink-muted">
           {params.tab === 'live'
             ? 'Exports every recorded event.'
             : 'Exports the raw events in the selected range.'}
@@ -300,13 +308,16 @@ function DataTools({ onReset }: { onReset: () => void }) {
         <a
           href={statsApi.exportUrl(exportRange)}
           download="tavern-stats.ndjson"
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 font-semibold text-stone-800 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600 dark:hover:bg-stone-700"
+          className={buttonClass({ variant: 'secondary' })}
         >
           Export events (NDJSON)
         </a>
-        <Button variant="danger" className="h-11" onClick={() => setConfirming(true)}>
-          Reset stats
-        </Button>
+        <div className="grid justify-items-start gap-1 sm:justify-items-end">
+          <Button variant="danger" onClick={() => setConfirming(true)}>
+            Reset stats
+          </Button>
+          <p className="text-caption text-ink-muted">It cannot be undone.</p>
+        </div>
       </div>
       <Modal
         open={confirming}
@@ -314,12 +325,11 @@ function DataTools({ onReset }: { onReset: () => void }) {
         title="Reset all stats?"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" className="h-11" onClick={() => setConfirming(false)}>
+            <Button variant="secondary" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
             <Button
               variant="danger"
-              className="h-11"
               type="submit"
               form="reset-stats"
               disabled={typed.trim().toLowerCase() !== 'reset' || busy}
@@ -330,22 +340,24 @@ function DataTools({ onReset }: { onReset: () => void }) {
         }
       >
         <form id="reset-stats" onSubmit={(e) => void reset(e)} className="space-y-3">
-          <p className="text-sm">
+          <p className="text-small text-ink-2">
             This deletes every recorded event, daily rollup and player history. It cannot be undone.
             Export first if you might want them later.
           </p>
-          <label className="block">
-            <span className="text-sm font-semibold">
-              Type <b>reset</b> to confirm
-            </span>
-            <input
+          <Field
+            label={
+              <>
+                Type <b>reset</b> to confirm
+              </>
+            }
+          >
+            <Input
               data-autofocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               autoComplete="off"
-              className="mt-1 h-11 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
             />
-          </label>
+          </Field>
         </form>
       </Modal>
     </Panel>

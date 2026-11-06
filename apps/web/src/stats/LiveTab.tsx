@@ -83,9 +83,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
           aria-hidden
           className={cn(
             'mr-1 inline-block size-2 rounded-full',
-            stale
-              ? 'bg-stone-400'
-              : 'animate-pulse bg-success motion-reduce:animate-none dark:bg-green-600',
+            stale ? 'bg-line-strong' : 'animate-pulse bg-success motion-reduce:animate-none ',
           )}
         />
         {stale ? 'Reconnecting… showing the last answer.' : 'Live · refreshes every 5 seconds'}
@@ -101,7 +99,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
         <StatTile label="Open tabs" value={compact(live.sockets)} />
       </div>
       {(live.playtests ?? 0) > 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-2 ">
           <span aria-hidden>🧪 </span>
           {live.playtests} {live.playtests === 1 ? 'playtest' : 'playtests'} running (not counted
           above)
@@ -115,7 +113,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
             return (
               <li
                 key={g.gameId}
-                className="flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-sm ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
+                className="flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-sm ring-1 ring-line "
               >
                 <span
                   aria-hidden
@@ -183,7 +181,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                         <Badge
                           className={
                             room.phase === 'playing'
-                              ? 'bg-accent-soft text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
+                              ? 'bg-accent-soft text-accent-text '
                               : undefined
                           }
                         >
@@ -197,8 +195,8 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                             className={cn(
                               'flex items-center gap-1 rounded-full px-2 py-0.5',
                               p.connected
-                                ? 'bg-stone-100 dark:bg-stone-800'
-                                : 'text-ink-muted line-through decoration-stone-400/60',
+                                ? 'bg-sunk '
+                                : 'text-ink-muted line-through decoration-line-strong',
                             )}
                           >
                             {p.id === room.hostId && (
