@@ -3,21 +3,15 @@
 A private, self-hosted place to play party games with friends in the browser.
 Create a room, share the link, and play together in real time. There are no accounts and nothing to install.
 
-- **Twelve games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
+- **Many games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
   - **Codenames**: two teams race to find their words from one-word clues.
   - **Enigma**: a team code-breaking game where you decode your own clues and intercept the other team's.
   - **Echo**: a cooperative word game where everyone writes a one-word clue for the guesser, but matching clues cancel out.
-  - **Reverie**: a picture-clue storytelling card game in the password-gated **back room**; its art lives in private storage and is only served to unlocked browsers.
-  - **Hoodwink**: a bluffing trivia game in the back room.
-  - **Royal Post**: a courtship card game in the back room.
-  - **Nightfall**: a one-night werewolf-style hidden-role game in the back room.
-  - **Inquest**: a murder-deduction game in the back room, where one player knows the answer and can only hint.
-  - **Séance**: a cooperative ghost-and-psychics vision game in the back room, where a silent ghost guides the table with picture cards.
-  - **Hydra**: a hidden-role election game in the back room, where governments pass laws in secret and anyone may lie about what they saw.
-  - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round; a back-room edition uses the original locations and art.
+  - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round.
   - **Round Table**: a hidden-loyalty quest game where loyal knights and hidden traitors pick teams, vote and protect Merlin.
+  - More games in the password-gated **back room**, whose art and content live in private storage and are only served to unlocked browsers.
 - **Beginner friendly.** Each game ships a rules guide, shown on its "How to play" page and in a rules drawer during play, and the screen always tells you what to do next.
-- **Your words.** 19 built-in word packs come with the server, admins edit word lists in `/tavern-keeper`, and hosts mix and match them per game.
+- **Your words.** Built-in word packs come with the server, admins edit word lists in `/tavern-keeper`, and hosts mix and match them per game.
 - **Rooms by link.** Rooms are unlisted and joined through unguessable links, with optional turn timers per game.
 - **Survives restarts.** Rooms are saved after every move, so players reconnect and carry on.
 
@@ -49,38 +43,14 @@ apps/web                      React + Vite site: home, rooms, rules, admin, back
 packages/game-sdk             The contract every game implements (rules, guide, UI props)
 packages/protocol             Shared HTTP and socket types
 packages/ui                   Shared React building blocks
-packages/games/codenames      Codenames rules, guide and UI
-packages/games/enigma         Enigma rules, guide and UI
-packages/games/echo           Echo rules, guide and UI
-packages/games/masquerade     Masquerade rules, guide, UI and its self-written location pack
-packages/games/round-table    Round Table rules engine (role registry, presets), guide and UI with our own emblems
-packages/private-games/reverie Reverie (back room) rules, guide and UI; art comes from private storage
-packages/private-games/hoodwink Hoodwink (back room) rules, guide and UI; questions come from private decks
-packages/private-games/royal-post Royal Post (back room) rules, guide and UI
-packages/private-games/masquerade-originals Masquerade's back-room edition; locations come from private storage
-packages/private-games/nightfall Nightfall (back room) rules engine, guide and UI; names, art and sound come from private storage
-packages/private-games/inquest Inquest (back room) rules, guide and UI; card names, tile text and art come from private storage
-packages/private-games/seance  Séance (back room) rules, guide and UI; card art, set names and psychic portraits come from private storage
-packages/private-games/hydra  Hydra (back room) rules, guide and UI (CC BY-NC-SA 4.0, see its NOTICE); names and art come from private storage
-packages/private-games/thorns Thorns (back room) rules, guide and UI; names and art come from private storage
-packages/private-games/iconic Iconic (back room) rules, guide and UI; icon names, meanings and art come from private storage
-packages/private-games/stampede Stampede (back room) rules, guide and UI; questions come from private question decks
-packages/private-games/jeweller Jeweller (back room) rules, guide and UI; card, noble and piece art come from private storage
-packages/private-games/going-once Going Once (back room) rules, guide and UI; title groups, hint lines and house pictures come from private storage
-packages/private-games/sketchy Sketchy (back room) rules, guide and UI; prompts and house titles come from private content packs
-packages/private-games/mosaic  Mosaic (back room) rules, guide and UI; tile, marker and factory art come from private storage
-packages/private-games/encore Encore (back room) rules, guide and UI; card art comes from private storage
-packages/private-games/conveyor Conveyor (back room) rules, guide and UI; card art and names come from private storage
-packages/private-games/defuse   Defuse (back room) rules, guide and UI; renders, sounds and names come from private storage
-packages/private-games/mission-control Mission Control (back room) rules, guide and UI; task cards and the campaign come from private content packs, card art from private storage
-packages/private-games/cliffhanger Cliffhanger (back room) rules, guide and UI; titles and categories come from private content packs, tape art and sound from private storage
-packages/private-games/skyfire Skyfire (back room) rules, guide and UI; card art comes from private storage
-packages/private-games/red-herring Red Herring (back room) rules, guide and UI; card and component art and sound come from private storage
+packages/games/<id>           Public games: rules, guide and UI, with a CLAUDE.md of each game's own rules
+packages/private-games/<id>   Back-room games, the same way; names, art and content come from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private question decks), import-content-pack.mjs (private content packs), set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)
 ```
 
 - [Adding a game](docs/adding-a-game.md)
+- [Architecture](docs/architecture.md): the subsystems behind rooms and games
 - [Deployment](docs/deployment.md): Docker, Cloudflare Tunnel, Tailscale, private assets, and automated releases
 
 ## License
