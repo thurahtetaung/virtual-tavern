@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules (the owner's rulings):** the app pays gems before gold (`payment()`, editable); pass only when nothing at all is legal, and a full round of passes ends the game as it stands (`how: 'stalled'`); with Cities, only players meeting a City can win. Strongholds open the `hold` stage after every purchase, before the emptied spaces refill, and a full set on an affordable card offers a Conquest (`conquer` stage). Safe moves never make a Conquest.
   - **`view()`:** reserved cards are a hand (others see the count and level; the host's "show reserved cards" shows those reserved face up, never a deck's top), and the reserve log names the card only to whoever may see it.
   - **Testing:** `JEWELLER_TEST_DECK` (e.g. `1:L1-35;n:N09;own:L3-05;c:C3a;h:L1-35`) stacks decks, nobles, owned cards, City sides and strongholds, with the first seat starting.
+  - **Phones:** Table (market and piles), Your table and Table talk (log, players, host tools) on the shared `TabBar`; the turn's bar (piles, Take, hand-back, nobles, holds, Conquest) is the fixed `StickyBar` with `jw-play`. First-time tips are a closed fold on phones.
 
 ## Assets
 

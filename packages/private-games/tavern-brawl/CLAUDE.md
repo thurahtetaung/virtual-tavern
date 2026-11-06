@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Engine** (`src/logic/engine.ts`, mutating a `structuredClone` draft): card instances are random tokens with an `owner` (whose discard it goes to); a taken shield keeps its damage. Cards resolve as a stack of `frames` with a damage `queue`; a step needing an answer opens one `choice`, skipped when only one answer really differs. `debt` is the cards still owed, `played` the played-this-turn zone. Knockouts are checked once the whole outer card has resolved; nobody left is a tie. Choices asked of other players get a fixed 20 s with a fallback. With 5 or 6 players regular attacks reach only the nearest living neighbours, and knocked-out players stay as ghosts that attack for 1 once a turn, never for a knockout. The owner's rulings are in the guide's Table rulings.
   - **`view()`:** your own hand only; cards taken in secret are only a count in the log; choice options only to the chooser.
   - **Testing:** `TAVERN_BRAWL_TEST_DECK` stacks deck tops and makes the first seat start; `TAVERN_BRAWL_TEST_HP` (`3:3,6:3`, by player count) starts e2e games on fewer hit points.
+  - **Phones:** Table, Log, Discards and ✦ Powers on the shared `TabBar`; Play sits in the fixed `StickyBar` with `tb-play`.
 
 ## Assets
 

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { type Look, openBackroom, pageErrors, unlock, visitor } from './tavern-brawl-play.ts';
 import { openSettings } from './lobby-settings.ts';
 
@@ -222,6 +223,10 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
     await expect(p.getByText(WORD)).toHaveCount(0);
   }
   await expect(first.getByLabel('Your guess')).toHaveAttribute('enterkeyhint', 'send');
+  // The clue giver's board and a guesser's board with the guess box in the bar must fit.
+  await expectPhoneFit(giver, 'iconic giver');
+  await phoneTab(first, 'Board');
+  await expectPhoneFit(first, 'iconic guesser');
   await shoot(giver, 'placing', true);
 
   await guess(first, 'lamp');

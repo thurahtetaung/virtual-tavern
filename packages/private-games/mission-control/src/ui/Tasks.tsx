@@ -30,10 +30,10 @@ export function TaskChip({
   const scan = art.taskThumb(task.key);
   const tone =
     task.state === 'done'
-      ? 'bg-success-soft text-success-ink ring-success-line dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30'
+      ? 'bg-success-soft text-success-ink ring-success-line'
       : task.state === 'failed'
-        ? 'bg-danger-soft text-danger-ink ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30'
-        : 'bg-card ring-line dark:bg-stone-800 dark:ring-stone-700';
+        ? 'bg-danger-soft text-danger-ink ring-danger-line'
+        : 'bg-card ring-line';
   const prediction =
     task.check.kind === 'predict'
       ? task.prediction !== null
@@ -77,7 +77,7 @@ export function TaskChip({
         <span
           role="img"
           aria-label={`order token ${tokenLabel(task.token)}`}
-          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-panel text-xs font-black ring-1 ring-line-strong dark:bg-stone-700 dark:ring-stone-500"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-panel text-xs font-black ring-1 ring-line-strong"
           data-testid="mc-token-badge"
         >
           {tokenLabel(task.token)}
@@ -120,7 +120,7 @@ export function TaskChip({
         )}
       </span>
       {task.captainCannot && !compact && (
-        <span className="shrink-0 rounded-full bg-panel px-1.5 text-[11px] ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600">
+        <span className="shrink-0 rounded-full bg-panel px-1.5 text-[11px] ring-1 ring-line">
           {art.say('not the {captain}')}
         </span>
       )}

@@ -7,6 +7,7 @@ import {
   playLaps,
   roundOrder,
   talk,
+  showTab,
   table,
   writeWord,
 } from './red-herring-play.ts';
@@ -48,8 +49,12 @@ test('red herring screenshots', async ({ browser }) => {
   await all('01-lobby');
   await ana.getByRole('button', { name: 'Start the game' }).click();
   await shot(ana, '02-tips');
-  for (const p of pages)
-    await p.getByTestId('rh-tips').getByRole('button', { name: 'Got it' }).click();
+  for (const p of pages) {
+    // Phones fold the tips away: open the fold first.
+    const tips = p.getByTestId('rh-tips');
+    if (await tips.locator('summary').count()) await tips.locator('summary').click();
+    await tips.getByRole('button', { name: 'Got it' }).click();
+  }
   await all('03-first-card');
 
   for (let k = 0; k < 8; k++) {
@@ -64,11 +69,15 @@ test('red herring screenshots', async ({ browser }) => {
     } else await writeWord(picker, `Lantern ${k + 1}`);
     if (k === 0) {
       // Everyone's notebook open: Cy's is the blank page.
-      for (const p of order.slice(1))
+      for (const p of order.slice(1)) {
+        await showTab(p, 'Me');
         await p.getByRole('button', { name: 'Show your notebook' }).click();
+      }
       await all('05-notebook');
-      for (const p of order.slice(1))
+      for (const p of order.slice(1)) {
         await p.getByRole('button', { name: 'Hide your notebook' }).click();
+        await showTab(p, 'Table');
+      }
       for (const p of order.slice(1, 3)) await playCard(p);
       await all('06-plays');
       // A card full screen.

@@ -1,6 +1,7 @@
 import { type Locator, type Page, expect } from '@playwright/test';
 import { fillerTurn, order, pick, pickTime, readyAll, settle, table } from './conveyor-play.ts';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // The e2e server's rig deals known hands every round (see conveyor-play.ts).
@@ -14,7 +15,10 @@ const PHONE = { width: 390, height: 844 };
 
 /** This round's running points in the player's own tray header ("12 +5 this round"). */
 async function roundPoints(p: Page) {
+  // Phones keep the trays on the Table tab.
+  await p.getByRole('tab', { name: 'Table' }).click();
   const text = await p.getByRole('region', { name: 'Your tray' }).getByRole('heading').innerText();
+  await p.getByRole('tab', { name: 'Play' }).click();
   const m = /([+−])(\d+)\s+this round/.exec(text);
   if (!m) throw new Error(`no round points in "${text}"`);
   return (m[1] === '−' ? -1 : 1) * Number(m[2]);
@@ -50,6 +54,7 @@ for (const [players, turns] of [
       const hand = ana.getByRole('list', { name: /^Your hand/ });
       await expect.poll(() => onScreen(hand.locator('button[data-k]').first())).toBe(true);
       await expect.poll(() => onScreen(ana.getByTestId('cv-lock'))).toBe(true);
+      if (turn === 1) await expectPhoneFit(ana, `conveyor ${players} players`);
       if (process.env.SCREENSHOTS && players === 5 && turn === 2)
         for (const colorScheme of ['light', 'dark'] as const) {
           await ana.emulateMedia({ colorScheme });
@@ -117,9 +122,12 @@ test('2 players on phones: a miso clash, a menu, a special order and three round
     ben.getByRole('region', { name: 'Turn 5 reveal' }).getByLabel('copied'),
   ).toBeVisible();
   await expect.poll(() => roundPoints(ana)).toBe(before + 3);
+  // The log is on the Scores tab on phones.
+  await ana.getByRole('tab', { name: 'Scores' }).click();
   await ana.getByText('What happened').click();
   await expect(ana.getByText(/^Turn 5: Ana .+ \(as Squid nigiri\), Ben /)).toBeVisible();
   await expect(ben.getByText(/^Turn 5: Ana .+ \(as Squid nigiri\), Ben /)).toHaveCount(1);
+  await ana.getByRole('tab', { name: 'Play' }).click();
 
   for (let turn = 6; turn <= 10; turn++) await fillerTurn(pages, 1, turn, 10);
   await expect(ana.getByRole('heading', { name: 'Round 1 scores' })).toBeVisible();

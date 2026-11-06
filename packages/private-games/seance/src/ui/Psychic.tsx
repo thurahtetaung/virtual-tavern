@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { PILLARS, type Pillar, isPillarCard, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -82,7 +82,7 @@ export function VisionStrip({
   return (
     <ul
       tabIndex={0}
-      className="flex gap-1.5 overflow-x-auto pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+      className="flex gap-1.5 overflow-x-auto pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
       aria-label={`${p.name}’s visions`}
     >
       {p.visions.map((v, i) => (
@@ -99,7 +99,7 @@ export function VisionStrip({
             onLongPress={onLook && (() => onLook(i))}
           >
             {v.hour === g.hour && g.stage !== 'done' && (
-              <span className="absolute top-1 right-1 size-2.5 rounded-full bg-accent-line dark:bg-amber-400 ring-2 ring-stone-900" />
+              <span className="absolute top-1 right-1 size-2.5 rounded-full bg-accent-line ring-2 ring-stone-900" />
             )}
           </Card>
         </li>
@@ -169,7 +169,7 @@ export function MineTab({
           ))}
         </div>
         <PastGuesses g={g} p={me} content={content} compact />
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {g.clairvoyance && me.tokens > 0
             ? `Help the others: put your ${me.tokens} clairvoyance token${me.tokens === 1 ? '' : 's'} on their guesses (Others) before they lock in.`
             : 'Help the others talk it through.'}
@@ -203,7 +203,7 @@ export function MineTab({
           <Avatar color={me.color} content={content} name={me.name} size="sm" />
           <p className="min-w-0 flex-1 leading-tight">
             <span className="font-bold">Your vision</span>{' '}
-            <span className="text-xs text-stone-600 dark:text-stone-400">
+            <span className="text-xs text-ink-muted">
               · {pillarWord} {me.step + 1} of 3
             </span>
           </p>
@@ -304,7 +304,7 @@ export function MineTab({
             );
           })}
         </ul>
-        {open && <ReadyBar view={view} room={room} act={act} content={content} />}
+        {open && <ReadyBar view={view} room={room} act={act} content={content} sticky />}
       </Panel>
       {pastGuesses(g, me.color).length > 0 && (
         <Panel className="p-2.5 sm:p-3">
@@ -327,7 +327,7 @@ export function TriedStamp({ hour }: { hour: number }) {
   return (
     <span
       aria-hidden
-      className="absolute top-1 right-1 rounded bg-danger px-1 text-[10px] leading-snug font-bold text-white shadow dark:bg-rose-700"
+      className="absolute top-1 right-1 rounded bg-danger px-1 text-[10px] leading-snug font-bold text-white shadow"
     >
       ✗ tried in hour {roman(hour)}
     </span>
@@ -356,12 +356,15 @@ export function ReadyBar({
   act,
   content,
   clock,
+  sticky = false,
 }: {
   view: SeanceView;
   room: GameRoomInfo;
   act: Act;
   content: Content;
   clock?: boolean;
+  /** In the phone's sticky bar (My vision), which keeps its height free above the tab bar. */
+  sticky?: boolean;
 }) {
   const g = view.game!;
   const me = myPsychic(view);
@@ -370,60 +373,69 @@ export function ReadyBar({
   const pillar = PILLARS[me.step];
   const canReady = me.step >= 3 || me.intuition !== null;
   const waiting = notReady(g).filter((p) => p.color !== me.color);
-  return (
-    // Never sticky: a bar floating over the cards (or just above the tab bar) caught taps meant
-    // for them. One row, with Ready at a fixed spot, so nothing moves under the finger.
-    <div className="mt-3 space-y-1">
-      <div className="flex items-center gap-2 rounded-xl bg-special-soft px-2 py-1.5 ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30">
-        {pillar && me.intuition !== null && (
-          // The guessed card itself: cards carry no visible number, so a name like "Suspect 4"
-          // would mean nothing.
-          <span className="w-14 shrink-0">
-            <Card
-              kind={kindOf(pillar, g.third)}
-              n={me.intuition}
-              content={content}
-              note="your guess"
-              preview={false}
-            />
+  // One row, with Ready at a fixed spot, so nothing moves under the finger. On phones it sits in
+  // the sticky bar, whose height the room keeps free, so it never floats over the cards.
+  const row = (
+    <div className="flex items-center gap-2 rounded-xl bg-special-soft px-2 py-1.5 ring-1 ring-special-line">
+      {pillar && me.intuition !== null && (
+        // The guessed card itself: cards carry no visible number, so a name like "Suspect 4"
+        // would mean nothing.
+        <span className="w-14 shrink-0">
+          <Card
+            kind={kindOf(pillar, g.third)}
+            n={me.intuition}
+            content={content}
+            note="your guess"
+            preview={false}
+          />
+        </span>
+      )}
+      <p className="min-w-0 flex-1 truncate text-sm">
+        {pillar
+          ? me.intuition !== null
+            ? 'Your guess'
+            : 'No guess yet: pick a card first'
+          : 'Tokens placed?'}
+        {me.ready && waiting.length > 0 && (
+          <span className="block truncate text-xs text-ink-muted">
+            Waiting for {waiting.map((p) => p.name).join(', ')}
           </span>
         )}
-        <p className="min-w-0 flex-1 truncate text-sm">
-          {pillar
-            ? me.intuition !== null
-              ? 'Your guess'
-              : 'No guess yet: pick a card first'
-            : 'Tokens placed?'}
-          {me.ready && waiting.length > 0 && (
-            <span className="block truncate text-xs text-ink-muted">
-              Waiting for {waiting.map((p) => p.name).join(', ')}
-            </span>
-          )}
-          {note && !me.ready && (
-            <span
-              role="status"
-              className="block text-xs font-semibold whitespace-normal text-special-ink dark:text-violet-200"
-            >
-              ↻ {note}
-            </span>
-          )}
-        </p>
-        {clock && (
-          <div className="max-w-[45%] min-w-0">
-            <HourClock view={view} room={room} />
-          </div>
+        {note && !me.ready && (
+          <span
+            role="status"
+            className="block text-xs font-semibold whitespace-normal text-special-ink"
+          >
+            ↻ {note}
+          </span>
         )}
-        <Button
-          size="md"
-          className="min-w-24 shrink-0 self-start"
-          variant={me.ready ? 'secondary' : 'primary'}
-          disabled={!canReady}
-          aria-pressed={me.ready}
-          onClick={() => void act({ type: 'ready', on: !me.ready }, { anchor: 'seance-ready' })}
-        >
-          {me.ready ? '✓ Ready' : 'Ready'}
-        </Button>
-      </div>
+      </p>
+      {clock && (
+        <div className="max-w-[45%] min-w-0">
+          <HourClock view={view} room={room} />
+        </div>
+      )}
+      <Button
+        size="md"
+        className="min-w-24 shrink-0 self-start"
+        variant={me.ready ? 'secondary' : 'primary'}
+        disabled={!canReady}
+        aria-pressed={me.ready}
+        onClick={() => void act({ type: 'ready', on: !me.ready }, { anchor: 'seance-ready' })}
+      >
+        {me.ready ? '✓ Ready' : 'Ready'}
+      </Button>
+    </div>
+  );
+  if (sticky)
+    return (
+      <StickyBar fixed refusal="seance-ready" className="sm:mt-3">
+        {row}
+      </StickyBar>
+    );
+  return (
+    <div className="mt-3 space-y-1">
+      {row}
       <RefusalSlot anchor="seance-ready" />
     </div>
   );
@@ -453,13 +465,13 @@ export function OthersTab({
       {note && me && !me.ready && (
         <p
           role="status"
-          className="rounded-xl bg-special-soft px-3 py-1.5 text-sm font-semibold ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30"
+          className="rounded-xl bg-special-soft px-3 py-1.5 text-sm font-semibold ring-1 ring-special-line"
         >
           ↻ {note}
         </p>
       )}
       {canMark && (
-        <p className="text-xs text-stone-600 dark:text-stone-400">
+        <p className="text-xs text-ink-muted">
           You have <b>{me.tokens}</b> clairvoyance token{me.tokens === 1 ? '' : 's'}
           {g.hour < 4 ? ' until hour IV' : ''}: ✓ if you think a guess is right, ✗ if not.
         </p>
@@ -488,7 +500,7 @@ export function OthersTab({
                     </span>
                   </p>
                   {p.ready && g.stage === 'visions' && (
-                    <span className="rounded-full bg-success dark:bg-emerald-700 px-2 text-xs font-bold text-white">
+                    <span className="rounded-full bg-success px-2 text-xs font-bold text-white">
                       ready
                     </span>
                   )}
@@ -582,7 +594,7 @@ export function OthersTab({
                           }
                         />
                       ) : (
-                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-center text-[11px] text-ink-muted dark:border-stone-700">
+                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-center text-[11px] text-ink-muted">
                           no guess yet
                         </div>
                       )}

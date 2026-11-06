@@ -56,8 +56,8 @@ function Seat({
   return (
     <li
       className={cn(
-        'relative w-40 shrink-0 space-y-1 rounded-xl bg-card p-1.5 ring-1 ring-line sm:w-auto sm:p-2 dark:bg-stone-800/70 dark:ring-stone-700',
-        turn && 'ring-2 ring-accent dark:ring-amber-400',
+        'relative w-40 shrink-0 space-y-1 rounded-xl bg-card p-1.5 ring-1 ring-line sm:w-auto sm:p-2',
+        turn && 'ring-2 ring-accent',
       )}
       data-testid={`mc-seat-${seat}`}
     >
@@ -80,7 +80,7 @@ function Seat({
         )}
         {c.captain && (
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-1 pr-1.5 text-xs font-bold text-accent-text ring-1 ring-accent-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/40"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-1 pr-1.5 text-xs font-bold text-accent-text ring-1 ring-accent-line"
             data-testid="mc-captain"
           >
             <TokenIcon kind="captain" label={art.say('{Captain}')} className="h-5 w-4" />
@@ -121,7 +121,7 @@ function Seat({
       {tasks.length > 0 && (
         <button
           type="button"
-          className="flex min-h-7 w-full items-center gap-1 rounded-lg bg-panel px-1.5 text-xs ring-1 ring-line sm:hidden dark:bg-stone-900/60 dark:ring-stone-700"
+          className="flex min-h-7 w-full items-center gap-1 rounded-lg bg-panel px-1.5 text-xs ring-1 ring-line sm:hidden"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
           data-testid="mc-seat-tasks"
@@ -131,8 +131,8 @@ function Seat({
               <span
                 key={t.index}
                 className={cn(
-                  t.state === 'done' && 'text-success-ink dark:text-emerald-300',
-                  t.state === 'failed' && 'text-danger-ink dark:text-rose-300',
+                  t.state === 'done' && 'text-success-ink',
+                  t.state === 'failed' && 'text-danger-ink',
                 )}
               >
                 {STATE_ICON[t.state]}
@@ -387,7 +387,7 @@ export function PlayTable({
   return (
     <div className="space-y-3">
       {/* Phones say it in the trick's header instead. */}
-      <p className="hidden rounded-lg bg-panel px-3 py-1 text-center text-sm ring-1 ring-line sm:block dark:bg-stone-800/70 dark:ring-stone-700">
+      <p className="hidden rounded-lg bg-panel px-3 py-1 text-center text-sm ring-1 ring-line sm:block">
         {openTable
           ? '🗣️ Open table'
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
@@ -445,7 +445,7 @@ export function PlayTable({
               <button
                 key={e}
                 type="button"
-                className="size-11 rounded-full text-xl hover:bg-panel dark:hover:bg-stone-800"
+                className="size-11 rounded-full text-xl hover:bg-panel"
                 onClick={() => void send({ type: 'emote', emoji: e })}
                 aria-label={`React ${e}`}
               >
@@ -508,7 +508,7 @@ export function PlayTable({
               );
             })}
           </div>
-          <StickyBar whole>
+          <StickyBar fixed refusal={ANCHOR} refusalKey={trickKey}>
             <div className="flex flex-wrap items-center justify-center gap-2">
               {picked && myTurnSeat && (
                 <Button
@@ -602,7 +602,7 @@ export function PlayTable({
           )}
         </div>
       )}
-      <RefusalSlot anchor={ANCHOR} resetKey={trickKey} />
+      {!inCrew && <RefusalSlot anchor={ANCHOR} resetKey={trickKey} />}
       <SignalDialog
         a={a}
         open={signalling}

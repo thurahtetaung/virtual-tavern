@@ -332,7 +332,7 @@ export function Card({
       : kind === 'vision'
         ? 'aspect-[700/1024] w-full'
         : 'aspect-[1024/700] w-full',
-    selected && 'ring-4 ring-accent dark:ring-amber-400',
+    selected && 'ring-4 ring-accent',
     dimmed && 'opacity-45 grayscale',
     className,
   );
@@ -457,7 +457,7 @@ export function Avatar({
           className="absolute inset-0 size-full object-cover"
         />
       ) : (
-        <span className={cn(color === 'white' && 'text-stone-800', size === 'lg' && 'text-2xl')}>
+        <span className={cn(color === 'white' && 'text-ink', size === 'lg' && 'text-2xl')}>
           {(name ?? color)[0]!.toUpperCase()}
         </span>
       )}

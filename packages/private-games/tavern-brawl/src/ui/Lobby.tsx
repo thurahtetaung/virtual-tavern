@@ -106,7 +106,7 @@ function SetFilter({
       role="group"
       aria-label="Random picks from"
     >
-      <span className="text-xs text-ink-muted dark:text-stone-400">🎲 picks from:</span>
+      <span className="text-xs text-ink-muted">🎲 picks from:</span>
       {SET_IDS.map((id) => (
         <button
           key={id}
@@ -117,8 +117,8 @@ function SetFilter({
           className={cn(
             'min-h-8 rounded-full px-3 text-xs font-semibold ring-1',
             on.includes(id)
-              ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/40'
-              : 'bg-card text-ink-muted ring-line dark:bg-stone-800 dark:text-stone-400 dark:ring-stone-700',
+              ? 'bg-accent-soft text-accent-text ring-accent-line'
+              : 'bg-card text-ink-muted ring-line',
           )}
         >
           {on.includes(id) ? '✓ ' : ''}
@@ -210,7 +210,7 @@ export function Lobby({
                   you={s.id === room.you}
                   offline={offline(s.id)}
                 />
-                <div className="truncate text-xs text-ink-muted dark:text-stone-400">
+                <div className="truncate text-xs text-ink-muted">
                   {s.hero ? art.hero(s.hero) : 'Picking a hero…'}
                 </div>
               </div>
@@ -237,7 +237,7 @@ export function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -271,7 +271,7 @@ export function Lobby({
         </div>
         <RefusalSlot anchor="tb-heroes" />
         {seated.length >= ZONE_PLAYERS && (
-          <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+          <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
             Five or more players: regular attacks only reach your neighbours, and knocked-out
             players come back as ghosts who attack once a turn.
           </p>
@@ -298,7 +298,7 @@ export function Lobby({
                     data-hero={h}
                     aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}: mighty powers and deck`}
                     className={cn(
-                      'flex w-full flex-col items-center gap-0.5 rounded-xl bg-card px-1 pt-1 pb-0.5 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+                      'flex w-full flex-col items-center gap-0.5 rounded-xl bg-card px-1 pt-1 pb-0.5 ring-1 ring-line',
                       mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
                       !free && !mine && 'opacity-55',
                     )}
@@ -307,7 +307,7 @@ export function Lobby({
                     <span className="w-full truncate text-center text-xs leading-tight font-semibold">
                       {art.hero(h)}
                     </span>
-                    <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted dark:text-stone-400">
+                    <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted">
                       {mine ? '✓ You' : taker ? taker.name : '✦ Powers'}
                     </span>
                   </button>
@@ -318,7 +318,7 @@ export function Lobby({
                 key={h}
                 style={heroVars(h)}
                 className={cn(
-                  'flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+                  'flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-line',
                   mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
                 )}
               >
@@ -332,7 +332,7 @@ export function Lobby({
                   className={cn(
                     'flex w-full flex-1 flex-col gap-1.5 p-2 text-left transition',
                     !free && !mine && 'opacity-55',
-                    canPick && (free || mine) && 'hover:bg-panel dark:hover:bg-stone-700',
+                    canPick && (free || mine) && 'hover:bg-panel',
                   )}
                 >
                   <span className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export function Lobby({
                       <span className="line-clamp-2 block text-sm leading-tight font-semibold">
                         {art.hero(h)}
                       </span>
-                      <span className="block truncate text-xs text-ink-muted dark:text-stone-400">
+                      <span className="block truncate text-xs text-ink-muted">
                         {box ?? HEROES[h].label}
                       </span>
                     </span>
@@ -358,11 +358,11 @@ export function Lobby({
                   type="button"
                   onClick={() => setDetails(h)}
                   aria-label={`Mighty powers and deck: ${art.hero(h)}`}
-                  className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel dark:border-stone-700 dark:hover:bg-stone-700"
+                  className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel"
                   data-powers={h}
                 >
                   <span className="line-clamp-2 min-w-0 flex-1">
-                    <span aria-hidden className="text-accent-text dark:text-amber-300">
+                    <span aria-hidden className="text-accent-text">
                       ✦{' '}
                     </span>
                     {powersOf(h)
@@ -435,7 +435,7 @@ export function Lobby({
               })
             }
           />
-          <p className="mt-2 text-xs text-ink-muted dark:text-stone-400">
+          <p className="mt-2 text-xs text-ink-muted">
             Animal noises and other honour-system prompts always get 20 seconds.
           </p>
         </div>

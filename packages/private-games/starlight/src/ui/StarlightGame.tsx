@@ -14,6 +14,10 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
+  usePhone,
   EndTabs,
   Superlatives,
   TimerSettings,
@@ -71,6 +75,14 @@ const OUTCOME: Record<Shown['kind'], { icon: string; label: string }> = {
   super: { icon: '🌟', label: 'Super-Spark' },
   fall: { icon: '🌠', label: 'Fall' },
 };
+
+/** Phones in play: the pictures and the stars. */
+type PlayTab = 'table' | 'stars';
+const PLAY_TABS_ID = 'starlight-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'stars', label: 'Stars', icon: 'chart-bar' },
+];
 
 /** "B2": the column letter and the line number, as players say it across the table. */
 export const posName = (pos: number) => `${'ABCDE'[pos % COLUMNS]}${Math.floor(pos / COLUMNS) + 1}`;
@@ -187,7 +199,7 @@ export function StarlightGame({
           New here?{' '}
           <button
             type="button"
-            className="font-semibold text-amber-700 underline dark:text-amber-400"
+            className="font-semibold text-accent-text underline"
             onClick={showGuide}
           >
             Read the guide
@@ -316,7 +328,11 @@ function Play({
   const marks = canMark ? draft : r.myMarks;
   const [note, setNote] = useState<string | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
-  const [tab, setTab] = useState<'table' | 'stars'>('table');
+  const [tab, setTab] = useState<PlayTab>('table');
+  // Phones: the pictures and the stars one at a time, from the tab bar (the end has its own tabs).
+  const phone = usePhone();
+  const tabbed = phone && view.phase === 'playing';
+  const shown: PlayTab | null = tabbed ? tab : null;
   const [confirm, confirmDialog] = useConfirm();
   const shownAt = new Map(r.shown.map((s) => [s.pos, s]));
   const myLeft = marks.filter((p) => !shownAt.has(p));
@@ -376,8 +392,8 @@ function Play({
           className={cn(
             'rounded-xl px-3 py-2 text-center text-sm font-semibold ring-1',
             last.kind === 'fall'
-              ? 'bg-danger-soft text-danger-ink ring-danger-line dark:bg-red-500/10 dark:text-red-200 dark:ring-red-500/30'
-              : 'bg-special-soft text-special-ink ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30',
+              ? 'bg-danger-soft text-danger-ink ring-danger-line'
+              : 'bg-special-soft text-special-ink ring-special-line',
           )}
         >
           {last.scout === you ? 'You' : nameOf(view, last.scout)} showed {posName(last.pos)}.{' '}
@@ -388,32 +404,11 @@ function Play({
 
       {r.stage !== 'done' && <DarkLine view={view} tokens={tokens} />}
 
-      <div className="flex gap-1 rounded-xl bg-panel p-1 ring-1 ring-line sm:hidden dark:bg-stone-900 dark:ring-stone-800">
-        {(
-          [
-            ['table', '🖼️ Table'],
-            ['stars', '⭐ Stars'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={tab === id}
-            onClick={() => setTab(id)}
-            className={cn(
-              'min-h-11 flex-1 rounded-lg text-sm font-semibold',
-              tab === id ? 'bg-card shadow-sm dark:bg-stone-800' : 'text-ink-muted',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <section
           aria-label="The cards"
-          className={cn('space-y-2', tab !== 'table' && 'hidden sm:block')}
+          className={cn('space-y-2', shown === 'stars' && 'hidden')}
+          {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
             // Three lines of cards fit the screen's height on any desktop.
@@ -437,36 +432,40 @@ function Play({
             ))}
           </ul>
           {r.stage === 'mark' && playing && (
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="text-sm font-semibold" data-testid="starlight-count">
-                {marks.length} marked
-                <span className="font-normal text-ink-muted">
-                  {' '}
-                  ({MIN_MARKS}–{MAX_MARKS})
+            <StickyBar fixed refusal={SLATE_ANCHOR} refusalKey={r.locked.length}>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-sm font-semibold" data-testid="starlight-count">
+                  {marks.length} marked
+                  <span className="font-normal text-ink-muted">
+                    {' '}
+                    ({MIN_MARKS}–{MAX_MARKS})
+                  </span>
                 </span>
-              </span>
-              {locked ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => void act({ type: 'unlock' }, { anchor: SLATE_ANCHOR })}
-                >
-                  Unlock to change
-                </Button>
-              ) : (
-                <Button
-                  disabled={marks.length < MIN_MARKS}
-                  onClick={() => void act({ type: 'lock' }, { anchor: SLATE_ANCHOR })}
-                >
-                  Lock my slate
-                </Button>
-              )}
-              {note && <p className="w-full text-center text-sm text-ink-muted">{note}</p>}
-              <RefusalSlot anchor={SLATE_ANCHOR} resetKey={r.locked.length} />
-            </div>
+                {locked ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => void act({ type: 'unlock' }, { anchor: SLATE_ANCHOR })}
+                  >
+                    Unlock to change
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={marks.length < MIN_MARKS}
+                    onClick={() => void act({ type: 'lock' }, { anchor: SLATE_ANCHOR })}
+                  >
+                    Lock my slate
+                  </Button>
+                )}
+                {note && <p className="w-full text-center text-sm text-ink-muted">{note}</p>}
+              </div>
+            </StickyBar>
           )}
           {isScout && <RefusalSlot anchor={SHOW_ANCHOR} resetKey={r.shown.length} />}
         </section>
-        <aside className={cn('mt-3 space-y-3 sm:mt-0', tab !== 'stars' && 'hidden sm:block')}>
+        <aside
+          className={cn('mt-3 space-y-3 sm:mt-0', shown === 'table' && 'hidden')}
+          {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
+        >
           {stars}
         </aside>
       </div>
@@ -478,6 +477,7 @@ function Play({
   return (
     <div className="space-y-3">
       {confirmDialog}
+      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
           <span className="flex items-center gap-1">
@@ -503,7 +503,6 @@ function Play({
           <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
         </p>
       </header>
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {canMark && (
         <Tip id="marking">
           Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
@@ -526,6 +525,16 @@ function Play({
       )}
 
       {!phoneEnd && board}
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Starlight"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="sm:hidden"
+        />
+      )}
 
       <Modal
         open={viewing !== null}
@@ -607,7 +616,7 @@ function GridCard({
           )}
         />
       </button>
-      <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-stone-950/75 px-1.5 text-[0.65rem] font-bold text-white">
+      <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
         {posName(pos)}
       </span>
       {marked && (
@@ -619,12 +628,12 @@ function GridCard({
         </span>
       )}
       {fresh && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-stone-950/75 px-1.5 text-[0.65rem] font-bold text-white">
+        <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
           New
         </span>
       )}
       {outcome && shown && (
-        <span className="pointer-events-none absolute inset-x-1 top-7 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-[0.65rem] font-bold text-white">
+        <span className="pointer-events-none absolute inset-x-1 top-7 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-xs font-bold text-white">
           <span aria-hidden>{outcome.icon}</span>
           {shown.markers.map((id) => (
             <NameDot key={id} name={nameOf(view, id)} />
@@ -773,9 +782,7 @@ function StarBoard({
                 </span>
                 <span className="shrink-0 font-bold tabular-nums">
                   {inRound && r.stage !== 'done' && (
-                    <span className="font-semibold text-amber-700 dark:text-amber-300">
-                      +{r.stars[s.id] ?? 0}★{' '}
-                    </span>
+                    <span className="font-semibold text-accent-text">+{r.stars[s.id] ?? 0}★ </span>
                   )}
                   {s.score} pts
                 </span>
@@ -860,12 +867,7 @@ function RoundResults({ view, room, act }: { view: StarlightView; room: Room; ac
                 </span>
               </span>
             </span>
-            <b
-              className={cn(
-                'shrink-0',
-                res.points > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink-muted',
-              )}
-            >
+            <b className={cn('shrink-0', res.points > 0 ? 'text-success-ink' : 'text-ink-muted')}>
               +{res.points}
             </b>
           </li>

@@ -4,6 +4,7 @@ import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { openSettings } from './lobby-settings.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a
 // room, and a "play whatever is asked" loop that finishes a game from the players' screens.
@@ -187,6 +188,8 @@ export async function fullBrawl(browser: Browser, heroes: string[], names: strin
   if (zone) await expect(pages[0]!.getByText(/Five or more players/)).toBeVisible();
   await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
   await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
+  // Six seats is the tightest table: the roster, the played zone, the hand and Play in the bar.
+  if (pages.length === 6) await expectPhoneFit(pages[0]!, 'tavern brawl 6 seats');
   // A ghost haunts only when a knocked-out seat's turn comes round before the end, and on the test
   // hit points about one game in ten knocks everyone out within a round. Such a game says nothing
   // about ghosts, so the table plays again (at most five games: all five missing is below 1 in

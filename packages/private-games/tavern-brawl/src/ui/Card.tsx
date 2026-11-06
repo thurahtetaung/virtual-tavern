@@ -72,8 +72,8 @@ export const Card = memo(function Card({
       style={{ width, ...heroVars(def.hero) }}
       className={cn(
         'relative aspect-[400/630] shrink-0 overflow-hidden rounded-[7%] bg-stone-800 shadow-md ring-1 ring-black/20 select-none',
-        selected && 'ring-4 ring-accent dark:ring-amber-400',
-        pickable && !selected && 'ring-4 ring-accent-line dark:ring-amber-300/70',
+        selected && 'ring-4 ring-accent',
+        pickable && !selected && 'ring-4 ring-accent-line',
         borrowedFrom &&
           'outline-4 outline-offset-0 outline-[var(--hero)] dark:outline-[var(--hero-dark)]',
         dim && 'opacity-50',
@@ -212,7 +212,7 @@ export function Zoom({
               .join('  ')}
           </p>
           {text && <p className="text-center text-sm italic">{printed(text)}</p>}
-          <p className="text-center text-sm text-ink-muted dark:text-stone-400">{cardText(def)}</p>
+          <p className="text-center text-sm text-ink-muted">{cardText(def)}</p>
           {note && <p className="text-center text-sm font-medium">{note}</p>}
         </div>
       )}

@@ -58,12 +58,7 @@ export function Replay({ a, name }: { a: AttemptView; name: (id: string) => stri
           ▶
         </Button>
       </div>
-      <p
-        className={cn(
-          'text-center text-sm font-semibold',
-          at === failing && 'text-danger-ink dark:text-rose-300',
-        )}
-      >
+      <p className={cn('text-center text-sm font-semibold', at === failing && 'text-danger-ink')}>
         {at === 0 ? 'The deal' : `Trick ${at} of ${last}, won by ${name(shown!.winner)}`}
         {at === failing ? ' · the attempt was lost here' : ''}
       </p>
@@ -71,8 +66,7 @@ export function Replay({ a, name }: { a: AttemptView; name: (id: string) => stri
         <div
           className={cn(
             'rounded-xl p-2',
-            at === failing &&
-              'bg-danger-soft ring-1 ring-danger-line dark:bg-rose-500/10 dark:ring-rose-500/30',
+            at === failing && 'bg-danger-soft ring-1 ring-danger-line',
           )}
         >
           <TrickRow plays={shown.plays} name={name} winner={shown.winner} size="sm" />
@@ -151,7 +145,7 @@ export function Debrief({
             {missionLabel(a.mission.n, a.mission.label)} accomplished!
           </h2>
           <p
-            className="inline-block -rotate-2 rounded-lg px-3 py-1 font-black uppercase tracking-wider text-success-ink ring-2 ring-success-line dark:text-emerald-200 dark:ring-emerald-500/50"
+            className="inline-block -rotate-2 rounded-lg px-3 py-1 font-black uppercase tracking-wider text-success-ink ring-2 ring-success-line"
             data-testid="mc-stamp"
           >
             Logbook:{' '}

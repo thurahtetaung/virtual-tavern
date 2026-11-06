@@ -93,7 +93,7 @@ export function CandidatesRow({
                 note={candidateNote(marks, one) ?? 'candidate'}
                 onTap={() => look(row, i, label)}
                 className={cn(
-                  target && 'ring-4 ring-accent dark:ring-amber-400',
+                  target && 'ring-4 ring-accent',
                   !target && marks.missedBy.length > 0 && 'opacity-60',
                 )}
               >
@@ -133,7 +133,7 @@ export function CandidatesRow({
                   </span>
                 )}
                 {marks.missedBy.length > 0 && (
-                  <span className="absolute top-1 right-1 rounded-full bg-danger px-1.5 text-xs font-bold text-white dark:bg-rose-600">
+                  <span className="absolute top-1 right-1 rounded-full bg-danger px-1.5 text-xs font-bold text-white">
                     ✗
                   </span>
                 )}

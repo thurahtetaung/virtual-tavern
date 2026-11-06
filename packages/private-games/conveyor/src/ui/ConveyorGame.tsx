@@ -149,14 +149,14 @@ function Tips({ art }: { art: Art }) {
   );
   return (
     <>
-      <aside className="cv-rise hidden flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+      <aside className="cv-rise hidden flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex">
         <p className="font-semibold">New here? Three things to know</p>
         {list}
         <Button variant="ghost" size="sm" className="self-end" onClick={dismiss}>
           Got it
         </Button>
       </aside>
-      <aside className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+      <aside className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden">
         <span className="min-w-0 flex-1 truncate">New here? Tap a card, then Lock in.</span>
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
           Tips
@@ -272,7 +272,7 @@ function Lobby({
           </ul>
         </div>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -284,7 +284,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           Everyone picks a dish at once and passes the rest of their hand along. Three quick rounds,
           best with 4 or 5.
         </p>
@@ -388,7 +388,7 @@ function MenuPicker({
         <span
           key={t}
           className={cn(
-            'rounded-full bg-panel px-1.5 text-xs ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+            'rounded-full bg-panel px-1.5 text-xs ring-1 ring-line',
             !!count && !allowedAt(t, count) && 'line-through opacity-60',
           )}
         >
@@ -411,8 +411,8 @@ function MenuPicker({
                 data-menu={p.id}
                 onClick={() => editable && set({ menu: p.id })}
                 className={cn(
-                  'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-                  st.menu === p.id && 'ring-2 ring-accent dark:ring-amber-400',
+                  'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line',
+                  st.menu === p.id && 'ring-2 ring-accent',
                   !ok && 'opacity-60',
                 )}
               >
@@ -422,7 +422,7 @@ function MenuPicker({
                     <span className="ml-1 text-xs font-normal">(not for {count} players)</span>
                   )}
                 </span>
-                <span className="text-xs text-ink-muted dark:text-stone-400">{p.blurb}</span>
+                <span className="text-xs text-ink-muted">{p.blurb}</span>
                 {st.menu === p.id && chips(p.types)}
               </button>
             </li>
@@ -436,14 +436,14 @@ function MenuPicker({
               data-menu={id}
               onClick={() => editable && set({ menu: id })}
               className={cn(
-                'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-                st.menu === id && 'ring-2 ring-accent dark:ring-amber-400',
+                'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line',
+                st.menu === id && 'ring-2 ring-accent',
               )}
             >
               <span className="text-sm font-semibold">
                 {id === 'random' ? '🎲 Random menu' : '✏️ Your own menu'}
               </span>
-              <span className="text-xs text-ink-muted dark:text-stone-400">
+              <span className="text-xs text-ink-muted">
                 {id === 'random'
                   ? 'A surprise mix that suits the table, drawn at the start.'
                   : 'Choose every dish yourself.'}
@@ -490,10 +490,8 @@ function CustomMenu({
     set({ custom: next });
   };
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
-      <p className="text-xs text-ink-muted dark:text-stone-400">
-        Nigiri is always in. Tap a dish’s ⓘ for its rules.
-      </p>
+    <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line">
+      <p className="text-xs text-ink-muted">Nigiri is always in. Tap a dish’s ⓘ for its rules.</p>
       {(Object.keys(MENU_SHAPE) as Exclude<Group, 'nigiri'>[]).map((group) => {
         const want = MENU_SHAPE[group];
         const have = custom.filter((t) => TYPES[t].group === group).length;
@@ -514,8 +512,8 @@ function CustomMenu({
                       disabled={!editable || (!ok && !on)}
                       onClick={() => toggle(t, group)}
                       className={cn(
-                        'flex items-center gap-1 rounded-lg bg-card p-1 pr-2 text-xs font-semibold ring-1 ring-line disabled:opacity-40 dark:bg-stone-800 dark:ring-stone-600',
-                        on && 'ring-2 ring-accent dark:ring-amber-400',
+                        'flex items-center gap-1 rounded-lg bg-card p-1 pr-2 text-xs font-semibold ring-1 ring-line disabled:opacity-40',
+                        on && 'ring-2 ring-accent',
                       )}
                       title={ok ? TYPES[t].short : `Not with ${count} players`}
                     >

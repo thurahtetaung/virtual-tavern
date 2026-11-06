@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { YOUR_TURN, option, pick, place, sheet, table, take } from './mosaic-play.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -22,6 +23,9 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
   await hana.getByRole('button', { name: 'Start the game' }).click();
 
+  // The draft: the factories, the centre and your board on one screen.
+  await expect(hana.getByText(YOUR_TURN)).toBeVisible();
+  await expectPhoneFit(hana, 'mosaic draft');
   // Two blues: the sheet says line 1 fills with one spilling, and what is left behind.
   await pick(hana, 'blue', 1);
   const line1 = sheet(hana).locator('button[data-target="0"]');

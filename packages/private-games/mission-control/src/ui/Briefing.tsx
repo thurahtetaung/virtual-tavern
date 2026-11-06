@@ -44,7 +44,7 @@ export function RuleBox({ a }: { a: AttemptView }) {
   const m = a.mission;
   const text = useMissionText(m);
   return (
-    <div className="space-y-2 rounded-xl bg-info-soft p-3 text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+    <div className="space-y-2 rounded-xl bg-info-soft p-3 text-info-ink ring-1 ring-info-line">
       {text.rule && (
         <p className="font-semibold">
           <Printed text={art.say(text.rule)} />

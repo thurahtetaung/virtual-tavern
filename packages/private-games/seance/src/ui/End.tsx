@@ -33,7 +33,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
               onClick={() =>
                 setOpen(expanded ? open.filter((c) => c !== p.color) : [...open, p.color])
               }
-              className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left text-sm font-semibold hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent lg:pointer-events-none lg:min-h-0 dark:hover:bg-stone-800 dark:focus-visible:outline-amber-500"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left text-sm font-semibold hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent lg:pointer-events-none lg:min-h-0"
             >
               <Avatar color={p.color} content={content} name={p.name} size="sm" />
               <span className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                       tabIndex={0}
                       role="group"
                       aria-label={`Visions for ${p.name}’s ${word}`}
-                      className="flex items-end gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+                      className="flex items-end gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                     >
                       {visions.length ? (
                         visions.map((v, i) => (
@@ -178,9 +178,7 @@ export function EndScreen({
       <Panel
         className={cn(
           'space-y-2 text-center max-lg:p-3',
-          r.win
-            ? 'bg-special-soft ring-special-line dark:ring-violet-300 dark:bg-violet-500/10'
-            : 'bg-stone-100 dark:bg-stone-900',
+          r.win ? 'bg-special-soft ring-special-line' : 'bg-sunk',
         )}
       >
         <p className="text-4xl" aria-hidden>
@@ -191,7 +189,7 @@ export function EndScreen({
         </h2>
         <p role="status">{resultLine(g)}</p>
         {breaker && (
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             The vote was tied: {breaker.name}, furthest along the track, decided it.
           </p>
         )}

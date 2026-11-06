@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Modal, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Countdown, Modal, PlayerTag, StickyBar, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
   COLOUR_BONUS,
@@ -90,7 +90,7 @@ export function Tiling({
   return (
     <section
       aria-label={`Round ${s.round} wall-tiling`}
-      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line dark:bg-stone-900/85 dark:ring-stone-800"
+      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-tiling"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -136,7 +136,7 @@ export function Tiling({
         </Modal>
       )}
       {waiting && (
-        <StickyBar>
+        <StickyBar fixed refusal="mo-tiling">
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Countdown
               deadline={g.tilingUntil}
@@ -151,11 +151,7 @@ export function Tiling({
                 Next round
               </Button>
             )}
-            {me && ready && (
-              <span className="text-sm text-ink-muted dark:text-stone-400">
-                Waiting for the others…
-              </span>
-            )}
+            {me && ready && <span className="text-sm text-ink-muted">Waiting for the others…</span>}
             {room.isHost && (
               <Button
                 variant="secondary"
@@ -166,7 +162,6 @@ export function Tiling({
               </Button>
             )}
           </div>
-          <RefusalSlot anchor="mo-tiling" />
         </StickyBar>
       )}
     </section>
@@ -202,9 +197,9 @@ function PlayerTiling({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-1 rounded-xl ring-1 ring-line dark:ring-stone-800',
+        'flex flex-col items-center gap-1 rounded-xl ring-1 ring-line',
         tiny ? 'p-1' : 'p-1.5',
-        you && 'ring-2 ring-accent dark:ring-amber-500',
+        you && 'ring-2 ring-accent',
       )}
       data-tiling={p.id}
     >
@@ -217,12 +212,8 @@ function PlayerTiling({
         <PlayerTag name={p.name} you={you} className="min-w-0" />
         <span className="font-bold tabular-nums" aria-live="polite">
           {ps.before}
-          {gained ? (
-            <span className="text-success-ink dark:text-emerald-300"> +{gained}</span>
-          ) : null}
-          {floorDone && ps.penalty ? (
-            <span className="text-danger-ink dark:text-rose-300"> {ps.penalty}</span>
-          ) : null}
+          {gained ? <span className="text-success-ink"> +{gained}</span> : null}
+          {floorDone && ps.penalty ? <span className="text-danger-ink"> {ps.penalty}</span> : null}
           {floorDone && <> = {ps.bonus ? ps.after - ps.bonus.points : ps.after}</>}
         </span>
       </div>
@@ -235,10 +226,7 @@ function PlayerTiling({
         grey={grey}
       />
       {!tiny && floorDone && (ps.fell?.length || ps.shielded) ? (
-        <p
-          className="w-full text-xs text-ink-muted dark:text-stone-400"
-          data-testid="mo-tiling-note"
-        >
+        <p className="w-full text-xs text-ink-muted" data-testid="mo-tiling-note">
           {ps.fell?.length
             ? `${ps.fell.map((r) => `Line ${r + 1}`).join(' and ')} had no legal wall space: ${ps.fell.length === 1 ? 'its' : 'their'} tiles fell to the floor. `
             : ''}
@@ -260,7 +248,7 @@ function PlayerTiling({
           {bonusStep >= 2 && (
             <span className="mo-rise">
               {' · '}Colours {b.colours} × {COLOUR_BONUS}
-              <strong className="ml-1 text-success-ink dark:text-emerald-300">
+              <strong className="ml-1 text-success-ink">
                 = +{b.points} → {ps.after}
               </strong>
             </span>

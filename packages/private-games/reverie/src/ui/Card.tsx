@@ -48,7 +48,7 @@ export function Card({ card, label, selected, dimmed, onClick, className, big, e
           <span
             aria-hidden
             data-testid="card-loading"
-            className="absolute inset-0 animate-pulse bg-stone-300 motion-reduce:animate-none dark:bg-stone-700"
+            className="absolute inset-0 animate-pulse bg-sunk motion-reduce:animate-none"
           />
         )
       )}
@@ -70,11 +70,12 @@ export function Card({ card, label, selected, dimmed, onClick, className, big, e
     </>
   );
   const classes = cn(
-    'relative block aspect-[366/512] w-full overflow-hidden rounded-xl bg-stone-200 shadow-md ring-1 ring-black/10 transition dark:bg-stone-800',
-    selected && 'ring-4 ring-accent dark:ring-amber-400',
+    'relative block aspect-[366/512] w-full overflow-hidden rounded-lg bg-sunk shadow-vt-1 ring-1 ring-line transition',
+    // Chosen: the accent ring outside the picture, never a tint over it.
+    selected && 'ring-3 ring-accent ring-offset-2 ring-offset-page',
     dimmed && 'opacity-50',
     onClick &&
-      'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-none',
+      'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:transition-none motion-reduce:hover:translate-none',
     className,
   );
   return onClick ? (

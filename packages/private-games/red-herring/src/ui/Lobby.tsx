@@ -245,7 +245,7 @@ export function Lobby({
                     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
                     s.scoring === k
                       ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
-                      : 'ring-line hover:bg-panel disabled:hover:bg-transparent dark:ring-stone-700',
+                      : 'ring-line hover:bg-panel disabled:hover:bg-transparent',
                   )}
                 >
                   <span className="block text-sm font-semibold">{SCORING_NAME[k]}</span>
@@ -366,7 +366,7 @@ function TopicField({
         }}
         placeholder="No topic"
         data-testid="rh-topic"
-        className="min-h-11 rounded-lg bg-card px-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+        className="min-h-11 rounded-lg bg-card px-3 ring-1 ring-line"
       />
     </label>
   );

@@ -17,6 +17,8 @@ import {
   useSpectatorPrompt,
   EndTabs,
   useWideScreen,
+  Fold,
+  usePhone,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
@@ -124,10 +126,10 @@ function StatusLine({ text, yourMove }: { text: string; yourMove: boolean }) {
 function Tips() {
   const say = useSay();
   const [seen, setSeen] = useState(tipsSeen);
+  const phone = usePhone();
   if (seen) return null;
-  return (
-    <aside className="en-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
+  const body = (
+    <>
       <ul className="list-disc space-y-1 pl-5">
         <li>
           Your hand can’t be rearranged. Lines under cards mark the sets and runs it already holds.
@@ -157,6 +159,19 @@ function Tips() {
       >
         Got it
       </Button>
+    </>
+  );
+  // Phones keep the play screen to one screen: the tips wait in a closed fold.
+  if (phone)
+    return (
+      <Fold summary="New here? Three things to know" bodyClassName="flex flex-col gap-1.5 text-sm">
+        {body}
+      </Fold>
+    );
+  return (
+    <aside className="en-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line">
+      <p className="font-semibold">New here? Three things to know</p>
+      {body}
     </aside>
   );
 }
@@ -245,7 +260,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -257,7 +272,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <div className="flex items-center gap-3 text-sm text-ink-muted dark:text-stone-400">
+        <div className="flex items-center gap-3 text-sm text-ink-muted">
           <Hand
             cards={[
               { id: '4-8', up: 4 },
@@ -398,7 +413,7 @@ function End({
                           label={`${p.name}’s last hand`}
                         />
                       ) : (
-                        <span className="text-ink-muted dark:text-stone-400">No cards left</span>
+                        <span className="text-ink-muted">No cards left</span>
                       )}
                     </li>
                   ))}

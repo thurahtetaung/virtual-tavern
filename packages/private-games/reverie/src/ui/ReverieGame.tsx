@@ -4,15 +4,18 @@ import {
   ChoicePicker,
   Countdown,
   Hint,
+  Input,
   Modal,
   Panel,
   PlayerDot,
   PlayerTag,
-  RefusalSlot,
   EndTabs,
   Standings,
   StickyBar,
   Superlatives,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   TimerSettings,
   cn,
   useSpectatorPrompt,
@@ -52,6 +55,14 @@ const SEAT_CONTROL_ID = 'reverie-seat';
 /** Where the server's refusal of a story shows: under the clue form. */
 const TELL_ANCHOR = 'reverie-tell';
 
+/** Phones in play: the round (table and hand) and the players (scores and seats). */
+type PlayTab = 'table' | 'players';
+const PLAY_TABS_ID = 'reverie-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'players', label: 'Players', icon: 'users' },
+];
+
 /** Seats can only change between turns (and in the lobby or at the end). */
 const seatsOpen = (view: ReverieView) =>
   view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
@@ -81,6 +92,7 @@ export function ReverieGame({
   const blocker = startBlocker(view, cardCount);
   const status = statusFor(view, room.isHost, blocker, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+  const [tab, setTab] = useState<PlayTab>('table');
 
   // Watchers get the shell's "You're watching" banner, leading to Take a seat.
   const full = view.seats.filter((s) => s.playing).length >= 8;
@@ -146,8 +158,8 @@ export function ReverieGame({
                     className={cn(
                       'rounded-lg px-4 py-2 font-semibold ring-1 transition',
                       view.settings.targetScore === t
-                        ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                        : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                        ? 'bg-accent-soft ring-2 ring-accent'
+                        : 'ring-line hover:bg-sunk',
                     )}
                   >
                     {t} points
@@ -188,7 +200,7 @@ export function ReverieGame({
           New here?{' '}
           <button
             type="button"
-            className="font-semibold text-amber-700 underline dark:text-amber-400"
+            className="font-semibold text-accent-text underline"
             onClick={showGuide}
           >
             Read the guide
@@ -208,6 +220,8 @@ export function ReverieGame({
       status={status}
       online={online}
       pickColor={pickColor}
+      tab={tab}
+      setTab={setTab}
     />
   );
 }
@@ -278,7 +292,7 @@ function Seats({
       {me && recolor && (
         <p className="text-xs text-ink-muted">Tap your name to change your colour.</p>
       )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
           <span key={s.id} className="inline-flex">
@@ -313,25 +327,33 @@ const PHASE_TIMER: Partial<Record<string, { label: string; atZero: string }>> = 
   vote: { label: 'to vote', atZero: 'then missing votes are lost' },
 };
 
-function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: number }) {
+/** The turn, the target, the draw pile and the clock: the line above the table. */
+function RoundLine({ view, clockOffset }: { view: ReverieView; clockOffset: number }) {
+  const turn = view.turn;
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+      <span>
+        {turn && view.phase === 'playing' ? `Turn ${turn.round}` : 'Game over'} · to{' '}
+        {view.settings.targetScore} points · {view.drawPile} cards left to draw
+      </span>
+      <Countdown
+        deadline={turn && turn.phase !== 'reveal' ? turn.deadline : null}
+        clockOffset={clockOffset}
+        label={PHASE_TIMER[turn?.phase ?? 'clue']?.label}
+        soft={view.settings.timerMode !== 'strict'}
+        expiredHint="Just a reminder: the turn waits for everyone."
+        atZero={PHASE_TIMER[turn?.phase ?? 'clue']?.atZero}
+      />
+    </div>
+  );
+}
+
+/** Everyone's score, who tells the story and who is still deciding (Players on phones). */
+function Scoreboard({ view }: { view: ReverieView }) {
   const turn = view.turn;
   const playing = view.seats.filter((s) => s.playing);
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-        <span>
-          {turn && view.phase === 'playing' ? `Turn ${turn.round}` : 'Game over'} · to{' '}
-          {view.settings.targetScore} points · {view.drawPile} cards left to draw
-        </span>
-        <Countdown
-          deadline={turn && turn.phase !== 'reveal' ? turn.deadline : null}
-          clockOffset={clockOffset}
-          label={PHASE_TIMER[turn?.phase ?? 'clue']?.label}
-          soft={view.settings.timerMode !== 'strict'}
-          expiredHint="Just a reminder: the turn waits for everyone."
-          atZero={PHASE_TIMER[turn?.phase ?? 'clue']?.atZero}
-        />
-      </div>
       <ul className="flex flex-wrap gap-1.5" aria-label="Scores">
         {playing.map((s) => {
           const story = turn?.storyteller === s.id;
@@ -341,9 +363,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
               key={s.id}
               className={cn(
                 'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm ring-1',
-                story
-                  ? 'bg-accent-soft ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
-                  : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
+                story ? 'bg-accent-soft ring-accent' : 'bg-card ring-line',
                 turn && turn.phase !== 'reveal' && !s.done && !story && 'text-ink-muted',
               )}
               title={story ? 'Storyteller' : s.done ? 'Done' : 'Still deciding'}
@@ -351,9 +371,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
               <PlayerDot color={s.color} label={false} />
               <span className="max-w-24 truncate font-medium">{s.name}</span>
               {story && (
-                <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                  📖 storyteller
-                </span>
+                <span className="text-xs font-semibold text-accent-text">📖 storyteller</span>
               )}
               <b className="tabular-nums">{s.score}</b>
               {gained !== undefined && gained > 0 && (
@@ -428,6 +446,8 @@ function Play({
   status,
   online,
   pickColor,
+  tab,
+  setTab,
 }: {
   view: ReverieView;
   room: ReverieUiProps['room'];
@@ -435,6 +455,8 @@ function Play({
   status: ReturnType<typeof statusFor>;
   online: (id: string) => boolean;
   pickColor?: () => void;
+  tab: PlayTab;
+  setTab: (tab: PlayTab) => void;
 }) {
   const turn = view.turn;
   const me = view.me;
@@ -449,21 +471,7 @@ function Play({
   const wide = useWideScreen();
   const [clue, setClue] = useState('');
   const [storyPick, setStoryPick] = useState<number | null>(null);
-  // The hand bar is fixed over the page, so the page pads by the bar's measured height and
-  // nothing ends up hidden under it, whatever the screen or font size.
-  const handBar = useRef<HTMLElement>(null);
-  const [handHeight, setHandHeight] = useState(0);
   const showHand = view.hand.length > 0 && view.phase === 'playing';
-  useEffect(() => {
-    const el = handBar.current;
-    if (!el || typeof ResizeObserver === 'undefined') {
-      setHandHeight(0);
-      return;
-    }
-    const observer = new ResizeObserver(() => setHandHeight(el.offsetHeight));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [showHand]);
 
   const canTell = isStory && turn.phase === 'clue';
   // The hand matters while cards are being chosen; while voting and at the reveal it folds away
@@ -573,7 +581,7 @@ function Play({
               selected={turn.myVote === i}
               dimmed={canVote && t.mine}
               onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
-              className={cn(t.isStory && 'ring-4 ring-success dark:ring-emerald-400')}
+              className={cn(t.isStory && 'ring-4 ring-success')}
             />
             {turn.phase === 'reveal' && (
               <div className="text-center text-xs leading-snug">
@@ -588,7 +596,7 @@ function Play({
                   </p>
                 )}
                 {turn.myVote === i && (
-                  <p className="font-semibold text-amber-700 dark:text-amber-400">✋ Your vote</p>
+                  <p className="font-semibold text-accent-text">✋ Your vote</p>
                 )}
                 <p className="text-ink-muted">
                   {t.voters.length > 0 ? 'Votes: ' : 'No votes'}
@@ -608,9 +616,7 @@ function Play({
               <p className="text-center text-xs text-ink-muted">yours</p>
             )}
             {turn.phase !== 'reveal' && turn.myVote === i && (
-              <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
-                ✋ your vote
-              </p>
+              <p className="text-center text-xs font-semibold text-accent-text">✋ your vote</p>
             )}
           </li>
         ))}
@@ -622,9 +628,7 @@ function Play({
       <p className="font-bold" data-testid="reveal-headline">
         {revealHeadline(view)}
       </p>
-      {missedVoteNote(view) && (
-        <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
-      )}
+      {missedVoteNote(view) && <p className="text-ink-muted">{missedVoteNote(view)}</p>}
       <ul className="grid gap-x-4 sm:grid-cols-2">
         {view.seats
           .filter((s) => s.playing && turn.results![s.id])
@@ -650,222 +654,246 @@ function Play({
     </Panel>
   );
 
+  // Phones and tablets in play: the round on one tab, the scores and seats on the other; wide
+  // screens keep both, the players in the rail.
+  const tabbed = !wide && view.phase === 'playing';
+  const shown: PlayTab | null = tabbed ? tab : null;
+
   return (
-    <div
-      className={cn('space-y-3', showHand && 'pb-44')}
-      style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
-    >
-      {confirmDialog}
-      <Scoreboard view={view} clockOffset={room.clockOffset} />
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {(canNext || canSit) && (
-        <div className="flex flex-wrap justify-center gap-2">
-          {canNext && (
-            <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-              {targetReached(view) ? 'See final scores' : 'Next turn'}
-            </Button>
-          )}
-          {canSit && (
-            <Button
-              size="lg"
-              variant={canNext ? 'secondary' : 'primary'}
-              onClick={() => void act({ type: 'sit', playing: true })}
-            >
-              Take a seat
-            </Button>
-          )}
-        </div>
-      )}
-
-      {!phoneEnd && clueLine}
-
-      {view.phase === 'over' && (
-        <Panel className="space-y-3 text-center max-lg:p-3">
-          {/* The status line above already says who won; this is the podium and the standings. */}
-          <EndTabs
-            tabs={[
-              {
-                id: 'scores',
-                label: '🏆 Scores',
-                content: (
-                  <Standings
-                    entries={view.seats
-                      .filter((s) => s.playing || s.score > 0)
-                      .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-                    you={me?.id}
-                    className="text-left"
-                  />
-                ),
-              },
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
-              },
-              phoneEnd &&
-                !!turn && {
-                  id: 'turn',
-                  label: '🃏 Turn',
-                  content: (
-                    <div className="space-y-3 text-left">
-                      {clueLine}
-                      {tableSection}
-                      {results}
-                    </div>
-                  ),
-                },
-              phoneEnd && { id: 'players', label: '👥 Players', content: seats },
-            ]}
-          />
-          {room.isHost ? (
-            <div className="flex flex-wrap justify-center gap-2">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      <div
+        className={cn('min-w-0 space-y-3', shown === 'players' && 'hidden')}
+        {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+      >
+        {confirmDialog}
+        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        <RoundLine view={view} clockOffset={room.clockOffset} />
+        {turn?.reshuffled && view.phase === 'playing' && (
+          <p className="text-xs text-ink-muted" data-testid="reshuffled">
+            🔀 The draw pile ran out, so the used cards were shuffled back in.
+          </p>
+        )}
+        {(canNext || canSit) && (
+          <div className="flex flex-wrap justify-center gap-2">
+            {canNext && (
+              <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
+                {targetReached(view) ? 'See final scores' : 'Next turn'}
+              </Button>
+            )}
+            {canSit && (
               <Button
                 size="lg"
-                onClick={() =>
-                  void (async () => {
-                    if (
-                      await confirm({
-                        title: 'Start a new game with the same players?',
-                        body: 'Scores go back to 0.',
-                        confirmLabel: 'Play again',
-                      })
-                    ) {
-                      void act({ type: 'start' });
-                    }
-                  })()
-                }
+                variant={canNext ? 'secondary' : 'primary'}
+                onClick={() => void act({ type: 'sit', playing: true })}
               >
-                Play again
+                Take a seat
               </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </div>
-          ) : (
-            <p>{waitingForHost(room, 'start the next game')}</p>
-          )}
-        </Panel>
-      )}
-
-      {canTell && (
-        <Panel className="space-y-3">
-          {storyPick === null ? (
-            <p className="text-center text-stone-600 dark:text-stone-400">
-              Tap a card in your hand below, then write your clue.
-            </p>
-          ) : (
-            <form
-              onSubmit={(e) => void tell(e)}
-              className="flex flex-col gap-3 sm:flex-row sm:items-end"
-            >
-              <div className="w-24 shrink-0">
-                <Card
-                  card={storyPick}
-                  onClick={() => setViewing({ card: storyPick, from: 'hand' })}
-                />
-              </div>
-              <label className="flex-1">
-                <span className="text-sm font-semibold">Your clue</span>
-                <input
-                  autoFocus
-                  value={clue}
-                  maxLength={MAX_CLUE_LENGTH}
-                  onChange={(e) => setClue(e.target.value)}
-                  placeholder="A word, a line, a feeling…"
-                  className="mt-1 block w-full rounded-lg bg-white px-3 py-2 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
-                />
-              </label>
-              <Button type="submit" size="lg" disabled={!clue.trim()}>
-                Tell
-              </Button>
-            </form>
-          )}
-          <RefusalSlot anchor={TELL_ANCHOR} />
-        </Panel>
-      )}
-
-      {!phoneEnd && tableSection}
-
-      {!phoneEnd && results}
-
-      {showHand && (
-        <section
-          ref={handBar}
-          aria-label="Your hand"
-          className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
-        >
-          <div className="mx-auto max-w-7xl px-3 py-2">
-            <div className="mb-1 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
-              <span>
-                Your hand
-                {handOpen && handMore && <span className="font-normal"> · swipe for more →</span>}
-              </span>
-              {canGive && view.cardsToGive === 2 ? (
-                picked.length === 2 ? (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      void act({ type: 'give', cards: picked }).then((ok) => ok && setPicked([]))
-                    }
-                  >
-                    Give these cards
-                  </Button>
-                ) : (
-                  <span className="text-amber-700 dark:text-amber-400">
-                    Pick {2 - picked.length} more
-                  </span>
-                )
-              ) : canGive ? (
-                <span className="text-amber-700 dark:text-amber-400">Tap a card to give it</span>
-              ) : (
-                !handNeeded && (
-                  <button
-                    type="button"
-                    aria-expanded={handOpen}
-                    onClick={() => setHandToggled((t) => !t)}
-                    className="-my-1 min-h-11 rounded-lg px-2 text-amber-700 dark:text-amber-400"
-                  >
-                    {handOpen ? 'Hide ▾' : `Show (${view.hand.length}) ▴`}
-                  </button>
-                )
-              )}
-            </div>
-            {handOpen && (
-              <div className="relative">
-                <ul
-                  ref={handList}
-                  onScroll={measureMore}
-                  className="flex gap-2 overflow-x-auto pb-1"
-                >
-                  {view.hand.map((card) => (
-                    <li key={card} className="w-20 shrink-0 sm:w-24">
-                      <Card
-                        card={card}
-                        eager
-                        selected={picked.includes(card) || storyPick === card}
-                        label={picked.includes(card) ? '✓' : undefined}
-                        onClick={() => setViewing({ card, from: 'hand' })}
-                      />
-                    </li>
-                  ))}
-                </ul>
-                {handMore && (
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-stone-950"
-                  />
-                )}
-              </div>
             )}
           </div>
-        </section>
-      )}
+        )}
 
-      {!phoneEnd && seats}
+        {!phoneEnd && clueLine}
+
+        {view.phase === 'over' && (
+          <Panel className="space-y-3 text-center max-lg:p-3">
+            {/* The status line above already says who won; this is the podium and the standings. */}
+            <EndTabs
+              tabs={[
+                {
+                  id: 'scores',
+                  label: '🏆 Scores',
+                  content: (
+                    <Standings
+                      entries={view.seats
+                        .filter((s) => s.playing || s.score > 0)
+                        .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                      you={me?.id}
+                      className="text-left"
+                    />
+                  ),
+                },
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+                phoneEnd &&
+                  !!turn && {
+                    id: 'turn',
+                    label: '🃏 Turn',
+                    content: (
+                      <div className="space-y-3 text-left">
+                        {clueLine}
+                        {tableSection}
+                        {results}
+                      </div>
+                    ),
+                  },
+                phoneEnd && { id: 'players', label: '👥 Players', content: seats },
+              ]}
+            />
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() =>
+                    void (async () => {
+                      if (
+                        await confirm({
+                          title: 'Start a new game with the same players?',
+                          body: 'Scores go back to 0.',
+                          confirmLabel: 'Play again',
+                        })
+                      ) {
+                        void act({ type: 'start' });
+                      }
+                    })()
+                  }
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            ) : (
+              <p>{waitingForHost(room, 'start the next game')}</p>
+            )}
+          </Panel>
+        )}
+
+        {canTell && storyPick === null && (
+          <p className="text-center text-ink-muted">
+            Tap a card in your hand below, then write your clue.
+          </p>
+        )}
+
+        {!phoneEnd && tableSection}
+
+        {!phoneEnd && results}
+
+        {showHand && (
+          <StickyBar fixed refusal={canTell ? TELL_ANCHOR : undefined}>
+            <section aria-label="Your hand" className="space-y-2">
+              {canTell && storyPick !== null && (
+                <form onSubmit={(e) => void tell(e)} className="flex items-end gap-2 sm:gap-3">
+                  <div className="w-12 shrink-0 sm:w-24">
+                    <Card
+                      card={storyPick}
+                      onClick={() => setViewing({ card: storyPick, from: 'hand' })}
+                    />
+                  </div>
+                  <label className="min-w-0 flex-1">
+                    <span className="text-sm font-semibold">Your clue</span>
+                    <Input
+                      autoFocus
+                      value={clue}
+                      maxLength={MAX_CLUE_LENGTH}
+                      onChange={(e) => setClue(e.target.value)}
+                      placeholder="A word, a line, a feeling…"
+                      className="mt-1"
+                    />
+                  </label>
+                  <Button type="submit" size="lg" disabled={!clue.trim()}>
+                    Tell
+                  </Button>
+                </form>
+              )}
+              <div className="flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
+                <span>
+                  Your hand
+                  {handOpen && handMore && <span className="font-normal"> · swipe for more →</span>}
+                </span>
+                {canGive && view.cardsToGive === 2 ? (
+                  picked.length === 2 ? (
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        void act({ type: 'give', cards: picked }).then((ok) => ok && setPicked([]))
+                      }
+                    >
+                      Give these cards
+                    </Button>
+                  ) : (
+                    <span className="text-accent-text">Pick {2 - picked.length} more</span>
+                  )
+                ) : canGive ? (
+                  <span className="text-accent-text">Tap a card to give it</span>
+                ) : (
+                  !handNeeded && (
+                    <button
+                      type="button"
+                      aria-expanded={handOpen}
+                      onClick={() => setHandToggled((t) => !t)}
+                      className="-my-1 min-h-11 rounded-lg px-2 text-accent-text"
+                    >
+                      {handOpen ? 'Hide ▾' : `Show (${view.hand.length}) ▴`}
+                    </button>
+                  )
+                )}
+              </div>
+              {handOpen && (
+                <div className="relative">
+                  <ul
+                    ref={handList}
+                    onScroll={measureMore}
+                    className="flex gap-2 overflow-x-auto px-1 py-1.5"
+                  >
+                    {view.hand.map((card) => (
+                      <li key={card} className="w-20 shrink-0 sm:w-24">
+                        <Card
+                          card={card}
+                          eager
+                          selected={picked.includes(card) || storyPick === card}
+                          label={picked.includes(card) ? '✓' : undefined}
+                          onClick={() => setViewing({ card, from: 'hand' })}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {handMore && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-panel"
+                    />
+                  )}
+                </div>
+              )}
+            </section>
+          </StickyBar>
+        )}
+      </div>
+
+      <aside
+        className={cn(
+          'space-y-3',
+          shown === 'table' && 'hidden',
+          phoneEnd && 'hidden',
+          !tabbed && !phoneEnd && 'max-lg:mt-3',
+        )}
+        {...(shown === 'players' && tabPanelProps(PLAY_TABS_ID, 'players'))}
+      >
+        {view.phase === 'playing' && (
+          <Panel>
+            <Scoreboard view={view} />
+          </Panel>
+        )}
+        {seats}
+      </aside>
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Reverie"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
       <CardViewer
         card={viewing?.card ?? null}
         title={

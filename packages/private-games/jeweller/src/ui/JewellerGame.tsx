@@ -17,6 +17,8 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  Fold,
+  usePhone,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -104,10 +106,10 @@ export function JewellerGame({
 /** First-time tips, until dismissed (per seat in a playtest). */
 function Tips() {
   const [seen, setSeen] = useState(tipsSeen);
+  const phone = usePhone();
   if (seen) return null;
-  return (
-    <aside className="jw-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
+  const body = (
+    <>
       <ul className="list-disc space-y-1 pl-5">
         <li>Tap gem piles to pick them, then Take. Tap a card to buy or reserve it.</li>
         <li>
@@ -131,6 +133,19 @@ function Tips() {
       >
         Got it
       </Button>
+    </>
+  );
+  // Phones keep the play screen to one screen: the tips wait in a closed fold.
+  if (phone)
+    return (
+      <Fold summary="New here? Three things to know" bodyClassName="flex flex-col gap-1.5 text-sm">
+        {body}
+      </Fold>
+    );
+  return (
+    <aside className="jw-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line">
+      <p className="font-semibold">New here? Three things to know</p>
+      {body}
     </aside>
   );
 }
@@ -218,7 +233,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -230,7 +245,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="flex items-center gap-2 text-sm text-ink-muted dark:text-stone-400">
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
           <TokenChip token="red" art={art} size={22} />
           <TokenChip token="gold" art={art} size={22} />
           Take gems, buy cards for lasting discounts, and{' '}
@@ -289,7 +304,7 @@ function Lobby({
             className="w-full accent-accent"
             data-testid="jw-target"
           />
-          <span className="text-xs text-ink-muted dark:text-stone-400">
+          <span className="text-xs text-ink-muted">
             Higher makes a longer game. The round is still finished once someone reaches it.
           </span>
         </div>
@@ -402,7 +417,7 @@ function End({
                         <span className="w-24 truncate">{p.name}</span>
                         <span className="flex items-center gap-1">
                           {p.reserved.length === 0 ? (
-                            <span className="text-ink-muted dark:text-stone-400">—</span>
+                            <span className="text-ink-muted">—</span>
                           ) : (
                             p.reserved.map((r, i) =>
                               r.card ? (

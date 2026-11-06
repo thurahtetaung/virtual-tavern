@@ -8,12 +8,14 @@ import {
   clock,
   cn,
   useSecondsLeft,
+  useReservedHeight,
   useSpectatorPrompt,
+  useWideScreen,
   useConfirm,
   useAbandonGame,
   NameDot,
 } from '@vt/ui';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Poster, PosterClock, PosterOverlay, PosterSlate } from '@vt/ui/show';
 import {
   AWAY_SECONDS,
@@ -58,6 +60,10 @@ function useTurnBuzz(key: string | null) {
   }, [key]);
 }
 
+/**
+ * The phone's bottom navigation. Séance keeps its own bar for now for the "needs you" dot on a
+ * tab; it reserves its height like the shared one, so a sticky bar sits on top of it.
+ */
 function TabBar({
   tabs,
   tab,
@@ -69,32 +75,42 @@ function TabBar({
   onChange: (t: Tab) => void;
   alert: Tab | null;
 }) {
+  const bar = useRef<HTMLElement>(null);
+  const wide = useWideScreen();
+  useReservedHeight('--vt-tabbar-h', bar, !wide);
   return (
     <nav
+      ref={bar}
       aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-20 grid border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
+      className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
       style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
     >
-      {tabs.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          aria-current={tab === it.id ? 'page' : undefined}
-          onClick={() => onChange(it.id)}
-          className={cn(
-            'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-ink-muted',
-          )}
-        >
-          <span className="flex items-center gap-1 text-lg leading-none">
-            {it.icon}
-            {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
+      {tabs.map((it) => {
+        const on = tab === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            aria-current={on ? 'page' : undefined}
+            onClick={() => onChange(it.id)}
+            className={cn(
+              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
+              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
+              on
+                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
+                : 'text-ink-muted hover:text-ink',
             )}
-          </span>
-          {it.label}
-        </button>
-      ))}
+          >
+            <span className="flex items-center gap-1 text-xl leading-none">
+              {it.icon}
+              {alert === it.id && !on && (
+                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
+              )}
+            </span>
+            {it.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -182,7 +198,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       {playing && (g.ghost === null || ghostAway) && (
         <div
           role="alert"
-          className="space-y-1.5 rounded-xl bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent dark:ring-amber-400 dark:bg-amber-500/15"
+          className="space-y-1.5 rounded-xl bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent"
         >
           <p>
             ⏸{' '}
@@ -229,7 +245,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         </div>
       )}
       {playing && !inGame && view.me && gone.length > 0 && g.myRole !== 'former-ghost' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/30">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line">
           <span className="flex-1">A psychic’s seat is free.</span>
           {gone.map((p) => (
             <Button
@@ -248,7 +264,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         (g.stage === 'visions' || g.stage === 'reveal') && (
           <div
             role="alert"
-            className="space-y-1 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30"
+            className="space-y-1 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line"
           >
             {stuck.map((p) => (
               <p key={p.color} className="font-semibold">
@@ -264,7 +280,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         )}
       {canRetire && gone.length > 0 && (
-        <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30">
+        <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line">
           <p>
             An empty seat isn’t sent visions or judged, so the line-up can’t start while it waits
             for someone to take it over. If nobody will, retire it: its cards go back on the table.
@@ -296,7 +312,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         </div>
       )}
       {latest && current && latest.id > seen && g.stage !== 'done' && !lockNotice && (
-        <p className="flex items-center gap-2 rounded-xl bg-stone-100 px-3 py-1 text-sm dark:bg-stone-800">
+        <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
           <span className="flex-1">📣 {latest.text}</span>
           <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
             OK
@@ -331,7 +347,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   return (
     <section
       aria-label={`Step: ${step.title}`}
-      className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
+      className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-line dark:bg-stone-900/70"
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0 text-xs font-semibold text-ink-muted">
@@ -344,9 +360,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
               aria-current={s.id === step.id ? 'step' : undefined}
               className={cn(
                 'rounded-full px-2 py-0.5',
-                s.id === step.id
-                  ? 'bg-special dark:bg-violet-700 text-white'
-                  : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
+                s.id === step.id ? 'bg-special text-white' : 'bg-sunk text-ink-muted',
               )}
             >
               {i + 1}. {s.title}
@@ -356,12 +370,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       </div>
       {silent ? null : brief ? (
         <div className="mt-1 flex items-start gap-1">
-          <p
-            className={cn(
-              'min-w-0 flex-1 text-xs text-stone-600 dark:text-stone-400',
-              !more && 'truncate',
-            )}
-          >
+          <p className={cn('min-w-0 flex-1 text-xs text-ink-muted', !more && 'truncate')}>
             {step.text}
           </p>
           <button
@@ -369,17 +378,17 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             aria-expanded={more}
             aria-label={more ? 'Show less' : 'What happens in this step?'}
             onClick={() => setMore(!more)}
-            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800"
+            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel"
           >
             {more ? '▴' : '?'}
           </button>
         </div>
       ) : (
-        <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">{step.text}</p>
+        <p className="mt-1 text-xs text-ink-muted">{step.text}</p>
       )}
       {(g.stage === 'visions' || step.id === 'discussion') && (
         // The clock and who the hour waits for share one row.
-        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-stone-200 pt-1.5 dark:border-stone-800">
+        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-line pt-1.5">
           {g.stage === 'visions' && <WaitingLine view={view} room={room} act={act} />}
           {step.id === 'discussion' && <HourClock view={view} room={room} />}
         </div>
@@ -476,7 +485,7 @@ function RevealPanel({
   return (
     <Panel
       role="region"
-      className="space-y-2 p-3 ring-2 ring-special dark:ring-violet-400"
+      className="space-y-2 p-3 ring-2 ring-special"
       aria-label="The ghost answers"
     >
       {g.lockedHow && <p className="text-sm font-semibold">{LOCKED_BY[g.lockedHow]}</p>}
@@ -701,7 +710,7 @@ function SeanceTable({
     );
 
   return (
-    <div className="space-y-2 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="space-y-2">
       {ghost && <SilentNote />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <StepBar view={view} room={room} act={act} />

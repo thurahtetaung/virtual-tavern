@@ -8,6 +8,10 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
+  useWideScreen,
   type ViewerItem,
   cn,
 } from '@vt/ui';
@@ -138,37 +142,84 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
     // Once per menu (and once the art is known).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuKey, art]);
+  // Phones and tablets in play: your hand (Play), the trays (Table) and the scores and log
+  // (Scores), from the tab bar; wide screens keep the trays above the hand and the scores beside.
+  const wide = useWideScreen();
+  const [tab, setTab] = useState<PlayTab>('play');
+  const shown: PlayTab | null = wide || view.phase !== 'playing' ? null : tab;
+  const hide = (t: PlayTab) => shown !== null && shown !== t && 'hidden';
+  const panel = (t: PlayTab) => shown === t && tabPanelProps(PLAY_TABS_ID, t);
+  const trays = (
+    <div className={cn('flex flex-col gap-3', hide('table'))} {...panel('table')}>
+      <Others g={g} room={room} art={art} name={name} live={live} zoom={zoom.open} />
+      {me && (
+        <MyTray
+          g={g}
+          me={me}
+          art={art}
+          live={live[me.id] ?? 0}
+          zoom={zoom.open}
+          view={view}
+          act={act}
+        />
+      )}
+    </div>
+  );
   return (
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
       <div className="flex min-w-0 flex-col gap-3">
-        <MenuStrip g={g} art={art} showGuide={showGuide} />
-        <Moments view={view} you={room.you} art={art} name={name} />
-        <Others g={g} room={room} art={art} name={name} live={live} zoom={zoom.open} />
-        {me && (
-          <MyTray
-            g={g}
-            me={me}
-            art={art}
-            live={live[me.id] ?? 0}
-            zoom={zoom.open}
-            view={view}
-            act={act}
-          />
-        )}
-        {view.phase === 'playing' && g.stage === 'scores' ? (
-          <RoundScores view={view} room={room} act={act} art={art} name={name} />
-        ) : view.phase === 'playing' ? (
-          <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
-        ) : null}
+        {shown !== null && trays}
+        <div className={cn('flex flex-col gap-3', hide('play'))} {...panel('play')}>
+          <MenuStrip g={g} art={art} showGuide={showGuide} />
+          <Moments view={view} you={room.you} art={art} name={name} />
+          {shown === null && (
+            <Others g={g} room={room} art={art} name={name} live={live} zoom={zoom.open} />
+          )}
+          {shown === null && me && (
+            <MyTray
+              g={g}
+              me={me}
+              art={art}
+              live={live[me.id] ?? 0}
+              zoom={zoom.open}
+              view={view}
+              act={act}
+            />
+          )}
+          {view.phase === 'playing' && g.stage === 'scores' ? (
+            <RoundScores view={view} room={room} act={act} art={art} name={name} />
+          ) : view.phase === 'playing' ? (
+            <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
+          ) : null}
+        </div>
       </div>
-      <aside className="flex min-w-0 flex-col gap-3">
+      <aside className={cn('flex min-w-0 flex-col gap-3', hide('scores'))} {...panel('scores')}>
         <Totals g={g} name={name} live={live} you={room.you} />
         <Log view={view} name={logName} art={art} />
       </aside>
       {zoom.viewer}
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Conveyor"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
+
+/** Phones in play: your hand and choices, the trays, the scores and log. */
+type PlayTab = 'play' | 'table' | 'scores';
+const PLAY_TABS_ID = 'conveyor-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'play', label: 'Play', icon: 'hand' },
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'scores', label: 'Scores', icon: 'chart-bar' },
+];
 
 /** The menu: every dish in play, a tap from its rules. */
 function MenuStrip({
@@ -189,7 +240,7 @@ function MenuStrip({
             key={t}
             type="button"
             onClick={() => showGuide(t)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-card px-2 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel dark:bg-stone-800 dark:ring-stone-600"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-card px-2 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel"
             title={`${art.names.type(t)}: ${TYPES[t].short}`}
           >
             {tile ? (
@@ -230,11 +281,9 @@ function Moments({
     <section
       key={reveal.id}
       aria-label={`Turn ${reveal.turn} reveal`}
-      className="flex flex-col gap-1.5 rounded-2xl bg-panel p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+      className="flex flex-col gap-1.5 rounded-2xl bg-panel p-2 ring-1 ring-line"
     >
-      <p className="text-xs font-semibold text-ink-muted dark:text-stone-400">
-        Turn {reveal.turn}: everyone revealed
-      </p>
+      <p className="text-xs font-semibold text-ink-muted">Turn {reveal.turn}: everyone revealed</p>
       <ul className="flex gap-1.5 overflow-x-auto pb-0.5">
         {reveal.plays.map((p, i) => (
           <li
@@ -267,8 +316,8 @@ function Moments({
           className={cn(
             'cv-pop rounded-lg px-2 py-1 text-sm',
             e.from === you
-              ? 'bg-danger-soft text-danger-ink ring-1 ring-danger-line dark:bg-red-500/15 dark:text-red-100 dark:ring-red-500/40'
-              : 'bg-card ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+              ? 'bg-danger-soft text-danger-ink ring-1 ring-danger-line'
+              : 'bg-card ring-1 ring-line',
           )}
         >
           🫳{' '}
@@ -335,21 +384,13 @@ function Others({
         className={cn('min-w-0 truncate', compact ? 'max-w-[6.5rem]' : 'flex-1')}
       />
       {g.stage === 'pick' && (
-        <span
-          className={cn(
-            'text-xs',
-            p.done ? 'text-success-ink dark:text-emerald-300' : 'text-ink-muted',
-          )}
-        >
+        <span className={cn('text-xs', p.done ? 'text-success-ink' : 'text-ink-muted')}>
           {p.done && compact ? <span aria-label="picked">✓</span> : p.done ? '✓ picked' : '…'}
         </span>
       )}
       <span className="text-xs font-bold tabular-nums">
         {p.score}
-        <span className="font-normal text-ink-muted dark:text-stone-400">
-          {' '}
-          {signed(live[id] ?? 0)}
-        </span>
+        <span className="font-normal text-ink-muted"> {signed(live[id] ?? 0)}</span>
       </span>
     </>
   );
@@ -364,7 +405,7 @@ function Others({
               <button
                 type="button"
                 onClick={() => setOpen(id)}
-                className="flex items-center gap-1 rounded-full bg-card px-2 py-1 text-sm ring-1 ring-line hover:bg-panel dark:bg-stone-900 dark:ring-stone-700"
+                className="flex items-center gap-1 rounded-full bg-card px-2 py-1 text-sm ring-1 ring-line hover:bg-panel"
               >
                 {head(id, p, true)}
               </button>
@@ -380,7 +421,7 @@ function Others({
               <button
                 type="button"
                 onClick={() => setOpen(id)}
-                className="flex w-full flex-col gap-1 rounded-xl bg-card px-2 py-1.5 text-left ring-1 ring-line hover:bg-panel dark:bg-stone-900 dark:ring-stone-700"
+                className="flex w-full flex-col gap-1 rounded-xl bg-card px-2 py-1.5 text-left ring-1 ring-line hover:bg-panel"
               >
                 <span className="flex items-center gap-1.5 text-sm">{head(id, p)}</span>
                 <TrayLine p={p} g={g} art={art} />
@@ -404,7 +445,7 @@ function Others({
               title={`${poss(name(shown.id), true)} tray`}
             />
             <Jar p={shown} g={g} art={art} />
-            <p className="text-sm text-ink-muted dark:text-stone-400">
+            <p className="text-sm text-ink-muted">
               {shown.hand} cards in hand{shown.pile ? `, ${shown.pile} in their pile` : ''} ·{' '}
               {shown.score} points so far, {live[shown.id] ?? 0} this round
             </p>
@@ -466,8 +507,7 @@ function TrayGroups({
 }) {
   const order = fullMenu(g.menu) as string[];
   const items = groups(p.tray, order);
-  if (!items.length)
-    return <p className="text-sm text-ink-muted dark:text-stone-400">No cards yet this round.</p>;
+  if (!items.length) return <p className="text-sm text-ink-muted">No cards yet this round.</p>;
   const flat = items.flatMap(([, cards]) => cards);
   return (
     <ul className="flex flex-wrap gap-x-3 gap-y-2">
@@ -485,8 +525,8 @@ function TrayGroups({
                     'relative rounded-[7%]',
                     i > 0 && !select && '-ml-6',
                     i > 0 && select && '-ml-1',
-                    can && 'ring-2 ring-accent dark:ring-amber-400',
-                    on && 'ring-4 ring-accent -translate-y-1 dark:ring-amber-300',
+                    can && 'ring-2 ring-accent',
+                    on && 'ring-4 ring-accent -translate-y-1',
                     select && !can && 'opacity-50',
                   )}
                   aria-pressed={select ? !!on : undefined}
@@ -516,7 +556,7 @@ function TrayGroups({
               );
             })}
           </span>
-          <span className="text-[0.65rem] text-ink-muted dark:text-stone-400">
+          <span className="text-[0.65rem] text-ink-muted">
             {t === 'flipped' ? 'face down' : art.names.type(t as TypeId)} ×{cards.length}
           </span>
         </li>
@@ -598,8 +638,8 @@ function MyTray({
     <section
       aria-label="Your tray"
       className={cn(
-        'flex flex-col gap-2 rounded-2xl bg-card p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-        ids ? 'ring-2 ring-accent dark:ring-amber-400' : 'max-sm:order-last',
+        'flex flex-col gap-2 rounded-2xl bg-card p-3 ring-1 ring-line',
+        ids ? 'ring-2 ring-accent' : 'max-sm:order-last',
       )}
     >
       <h2 className="flex items-baseline justify-between gap-2 text-sm font-bold">
@@ -666,15 +706,14 @@ function Totals({
 }) {
   const rows = [...g.players].sort((x, y) => (g.golf ? x.score - y.score : y.score - x.score));
   return (
-    <section className="hidden rounded-2xl bg-panel p-3 ring-1 ring-line lg:block dark:bg-stone-900 dark:ring-stone-700">
+    <section className="hidden rounded-2xl bg-panel p-3 ring-1 ring-line lg:block">
       <h2 className="mb-1 text-sm font-bold">Scores{g.golf ? ' (lowest wins)' : ''}</h2>
       <ol className="flex flex-col gap-0.5 text-sm">
         {rows.map((p) => (
           <li key={p.id} className={cn('flex justify-between gap-2', p.id === you && 'font-bold')}>
             <span className="truncate">{name(p.id)}</span>
             <span className="tabular-nums">
-              {p.score}{' '}
-              <span className="text-ink-muted dark:text-stone-400">{signed(live[p.id] ?? 0)}</span>
+              {p.score} <span className="text-ink-muted">{signed(live[p.id] ?? 0)}</span>
             </span>
           </li>
         ))}
@@ -692,10 +731,7 @@ function Log({ view, name, art }: { view: ConveyorView; name: NameOf; art: Art }
       return l ? [{ id: e.id, l }] : [];
     });
   return (
-    <details
-      className="rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
-      open={false}
-    >
+    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={false}>
       <summary className="cursor-pointer text-sm font-semibold">What happened</summary>
       <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto text-sm">
         {lines.map((x) => (
@@ -812,7 +848,7 @@ function Play({
   return (
     <section aria-label="Your hand" className="flex flex-col gap-2">
       {me ? (
-        <div className="flex flex-col gap-1.5 rounded-2xl bg-card p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-card p-3 ring-1 ring-line">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-bold">{title}</h2>
             {selectable && !giveStep && (
@@ -860,9 +896,8 @@ function Play({
                         k={c.k}
                         art={art}
                         className={cn(
-                          on && 'ring-4 ring-accent dark:ring-amber-400',
-                          pickedNow?.card === c.id &&
-                            'ring-4 ring-success-line dark:ring-emerald-400',
+                          on && 'ring-4 ring-accent',
+                          pickedNow?.card === c.id && 'ring-4 ring-success-line',
                         )}
                       />
                       {delta !== null && typeOf(c.k) !== 'order' && (
@@ -870,10 +905,10 @@ function Play({
                           className={cn(
                             'rounded-full px-1.5 text-[0.65rem] font-bold tabular-nums',
                             delta > 0
-                              ? 'bg-success-soft text-success-ink dark:bg-emerald-500/15 dark:text-emerald-200'
+                              ? 'bg-success-soft text-success-ink'
                               : delta < 0
-                                ? 'bg-danger-soft text-danger-ink dark:bg-red-500/15 dark:text-red-200'
-                                : 'text-ink-muted dark:text-stone-400',
+                                ? 'bg-danger-soft text-danger-ink'
+                                : 'text-ink-muted',
                           )}
                         >
                           {delta > 0 ? `+${delta}` : delta < 0 ? `−${-delta}` : '±0'}
@@ -885,7 +920,7 @@ function Play({
               })}
             </ul>
           ) : (
-            <p className="text-sm text-ink-muted dark:text-stone-400">No cards in hand.</p>
+            <p className="text-sm text-ink-muted">No cards in hand.</p>
           )}
           {chosen && (
             <button
@@ -908,10 +943,7 @@ function Play({
                       aria-label={`Copy ${art.names.card(t.k)}`}
                       data-target-k={t.k}
                       onClick={() => set({ target: t.id })}
-                      className={cn(
-                        'rounded-[7%]',
-                        s.target === t.id && 'ring-4 ring-accent dark:ring-amber-400',
-                      )}
+                      className={cn('rounded-[7%]', s.target === t.id && 'ring-4 ring-accent')}
                     >
                       <CardFace k={t.k} art={art} size="tray" flipped={t.flipped} />
                     </button>
@@ -921,9 +953,7 @@ function Play({
             </div>
           )}
           {chosen?.k === 'order' && targets.length === 0 && selectable && (
-            <p className="text-sm text-warn-ink dark:text-amber-200">
-              Nothing to copy yet: it would be discarded.
-            </p>
+            <p className="text-sm text-warn-ink">Nothing to copy yet: it would be discarded.</p>
           )}
           {bonuses.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -944,7 +974,7 @@ function Play({
                   </Button>
                 );
               })}
-              <span className="self-center text-xs text-ink-muted dark:text-stone-400">
+              <span className="self-center text-xs text-ink-muted">
                 {s.bonus
                   ? typeOf(me.tray.find((c) => c.id === s.bonus)?.k ?? '') === 'chopsticks'
                     ? 'After the reveal you play a second card from your hand.'
@@ -955,7 +985,7 @@ function Play({
           )}
         </div>
       ) : (
-        <p className="text-sm text-ink-muted dark:text-stone-400">You’re watching this game.</p>
+        <p className="text-sm text-ink-muted">You’re watching this game.</p>
       )}
       {spoonStep && <SpoonPicker g={g} art={art} act={act} />}
       {clock?.deadline && waiting.length > 0 && (
@@ -978,7 +1008,7 @@ function Play({
         />
       )}
       {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
-        <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-center text-sm text-ink-muted">
           {waitingFor(waiting, room.players, { you: room.you })}
           {room.isHost &&
             waiting
@@ -998,7 +1028,7 @@ function Play({
         </p>
       )}
       {selectable && me && (
-        <StickyBar whole>
+        <StickyBar fixed refusal="cv-play" refusalKey={key}>
           <div className="flex gap-2">
             {picking && pickedNow && (
               <Button
@@ -1032,7 +1062,6 @@ function Play({
                     : `${picking ? (pickedNow ? 'Change to' : 'Lock in') : giveStep ? 'Give' : 'Play'} ${art.names.card(chosen.k)}${s.bonus && picking ? ` + ${art.names.type(typeOf(me.tray.find((c) => c.id === s.bonus)?.k ?? 'spoon-4'))}` : ''}`}
             </Button>
           </div>
-          <RefusalSlot anchor="cv-play" resetKey={key} />
         </StickyBar>
       )}
     </section>
@@ -1046,7 +1075,7 @@ function SpoonPicker({ g, art, act }: { g: GameView; art: Art; act: Act }) {
   const types = fullMenu(g.menu);
   const variants = type ? TYPES[type].variants : [];
   return (
-    <div className="flex flex-col gap-2 rounded-2xl bg-card p-3 ring-2 ring-accent dark:bg-stone-900 dark:ring-amber-400">
+    <div className="flex flex-col gap-2 rounded-2xl bg-card p-3 ring-2 ring-accent">
       <p className="text-sm font-semibold">Ask for which dish?</p>
       <ul className="flex flex-wrap gap-1.5">
         {types.map((t) => (
@@ -1088,7 +1117,7 @@ function SpoonPicker({ g, art, act }: { g: GameView; art: Art; act: Act }) {
           ))}
         </div>
       )}
-      <p className="text-xs text-ink-muted dark:text-stone-400">
+      <p className="text-xs text-ink-muted">
         {variant
           ? 'Exactly this card.'
           : type && variants.length > 1
@@ -1132,7 +1161,7 @@ function RoundScores({
   const me = g.players.find((p) => p.id === room.you);
   if (!result) return null;
   return (
-    <section className="flex flex-col gap-3 rounded-2xl bg-card p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+    <section className="flex flex-col gap-3 rounded-2xl bg-card p-3 ring-1 ring-line">
       <h2 className="font-bold">Round {result.round} scores</h2>
       <ScoreRows rows={result.rows} art={art} name={name} you={room.you} />
       {g.clock?.deadline && (
@@ -1143,26 +1172,27 @@ function RoundScores({
           atZero="then it is dealt"
         />
       )}
-      <div className="flex flex-wrap gap-2">
-        {me && (
-          <Button
-            className="flex-1"
-            disabled={me.done}
-            onClick={() => void act({ type: 'ready' }, { anchor: 'cv-scores' })}
-          >
-            {me.done ? 'Ready ✓' : 'Ready'}
-          </Button>
-        )}
-        {room.isHost && (
-          <Button
-            variant="secondary"
-            onClick={() => void act({ type: 'next-round' }, { anchor: 'cv-scores' })}
-          >
-            Deal now
-          </Button>
-        )}
-      </div>
-      <RefusalSlot anchor="cv-scores" />
+      <StickyBar fixed refusal="cv-scores">
+        <div className="flex flex-wrap gap-2">
+          {me && (
+            <Button
+              className="flex-1"
+              disabled={me.done}
+              onClick={() => void act({ type: 'ready' }, { anchor: 'cv-scores' })}
+            >
+              {me.done ? 'Ready ✓' : 'Ready'}
+            </Button>
+          )}
+          {room.isHost && (
+            <Button
+              variant="secondary"
+              onClick={() => void act({ type: 'next-round' }, { anchor: 'cv-scores' })}
+            >
+              Deal now
+            </Button>
+          )}
+        </div>
+      </StickyBar>
     </section>
   );
 }
@@ -1185,8 +1215,8 @@ export function ScoreRows({
         <li
           key={r.id}
           className={cn(
-            'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
-            r.id === you && 'ring-2 ring-accent dark:ring-amber-400',
+            'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line',
+            r.id === you && 'ring-2 ring-accent',
           )}
           style={{ animationDelay: `${i * 120}ms` }}
         >
@@ -1197,17 +1227,13 @@ export function ScoreRows({
           <ul className="text-sm">
             {r.parts.map((p, j) => (
               <li key={j} className="flex justify-between gap-2">
-                <span className="text-ink-muted dark:text-stone-400">
-                  {partLine(p as never, art.names)}
-                </span>
+                <span className="text-ink-muted">{partLine(p as never, art.names)}</span>
                 <span className="tabular-nums">
                   {p.points > 0 ? `+${p.points}` : p.points < 0 ? `−${-p.points}` : '0'}
                 </span>
               </li>
             ))}
-            {!r.parts.length && (
-              <li className="text-ink-muted dark:text-stone-400">Nothing scored</li>
-            )}
+            {!r.parts.length && <li className="text-ink-muted">Nothing scored</li>}
           </ul>
         </li>
       ))}

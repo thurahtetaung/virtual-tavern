@@ -150,12 +150,12 @@ export function PickSheet({
       footer={
         <div className="flex w-full flex-col gap-1.5">
           {warn && (
-            <p className="rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+            <p className="rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn-ink ring-1 ring-warn-line">
               ⚠️ {warn}
             </p>
           )}
           <div className="flex items-center gap-2">
-            <label className="flex flex-1 items-center gap-2 text-sm text-ink-muted dark:text-stone-300">
+            <label className="flex flex-1 items-center gap-2 text-sm text-ink-muted">
               <input
                 type="checkbox"
                 checked={confirm}
@@ -204,7 +204,7 @@ export function PickSheet({
             <Tile key={`j${i}`} colour="joker" art={art} size={26} />
           ))}
           {marker && (
-            <span className="ml-1 text-xs font-semibold text-warn-ink dark:text-amber-200">
+            <span className="ml-1 text-xs font-semibold text-warn-ink">
               + the first-player marker (costs a floor space; you start next round)
             </span>
           )}
@@ -222,10 +222,8 @@ export function PickSheet({
                   disabled={!!p.problem}
                   onClick={() => place(t)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm ring-1 ring-line disabled:opacity-45 dark:ring-stone-700',
-                    chosen === t
-                      ? 'bg-accent/15 ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-400'
-                      : 'bg-card hover:bg-panel dark:bg-stone-800 dark:hover:bg-stone-700',
+                    'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm ring-1 ring-line disabled:opacity-45',
+                    chosen === t ? 'bg-accent/15 ring-2 ring-accent' : 'bg-card hover:bg-panel',
                   )}
                   data-target={String(t)}
                   aria-pressed={chosen === t}
@@ -233,19 +231,15 @@ export function PickSheet({
                   <span className="w-14 font-semibold">
                     {t === 'floor' ? 'Floor' : `Line ${t + 1}`}
                   </span>
-                  <span className="flex-1 text-ink-muted dark:text-stone-300">{detail}</span>
+                  <span className="flex-1 text-ink-muted">{detail}</span>
                   {!p.problem && (
                     <span className="flex flex-col items-end text-xs font-bold tabular-nums">
                       {p.points !== null && (
-                        <span className="text-success-ink dark:text-emerald-300">
+                        <span className="text-success-ink">
                           {p.choice ? 'up to ' : ''}+{p.points} at round end
                         </span>
                       )}
-                      <span
-                        className={
-                          p.penalty ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted'
-                        }
-                      >
+                      <span className={p.penalty ? 'text-danger-ink' : 'text-ink-muted'}>
                         {p.penalty ? `${p.penalty} now` : 'no cost'}
                       </span>
                     </span>
@@ -255,7 +249,7 @@ export function PickSheet({
             );
           })}
         </ul>
-        <div className="flex justify-center rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-950 dark:ring-stone-800">
+        <div className="flex justify-center rounded-xl bg-panel p-2 ring-1 ring-line">
           <BoardView
             board={me}
             art={art}
@@ -295,10 +289,10 @@ export function PickSheet({
                       onClick={() => setSplit({ ...split, [tile]: side })}
                       aria-pressed={sideOf(tile) === side}
                       className={cn(
-                        'rounded-lg px-2 py-1 text-xs ring-1 ring-line dark:ring-stone-700',
+                        'rounded-lg px-2 py-1 text-xs ring-1 ring-line',
                         sideOf(tile) === side
-                          ? 'bg-accent/15 font-semibold ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-400'
-                          : 'bg-card dark:bg-stone-800',
+                          ? 'bg-accent/15 font-semibold ring-2 ring-accent'
+                          : 'bg-card',
                       )}
                       data-side={side}
                     >
@@ -310,7 +304,7 @@ export function PickSheet({
             ))}
           </fieldset>
         )}
-        <p className="text-sm text-ink-muted dark:text-stone-400" data-testid="mo-leaves">
+        <p className="text-sm text-ink-muted" data-testid="mo-leaves">
           {rest.length === 0
             ? pick.source === 'centre'
               ? 'Takes them from the centre.'
@@ -375,7 +369,7 @@ function JokerChoice({
       aria-label="Jokers"
       data-testid="mo-jokers"
     >
-      <p className="flex items-center gap-1 text-xs text-ink-muted dark:text-stone-400">
+      <p className="flex items-center gap-1 text-xs text-ink-muted">
         <Tile colour="joker" art={art} size={18} /> Jokers stand in for any colour. Taking them, you
         may take one other colour from here too; a line holds one colour plus jokers.
       </p>
@@ -390,10 +384,8 @@ function JokerChoice({
               aria-checked={on}
               onClick={() => onChange(o.colour, o.withJokers)}
               className={cn(
-                'rounded-lg px-2 py-1 text-xs ring-1 ring-line dark:ring-stone-700',
-                on
-                  ? 'bg-accent/15 font-semibold ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-400'
-                  : 'bg-card dark:bg-stone-800',
+                'rounded-lg px-2 py-1 text-xs ring-1 ring-line',
+                on ? 'bg-accent/15 font-semibold ring-2 ring-accent' : 'bg-card',
               )}
             >
               {o.label}

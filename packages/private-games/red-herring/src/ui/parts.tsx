@@ -2,6 +2,8 @@ import { type GameRoomInfo, type PlayerId, storageKey, waitingFor } from '@vt/ga
 import {
   Button,
   CardViewer,
+  Input,
+  StickyBar,
   Panel,
   Peek,
   PlayerTag,
@@ -40,7 +42,7 @@ const viewerItem = (card: number, caption?: string): ViewerItem => ({
   aspect: CARD_ASPECT,
   src: cardUrl(card),
   fallback: (
-    <span className="flex size-full items-center justify-center bg-card font-serif text-6xl font-bold text-ink dark:bg-stone-800 dark:text-stone-100">
+    <span className="flex size-full items-center justify-center bg-card font-serif text-6xl font-bold text-ink">
       {card}
     </span>
   ),
@@ -79,7 +81,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
     <div data-testid="rh-notebook">
       <Peek what={picker ? 'your word' : 'your notebook'} cover={cover} inline>
         <div
-          className="relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-stone-900 shadow-inner ring-1 ring-line"
+          className="relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-ink shadow-inner ring-1 ring-line"
           data-testid="rh-notebook-page"
         >
           {art.notebookPage && (
@@ -89,7 +91,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
               className="absolute inset-0 size-full object-cover"
             />
           )}
-          {topic && <span className="relative text-xs text-stone-600">Topic: {topic}</span>}
+          {topic && <span className="relative text-xs text-ink-muted">Topic: {topic}</span>}
           {word !== null ? (
             <span
               className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
@@ -106,7 +108,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
             </span>
           )}
           {!picker && (
-            <span className="relative text-[11px] text-stone-600">
+            <span className="relative text-[11px] text-ink-muted">
               {word !== null
                 ? 'You’re a Detective: find who doesn’t know this word.'
                 : 'You don’t know the word. Blend in with your cards and your explanation.'}
@@ -146,30 +148,31 @@ export function WordForm({ view, act, art }: { view: RedHerringView; act: Act; a
           </p>
         </div>
       </div>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          send();
-        }}
-      >
-        <input
-          id="rh-word-input"
-          value={word}
-          maxLength={MAX_WORD}
-          autoComplete="off"
-          autoCapitalize="sentences"
-          onChange={(e) => {
-            setWord(e.target.value);
+      <StickyBar fixed refusal="rh-word">
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
           }}
-          className="min-h-11 min-w-0 flex-1 rounded-lg bg-card px-3 text-base ring-1 ring-line focus:ring-2 focus:ring-accent focus:outline-none dark:bg-stone-900 dark:ring-stone-700"
-          placeholder="A word…"
-        />
-        <Button type="submit" disabled={!clean}>
-          Send
-        </Button>
-      </form>
-      <RefusalSlot anchor="rh-word" />
+        >
+          <Input
+            id="rh-word-input"
+            value={word}
+            maxLength={MAX_WORD}
+            autoComplete="off"
+            autoCapitalize="sentences"
+            onChange={(e) => {
+              setWord(e.target.value);
+            }}
+            className="flex-1"
+            placeholder="A word…"
+          />
+          <Button type="submit" size="lg" disabled={!clean}>
+            Send
+          </Button>
+        </form>
+      </StickyBar>
     </Panel>
   );
 }
@@ -261,8 +264,8 @@ export function Table({
               key={id}
               data-testid={`rh-seat-${id}`}
               className={cn(
-                'flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-                active === id && 'ring-2 ring-accent dark:ring-amber-400',
+                'flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line',
+                active === id && 'ring-2 ring-accent',
               )}
             >
               <div className="flex min-h-8 min-w-0 items-center gap-1 text-xs sm:text-sm">
@@ -288,7 +291,7 @@ export function Table({
                     onClick={() => {
                       cycle(id);
                     }}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel dark:ring-stone-700"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel"
                     aria-label={`Your private mark on ${name(id)}: ${mark ?? 'none'}`}
                     title="Your private mark (only you see it)"
                   >
@@ -371,9 +374,7 @@ export function HandStrip({
       data-testid="rh-hand"
       className={cn(
         'rounded-xl p-1.5 ring-1',
-        canPlay
-          ? 'bg-warn-soft ring-warn-line dark:bg-amber-500/10 dark:ring-amber-500/40'
-          : 'bg-panel ring-line dark:bg-stone-900 dark:ring-stone-800',
+        canPlay ? 'bg-accent-soft ring-accent-line' : 'bg-panel ring-line',
       )}
     >
       <p className="mb-1 px-1 text-xs font-semibold">
@@ -473,7 +474,7 @@ export function Ballot({ view, room, act, art, name }: PartProps) {
               className={cn(
                 'flex w-full items-center gap-2 rounded-xl p-1.5 text-left ring-1 ring-line transition',
                 myTurn ? 'hover:bg-panel' : 'cursor-default',
-                r.myVote === id && 'ring-2 ring-accent dark:ring-amber-400',
+                r.myVote === id && 'ring-2 ring-accent',
               )}
               data-testid={`rh-accuse-${id}`}
               aria-label={`Accuse ${name(id)}`}
@@ -562,9 +563,7 @@ export function Reveal({ view, room, act, art, name }: PartProps) {
               data-testid={`rh-result-${id}`}
               className={cn(
                 'flex items-center gap-2 rounded-lg px-2 py-1 ring-1 ring-line',
-                step >= 2 &&
-                  isC &&
-                  'bg-danger-soft ring-danger-line dark:bg-rose-500/10 dark:ring-rose-500/40',
+                step >= 2 && isC && 'bg-danger-soft ring-danger-line',
               )}
             >
               <PlayerTag name={name(id)} you={id === room.you} className="min-w-0 flex-1" />
@@ -579,12 +578,12 @@ export function Reveal({ view, room, act, art, name }: PartProps) {
                 {(counts[id] ?? 0) > 0 ? `🔍×${counts[id]}` : ''}
               </span>
               {step >= 2 && isC && (
-                <span className="rounded bg-danger px-1.5 py-0.5 text-xs font-bold text-white dark:bg-rose-600">
+                <span className="rounded bg-danger px-1.5 py-0.5 text-xs font-bold text-white">
                   🐟 no word
                 </span>
               )}
               {step >= 3 && !fun && points !== undefined && (
-                <span className="flex items-center gap-0.5 font-bold text-success-ink dark:text-emerald-300">
+                <span className="flex items-center gap-0.5 font-bold text-success-ink">
                   {vp(points) && <ProtectedImage src={vp(points)} alt="" className="size-5" />}+
                   {points}
                 </span>
@@ -607,17 +606,19 @@ export function Reveal({ view, room, act, art, name }: PartProps) {
         </p>
       )}
       {room.isHost ? (
-        <Button
-          size="lg"
-          onClick={() => void act({ type: 'next-round' }, { anchor: 'rh-next' })}
-          data-testid="rh-next"
-        >
-          {last ? 'See the final scores' : 'Next round'}
-        </Button>
+        <StickyBar fixed refusal="rh-next">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => void act({ type: 'next-round' }, { anchor: 'rh-next' })}
+            data-testid="rh-next"
+          >
+            {last ? 'See the final scores' : 'Next round'}
+          </Button>
+        </StickyBar>
       ) : (
         <p className="text-xs text-ink-muted">The host starts the next round.</p>
       )}
-      <RefusalSlot anchor="rh-next" />
     </Panel>
   );
 }

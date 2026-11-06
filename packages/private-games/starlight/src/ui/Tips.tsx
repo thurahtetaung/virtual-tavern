@@ -1,4 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
+import { Fold, Notice, usePhone } from '@vt/ui';
 import { type ReactNode, useCallback, useState } from 'react';
 
 /** Per seat in a playtest, so each seat tab learns the tips once. */
@@ -29,20 +30,37 @@ export function useTip(id: string): [boolean, () => void] {
   return [open, dismiss];
 }
 
-/** A dismissable first-time tip. */
+/**
+ * A dismissable first-time tip: a closed fold on phones (the play screen must fit), an info notice
+ * on wider screens. Got it remembers it either way.
+ */
 export function Tip({ id, children }: { id: string; children: ReactNode }) {
   const [open, dismiss] = useTip(id);
+  const phone = usePhone();
   if (!open) return null;
+  const gotIt = (
+    <button
+      type="button"
+      className="-my-3 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+      onClick={dismiss}
+    >
+      Got it
+    </button>
+  );
+  if (phone) {
+    return (
+      <Fold summary="💡 Tip" bodyClassName="flex items-start gap-2 text-sm">
+        <span className="flex-1">{children}</span>
+        {gotIt}
+      </Fold>
+    );
+  }
   return (
-    <p className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <span className="flex-1">💡 {children}</span>
-      <button
-        type="button"
-        className="-my-3 inline-flex min-h-11 items-center px-2 text-xs font-bold"
-        onClick={dismiss}
-      >
-        Got it
-      </button>
-    </p>
+    <Notice tone="info" dense className="text-sm">
+      <span className="flex items-start gap-2">
+        <span className="flex-1">💡 {children}</span>
+        {gotIt}
+      </span>
+    </Notice>
   );
 }

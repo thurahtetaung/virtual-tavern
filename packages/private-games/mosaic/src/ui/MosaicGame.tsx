@@ -17,6 +17,8 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  Fold,
+  usePhone,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { fullRows } from '../logic/rules.ts';
@@ -103,10 +105,10 @@ export function MosaicGame({
 /** First-time tips, until dismissed (per seat in a playtest). */
 function Tips({ art, view }: { art: Art; view: MosaicView }) {
   const [seen, setSeen] = useState(tipsSeen);
+  const phone = usePhone();
   if (seen) return null;
-  return (
-    <aside className="mo-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here?</p>
+  const body = (
+    <>
       <ul className="list-disc space-y-1 pl-5">
         <li>
           Tap a tile to take every tile of its colour there; a sheet shows what each line costs.
@@ -148,6 +150,19 @@ function Tips({ art, view }: { art: Art; view: MosaicView }) {
       >
         Got it
       </Button>
+    </>
+  );
+  // Phones keep the play screen to one screen: the tips wait in a closed fold.
+  if (phone)
+    return (
+      <Fold summary="New here?" bodyClassName="flex flex-col gap-1.5 text-sm">
+        {body}
+      </Fold>
+    );
+  return (
+    <aside className="mo-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line">
+      <p className="font-semibold">New here?</p>
+      {body}
     </aside>
   );
 }
@@ -238,7 +253,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -250,7 +265,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="flex flex-wrap items-center gap-1 text-sm text-ink-muted dark:text-stone-400">
+        <p className="flex flex-wrap items-center gap-1 text-sm text-ink-muted">
           {COLOURS.map((c) => (
             <Tile key={c} colour={c} art={art} size={20} />
           ))}

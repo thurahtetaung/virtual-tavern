@@ -1,5 +1,17 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Hint, NameDot, PlayerTag, RefusalSlot, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  NameDot,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  TabBar,
+  type TabBarItem,
+  cn,
+  tabPanelProps,
+} from '@vt/ui';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CARDS } from '../logic/cards.ts';
 import type {
@@ -97,10 +109,10 @@ export function HpDial({ hp, size = 44, out }: { hp: number; size?: number; out?
         height: size,
         background: out ? undefined : `conic-gradient(${colour} ${pct}%, transparent 0)`,
       }}
-      className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-line dark:bg-stone-700"
+      className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-line"
     >
       <span
-        className="absolute inset-[4px] flex items-center justify-center rounded-full bg-card font-black tabular-nums dark:bg-stone-900"
+        className="absolute inset-[4px] flex items-center justify-center rounded-full bg-card font-black tabular-nums"
         style={{ fontSize: size * 0.4 }}
       >
         {out ? '💀' : hp}
@@ -139,9 +151,7 @@ function Delta({ hp }: { hp: number }) {
       key={fx.id}
       className={cn(
         'tb-anim pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-1.5 text-sm font-black shadow',
-        fx.delta < 0
-          ? 'bg-danger text-white dark:bg-rose-600'
-          : 'bg-success-soft text-success-ink dark:bg-emerald-500/20 dark:text-emerald-100',
+        fx.delta < 0 ? 'bg-danger text-white' : 'bg-success-soft text-success-ink',
       )}
       style={{ animation: 'tb-float 1.3s ease-out forwards' }}
       aria-hidden
@@ -183,9 +193,8 @@ const ShieldChip = memo(function ShieldChip({
       onClick={() => (pickable ? picking!.pick(shield.id) : onZoom(shield))}
       aria-label={`${label}, shield ${shield.left} of ${CARDS[acts]?.shield}${borrowed ? `, from ${possessive(name(shield.owner))} deck` : ''}${pickable ? ', tap to pick' : ''}`}
       className={cn(
-        'inline-flex h-8 items-center gap-1 rounded-lg bg-info-soft px-2 text-sm font-bold text-info-ink ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
-        pickable &&
-          'animate-pulse ring-4 ring-accent motion-reduce:animate-none dark:ring-amber-400',
+        'inline-flex h-8 items-center gap-1 rounded-lg bg-info-soft px-2 text-sm font-bold text-info-ink ring-1 ring-info-line',
+        pickable && 'animate-pulse ring-4 ring-accent motion-reduce:animate-none',
       )}
       data-shield={shield.id}
     >
@@ -238,8 +247,8 @@ const PlayerRow = memo(function PlayerRow({
     return (
       <li
         className={cn(
-          'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60',
-          turnPlayer === p.id && 'ring-2 ring-line-strong dark:ring-stone-600',
+          'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted',
+          turnPlayer === p.id && 'ring-2 ring-line-strong',
         )}
         data-player={p.id}
         data-ghost={p.ghost || undefined}
@@ -267,9 +276,9 @@ const PlayerRow = memo(function PlayerRow({
       style={heroVars(p.hero)}
       data-player={p.id}
       className={cn(
-        'relative flex flex-col gap-1 rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800',
+        'relative flex flex-col gap-1 rounded-xl bg-card p-2 ring-1 ring-line',
         turn && 'ring-2 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
-        pickable && 'ring-4 ring-accent dark:ring-amber-400',
+        pickable && 'ring-4 ring-accent',
       )}
     >
       <div className="flex items-center gap-2">
@@ -300,14 +309,14 @@ const PlayerRow = memo(function PlayerRow({
               {waiting && <span aria-label="their move">⏳</span>}
               {near && (
                 <span
-                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-[0.65rem] font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40"
+                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-[0.65rem] font-semibold text-warn-ink ring-1 ring-warn-line"
                   title="Your regular attacks reach this neighbour"
                 >
                   {near === 'left' ? '⬅ in reach' : 'in reach ➡'}
                 </span>
               )}
             </span>
-            <span className="block truncate text-xs text-ink-muted dark:text-stone-400">
+            <span className="block truncate text-xs text-ink-muted">
               {art.hero(p.hero)} · ✋{p.handCount} · 🂠{p.deckCount}
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
@@ -371,7 +380,7 @@ const Resolution = memo(function Resolution({
   return (
     <section
       aria-label="Table"
-      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-900/70 dark:ring-stone-800"
+      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line"
     >
       {showing ? (
         <button
@@ -382,7 +391,7 @@ const Resolution = memo(function Resolution({
           <Card card={showing.card} art={art} width={76} />
         </button>
       ) : (
-        <div className="flex aspect-[400/630] w-[76px] items-center justify-center rounded-[7%] border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-700">
+        <div className="flex aspect-[400/630] w-[76px] items-center justify-center rounded-[7%] border-2 border-dashed border-line text-xs text-ink-muted">
           No card yet
         </div>
       )}
@@ -404,7 +413,7 @@ const Resolution = memo(function Resolution({
             className="mt-1.5 flex items-center gap-1 overflow-x-auto"
             aria-label="Played this turn"
           >
-            <span className="shrink-0 text-xs text-ink-muted dark:text-stone-400">This turn:</span>
+            <span className="shrink-0 text-xs text-ink-muted">This turn:</span>
             {played.map((r) => (
               <button
                 key={r.id}
@@ -591,11 +600,7 @@ function Hand({
           })}
         </ul>
       )}
-      {scrolls && (
-        <p className="text-center text-xs text-ink-muted dark:text-stone-400">
-          ← Swipe for all {n} cards →
-        </p>
-      )}
+      {scrolls && <p className="text-center text-xs text-ink-muted">← Swipe for all {n} cards →</p>}
     </div>
   );
 }
@@ -656,10 +661,10 @@ function ChoiceStrip({
   return (
     <section
       aria-label="Your choice"
-      className="flex flex-col gap-2 rounded-xl bg-warn-soft p-2 ring-1 ring-warn-line dark:bg-amber-500/10 dark:ring-amber-500/40"
+      className="flex flex-col gap-2 rounded-xl bg-warn-soft p-2 ring-1 ring-warn-line"
     >
       <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 text-sm font-semibold text-warn-ink dark:text-amber-100">
+        <p className="min-w-0 flex-1 text-sm font-semibold text-warn-ink">
           {prompt(c, g, name, art)}
         </p>
         {c.deadline !== undefined && (
@@ -677,7 +682,7 @@ function ChoiceStrip({
         )}
       </div>
       {g.zone && c.kind === 'target' && c.card && CARDS[c.card]?.effect === null && (
-        <p className="text-xs text-warn-ink dark:text-amber-100">
+        <p className="text-xs text-warn-ink">
           Five or more players: regular attacks only reach your neighbours.
         </p>
       )}
@@ -693,7 +698,7 @@ function ChoiceStrip({
         </ul>
       )}
       {c.kind === 'form' && (
-        <p className="text-xs text-warn-ink dark:text-amber-100">
+        <p className="text-xs text-warn-ink">
           Tap a glowing card in your hand to play it, or skip.
         </p>
       )}
@@ -760,12 +765,12 @@ function SocialSheet({
   return (
     <section
       aria-label="Honour prompt"
-      className="flex flex-col items-center gap-2 rounded-2xl bg-special-soft p-4 text-center ring-1 ring-special-line dark:bg-violet-500/15 dark:ring-violet-500/40"
+      className="flex flex-col items-center gap-2 rounded-2xl bg-special-soft p-4 text-center ring-1 ring-special-line"
     >
-      <p className="font-bold text-special-ink dark:text-violet-100">
+      <p className="font-bold text-special-ink">
         {askingCard(c, art)}:{whose} {t.ask}
       </p>
-      <p className="text-sm text-special-ink dark:text-violet-100">{t.then}</p>
+      <p className="text-sm text-special-ink">{t.then}</p>
       <Button size="lg" className="w-full" onClick={() => picking.pick('done')}>
         {t.yes}
       </Button>
@@ -895,7 +900,7 @@ const LogTurn = memo(
       else lines.push({ id: e.id, text });
     }
     return (
-      <section className="border-t border-line pt-1 first:border-0 first:pt-0 dark:border-stone-800">
+      <section className="border-t border-line pt-1 first:border-0 first:pt-0">
         {head && <h3 className="font-semibold">{head}</h3>}
         <ol className="flex flex-col gap-0.5">
           {[...lines].reverse().map((l) => (
@@ -914,6 +919,14 @@ const LogTurn = memo(
 );
 
 type Tab = 'table' | 'log' | 'discards' | 'powers';
+/** Phones: the table and the side panels one at a time, from the tab bar. */
+const PLAY_TABS_ID = 'tavern-brawl-play';
+const PLAY_TABS: readonly TabBarItem<Tab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'log', label: 'Log', icon: 'scroll-text' },
+  { id: 'discards', label: 'Discards', icon: 'list-ordered' },
+  { id: 'powers', label: '✦ Powers', icon: 'flame' },
+];
 type Hero = Parameters<typeof PowersPanel>[0]['heroes'][number];
 
 export function Table({
@@ -1018,35 +1031,14 @@ export function Table({
   }, [status.yourMove]);
 
   const tabs = (
-    <div
-      role="tablist"
-      className="flex gap-1 rounded-xl bg-panel p-1 ring-1 ring-line lg:hidden dark:bg-stone-900 dark:ring-stone-800"
-    >
-      {(
-        [
-          ['table', 'Table'],
-          ['log', 'Log'],
-          ['discards', 'Discards'],
-          ['powers', '✦ Powers'],
-        ] as const
-      ).map(([id, label]) => (
-        <button
-          key={id}
-          role="tab"
-          type="button"
-          aria-selected={tab === id}
-          onClick={() => setTab(id)}
-          className={cn(
-            'min-h-9 flex-1 rounded-lg text-sm font-semibold',
-            tab === id
-              ? 'bg-card shadow-sm dark:bg-stone-700'
-              : 'text-ink-muted dark:text-stone-400',
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <TabBar
+      id={PLAY_TABS_ID}
+      label="Tavern Brawl"
+      items={PLAY_TABS}
+      value={tab}
+      onChange={setTab}
+      className="lg:hidden"
+    />
   );
 
   const header = (
@@ -1054,7 +1046,7 @@ export function Table({
       {buzz && (
         <p
           role="alert"
-          className="rounded-xl bg-warn-soft px-3 py-2 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100"
+          className="rounded-xl bg-warn-soft px-3 py-2 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line"
         >
           👋 The table is waiting for you!
         </p>
@@ -1175,24 +1167,26 @@ export function Table({
       )}
       <RefusalSlot anchor="tb-choice" />
       {canPlay && (
-        <div role="group" aria-label="Play a card" className="flex items-center gap-2">
-          <span
-            className="shrink-0 rounded-lg bg-panel px-2 py-2 text-sm font-bold tabular-nums ring-1 ring-line dark:bg-stone-800 dark:ring-0"
-            aria-label={`${g.turn.debt} to play`}
-          >
-            ⚡{g.turn.debt}
-          </span>
-          <Button
-            size="lg"
-            className="min-w-0 flex-1"
-            disabled={!selectedRef}
-            onClick={() => selectedRef && play(selectedRef.id)}
-          >
-            <span className="truncate">
-              {selectedRef ? `Play ${art.card(selectedRef.card)}` : 'Pick a card to play'}
+        <StickyBar fixed refusal="tb-play">
+          <div role="group" aria-label="Play a card" className="flex items-center gap-2">
+            <span
+              className="shrink-0 rounded-lg bg-panel px-2 py-2 text-sm font-bold tabular-nums ring-1 ring-line dark:ring-0"
+              aria-label={`${g.turn.debt} to play`}
+            >
+              ⚡{g.turn.debt}
             </span>
-          </Button>
-        </div>
+            <Button
+              size="lg"
+              className="min-w-0 flex-1"
+              disabled={!selectedRef}
+              onClick={() => selectedRef && play(selectedRef.id)}
+            >
+              <span className="truncate">
+                {selectedRef ? `Play ${art.card(selectedRef.card)}` : 'Pick a card to play'}
+              </span>
+            </Button>
+          </div>
+        </StickyBar>
       )}
       {me && !me.out && (
         <Hand
@@ -1204,7 +1198,7 @@ export function Table({
           onZoom={zoomInHand}
         />
       )}
-      <RefusalSlot anchor="tb-play" />
+      {!canPlay && <RefusalSlot anchor="tb-play" />}
     </>
   );
 
@@ -1216,8 +1210,10 @@ export function Table({
       <style>{STYLE}</style>
       <div className="flex min-w-0 flex-col gap-2">
         {header}
-        {tabs}
-        <div className={cn('flex flex-col gap-2', tab !== 'table' && 'max-lg:hidden')}>
+        <div
+          className={cn('flex flex-col gap-2', tab !== 'table' && 'max-lg:hidden')}
+          {...tabPanelProps(PLAY_TABS_ID, 'table')}
+        >
           {opponents}
           <Resolution
             log={view.log}
@@ -1231,25 +1227,25 @@ export function Table({
           {playArea}
         </div>
         {tab === 'log' && (
-          <div className="lg:hidden">
+          <div className="lg:hidden" {...tabPanelProps(PLAY_TABS_ID, 'log')}>
             <Log log={view.log} art={art} name={name} />
           </div>
         )}
         {tab === 'discards' && (
-          <div className="lg:hidden">
+          <div className="lg:hidden" {...tabPanelProps(PLAY_TABS_ID, 'discards')}>
             <Discards g={g} art={art} name={name} onZoom={zoomTo} />
           </div>
         )}
         {tab === 'powers' && (
-          <div className="lg:hidden">
-            <p className="mb-2 text-sm text-ink-muted dark:text-stone-400">
+          <div className="lg:hidden" {...tabPanelProps(PLAY_TABS_ID, 'powers')}>
+            <p className="mb-2 text-sm text-ink-muted">
               Every hero’s mighty powers. Tap Deck for the whole deck, or tap a seat on the table.
             </p>
             <PowersPanel heroes={heroes} art={art} />
           </div>
         )}
       </div>
-      <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex dark:bg-stone-900/80 dark:ring-stone-800">
+      <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex">
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
             <h2 className="font-bold">✦ Mighty powers</h2>
@@ -1274,6 +1270,7 @@ export function Table({
         <h2 className="font-bold">Discard piles</h2>
         <Discards g={g} art={art} name={name} onZoom={zoomTo} />
       </aside>
+      {tabs}
       <HeroSheet
         hero={heroOf?.hero ?? null}
         who={heroOf ? name(heroOf.id) : undefined}

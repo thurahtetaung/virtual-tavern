@@ -57,7 +57,7 @@ export function Replay({
     <section className="flex flex-col gap-2" aria-label="Replay" data-testid="sf-replay">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">Replay</h3>
-        <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
+        <span className="text-xs text-ink-muted tabular-nums">
           {at === 0 ? 'The deal' : `Turn ${at} of ${total}`}
         </span>
       </div>
@@ -113,11 +113,8 @@ export function Replay({
                       art={art}
                       size="row"
                       className={cn(
-                        (acted || touched.has(cid)) && 'ring-[3px] ring-accent dark:ring-amber-400',
-                        acted &&
-                          !turn?.ok &&
-                          turn?.kind === 'play' &&
-                          'ring-danger-ink dark:ring-red-400',
+                        (acted || touched.has(cid)) && 'ring-[3px] ring-accent',
+                        acted && !turn?.ok && turn?.kind === 'play' && 'ring-danger-ink',
                       )}
                     />
                   </button>

@@ -9,6 +9,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Words are word lists** tagged for `starlight` (`usesWordLists`, kept in game state, so list names only reach an unlocked room); the printed words live only in the database. An entry written `Top / Bottom` gives each side as a word of its own (`wordsFrom`, `lobby.ts`), so players never see a pair. A list tagged only for back-room games never reaches a browser without the back room (tested in `routes/lists.test.ts`).
   - **Rules (the owner's rulings):** the player alone with the most marks is in the Dark (a tie: nobody). A shown card with 2+ other markers is a Spark, exactly 1 a Super-Spark, none and the Scout falls. A Scout with marks left must show one even if it can only fall. `reveal.ts` is the Reveal and scoring.
   - **`view()`:** your own marks only; others' as locked flags, then counts, and who marked a card only once it is shown; unshown marks are never revealed.
+  - **Phones:** Table and Stars on the shared `TabBar`; Lock / Unlock and the slate's refusal sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
 ## Assets
 

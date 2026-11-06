@@ -156,7 +156,7 @@ function Tips() {
   };
   return (
     <aside
-      className="flex items-center gap-2 rounded-full bg-info-soft pl-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="flex items-center gap-2 rounded-full bg-info-soft pl-3 text-sm text-info-ink ring-1 ring-info-line"
       data-testid="sf-tips"
     >
       <button
@@ -255,9 +255,7 @@ function Choice<T extends string>({
             }}
             className={cn(
               'rounded-lg px-3 py-1.5 text-sm font-semibold ring-1',
-              value === o
-                ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/15 dark:ring-amber-500'
-                : 'bg-card ring-line dark:bg-stone-900 dark:ring-stone-700',
+              value === o ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
               !editable && 'cursor-default',
             )}
             data-testid={`${testId}-${o}`}
@@ -266,7 +264,7 @@ function Choice<T extends string>({
           </button>
         ))}
       </div>
-      <p className="text-xs text-ink-muted dark:text-stone-400">{help[value]}</p>
+      <p className="text-xs text-ink-muted">{help[value]}</p>
     </fieldset>
   );
 }
@@ -352,7 +350,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -364,7 +362,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <div className="flex items-center gap-3 text-sm text-ink-muted dark:text-stone-400">
+        <div className="flex items-center gap-3 text-sm text-ink-muted">
           <span className="grid w-28 shrink-0 grid-cols-3 gap-1" aria-hidden>
             <CardFace card={{ suit: 'red', rank: 1 }} art={art} size="row" />
             <CardFace card={{ suit: 'blue', rank: 2 }} art={art} size="row" />
@@ -502,16 +500,13 @@ function End({
             content: (
               <div className="flex flex-col items-center gap-1 text-center">
                 <p className="text-4xl font-black tabular-nums" data-testid="sf-final-score">
-                  {r.score}{' '}
-                  <span className="text-lg font-semibold text-ink-muted dark:text-stone-400">
-                    / {r.max}
-                  </span>
+                  {r.score} <span className="text-lg font-semibold text-ink-muted">/ {r.max}</span>
                 </p>
                 <p className="text-lg font-bold">
                   {r.win ? '🎆 ' : ''}
                   {rating}
                 </p>
-                <p className="text-sm text-ink-muted dark:text-stone-400">
+                <p className="text-sm text-ink-muted">
                   {lost || r.how === 'ended' || view.settings.expert
                     ? endHowText(r.how)
                     : (RATING_LINE[rating] ?? '')}
@@ -541,10 +536,7 @@ function End({
             id: 'replay',
             label: '⏪ Replay',
             content: (
-              <details
-                className="rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
-                open
-              >
+              <details className="rounded-xl bg-card p-2 ring-1 ring-line" open>
                 <summary className="cursor-pointer text-sm font-semibold">
                   Replay: every turn, every hand face up
                 </summary>

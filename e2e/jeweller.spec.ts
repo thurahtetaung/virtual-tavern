@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   YOUR_TURN,
   marketCard,
@@ -25,6 +26,9 @@ test.afterEach(() => {
 
 const PHONE = { width: 390, height: 844 };
 
+/** Phones show the game in tabs: Table, Your table and Table talk. */
+const tab = (p: Page, name: string) => p.getByRole('tab', { name, exact: true }).click();
+
 test('a 2-player game on phones: gems, a purchase, a noble visit, the final round and the end', async ({
   browser,
 }) => {
@@ -39,9 +43,14 @@ test('a 2-player game on phones: gems, a purchase, a noble visit, the final roun
   await expect(hana.getByText(/Pick 2 more colours, or tap it again for two/)).toBeVisible();
   await hana.locator('[data-pile="red"]').click();
   await hana.locator('[data-pile="white"]').click();
+  // The take is the tightest screen: the market, the nobles and the piles in the bar.
+  await expectPhoneFit(hana, 'jeweller take');
   await hana.getByTestId('jw-take').click();
   await expect(ana.getByText(YOUR_TURN)).toBeVisible();
+  // Phones keep the other players on Table talk.
+  await tab(ana, 'Table talk');
   await expect(ana.getByRole('button', { name: /^Hana: 12 points, 3 pieces/ })).toBeVisible();
+  await tab(ana, 'Table');
   await take(ana, ['white', 'blue', 'green']);
 
   // The black card now glows for Hana: her cards cover all but a green and a red.
@@ -54,9 +63,11 @@ test('a 2-player game on phones: gems, a purchase, a noble visit, the final roun
   await expect(sheet(hana)).toHaveCount(0);
 
   // The fourth black card brings the noble: 15 points, so this is the final round.
+  await tab(hana, 'Your table');
   await expect(
     hana.getByRole('region', { name: 'Your table' }).locator('[data-noble="N09"]'),
   ).toBeVisible();
+  await tab(hana, 'Table');
   await expect(
     hana.getByRole('region', { name: 'Nobles' }).locator('[data-noble="N09"]'),
   ).toHaveCount(0);
@@ -110,9 +121,11 @@ test('over 10 pieces: a guided hand-back; reserved cards stay hidden from the ot
   const picker = hana.getByRole('group', { name: 'Pieces to hand back' });
   await expect(picker.getByText('Hand back 2 pieces (2 chosen):')).toBeVisible();
   await picker.getByRole('button', { name: 'Hand back 2 of 2' }).click();
+  await tab(hana, 'Your table');
   await expect(
     hana.getByRole('region', { name: 'Your table' }).getByLabel('10 of 10 pieces'),
   ).toBeVisible();
+  await tab(hana, 'Table');
   await expect(ana.getByText(YOUR_TURN)).toBeVisible();
 
   // Ana's three reserved cards: hers to see, only their levels for Hana.

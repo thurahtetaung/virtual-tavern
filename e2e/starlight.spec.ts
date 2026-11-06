@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
@@ -70,7 +71,7 @@ async function shoot(p: Page, name: string, phoneTab?: string) {
     [1280, 900, 'desktop'],
   ] as const) {
     await p.setViewportSize({ width: w, height: h });
-    if (phoneTab && device === 'phone') await p.getByRole('button', { name: phoneTab }).click();
+    if (phoneTab && device === 'phone') await p.getByRole('tab', { name: phoneTab }).click();
     for (const scheme of ['light', 'dark'] as const) {
       await p.emulateMedia({ colorScheme: scheme });
       await p.screenshot({ path: `test-results/starlight-shots/${name}-${device}-${scheme}.png` });
@@ -79,7 +80,7 @@ async function shoot(p: Page, name: string, phoneTab?: string) {
   await p.emulateMedia({ colorScheme: null });
   if (phoneTab) {
     await p.setViewportSize({ width: 390, height: 844 });
-    await p.getByRole('button', { name: '🖼️ Table' }).click();
+    await p.getByRole('tab', { name: 'Table' }).click();
   }
   if (size) await p.setViewportSize(size);
 }
@@ -220,6 +221,8 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
         await expect(ben.getByRole('button', { name: 'Lock my slate' })).toBeVisible();
         await ben.getByRole('button', { name: 'Lock my slate' }).click();
         await card(cy, 'A1').click();
+        // Marking is the tightest screen: the word, the 15 pictures and Lock in the bar.
+        await expectPhoneFit(cy, 'starlight marking');
         await shoot(cy, 'marking');
         await card(cy, 'A1').click();
         await markAndLock([[cy, ['A1']]]);
@@ -237,7 +240,7 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
           await expect(p.getByTestId('starlight-dark')).toContainText(
             p === hana ? 'You are in the Dark' : 'Hana is in the Dark',
           );
-        await shoot(rest[0]!, 'dark', '⭐ Stars');
+        await shoot(rest[0]!, 'dark', 'Stars');
       } else {
         await markAndLock(players.map((p) => [p, ['A1']] as [Page, string[]]));
       }

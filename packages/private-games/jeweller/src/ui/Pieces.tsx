@@ -171,8 +171,8 @@ function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-[11px] font-black text-ink shadow-md ring-2 dark:bg-stone-900/95 dark:text-stone-100',
-        hold.mine ? 'ring-accent dark:ring-amber-400' : 'ring-ink/60 dark:ring-stone-300/70',
+        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-[11px] font-black text-ink shadow-md ring-2',
+        hold.mine ? 'ring-accent' : 'ring-ink/60',
         size === 'lg' && 'gap-1 px-2 py-1 text-base',
       )}
       data-hold={hold.n}
@@ -301,12 +301,12 @@ export const CardTile = memo(function CardTile({
     </>
   );
   const box = cn(
-    'relative flex flex-col overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+    'relative flex flex-col overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-line',
     size === 'lg' ? 'h-64 w-44' : 'aspect-[6/5] w-full sm:aspect-[4/5]',
-    afford === 'yes' && 'ring-[3px] ring-success dark:ring-emerald-400',
-    afford === 'gold' && 'ring-[3px] ring-warn dark:ring-amber-400',
+    afford === 'yes' && 'ring-[3px] ring-success',
+    afford === 'gold' && 'ring-[3px] ring-warn',
     fresh && 'jw-deal',
-    target && 'outline-2 outline-offset-1 outline-accent outline-dashed dark:outline-amber-400',
+    target && 'outline-2 outline-offset-1 outline-accent outline-dashed',
     className,
   );
   return onClick ? (
@@ -354,18 +354,18 @@ export function CardBack({
       {src && (
         <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-contain" />
       )}
-      <span className="relative text-sm font-black tracking-widest text-ink drop-shadow dark:text-stone-100">
+      <span className="relative text-sm font-black tracking-widest text-ink drop-shadow">
         {'•'.repeat(level)}
       </span>
       {count !== undefined && (
-        <span className="relative rounded bg-card/80 px-1 text-[11px] font-bold tabular-nums text-ink dark:bg-stone-900/80 dark:text-stone-100">
+        <span className="relative rounded bg-card/80 px-1 text-[11px] font-bold tabular-nums text-ink">
           {count}
         </span>
       )}
     </>
   );
   const box = cn(
-    'relative flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg bg-panel shadow-sm ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600',
+    'relative flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg bg-panel shadow-sm ring-1 ring-line',
     className,
   );
   return onClick ? (
@@ -418,7 +418,7 @@ export const NobleTile = memo(function NobleTile({
           👑
         </span>
       )}
-      <span className="relative self-start rounded-br-md bg-card/85 px-1 text-sm font-black dark:bg-stone-900/85">
+      <span className="relative self-start rounded-br-md bg-card/85 px-1 text-sm font-black">
         {noble.points}
       </span>
       <span className="relative mt-auto flex flex-col items-start gap-0.5 p-1">
@@ -434,7 +434,7 @@ export const NobleTile = memo(function NobleTile({
               {noble.requires[g]}
             </span>
             {bonuses && (
-              <span className="rounded bg-card/85 px-0.5 text-[10px] font-semibold tabular-nums text-ink-muted dark:bg-stone-900/85 dark:text-stone-300">
+              <span className="rounded bg-card/85 px-0.5 text-[10px] font-semibold tabular-nums text-ink-muted">
                 {Math.min(bonuses[g], noble.requires[g])}
               </span>
             )}
@@ -444,9 +444,9 @@ export const NobleTile = memo(function NobleTile({
     </>
   );
   const box = cn(
-    'relative flex shrink-0 flex-col overflow-hidden rounded-lg bg-special-soft shadow-sm ring-1 ring-special-line dark:bg-violet-900/40 dark:ring-violet-500/40',
+    'relative flex shrink-0 flex-col overflow-hidden rounded-lg bg-special-soft shadow-sm ring-1 ring-special-line',
     size === 'lg' ? 'size-32' : 'size-14 sm:size-20',
-    ready && 'ring-[3px] ring-success dark:ring-emerald-400',
+    ready && 'ring-[3px] ring-success',
     fresh && 'jw-pop',
     className,
   );
@@ -514,8 +514,7 @@ export const CityTile = memo(function CityTile({
           className={cn(
             'relative ml-auto flex flex-col items-end justify-center gap-0.5 p-0.5 sm:p-1',
             // Opaque and as wide as the art's printed value column, so none of it shows through.
-            src &&
-              'min-w-[27%] rounded-l-md bg-card text-ink dark:bg-stone-900 dark:text-stone-100',
+            src && 'min-w-[27%] rounded-l-md bg-card text-ink',
           )}
         >
           <span
@@ -542,7 +541,7 @@ export const CityTile = memo(function CityTile({
             {city.any > 0 && (
               <span
                 className={cn(
-                  'inline-flex items-center justify-center rounded bg-stone-400 px-0.5 font-black text-stone-950 ring-1 ring-stone-600',
+                  'inline-flex items-center justify-center rounded bg-stone-400 px-0.5 font-black text-ink ring-1 ring-stone-600',
                   PIP[size],
                 )}
                 title={`${city.any} of one colour (${anyColours(city)
@@ -556,16 +555,16 @@ export const CityTile = memo(function CityTile({
         </span>
       )}
       {met && (
-        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line dark:bg-emerald-500 dark:text-stone-950 dark:ring-emerald-300">
+        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line">
           ✓
         </span>
       )}
     </>
   );
   const box = cn(
-    'relative flex aspect-[2/1] shrink-0 overflow-hidden rounded-lg bg-special-soft shadow-sm ring-1 ring-special-line dark:bg-violet-900/40 dark:ring-violet-500/40',
+    'relative flex aspect-[2/1] shrink-0 overflow-hidden rounded-lg bg-special-soft shadow-sm ring-1 ring-special-line',
     size === 'lg' ? 'w-80 max-w-full' : 'w-full',
-    met && 'ring-[3px] ring-success dark:ring-emerald-400',
+    met && 'ring-[3px] ring-success',
     className,
   );
   return onClick ? (
