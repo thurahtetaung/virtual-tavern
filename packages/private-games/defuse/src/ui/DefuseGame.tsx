@@ -1276,4 +1276,3 @@ function Result({
 }
 
 export type { PageId };
-export { ExpertClock };

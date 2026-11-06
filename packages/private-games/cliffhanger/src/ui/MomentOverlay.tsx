@@ -57,14 +57,18 @@ export function MomentOverlay({
       aria-live="assertive"
       data-testid="moment"
       data-moment={moment.kind}
-      className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center"
+      className={cn(
+        'pointer-events-none inset-0 z-40 flex items-center justify-center',
+        // On the table screen it sits over the poster (in its 1920 × 1080 units).
+        big ? 'absolute' : 'fixed',
+      )}
     >
       <div key={key} className="cl-pop flex flex-col items-center gap-2">
         {picture ? (
           <ProtectedImage
             src={picture}
             alt={words}
-            className={cn('w-auto drop-shadow-2xl', big ? 'max-h-[45vh]' : 'max-h-40')}
+            className={cn('w-auto drop-shadow-2xl', big ? 'max-h-[480px]' : 'max-h-40')}
           />
         ) : (
           <span
@@ -73,14 +77,19 @@ export function MomentOverlay({
               moment.kind === 'times-up'
                 ? 'bg-danger text-white dark:bg-rose-600' // vt-palette
                 : 'bg-card text-ink dark:bg-stone-900 dark:text-stone-50',
-              big ? 'text-[12vh]' : moment.kind === 'count' ? 'text-8xl' : 'text-5xl',
+              big ? 'text-[140px]' : moment.kind === 'count' ? 'text-8xl' : 'text-5xl',
             )}
           >
             {words}
           </span>
         )}
         {moment.kind === 'sweep' && (
-          <span className="rounded-full bg-card px-3 py-1 text-sm font-semibold shadow dark:bg-stone-900">
+          <span
+            className={cn(
+              'rounded-full bg-card px-3 py-1 font-semibold shadow dark:bg-stone-900',
+              big ? 'px-6 text-[32px]' : 'text-sm',
+            )}
+          >
             {teamName(moment.team)} got every card in time
           </span>
         )}

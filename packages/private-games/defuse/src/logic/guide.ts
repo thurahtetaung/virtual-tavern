@@ -270,7 +270,7 @@ function base(art: GuideArt): GameGuide {
         title: 'The table screen',
         level: 'details',
         bullets: [
-          'A paired table screen shows the manual for the experts by default.',
+          'By default a paired table screen shows the experts’ side: who reads which manual page, and the clock when the host shows it to the experts. The pages themselves stay on the experts’ phones.',
           'With “Table screen shows: Bomb” it shows the defuser’s bomb instead, as the defuser sees it (3D, turning as they turn it, or flat): then the experts must not look.',
         ],
       },

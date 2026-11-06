@@ -1,7 +1,8 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { bid, drawWithMouse, importPacks, localArt, lotIs, table } from './going-once-play.ts';
-import type { Look } from './tavern-brawl-play.ts';
+import { type Look, visitor } from './tavern-brawl-play.ts';
+import { auditTv } from './tv-audit.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/going-once-shots.spec.ts
 // Phone and desktop, light and dark: the lobby (and its sound settings), drawing, the practice
@@ -102,3 +103,64 @@ for (const [label, viewport, colorScheme] of [
     await shot(hana, '09-end-gallery');
   });
 }
+
+// The table screen at its main stages (1920 × 1080), with the phones in light mode: the screen runs
+// dark anyway. Each shot is also measured (`tv-audit.ts`).
+test('going once table screen (tv)', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const dir = 'test-results/going-once-shots';
+  const look: Look = {
+    viewport: { width: 390, height: 844 },
+    colorScheme: 'light',
+    setup: localArt,
+  };
+  cleanup.push(await importPacks(browser));
+  const pages = (await table(browser, ['Hana', 'Ben', 'Cleo'], look)) as [Page, Page, Page];
+  const [hana, ben, cleo] = pages;
+  await hana.getByRole('button', { name: /^Players/ }).click();
+  const panel = hana
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('region', { name: /Table screen/ });
+  await panel.getByRole('button', { name: 'Show a pairing code' }).click();
+  const code = (await panel.getByTestId('stage-code').textContent())!;
+  await hana.keyboard.press('Escape');
+  const tv = await visitor(browser, 'TV', {
+    viewport: { width: 1920, height: 1080 },
+    colorScheme: 'light',
+    setup: localArt,
+  });
+  await tv.goto('/stage');
+  await tv.getByLabel('Pairing code').fill(code);
+  await tv.getByRole('button', { name: 'Pair this screen' }).click();
+  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  const stage = tv.getByTestId('go-stage');
+  await expect(stage).toHaveAttribute('data-phase', 'lobby');
+  const audit = async (name: string) => {
+    await tv.waitForTimeout(1500);
+    await auditTv(tv, `going-once ${name}`, `${dir}/tv-${name}.png`);
+  };
+  await audit('01-lobby');
+  await hana.getByTestId('go-start').click();
+  await expect(stage).toHaveAttribute('data-phase', 'draw');
+  await audit('02-draw');
+  for (const p of pages) {
+    let last = '';
+    for (let i = 0; i < 2; i++) {
+      const title = p.getByTestId('go-title');
+      await expect(title).not.toHaveText(last);
+      last = (await title.textContent()) ?? '';
+      await drawWithMouse(p);
+      await p.getByTestId('drawing-send').click();
+    }
+  }
+  await cleo.getByTestId('go-skip-practice').click();
+  await expect(stage).toHaveAttribute('data-phase', 'auction');
+  await lotIs(ben, 1);
+  await bid(ben, 500);
+  await audit('03-auction');
+  await expect(ben.getByTestId('go-bank')).toBeVisible({ timeout: 60_000 });
+  await audit('04-bank');
+  for (const p of pages) await p.getByRole('button', { name: 'No thanks' }).click();
+  await expect(stage).toHaveAttribute('data-phase', 'end', { timeout: 180_000 });
+  await audit('05-end');
+});

@@ -69,7 +69,7 @@ test('the host pairs a table screen, the phones hear of it, and the host removes
 
   // The TV pairs on /stage and starts the show.
   const tv = await open(browser, '/stage', { viewport: { width: 1280, height: 720 } });
-  await expect(tv.getByRole('heading', { name: 'Table screen' })).toBeVisible();
+  await expect(tv.getByRole('heading', { name: 'Pair this screen' })).toBeVisible();
   await expect(tv.getByLabel('Pairing code')).toBeVisible();
   // Asking "am I paired?" on a fresh screen is not an error.
   expect(consoleErrors.get(tv)).toEqual([]);

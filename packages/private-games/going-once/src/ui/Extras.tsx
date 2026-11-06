@@ -26,11 +26,14 @@ export function HostStrip({
   art,
   name,
   clockOffset,
+  tv = false,
 }: {
   view: GoingOnceView;
   art: Art;
   name: NameOf;
   clockOffset: number;
+  /** On the table screen (inside its 1280 × 720 scene): a size readable across the room. */
+  tv?: boolean;
 }) {
   const host = view.game?.host;
   const voicedLine = !!host?.clips?.length;
@@ -46,7 +49,9 @@ export function HostStrip({
       data-testid="go-host"
       className={cn(
         'flex items-start gap-2 rounded-xl bg-card px-3 py-2 ring-1 ring-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-stone-800/70 dark:ring-stone-700',
-        big ? 'justify-center text-center text-xl font-extrabold' : 'text-sm italic',
+        big
+          ? cn('justify-center text-center font-extrabold', tv ? 'text-2xl' : 'text-xl')
+          : cn('italic', tv ? 'text-base' : 'text-sm'),
       )}
     >
       <span aria-hidden className="not-italic">

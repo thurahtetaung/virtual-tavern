@@ -725,5 +725,3 @@ export function ClaimsSummary({
     </ul>
   );
 }
-
-export { PageBody };

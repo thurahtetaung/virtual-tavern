@@ -12,10 +12,17 @@
       // Keep in step with src/lib/theme.ts.
       (function () {
         var saved = null;
+        // The table screen runs dark unless that screen was switched to light (useStageTheme).
+        var stage = /^\/stage(\/|$)/.test(location.pathname);
         try {
-          saved = localStorage.getItem('vt.theme');
+          saved = stage
+            ? localStorage.getItem('vt.stage.theme') === 'light'
+              ? 'light'
+              : 'dark'
+            : localStorage.getItem('vt.theme');
         } catch (e) {
-          /* storage blocked: follow the system */
+          /* storage blocked: follow the system (the table screen: dark) */
+          if (stage) saved = 'dark';
         }
         var explicit = saved === 'light' || saved === 'dark';
         var dark = explicit

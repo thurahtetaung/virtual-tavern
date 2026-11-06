@@ -4,6 +4,7 @@ import {
   Label,
   Layer,
   type LoadedRig,
+  Poster,
   RigArt,
   Scene,
   ShowTargetsProvider,
@@ -15,6 +16,7 @@ import {
   useShowSettings,
   useShowTargets,
   useTarget,
+  usePosterInfo,
   useRig,
 } from '@vt/ui/show';
 import type { Track } from '@vt/game-sdk/show';
@@ -256,59 +258,61 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
       {/* The room is dark whatever the device's theme (a TV in a living room). */}
       <div
         ref={targets.ref('room')}
-        className="h-full w-full bg-stone-950 text-white"
-        data-theme="dark"
+        className={rig ? 'h-full w-full bg-stone-950 text-white' : 'h-full w-full'}
+        data-theme={rig ? 'dark' : undefined}
         data-testid="go-stage"
         data-phase={phase}
       >
-        <Scene
-          background={
-            bg ? (
-              <ProtectedImage
-                src={bg}
-                alt=""
-                className="absolute left-0 top-0"
-                style={{ ...ROOM, maxWidth: 'none' }}
-              />
-            ) : (
-              <div
-                className="absolute left-0 top-0 bg-gradient-to-b from-stone-800 to-stone-950"
-                style={ROOM}
-              />
-            )
-          }
-          overlay={
-            <>
-              {rig && (
-                <Lights
-                  view={view}
-                  rig={rig}
-                  manifest={manifest}
-                  name={name}
-                  clockOffset={offset}
+        {!rig ? (
+          <Plain view={view} art={art} name={name} host={offset} />
+        ) : (
+          <Scene
+            background={
+              bg ? (
+                <ProtectedImage
+                  src={bg}
+                  alt=""
+                  className="absolute left-0 top-0"
+                  style={{ ...ROOM, maxWidth: 'none' }}
                 />
-              )}
-              <div
-                className="absolute"
-                style={
-                  rowWhere(view) === 'lot'
-                    ? HOST_STRIP_LOT
-                    : phase === 'end'
-                      ? HOST_STRIP_END
-                      : HOST_STRIP
-                }
-              >
-                {view.game && <HostStrip view={view} art={art} name={name} clockOffset={offset} />}
-              </div>
-            </>
-          }
-        >
-          {rig ? (
+              ) : (
+                <div
+                  className="absolute left-0 top-0 bg-gradient-to-b from-stone-800 to-stone-950"
+                  style={ROOM}
+                />
+              )
+            }
+            overlay={
+              <>
+                {rig && (
+                  <Lights
+                    view={view}
+                    rig={rig}
+                    manifest={manifest}
+                    name={name}
+                    clockOffset={offset}
+                  />
+                )}
+                <div
+                  className="absolute"
+                  style={
+                    rowWhere(view) === 'lot'
+                      ? HOST_STRIP_LOT
+                      : phase === 'end'
+                        ? HOST_STRIP_END
+                        : HOST_STRIP
+                  }
+                >
+                  {view.game && (
+                    <HostStrip view={view} art={art} name={name} clockOffset={offset} tv />
+                  )}
+                </div>
+              </>
+            }
+          >
             <Room view={view} room={room} rig={rig} art={art} manifest={manifest} name={name} />
-          ) : (
-            <Plain view={view} art={art} name={name} />
-          )}
-        </Scene>
+          </Scene>
+        )}
       </div>
     </ShowTargetsProvider>
   );
@@ -316,35 +320,70 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
 
 /**
  * Without the private art (dev, tests without a manifest): the room in words and the pictures,
- * still big enough to read across a room.
+ * on the shared table-screen poster.
  */
-function Plain({ view, art, name }: { view: GoingOnceView; art: Art; name: NameOf }) {
+function Plain({
+  view,
+  art,
+  name,
+  host,
+}: {
+  view: GoingOnceView;
+  art: Art;
+  name: NameOf;
+  /** The clock offset, for the auctioneer's line. */
+  host: number;
+}) {
+  const { name: title } = usePosterInfo();
   const g = view.game;
   const lot = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
-  return (
-    <div
-      className="flex flex-col items-center justify-center gap-6 bg-stone-900 p-12 text-center text-white"
-      style={ROOM}
-      data-testid="go-stage-plain"
-    >
-      {!g ? (
-        <>
-          <p className="text-7xl font-black">Going Once</p>
-          <p className="text-3xl">
-            {view.seats
-              .filter((s) => s.playing)
-              .map((s) => s.name)
-              .join(' · ')}
-          </p>
-        </>
-      ) : g.stage === 'done' && g.final ? (
-        <p className="text-6xl font-black" data-testid="go-stage-winner">
-          {g.winners.map(name).join(' & ')} {g.winners.length === 1 ? 'wins' : 'share the win'}!
-        </p>
-      ) : lot ? (
-        <div className="flex items-center gap-12">
-          <div className="w-72">
+  const line = g ? <HostStrip view={view} art={art} name={name} clockOffset={host} tv /> : null;
+  if (!g)
+    return (
+      <Poster
+        testId="go-stage-plain"
+        eyebrow="Waiting for the host"
+        headline={title}
+        line={view.seats
+          .filter((s) => s.playing)
+          .map((s) => s.name)
+          .join(' · ')}
+      />
+    );
+  if (g.stage === 'done' && g.final)
+    return (
+      <Poster
+        testId="go-stage-plain"
+        eyebrow="Game over"
+        headline={
+          <span data-testid="go-stage-winner">
+            {g.winners.map(name).join(' & ')} {g.winners.length === 1 ? 'wins' : 'share the win'}!
+          </span>
+        }
+      />
+    );
+  if (lot)
+    return (
+      <Poster
+        testId="go-stage-plain"
+        eyebrow={`Lot ${lot.label}`}
+        headline={
+          sold ? (
+            <span data-testid="go-stage-sold">
+              {sold.buyer
+                ? `SOLD to ${name(sold.buyer)} for ${money(sold.price)}`
+                : `Unsold – it was worth ${money(sold.value)}`}
+            </span>
+          ) : (
+            <span data-testid="go-stage-bid">{money(lot.bid?.amount ?? OPENING_BID)}</span>
+          )
+        }
+        line={sold ? undefined : 'Current bid'}
+        footer={{ icon: 'hand', text: 'Bid on your phone.' }}
+      >
+        <div className="flex w-full items-center justify-center gap-12">
+          <div className="w-[440px]">
             <Picture
               drawing={lot.picture.drawing}
               house={lot.picture.house}
@@ -353,25 +392,14 @@ function Plain({ view, art, name }: { view: GoingOnceView; art: Art; name: NameO
               label="The lot"
             />
           </div>
-          <div className="flex flex-col gap-3 text-left">
-            <p className="text-3xl font-bold">Lot {lot.label}</p>
-            {sold ? (
-              <p className="text-5xl font-black" data-testid="go-stage-sold">
-                {sold.buyer
-                  ? `SOLD to ${name(sold.buyer)} for ${money(sold.price)}`
-                  : `Unsold – it was worth ${money(sold.value)}`}
-              </p>
-            ) : (
-              <p className="text-6xl font-black" data-testid="go-stage-bid">
-                {money(lot.bid?.amount ?? OPENING_BID)}
-              </p>
-            )}
-          </div>
+          {line && <div className="max-w-[640px] text-left [&_p]:text-[28px]">{line}</div>}
         </div>
-      ) : (
-        <p className="text-6xl font-black">{STAGE_WORDS[g.stage]}</p>
-      )}
-    </div>
+      </Poster>
+    );
+  return (
+    <Poster testId="go-stage-plain" headline={STAGE_WORDS[g.stage]}>
+      {line && <div className="max-w-[1200px] [&_p]:text-[28px]">{line}</div>}
+    </Poster>
   );
 }
 

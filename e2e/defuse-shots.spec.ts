@@ -11,6 +11,7 @@ import {
   tv,
 } from './defuse-play.ts';
 import { test } from './fixtures.ts';
+import { auditTv } from './tv-audit.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/defuse-shots.spec.ts
@@ -160,6 +161,16 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const [ana, ben] = (await table(browser, ['Ana', 'Ben'], [desk, phone])) as [Page, Page];
     await flat([ana, ben]);
     const screen = await tv(browser, ana, desk, { width: 1920, height: 1080 });
+    const audit = async (name: string) => {
+      await screen.waitForTimeout(800);
+      await auditTv(
+        screen,
+        `defuse ${name} (${colorScheme} phones)`,
+        `${DIR}/tv-${colorScheme}-${name}.png`,
+      );
+    };
+    await expect(screen.getByTestId('stage-lobby')).toBeVisible();
+    await audit('lobby');
     await ana.getByTestId('start').click();
     await lightsOn(ana);
     await ben.getByTestId('index-password').click();
@@ -169,15 +180,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await ben.getByRole('button', { name: '◂ Index' }).click();
     await ben.getByTestId('index-wires').click();
     await ben.getByRole('button', { name: 'Claim' }).click();
-    await shot(screen, 'manual');
+    await audit('manual');
     await defuseAll(ana);
     await results(ana, 'Defused');
+    await expect(screen.getByTestId('stage-result')).toBeVisible();
+    await audit('result');
     await settings(ana);
     await ana.getByTestId('table-bomb').click();
     await ana.getByTestId('pick-Ana').click();
     await ana.getByTestId('next-bomb').click();
     await lightsOn(ana);
     await expect(screen.getByTestId('stage-bomb')).toBeVisible();
-    await shot(screen, 'bomb');
+    await audit('bomb');
   });
 }
