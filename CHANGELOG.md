@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.91.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.90.0...v0.91.0) (2026-11-06)
+
+
+### Features
+
+* **web:** back room door and lobby with game covers ([#530](https://github.com/thurahtetaung/virtual-tavern/issues/530)) ([48fed49](https://github.com/thurahtetaung/virtual-tavern/commit/48fed49e513a44ea837254b8ed109d9104e1173c))
+
+
+### Bug Fixes
+
+* **security:** guard prototype keys and sanitize phone SVG ([#528](https://github.com/thurahtetaung/virtual-tavern/issues/528)) ([715b41e](https://github.com/thurahtetaung/virtual-tavern/commit/715b41e6405807aeb48a26c4cb6b4225e0ee2bad))
+
 ## [0.90.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.89.0...v0.90.0) (2026-11-06)
 
 
