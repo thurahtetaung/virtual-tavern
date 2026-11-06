@@ -191,9 +191,11 @@ test('on a phone the header buttons are labelled, and an away host is announced'
   const hana = await player('Hana');
   await hana.getByRole('button', { name: 'Create an Echo room' }).click();
   await expect(hana).toHaveURL(/\/r\//);
-  for (const label of ['Invite', 'Players', 'Rules']) {
+  // Each is an icon over a word: Invite, how many are here, Rules.
+  for (const label of ['Invite', /^\d+ here$/, 'Rules']) {
     await expect(hana.getByRole('button').getByText(label, { exact: true })).toBeVisible();
   }
+  await expect(hana.getByRole('button', { name: /^Players \(/ })).toBeVisible();
   await hana.getByRole('button', { name: 'Invite friends' }).click();
   await expect(hana.getByRole('status').filter({ hasText: 'Link copied' })).toBeVisible();
 
@@ -244,21 +246,19 @@ test('on a touch phone toasts stay clear of the room header and tap bands stop a
   await invite.click();
   const toast = page.getByRole('status').filter({ hasText: "Couldn't copy the link" });
   await expect(toast).toBeVisible();
+  // In a room the site's title bar is hidden on phones, so the toast sits just under the room's
+  // own header, clear of its buttons.
   const toastBox = await toast.boundingBox();
-  const inviteBox = await invite.boundingBox();
-  expect(toastBox!.y + toastBox!.height).toBeLessThan(inviteBox!.y);
-  // Nor does it cover the title bar's buttons: the site title and the theme switch.
-  const themeBox = await page.getByRole('button', { name: /^Theme:/ }).boundingBox();
-  const titleBox = await page.getByRole('link', { name: /Virtual Tavern/ }).boundingBox();
-  expect(toastBox!.x + toastBox!.width).toBeLessThanOrEqual(themeBox!.x);
-  expect(toastBox!.x).toBeGreaterThanOrEqual(titleBox!.x + titleBox!.width);
+  const headerBox = await page.locator('[data-ui="room-header"]').boundingBox();
+  expect(toastBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height);
 
-  // The invisible touch band makes a small button 44 px tall, never more.
+  // The invisible touch band makes a small button 44 px tall, never more. The room's header
+  // buttons are 52 px already, so there the band only fills the button (inside its border).
   const band = (el: Element) => {
     const after = getComputedStyle(el, '::after');
     return { height: el.getBoundingClientRect().height, band: after.height };
   };
-  expect(await invite.evaluate(band)).toEqual({ height: 44, band: '44px' });
+  expect(await invite.evaluate(band)).toEqual({ height: 52, band: '50px' });
   await invite.evaluate((el: HTMLElement) => el.style.setProperty('min-height', '0'));
   expect(await invite.evaluate(band)).toEqual({ height: 32, band: '44px' });
 });

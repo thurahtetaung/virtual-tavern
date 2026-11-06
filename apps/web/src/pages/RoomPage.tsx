@@ -388,6 +388,8 @@ function Room({
     return () => window.removeEventListener('focus', reload);
   }, [game.id, wordListsVersion]);
 
+  const roomHeader = useToastsBelow();
+
   // The game reports when it's the viewer's move; the tab title says so, and phones buzz once.
   const [yourMove, setYourMove] = useState(false);
   const wasYourMove = useRef(false);
@@ -691,7 +693,11 @@ function Room({
     <Layout wide room>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
           icon over a one-word label). A long name takes a smaller size and up to two lines. */}
-      <div data-ui="room-header" className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
+      <div
+        ref={roomHeader}
+        data-ui="room-header"
+        className="mb-3 flex items-center justify-between gap-2 sm:mb-4"
+      >
         <h1
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
@@ -922,6 +928,36 @@ function Room({
       {confirmDialog}
     </Layout>
   );
+}
+
+/**
+ * On phones the site header (where toasts sit) is hidden in a room, so toasts sit just under the
+ * room's own header instead, clear of its buttons: the header tells the toast layer where its foot
+ * is, while the room is open.
+ */
+function useToastsBelow() {
+  // A callback ref: the header only appears once the room has loaded.
+  return useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const root = document.documentElement.style;
+    const place = () => {
+      root.setProperty(
+        '--vt-toast-top',
+        `${el.getBoundingClientRect().bottom + window.scrollY + 6}px`,
+      );
+      root.setProperty('--vt-toast-side', '1rem');
+    };
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(el);
+    window.addEventListener('resize', place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', place);
+      root.removeProperty('--vt-toast-top');
+      root.removeProperty('--vt-toast-side');
+    };
+  }, []);
 }
 
 /** Back-room games are the ones the public registry doesn't know. */

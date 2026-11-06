@@ -67,9 +67,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* On phones only the newest shows, at most three tight lines tall, in the site's title bar
-          between the site title and the theme button: there it covers neither of them nor the
-          room's Invite / Players / Rules row (y 81), which a second toast or a fourth line would. */}
-      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:items-end max-sm:pr-16 max-sm:pl-48 max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
+          between the site title and the theme button, where it covers neither. In a room, where
+          that bar is hidden on phones, the room sets --vt-toast-top / --vt-toast-side so it sits
+          just under the room's header instead, clear of its buttons. */}
+      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:top-[var(--vt-toast-top,0.375rem)] max-sm:items-end max-sm:pr-[var(--vt-toast-side,4rem)] max-sm:pl-[var(--vt-toast-side,12rem)] max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
         {toasts.map((t) => (
           <div
             key={t.id}
