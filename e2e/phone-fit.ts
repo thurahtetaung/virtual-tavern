@@ -20,8 +20,16 @@ function measure(page: Page) {
     const covered: string[] = [];
     for (const c of document.querySelectorAll('input, textarea, select, button')) {
       if (fixed(c) || c.closest('[role="dialog"]')) continue;
-      const r = c.getBoundingClientRect();
-      if (!r.width || !r.height) continue;
+      // What shows of it: clipped by any ancestor that scrolls inside (a dense panel on a phone).
+      const box = c.getBoundingClientRect();
+      const r = { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+      for (let n = c.parentElement; n; n = n.parentElement) {
+        if (!/auto|scroll|hidden/.test(getComputedStyle(n).overflowY)) continue;
+        const clip = n.getBoundingClientRect();
+        r.top = Math.max(r.top, clip.top);
+        r.bottom = Math.min(r.bottom, clip.bottom);
+      }
+      if (box.width <= 0 || r.bottom - r.top <= 0) continue;
       if (
         rects.some(
           (b) => r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom,
