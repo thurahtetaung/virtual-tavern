@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndTabs, NameDot, Panel, Superlatives, cn } from '@vt/ui';
+import { Button, EndTabs, NameDot, Panel, StickyBar, Superlatives, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { ROLES } from '../logic/roles.ts';
 import type { RoundTableView } from '../logic/types.ts';
@@ -34,18 +34,21 @@ export function End({
       <div
         className={cn(
           'rounded-xl px-4 py-3 text-center ring-1 max-lg:py-2',
-          good
-            ? 'bg-team-b-soft ring-team-b-line dark:bg-blue-500/10 dark:ring-blue-500/30'
-            : 'bg-team-a-soft ring-team-a-line dark:bg-red-500/10 dark:ring-red-500/30',
+          good ? 'bg-team-b-soft ring-team-b-line' : 'bg-team-a-soft ring-team-a-line',
         )}
         data-testid="winner"
       >
-        <p className={cn('text-2xl font-bold max-lg:text-xl', SIDE_TEXT[end.winner])}>
+        <p
+          className={cn(
+            'font-display text-title font-bold',
+            good ? 'text-team-b-ink' : 'text-team-a-ink',
+          )}
+        >
           {good ? '🛡️ Good wins' : '🗡️ Evil wins'}
         </p>
-        <p className="text-sm">{END_LINE[end.reason]}</p>
+        <p className="text-small">{END_LINE[end.reason]}</p>
         {end.assassin && end.target && (
-          <p className="mt-1 text-sm">
+          <p className="mt-1 text-small">
             {who(view, end.assassin, 'You')} {end.assassin === view.me?.id ? 'were' : 'was'} the
             Assassin{end.designated ? ' (standing in: no Assassin card)' : ''} and named{' '}
             <b>{who(view, end.target)}</b>
@@ -76,10 +79,10 @@ export function End({
                     return (
                       <li
                         key={p.id}
-                        className="flex items-center gap-2 rounded-xl bg-white p-2 ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
+                        className="flex items-center gap-2 rounded-xl bg-card p-2 ring-1 ring-line"
                       >
                         <Emblem role={r} className="size-10" />
-                        <span className="min-w-0 text-sm">
+                        <span className="min-w-0 text-small">
                           <span className="flex items-center gap-1 font-semibold">
                             <span className="truncate">{p.name}</span>
                             <NameDot name={p.name} className="order-first" />
@@ -91,7 +94,7 @@ export function End({
                             {def.name} · {SIDE_LABEL[def.loyalty]}
                           </span>
                           {saw.length > 0 && (
-                            <span className="block text-xs text-stone-600 dark:text-stone-400">
+                            <span className="block text-caption text-ink-muted">
                               Saw{' '}
                               {namesFor(
                                 view,
@@ -113,7 +116,7 @@ export function End({
             content: (
               <section aria-label="Lady of the Lake">
                 <h3 className="mb-1 font-bold">🌊 The Lady of the Lake</h3>
-                <ul className="text-sm">
+                <ul className="text-small">
                   {end.ladyChecks.map((c) => (
                     <li key={c.round}>
                       After quest {c.round}: {nameOf(view, c.holder)} saw {nameOf(view, c.target)}{' '}
@@ -133,18 +136,26 @@ export function End({
         ]}
       />
       {room.isHost ? (
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </div>
+        <StickyBar>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button size="lg" onClick={() => void act({ type: 'start' })}>
+              Play again
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => void act({ type: 'back-to-lobby' })}
+            >
+              Change setup
+            </Button>
+          </div>
+        </StickyBar>
       ) : (
-        <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
+        <p className="text-center text-small text-ink-2">
+          {waitingForHost(room, 'start the next game')}
+        </p>
       )}
-      <p className="text-center text-xs text-ink-muted">
+      <p className="text-center text-caption text-ink-muted">
         Play again keeps the same roles and options. The full history is on the History tab.
       </p>
     </Panel>

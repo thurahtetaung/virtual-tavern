@@ -1,12 +1,5 @@
-import {
-  Fragment,
-  type ReactNode,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { Fragment, type ReactNode, useId, useState, useSyncExternalStore } from 'react';
+import { useFitToScreen } from './fit-area.tsx';
 import { Tabs, tabPanelProps } from './tabs.tsx';
 
 /** Wider screens (Tailwind's `lg`) show the whole end screen at once, as they always have. */
@@ -23,41 +16,6 @@ const wide = () => typeof window !== 'undefined' && !!window.matchMedia?.(WIDE).
 /** Whether the screen is wide enough for a whole end screen (read at once, so nothing flashes). */
 export function useWideScreen(): boolean {
   return useSyncExternalStore(subscribe, wide, () => false);
-}
-
-/** The least a part keeps when the page is short: it then scrolls inside. */
-const MIN_PART_PX = 120;
-
-/**
- * Keeps the page within the screen: when it is taller, the part gets the height that fits (no
- * less than `MIN_PART_PX`) and scrolls inside, so a long replay or log never pushes Play again
- * and the room's buttons away. Measured again whenever the part or the page changes size.
- */
-function useFitToScreen(on: boolean, key: string) {
-  const box = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!on || !el) return;
-    const fit = () => {
-      el.style.maxHeight = '';
-      const over = document.documentElement.scrollHeight - window.innerHeight;
-      // Fractional heights round up in the page's height, so a pixel more comes off.
-      const fits = Math.floor(el.getBoundingClientRect().height - over - 1);
-      if (over > 0) el.style.maxHeight = `${Math.max(MIN_PART_PX, fits)}px`;
-    };
-    fit();
-    window.addEventListener('resize', fit);
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
-    if (inner.current) observer?.observe(inner.current);
-    observer?.observe(document.body);
-    return () => {
-      window.removeEventListener('resize', fit);
-      observer?.disconnect();
-      el.style.maxHeight = '';
-    };
-  }, [on, key]);
-  return { box, inner };
 }
 
 export interface EndTab {

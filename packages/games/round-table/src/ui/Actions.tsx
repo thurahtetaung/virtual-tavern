@@ -1,4 +1,4 @@
-import { Button, Modal, NameDot, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Modal, NameDot, Notice, Panel, StickyBar, cn } from '@vt/ui';
 import { useState } from 'react';
 import type { ActOptions } from '@vt/game-sdk';
 import type {
@@ -14,7 +14,10 @@ import { currentQuest, nameOf, namesFor, who } from './status.ts';
 
 export type Act = (a: RoundTableAction, options?: ActOptions) => Promise<boolean>;
 
-const BIG = 'h-14 w-full text-lg';
+const BIG = 'w-full';
+
+/** A panel whose action is the viewer's move: on phones its content moves into the sticky bar. */
+const MOVE_PANEL = 'max-sm:contents';
 
 export function RevealPanel({
   view,
@@ -30,13 +33,15 @@ export function RevealPanel({
   return (
     <div className="space-y-3">
       {ready ? (
-        <p className="text-center text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-center text-small text-ink-muted">
           ✓ Ready. The game starts once everyone has read their card.
         </p>
       ) : (
-        <Button size="lg" className={BIG} onClick={() => void act({ type: 'ready' })}>
-          I’ve seen my role
-        </Button>
+        <StickyBar fixed>
+          <Button size="lg" className={BIG} onClick={() => void act({ type: 'ready' })}>
+            I’ve seen my role
+          </Button>
+        </StickyBar>
       )}
       <RoleReveal view={view} showGuide={showGuide} />
     </div>
@@ -49,19 +54,22 @@ export function ProposePanel({ view, act }: { view: RoundTableView; act: Act }) 
   if (!q) return null;
   const mine = g.leader === view.me?.id && !!view.role;
   const full = g.draft.length === q.size;
+  const line = (
+    <p className="text-small">
+      <b>
+        {mine ? 'Your team' : `${nameOf(view, g.leader)}’s team`} for quest {q.number}:
+      </b>{' '}
+      {g.draft.length ? namesFor(view, g.draft) : 'nobody yet'}{' '}
+      <span className="text-ink-muted tabular-nums">
+        ({g.draft.length}/{q.size})
+      </span>
+    </p>
+  );
   return (
-    <Panel role="region" className="space-y-2" aria-label="Team">
-      <p className="text-sm">
-        <b>
-          {mine ? 'Your team' : `${nameOf(view, g.leader)}’s team`} for quest {q.number}:
-        </b>{' '}
-        {g.draft.length ? namesFor(view, g.draft) : 'nobody yet'}{' '}
-        <span className="text-ink-muted tabular-nums">
-          ({g.draft.length}/{q.size})
-        </span>
-      </p>
-      {mine && (
-        <>
+    <Panel role="region" className={cn('space-y-2', mine && MOVE_PANEL)} aria-label="Team">
+      {mine ? (
+        <StickyBar fixed refusal="propose" className="space-y-2">
+          {line}
           <Button
             size="lg"
             className={BIG}
@@ -70,8 +78,9 @@ export function ProposePanel({ view, act }: { view: RoundTableView; act: Act }) 
           >
             {full ? 'Announce this team' : `Tap ${q.size - g.draft.length} more`}
           </Button>
-          <RefusalSlot anchor="propose" />
-        </>
+        </StickyBar>
+      ) : (
+        line
       )}
     </Panel>
   );
@@ -85,14 +94,14 @@ export function DiscussPanel({ view, act }: { view: RoundTableView; act: Act }) 
   const mine = g.leader === view.me?.id && !!view.role;
   return (
     <Panel role="region" className="space-y-2" aria-label="Announced team">
-      <p className="text-sm">
+      <p className="text-small">
         <b>
           {mine ? 'Your team' : `${nameOf(view, g.leader)}’s team`} for quest {q.number}:
         </b>{' '}
         {namesFor(view, g.draft)}
       </p>
       {mine ? (
-        <>
+        <StickyBar fixed refusal="discuss" className="grid grid-cols-[3fr_2fr] gap-2">
           <Button
             size="lg"
             className={BIG}
@@ -101,16 +110,16 @@ export function DiscussPanel({ view, act }: { view: RoundTableView; act: Act }) 
             Call the vote
           </Button>
           <Button
-            variant="ghost"
-            className="w-full"
+            variant="secondary"
+            size="lg"
+            className="w-full px-3"
             onClick={() => void act({ type: 'edit-team' }, { anchor: 'discuss' })}
           >
             Change the team
           </Button>
-          <RefusalSlot anchor="discuss" />
-        </>
+        </StickyBar>
       ) : (
-        <p className="text-xs text-ink-muted">
+        <p className="text-caption text-ink-muted">
           Talk it over. The vote opens when the leader calls it.
         </p>
       )}
@@ -124,12 +133,12 @@ export function VotePanel({ view, act }: { view: RoundTableView; act: Act }) {
   const choice = (approve: boolean) => (
     <Button
       size="lg"
-      variant={approve ? 'blue' : 'red'}
+      variant={approve ? 'team-b' : 'team-a'}
       aria-pressed={vote.myVote === approve}
       className={cn(
         BIG,
         vote.myVote !== null && vote.myVote !== approve && 'opacity-40',
-        vote.myVote === approve && 'ring-4 ring-accent dark:ring-amber-400',
+        vote.myVote === approve && 'ring-[3px] ring-accent ring-offset-2 ring-offset-panel',
       )}
       onClick={() => void act({ type: 'vote', approve })}
     >
@@ -139,20 +148,22 @@ export function VotePanel({ view, act }: { view: RoundTableView; act: Act }) {
   );
   return (
     <Panel role="region" className="space-y-2" aria-label="Vote">
-      <p className="text-sm">
+      <p className="text-small">
         <b>
           {who(view, vote.leader, 'Your')}
           {vote.leader === view.me?.id ? '' : '’s'} team for quest {vote.slot + 1}:
         </b>{' '}
         {namesFor(view, vote.team)}
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        {choice(true)}
-        {choice(false)}
-      </div>
-      <p className="text-xs text-ink-muted">
-        Secret until everyone has voted. A tie is a rejection.
-      </p>
+      <StickyBar fixed className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-2">
+          {choice(true)}
+          {choice(false)}
+        </div>
+        <p className="text-caption text-ink-muted">
+          Secret until everyone has voted. A tie is a rejection.
+        </p>
+      </StickyBar>
     </Panel>
   );
 }
@@ -166,23 +177,27 @@ export function QuestPanel({ view, act }: { view: RoundTableView; act: Act }) {
   if (!role || !me || !quest.team.includes(me)) return null;
   if (quest.myCard)
     return (
-      <Panel className="text-center text-sm">
-        You played <b>{quest.myCard === 'success' ? 'Success' : 'Fail'}</b>. Only you know.
+      <Panel className={cn('text-center text-small', MOVE_PANEL)}>
+        <StickyBar fixed>
+          <p className="text-center text-small">
+            You played <b>{quest.myCard === 'success' ? 'Success' : 'Fail'}</b>. Only you know.
+          </p>
+        </StickyBar>
       </Panel>
     );
   return (
     <Panel role="region" className="space-y-2" aria-label="Your quest card">
-      <p className="text-sm font-semibold">Play your card in secret:</p>
+      <p className="text-small font-semibold">Play your card in secret:</p>
       {/* Everyone gets the same two buttons, so a glance at a phone doesn't give a side away. A loyal
           player's Fail looks the same but does nothing (aria-disabled keeps it focusable). */}
-      <div className="grid grid-cols-2 gap-2">
+      <StickyBar fixed className="grid grid-cols-2 gap-2">
         {QUEST_CARDS.map((card) => {
           const allowed = role.cards.includes(card);
           return (
             <Button
               key={card}
               size="lg"
-              variant={card === 'success' ? 'blue' : 'red'}
+              variant={card === 'success' ? 'team-b' : 'team-a'}
               className={BIG}
               aria-disabled={allowed ? undefined : true}
               onClick={() => allowed && void act({ type: 'play', card })}
@@ -191,7 +206,7 @@ export function QuestPanel({ view, act }: { view: RoundTableView; act: Act }) {
             </Button>
           );
         })}
-      </div>
+      </StickyBar>
     </Panel>
   );
 }
@@ -210,16 +225,19 @@ export function LadyPanel({
   if (lady.holder !== view.me?.id) return null;
   return (
     <Panel role="region" className="space-y-2" aria-label="Lady of the Lake">
-      <p className="text-sm">Tap a player above. People who have held the Lady can’t be checked.</p>
-      <Button
-        size="lg"
-        className={BIG}
-        disabled={!target}
-        onClick={() => target && void act({ type: 'lady', target }, { anchor: 'lady' })}
-      >
-        {target ? `Check ${nameOf(view, target)}’s loyalty` : 'Pick someone to check'}
-      </Button>
-      <RefusalSlot anchor="lady" />
+      <p className="text-small">
+        Tap a player above. People who have held the Lady can’t be checked.
+      </p>
+      <StickyBar fixed refusal="lady">
+        <Button
+          size="lg"
+          className={BIG}
+          disabled={!target}
+          onClick={() => target && void act({ type: 'lady', target }, { anchor: 'lady' })}
+        >
+          {target ? `Check ${nameOf(view, target)}’s loyalty` : 'Pick someone to check'}
+        </Button>
+      </StickyBar>
     </Panel>
   );
 }
@@ -233,7 +251,7 @@ export function LadyResult({ view, shown }: { view: RoundTableView; shown: boole
     return (
       <p
         role="status"
-        className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-sm ring-1 ring-team-b-line dark:bg-sky-500/10 dark:ring-sky-500/30"
+        className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-small ring-1 ring-team-b-line"
         data-testid="lady-result"
       >
         🌊 Your Lady of the Lake check is in: hold or Show “What you know” above the seats to read
@@ -243,7 +261,7 @@ export function LadyResult({ view, shown }: { view: RoundTableView; shown: boole
   return (
     <p
       role="status"
-      className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-sm ring-1 ring-team-b-line dark:bg-sky-500/10 dark:ring-sky-500/30"
+      className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-small ring-1 ring-team-b-line"
       data-testid="lady-result"
     >
       🌊 The Lady shows you: <b>{nameOf(view, last.target)}</b> is{' '}
@@ -268,27 +286,29 @@ export function AssassinPanel({
   const name = target ? nameOf(view, target) : '';
   return (
     <Panel role="region" className="space-y-2" aria-label="Assassination">
-      <p className="text-sm">Tap the player you think is Merlin. You get one guess.</p>
-      <Button
-        size="lg"
-        variant="red"
-        className={BIG}
-        disabled={!target}
-        onClick={() => setConfirming(true)}
-      >
-        {target ? `Name ${name} as Merlin` : 'Pick who is Merlin'}
-      </Button>
+      <p className="text-small">Tap the player you think is Merlin. You get one guess.</p>
+      <StickyBar fixed>
+        <Button
+          size="lg"
+          variant="danger"
+          className={BIG}
+          disabled={!target}
+          onClick={() => setConfirming(true)}
+        >
+          {target ? `Name ${name} as Merlin` : 'Pick who is Merlin'}
+        </Button>
+      </StickyBar>
       <Modal
         open={confirming}
         onClose={() => setConfirming(false)}
         title="Name Merlin?"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirming(false)}>
+            <Button variant="quiet" onClick={() => setConfirming(false)}>
               Not yet
             </Button>
             <Button
-              variant="red"
+              variant="danger"
               onClick={() => {
                 setConfirming(false);
                 if (target) void act({ type: 'assassinate', target });
@@ -314,10 +334,10 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
   const no = ids.filter((id) => !proposal.votes[id]);
   const column = (title: string, list: string[], cls: string) => (
     <div>
-      <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
+      <p className="text-caption font-bold tracking-wide text-ink-muted uppercase">
         {title} ({list.length})
       </p>
-      <ul className={cn('flex flex-wrap justify-center gap-x-2 text-sm font-semibold', cls)}>
+      <ul className={cn('flex flex-wrap justify-center gap-x-2 text-small font-semibold', cls)}>
         {list.map((id) => (
           <li key={id} className="inline-flex items-center gap-1">
             {who(view, id, 'You')}
@@ -340,11 +360,11 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
         </span>
       </p>
       <div className="grid grid-cols-2 gap-2 text-center">
-        {column('For', yes, 'text-blue-700 dark:text-blue-300')}
-        {column('Against', no, 'text-red-700 dark:text-red-300')}
+        {column('For', yes, 'text-team-b-ink')}
+        {column('Against', no, 'text-team-a-ink')}
       </div>
       {proposal.autoVoteCount > 0 && (
-        <p className="text-center text-xs text-ink-muted">
+        <p className="text-center text-caption text-ink-muted">
           {proposal.autoVotes
             ? '⏱ voted Approve for them (timer or host)'
             : `⏱ ${proposal.autoVoteCount === 1 ? '1 Approve was' : `${proposal.autoVoteCount} Approves were`} cast by the timer or host`}
@@ -363,8 +383,8 @@ export function QuestResultBanner({ result }: { result: QuestResultView }) {
       className={cn(
         'rounded-xl px-3 py-2 text-center font-semibold ring-1',
         result.success
-          ? 'bg-team-b-soft text-blue-900 ring-team-b-line dark:bg-blue-500/10 dark:text-blue-100 dark:ring-blue-500/30'
-          : 'bg-team-a-soft text-red-900 ring-team-a-line dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30',
+          ? 'bg-success-soft text-success-ink ring-success-line'
+          : 'bg-danger-soft text-danger-ink ring-danger-line',
       )}
     >
       Quest {result.slot + 1} {result.success ? 'succeeded' : 'was sunk'}: {result.fails} Fail{' '}
@@ -395,16 +415,14 @@ export function LatestNews({ view }: { view: RoundTableView }) {
 /** A dismissible first-time tip. */
 export function Tip({ children, onDismiss }: { children: string; onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-violet-950 ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
-      <span aria-hidden>💡</span>
-      <span className="flex-1">{children}</span>
-      <button
-        type="button"
-        className="-my-2.5 inline-flex min-h-11 shrink-0 items-center px-2 font-semibold underline"
-        onClick={onDismiss}
-      >
-        Got it
-      </button>
-    </div>
+    <Notice tone="info" dense>
+      <span className="flex items-start gap-2">
+        <span aria-hidden>💡</span>
+        <span className="flex-1">{children}</span>
+        <Button variant="quiet" size="sm" className="-my-2 shrink-0" onClick={onDismiss}>
+          Got it
+        </Button>
+      </span>
+    </Notice>
   );
 }

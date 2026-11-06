@@ -1,5 +1,5 @@
 import { listNames } from '@vt/game-sdk';
-import { cn } from '@vt/ui';
+import { Row, Rows, cn } from '@vt/ui';
 import type { RoundTableView } from '../logic/types.ts';
 import { SIDE_LABEL, SIDE_TEXT } from './Emblem.tsx';
 import { nameOf, namesFor, who } from './status.ts';
@@ -23,12 +23,12 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
     <section aria-label="History" className="space-y-3">
       <h3 className="font-bold">📜 History</h3>
       {rounds.length === 0 && (
-        <p className="text-sm text-ink-muted">
+        <p className="text-small text-ink-muted">
           Nothing yet. Every team, every vote and every quest result will be listed here.
         </p>
       )}
       {anyAuto && (
-        <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="history-auto-note">
+        <p className="text-caption text-ink-muted" data-testid="history-auto-note">
           ⏱ The timer or the host played for them: an Approve vote, or a Success card on a quest.
         </p>
       )}
@@ -36,23 +36,20 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
         const result = g.results.find((r) => r.round === round);
         const checks = (end?.ladyChecks ?? g.lady?.checks ?? []).filter((c) => c.round === round);
         return (
-          <div
-            key={round}
-            className="space-y-1.5 rounded-xl bg-white/80 p-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
-          >
-            <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
+          <div key={round} className="space-y-1.5 rounded-xl bg-card p-3 ring-1 ring-line">
+            <p className="text-caption font-bold tracking-wide text-ink-muted uppercase">
               Round {round}
             </p>
             {result && (
               <p
                 className={cn(
-                  'text-sm font-semibold',
+                  'text-small font-semibold',
                   result.success ? SIDE_TEXT.good : SIDE_TEXT.evil,
                 )}
               >
                 Quest {result.slot + 1} {result.success ? '✓ succeeded' : '✕ sunk'} · {result.fails}{' '}
                 Fail {result.fails === 1 ? 'card' : 'cards'}
-                <span className="font-normal text-stone-600 dark:text-stone-400">
+                <span className="font-normal text-ink-muted">
                   {' '}
                   · {marked(view, result.team, result.autoPlayed)}
                 </span>
@@ -66,7 +63,7 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
                 shown && g.lady?.mine.find((m) => m.round === c.round && c.holder === view.me?.id);
               const side = loyalty ?? (mine ? mine.loyalty : null);
               return (
-                <p key={`lady-${c.round}`} className="text-sm">
+                <p key={`lady-${c.round}`} className="text-small">
                   🌊 {who(view, c.holder, 'You')} checked {who(view, c.target)}
                   {side && (
                     <>
@@ -76,7 +73,7 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
                 </p>
               );
             })}
-            <ol className="space-y-1">
+            <Rows>
               {g.proposals
                 .filter((p) => p.round === round)
                 .reverse()
@@ -85,7 +82,7 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
                   const yes = ids.filter((id) => p.votes[id]);
                   const no = ids.filter((id) => !p.votes[id]);
                   return (
-                    <li key={p.attempt} className="text-sm">
+                    <Row key={p.attempt} className="block min-h-0 py-1.5 text-smallall">
                       <span className="font-semibold">
                         #{p.attempt} {nameOf(view, p.leader)} 👑 → quest {p.slot + 1}:
                       </span>{' '}
@@ -98,14 +95,14 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
                       >
                         {p.approved ? 'approved' : 'rejected'}
                       </span>
-                      <span className="block text-xs text-stone-600 dark:text-stone-400">
+                      <span className="block text-caption text-ink-muted">
                         For: {yes.length ? marked(view, yes, p.autoVotes) : 'nobody'} · Against:{' '}
                         {no.length ? namesFor(view, no) : 'nobody'}
                       </span>
-                    </li>
+                    </Row>
                   );
                 })}
-            </ol>
+            </Rows>
           </div>
         );
       })}

@@ -11,14 +11,20 @@ type Act = (a: RoundTableAction) => Promise<boolean>;
 export function QuestTrack({
   view,
   onPick,
+  compact = false,
 }: {
   view: RoundTableView;
   /** Targeting: the leader taps a quest to attempt it. */
   onPick?: (slot: number) => void;
+  /** Phones in play: one 44 px strip, the vote marks beside it. */
+  compact?: boolean;
 }) {
   const g = view.game!;
   return (
-    <ol aria-label="Quests" className="grid grid-cols-5 gap-1.5 sm:gap-3">
+    <ol
+      aria-label="Quests"
+      className={cn('grid grid-cols-5', compact ? 'min-w-0 flex-1 gap-1' : 'gap-1.5 sm:gap-3')}
+    >
       {g.quests.map((q, slot) => {
         const result = g.results.find((r) => r.slot === slot);
         const current = g.slot === slot && !result && view.phase === 'playing';
@@ -30,16 +36,14 @@ export function QuestTrack({
           <>
             <span
               className={cn(
-                'flex aspect-square w-full max-w-16 items-center justify-center rounded-full text-lg font-bold ring-2 sm:text-xl',
-                result?.success &&
-                  'bg-team-b text-white ring-team-b dark:ring-blue-700 dark:bg-blue-600',
-                result &&
-                  !result.success &&
-                  'bg-team-a text-white ring-team-a dark:ring-red-700 dark:bg-red-600',
+                'flex items-center justify-center rounded-full font-bold ring-2',
+                compact ? 'size-8 text-small' : 'aspect-square w-full max-w-16 text-lg sm:text-xl',
+                result?.success && 'bg-team-b text-on-fill ring-team-b',
+                result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
                   (current
-                    ? 'bg-accent-soft text-amber-950 ring-4 ring-accent dark:ring-amber-500 dark:bg-amber-500/20 dark:text-amber-100'
-                    : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-900 dark:text-stone-200 dark:ring-stone-700'),
+                    ? 'bg-accent-soft text-accent-text ring-[3px] ring-accent'
+                    : 'bg-card text-ink-2 ring-line-strong'),
                 locked && 'opacity-50',
               )}
             >
@@ -49,7 +53,12 @@ export function QuestTrack({
                   : `✕${result.fails > 1 ? result.fails : ''}`
                 : q.size}
             </span>
-            <span className="text-[0.65rem] leading-tight text-stone-600 sm:text-xs dark:text-stone-400">
+            <span
+              className={cn(
+                'text-caption text-ink-muted',
+                compact ? 'leading-none whitespace-nowrap' : 'leading-tight',
+              )}
+            >
               {locked ? '🔒 later' : q.failsNeeded > 1 ? '2 fails' : `Quest ${slot + 1}`}
             </span>
           </>
@@ -83,11 +92,14 @@ export function QuestTrack({
 }
 
 /** Rejected teams in a row this round: five, and Evil wins. */
-export function VoteTrack({ view }: { view: RoundTableView }) {
+export function VoteTrack({ view, compact = false }: { view: RoundTableView; compact?: boolean }) {
   const n = view.game!.rejections;
   return (
     <div
-      className="flex items-center justify-center gap-2 text-xs text-stone-600 dark:text-stone-400"
+      className={cn(
+        'flex items-center justify-center text-caption text-ink-muted',
+        compact ? 'shrink-0 flex-col gap-1 leading-none' : 'gap-2',
+      )}
       aria-label={`${n} of ${MAX_REJECTIONS} teams rejected in a row`}
       role="img"
     >
@@ -97,17 +109,18 @@ export function VoteTrack({ view }: { view: RoundTableView }) {
           <span
             key={i}
             className={cn(
-              'size-3 rounded-full ring-1',
+              compact ? 'size-2.5 rounded-full ring-1' : 'size-3 rounded-full ring-1',
               i < n
-                ? 'bg-team-a dark:bg-red-500 ring-team-a dark:ring-red-600'
+                ? 'bg-team-a ring-team-a'
                 : i === MAX_REJECTIONS - 1
-                  ? 'bg-team-a-soft ring-team-a dark:ring-red-400 dark:bg-red-950'
-                  : 'bg-stone-200 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700',
+                  ? 'bg-team-a-soft ring-team-a'
+                  : 'bg-sunk ring-line-strong',
             )}
           />
         ))}
       </span>
-      <span>5th rejection: Evil wins</span>
+      {/* Phones: the strip has no room; the label above says what the marks count. */}
+      {!compact && <span>5th rejection: Evil wins</span>}
     </div>
   );
 }
@@ -200,21 +213,21 @@ export function Seats({
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
                 selected
-                  ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
+                  ? 'bg-accent-soft ring-[3px] ring-accent ring-offset-2 ring-offset-page'
                   : waiting.includes(p.id)
-                    ? 'bg-white ring-2 ring-team-b dark:bg-stone-900 dark:ring-sky-500'
-                    : 'bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
-                selectable && !selected && 'hover:bg-stone-50 dark:hover:bg-stone-800',
+                    ? 'bg-card ring-2 ring-team-b'
+                    : 'bg-card ring-1 ring-line',
+                selectable && !selected && 'hover:bg-panel',
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
                   <span
                     className={cn(
-                      'text-xs font-normal text-ink-muted',
+                      'text-caption font-normal text-ink-muted',
                       compact && 'hidden sm:inline',
                     )}
                   >
@@ -242,30 +255,28 @@ export function Seats({
                     role="img"
                     title="Holds the Lady of the Lake"
                     aria-label="holds the Lady"
-                    className="text-sky-600 dark:text-sky-400"
+                    className="text-team-b-ink"
                   >
                     <LadyMark className="size-4" />
                   </span>
                 )}
               </span>
-              <span className="flex flex-wrap items-center gap-1 text-[0.7rem] leading-tight">
+              <span className="flex flex-wrap items-center gap-1 text-caption leading-tight">
                 {me && compact && <span className="text-ink-muted sm:hidden">you</span>}
                 {k === 'evil' && (
-                  <span className="rounded-full bg-team-a dark:bg-red-600 px-1.5 font-bold text-white">
-                    Evil
-                  </span>
+                  <span className="rounded-full bg-team-a px-1.5 font-bold text-on-fill">Evil</span>
                 )}
                 {k === 'magic' && (
-                  <span className="rounded-full bg-special dark:bg-violet-600 px-1.5 font-bold text-white">
+                  <span className="rounded-full bg-special px-1.5 font-bold text-on-fill">
                     {magic}
                   </span>
                 )}
                 {onTeam && view.stage !== 'propose' && (
-                  <span className="rounded-full bg-accent-soft dark:bg-amber-200 px-1.5 font-semibold text-amber-950">
+                  <span className="rounded-full bg-accent-soft px-1.5 font-semibold text-accent-text">
                     on team
                   </span>
                 )}
-                {state && <span className="text-emerald-700 dark:text-emerald-400">{state}</span>}
+                {state && <span className="text-success-ink">{state}</span>}
                 {p.left ? (
                   <span className="text-ink-muted">left · auto-played</span>
                 ) : (
@@ -287,11 +298,10 @@ export function Seats({
                 aria-hidden
                 className={cn(
                   'flex items-center justify-center rounded-full ring-1',
-                  compact ? 'size-5 text-xs sm:size-6 sm:text-sm' : 'size-6 text-sm',
-                  mark === 'trust' &&
-                    'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
-                  mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
-                  !mark && 'text-ink-muted ring-stone-300 dark:ring-stone-600',
+                  compact ? 'size-5 text-caption sm:size-6 sm:text-small' : 'size-6 text-small',
+                  mark === 'trust' && 'bg-accent-soft text-accent-text ring-accent',
+                  mark === 'doubt' && 'bg-ink text-page ring-ink',
+                  !mark && 'text-ink-muted ring-line-strong',
                 )}
               >
                 {mark === 'trust' ? '⭐' : mark === 'doubt' ? '✕' : '☆'}
@@ -319,25 +329,25 @@ export function WaitingChips({
   if (!ids.length || view.phase !== 'playing') return null;
   const g = view.game!;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="waiting-on">
+    <div className="flex flex-wrap items-center gap-1.5 text-caption" data-testid="waiting-on">
       {confirmDialog}
-      <span className="font-semibold text-stone-600 dark:text-stone-400">Waiting on:</span>
+      <span className="font-semibold text-ink-muted">Waiting on:</span>
       {ids.map((id) => {
         const online = room.players.find((p) => p.id === id)?.connected ?? false;
         const left = g.players.find((p) => p.id === id)?.left;
         return (
           <span
             key={id}
-            className="inline-flex items-center gap-1 rounded-full bg-team-b-soft px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100"
+            className="inline-flex items-center gap-1 rounded-full bg-team-b-soft px-2 py-0.5 font-semibold text-team-b-ink"
           >
             {id === view.me?.id ? 'you' : nameOf(view, id)}
             <NameDot name={nameOf(view, id)} className="order-first" />
             {!online && !left && <span className="font-normal opacity-70">(offline)</span>}
             {room.isHost && !online && !left && (
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="sm"
-                className="h-6 px-1.5 text-xs"
+                className="h-6 px-1.5 text-caption"
                 onClick={() =>
                   void (async () => {
                     if (

@@ -1,4 +1,4 @@
-import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Input, Panel, Row, Rows, StickyBar, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { KEYWORD_COUNT, MAX_NOTE_LENGTH } from '../logic/types.ts';
@@ -35,7 +35,7 @@ function ShowdownForm({ view, team, act }: { view: EnigmaView; team: Team; act: 
             <span className={cn('w-6 text-right font-bold tabular-nums', TEAM_TEXT[them])}>
               {i + 1}
             </span>
-            <input
+            <Input
               value={g}
               maxLength={MAX_NOTE_LENGTH}
               aria-label={`Final guess for ${TEAM_LABEL[them]} keyword ${i + 1}`}
@@ -43,19 +43,19 @@ function ShowdownForm({ view, team, act }: { view: EnigmaView; team: Team; act: 
                 setGuesses((all) => all.map((x, j) => (j === i ? e.target.value : x)))
               }
               placeholder="Leave blank to skip"
-              className="block w-full min-w-0 rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
             />
           </label>
         ))}
       </div>
-      <p className="text-xs text-stone-600 dark:text-stone-400">
+      <p className="text-caption text-ink-muted">
         Agree in the team chat first: one press hands these in for the whole team, and they can’t be
         changed after.
       </p>
-      <Button type="submit" size="lg" className="w-full" disabled={busy}>
-        Hand in our guesses
-      </Button>
-      <RefusalSlot anchor={ANCHOR} />
+      <StickyBar fixed refusal={ANCHOR}>
+        <Button type="submit" size="lg" className="w-full" disabled={busy}>
+          Hand in our guesses
+        </Button>
+      </StickyBar>
     </form>
   );
 }
@@ -69,27 +69,27 @@ function GuessList({ view, team }: { view: EnigmaView; team: Team }) {
   if (!guesses) return null;
   return (
     <div className="space-y-1">
-      <p className="text-sm">
+      <p className="text-small">
         <b className={TEAM_TEXT[team]}>{TEAM_LABEL[team]}</b>’s guesses at {TEAM_LABEL[other(team)]}
         ’s keywords
         {by ? ` (handed in by ${by})` : ' (from the team’s notes)'}
         {right ? `: ${right.filter(Boolean).length} right` : ''}
       </p>
-      <ol className="flex flex-wrap justify-center gap-1.5">
+      <Rows className="text-small">
         {guesses.map((g, i) => (
-          <li
+          <Row
             key={i}
             className={cn(
-              'rounded-lg px-2 py-1 text-sm ring-1 ring-stone-200 dark:ring-stone-700',
-              right?.[i] && 'bg-success-soft dark:bg-emerald-900',
+              'min-h-9 gap-2 rounded-lg px-2 py-1',
+              right?.[i] && 'bg-success-soft text-success-ink',
             )}
           >
-            <span className="mr-1 text-ink-muted tabular-nums">{i + 1}</span>
-            <span className="font-bold uppercase">{g || '—'}</span>
-            {right && <span className="ml-1">{right[i] ? '✓' : '✗'}</span>}
-          </li>
+            <span className="text-ink-muted tabular-nums">{i + 1}</span>
+            <span className="min-w-0 flex-1 font-bold uppercase">{g || '—'}</span>
+            {right && <span>{right[i] ? '✓' : '✗'}</span>}
+          </Row>
         ))}
-      </ol>
+      </Rows>
     </div>
   );
 }
@@ -110,8 +110,8 @@ export function ShowdownPanel({ view, act }: { view: EnigmaView; act: Act }) {
   }
   return (
     <Panel className="space-y-3">
-      <h3 className="text-center text-lg font-bold">🤝 Showdown</h3>
-      <p className="text-center text-sm">
+      <h3 className="text-center text-sub font-bold">🤝 Showdown</h3>
+      <p className="text-center text-small">
         The score is level. Each team names the other team’s four keywords, one per number: the team
         with more right wins, and the same number right is a shared win.
       </p>
@@ -120,7 +120,7 @@ export function ShowdownPanel({ view, act }: { view: EnigmaView; act: Act }) {
       ) : (
         team && <GuessList view={view} team={team} />
       )}
-      <ul className="flex justify-center gap-4 text-sm">
+      <ul className="flex justify-center gap-4 text-small">
         {(['red', 'blue'] as const).map((t) => (
           <li key={t}>
             <b className={TEAM_TEXT[t]}>{TEAM_LABEL[t]}</b>:{' '}

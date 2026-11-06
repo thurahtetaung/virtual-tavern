@@ -2,13 +2,17 @@ import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  FitArea,
   Hint,
+  TabBar,
+  type TabBarItem,
   cn,
+  tabPanelProps,
   useSpectatorPrompt,
   useAbandonGame,
   useWideScreen,
 } from '@vt/ui';
-import { useEffect, useState } from 'react';
+import { cloneElement, useEffect, useState } from 'react';
 import type { RoundTableAction, RoundTableView, Stage } from '../logic/types.ts';
 import {
   AssassinPanel,
@@ -47,12 +51,10 @@ const CLOCK: Partial<Record<Stage, { label: string; atZero: string }>> = {
 export function TopBar({
   view,
   room,
-  yourMove,
   onRole,
 }: {
   view: RoundTableView;
   room: GameRoomInfo;
-  yourMove: boolean;
   onRole: () => void;
 }) {
   const g = view.game!;
@@ -60,13 +62,9 @@ export function TopBar({
   const strict = view.settings.timerMode === 'strict';
   return (
     <div className="flex items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-400">
+      <div className="flex min-w-0 items-center gap-2 text-small font-semibold text-ink-muted">
         <span>{view.phase === 'over' ? 'Game over' : `Round ${g.round}`}</span>
-        {yourMove && (
-          <span className="animate-pulse rounded-full bg-accent dark:bg-amber-500 px-2 py-0.5 text-xs font-bold text-white dark:text-stone-950 motion-reduce:animate-none">
-            Your turn
-          </span>
-        )}
+        {/* No "Your turn" pill: the status line says it. */}
         {view.role && (
           <Button variant="secondary" size="sm" onClick={onRole} className="min-h-11 gap-1">
             <span aria-hidden>🎭</span>
@@ -86,34 +84,11 @@ export function TopBar({
   );
 }
 
-function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  const items: { id: Tab; icon: string; label: string }[] = [
-    { id: 'table', icon: '🏰', label: 'Table' },
-    { id: 'history', icon: '📜', label: 'History' },
-  ];
-  return (
-    <nav
-      aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-2 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
-    >
-      {items.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          aria-current={tab === it.id ? 'page' : undefined}
-          onClick={() => onChange(it.id)}
-          className={cn(
-            'flex flex-col items-center gap-0.5 py-2 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
-          )}
-        >
-          <span className="text-lg leading-none">{it.icon}</span>
-          {it.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
+const TABS_ID = 'round-table-play';
+const TAB_ITEMS: readonly TabBarItem<Tab>[] = [
+  { id: 'table', label: 'Table', icon: 'castle' },
+  { id: 'history', label: 'History', icon: 'scroll-text' },
+];
 
 /** The first-time tip for this moment, if the viewer hasn't dismissed it. */
 export function tipFor(
@@ -208,7 +183,13 @@ export function RoundTableGame({
   const g = view.game!;
   const me = view.me?.id;
   const q = currentQuest(view);
-  const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
+  // Seated players on phones and tablets see one tab at a time; watchers and wide screens see
+  // everything at once.
+  const tabbed = !wide && !!view.role;
+  const panel = (t: Tab) => ({
+    className: tabbed && tab !== t ? 'hidden' : undefined,
+    ...(tabbed && tab === t ? tabPanelProps(TABS_ID, t) : {}),
+  });
 
   let pick: SeatPick | null = null;
   if (view.stage === 'propose' && g.leader === me && view.role && q) {
@@ -254,43 +235,73 @@ export function RoundTableGame({
   const phoneEnd = view.phase === 'over' && !wide;
 
   return (
-    <div className="space-y-3 pb-20 lg:pb-0">
-      <TopBar view={view} room={room} yourMove={yourMove} onRole={() => setRoleOpen(true)} />
+    <div className="space-y-3">
+      <TopBar view={view} room={room} onRole={() => setRoleOpen(true)} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className={cn('min-w-0 space-y-3', onTab('table'))}>
-          {stage !== 'reveal' && !phoneEnd && quests}
-          {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {tip && <Tip onDismiss={() => dismiss(tip[0])}>{tip[1]}</Tip>}
-          {view.phase === 'over' && (
-            <End view={view} room={room} act={act} quests={phoneEnd ? quests : null} />
-          )}
-          {view.phase === 'playing' && (
+        <div {...panel('table')} className={cn('min-w-0 space-y-3', panel('table').className)}>
+          {tabbed && view.phase === 'playing' && stage !== 'reveal' ? (
+            // Phones in play: the quests and the rejected teams share one 44 px strip.
+            <div className="flex items-center gap-3">
+              {cloneElement(quests, { compact: true })}
+              <VoteTrack view={view} compact />
+            </div>
+          ) : (
             <>
-              <LatestNews view={view} />
-              <LadyResult view={view} shown={known} />
-              {stage === 'reveal' && <RevealPanel view={view} act={act} showGuide={showGuide} />}
-              {stage === 'vote' && <VotePanel view={view} act={act} />}
-              {stage === 'quest' && <QuestPanel view={view} act={act} />}
-              <WaitingChips view={view} room={room} act={act} />
-              {stage !== 'reveal' && view.role && (
-                <KnowledgePeek key={`${view.table}.${view.gamesPlayed}`} onShownChange={setKnown} />
-              )}
-              {stage !== 'reveal' && seats}
-              <div className="sticky bottom-[4.5rem] z-10 rounded-2xl bg-stone-100 shadow-lg empty:hidden lg:static lg:shadow-none dark:bg-stone-950">
+              {stage !== 'reveal' && !phoneEnd && quests}
+              {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
+            </>
+          )}
+          <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
+            {status.text}
+          </Hint>
+          <FitArea
+            on={tabbed && view.phase === 'playing' && tab === 'table'}
+            resetKey={stageKey}
+            className="space-y-3"
+          >
+            {tip && <Tip onDismiss={() => dismiss(tip[0])}>{tip[1]}</Tip>}
+            {view.phase === 'over' && (
+              <End view={view} room={room} act={act} quests={phoneEnd ? quests : null} />
+            )}
+            {view.phase === 'playing' && (
+              <>
+                <LatestNews view={view} />
+                <LadyResult view={view} shown={known} />
+                {stage === 'reveal' && <RevealPanel view={view} act={act} showGuide={showGuide} />}
+                {stage === 'vote' && <VotePanel view={view} act={act} />}
+                {stage === 'quest' && <QuestPanel view={view} act={act} />}
+                <WaitingChips view={view} room={room} act={act} />
+                {stage !== 'reveal' && view.role && (
+                  <KnowledgePeek
+                    key={`${view.table}.${view.gamesPlayed}`}
+                    onShownChange={setKnown}
+                  />
+                )}
+                {stage !== 'reveal' && seats}
                 {stage === 'propose' && <ProposePanel view={view} act={act} />}
                 {stage === 'discuss' && <DiscussPanel view={view} act={act} />}
                 {stage === 'lady' && <LadyPanel view={view} act={act} target={target} />}
                 {stage === 'assassinate' && <AssassinPanel view={view} act={act} target={target} />}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </FitArea>
         </div>
-        <div className={cn('min-w-0', onTab('history'))}>
-          <History view={view} shown={known || view.phase === 'over'} />
+        <div {...panel('history')} className={cn('min-w-0', panel('history').className)}>
+          <FitArea on={tabbed && view.phase === 'playing' && tab === 'history'} resetKey={stageKey}>
+            <History view={view} shown={known || view.phase === 'over'} />
+          </FitArea>
         </div>
       </div>
-      <TabBar tab={tab} onChange={setTab} />
+      {tabbed && (
+        <TabBar
+          id={TABS_ID}
+          label="Round Table"
+          items={TAB_ITEMS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
       <RoleSheet
         view={view}
         open={roleOpen}

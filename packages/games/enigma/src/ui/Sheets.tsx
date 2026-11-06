@@ -1,10 +1,10 @@
 import { sameAnswer } from '@vt/game-sdk';
-import { Button, NameDot, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Input, NameDot, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView, NoteItem, Team } from '../logic/types.ts';
 import { LEGACY_NOTE_ID, MAX_NOTE_ITEM_LENGTH, MAX_NOTE_LENGTH } from '../logic/types.ts';
 import { chatMuted, cluesByKeyword } from './status.ts';
-import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -70,7 +70,7 @@ function GuessField({
 
   return (
     <div>
-      <input
+      <Input
         aria-label={label}
         value={draft ?? pending ?? value}
         disabled={disabled}
@@ -87,15 +87,15 @@ function GuessField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className="w-full rounded-md bg-white/80 px-2 py-1 text-sm ring-1 ring-stone-300 placeholder:text-stone-400 disabled:opacity-50 dark:bg-stone-900/60 dark:ring-stone-600"
+        className="h-11 px-2 text-small"
       />
-      <RefusalSlot anchor={anchor} className="mt-1 px-2 py-1 text-xs" />
+      <RefusalSlot anchor={anchor} className="mt-1 px-2 py-1 text-caption" />
       {mine !== null && mine !== value && (
-        <p className="mt-1 text-xs text-stone-600 dark:text-stone-300">
+        <p className="mt-1 text-caption text-ink-2">
           Your version: <q className="font-semibold break-words">{mine}</q>{' '}
           <button
             type="button"
-            className="font-semibold text-amber-700 underline disabled:opacity-50 dark:text-amber-400"
+            className="font-semibold text-accent-text underline disabled:text-ink-muted"
             disabled={disabled}
             onClick={() => save(mine, value)}
           >
@@ -129,15 +129,12 @@ const NoteList = memo(function NoteList({
     <ul
       aria-label="Team notes"
       tabIndex={0}
-      className="max-h-48 space-y-1 overflow-y-auto rounded-md bg-white/60 p-1 text-sm ring-1 ring-stone-200 dark:bg-stone-900/40 dark:ring-stone-700"
+      className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-card p-1 text-small ring-1 ring-line"
     >
       {items.map((n) => (
-        <li
-          key={n.id}
-          className="flex items-start gap-2 rounded px-1.5 py-1 odd:bg-stone-100/70 dark:odd:bg-stone-800/50"
-        >
+        <li key={n.id} className="flex items-start gap-2 rounded px-1.5 py-1 odd:bg-sunk">
           <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-muted">
+            <span className="inline-flex items-center gap-1 text-caption font-semibold text-ink-muted">
               {names.get(n.by) ?? (n.id === LEGACY_NOTE_ID ? 'Earlier notes' : 'Someone who left')}:
               {names.has(n.by) && <NameDot name={names.get(n.by)!} className="order-first" />}
             </span>{' '}
@@ -149,14 +146,14 @@ const NoteList = memo(function NoteList({
             title="Remove"
             disabled={disabled}
             onClick={() => onRemove(n.id)}
-            className="-my-0.5 shrink-0 rounded px-1.5 text-ink-muted hover:bg-stone-200 hover:text-rose-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-500 dark:hover:bg-stone-700"
+            className="-my-0.5 shrink-0 rounded px-1.5 text-ink-muted hover:bg-danger-soft hover:text-danger-ink disabled:text-ink-faint disabled:hover:bg-transparent"
           >
             ✕
           </button>
         </li>
       ))}
       {items.length === 0 && (
-        <li className="px-1.5 py-1 text-xs text-ink-muted italic dark:text-stone-400">
+        <li className="px-1.5 py-1 text-caption text-ink-muted italic">
           No notes yet. Jot down hunches about their keywords.
         </li>
       )}
@@ -181,7 +178,7 @@ function AddNote({ act, disabled }: { act: Act; disabled: boolean }) {
   return (
     <>
       <form onSubmit={(e) => void add(e)} className="mt-2 flex gap-2">
-        <input
+        <Input
           value={text}
           disabled={disabled}
           maxLength={MAX_NOTE_ITEM_LENGTH}
@@ -189,9 +186,9 @@ function AddNote({ act, disabled }: { act: Act; disabled: boolean }) {
           placeholder="Add a note"
           aria-label="Add a note"
           enterKeyHint="send"
-          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 text-sm ring-1 ring-stone-300 disabled:opacity-50 dark:bg-stone-800 dark:ring-stone-600"
+          className="flex-1"
         />
-        <Button type="submit" disabled={disabled || !text.trim()}>
+        <Button type="submit" variant="secondary" disabled={disabled || !text.trim()}>
           Add
         </Button>
       </form>
@@ -210,8 +207,8 @@ function NotesPanel({ view, act, muted }: { view: EnigmaView; act: Act; muted: b
   if (!view.notes) return null;
   return (
     <section aria-label="Team notes panel" className="mt-3">
-      <h4 className="text-sm font-semibold">Team notes</h4>
-      <p className="mb-1 text-xs text-ink-muted">
+      <h4 className="text-small font-semibold">Team notes</h4>
+      <p className="mb-1 text-caption text-ink-muted">
         {muted ? MUTED_HINT : 'Shared with your team only. Anyone can add or remove a note.'}
       </p>
       <NoteList items={view.notes.items} names={names} onRemove={onRemove} disabled={muted} />
@@ -222,17 +219,17 @@ function NotesPanel({ view, act, muted }: { view: EnigmaView; act: Act; muted: b
 
 function ClueList({ clues }: { clues: { round: number; clue: string }[] }) {
   return (
-    <ul className="mt-2 space-y-1 text-sm">
+    <ul className="mt-2 space-y-1 text-small">
       {clues.map((c, i) => (
         <li
           key={i}
-          className="flex items-baseline justify-between gap-2 border-b border-stone-200/70 pb-0.5 dark:border-stone-700/70"
+          className="flex items-baseline justify-between gap-2 border-b border-line pb-0.5"
         >
           <span className="font-medium break-words">{c.clue}</span>
-          <span className="shrink-0 text-[0.65rem] text-ink-muted">R{c.round}</span>
+          <span className="shrink-0 text-caption text-ink-muted">R{c.round}</span>
         </li>
       ))}
-      {clues.length === 0 && <li className="text-xs text-ink-muted italic">No clues yet</li>}
+      {clues.length === 0 && <li className="text-caption text-ink-muted italic">No clues yet</li>}
     </ul>
   );
 }
@@ -244,19 +241,19 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
   // At the end, the other team's keywords are shown beside what your team guessed they were.
   const guesses = view.me?.team && view.me.team !== team ? (view.notes?.guesses ?? []) : [];
   return (
-    <Panel className={cn('ring-1', TEAM_PANEL[team])}>
+    <Panel className={cn('border-t-2 ring-1', TEAM_PANEL[team], TEAM_LINE[team])}>
       <h3 className={cn('mb-2 font-bold', TEAM_TEXT[team])}>
         {view.me?.team === team ? 'Your keywords' : `${TEAM_LABEL[team]}'s keywords`}
       </h3>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {keywords.map((word, i) => (
-          <div key={i} className="rounded-xl bg-white/80 p-2 shadow-sm dark:bg-stone-900/70">
-            <p className="text-xs font-bold text-ink-muted">#{i + 1}</p>
-            <p className="text-base font-extrabold tracking-wide break-words uppercase sm:text-lg">
+          <div key={i} className="rounded-lg bg-card p-2 shadow-vt-1 ring-1 ring-line">
+            <p className="text-caption font-bold text-ink-muted">#{i + 1}</p>
+            <p className="text-body font-extrabold tracking-wide break-words uppercase sm:text-sub">
               {word}
             </p>
             {guesses[i]?.trim() && (
-              <p className="text-xs text-stone-600 dark:text-stone-400">
+              <p className="text-caption text-ink-2">
                 You guessed <b className="uppercase">{guesses[i]}</b>{' '}
                 {sameAnswer(guesses[i], word) ? '✓' : '✗'}
               </p>
@@ -276,20 +273,16 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
   // The server refuses notes from an Encryptor until their code is revealed: grey the fields out.
   const muted = notes !== null && chatMuted(view);
   return (
-    <Panel>
+    <Panel className={cn('border-t-2 ring-1', TEAM_PANEL[team], TEAM_LINE[team])}>
       <h3 className={cn('mb-1 font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]}'s clues</h3>
-      <p className="mb-2 text-xs text-ink-muted">
+      <p className="mb-2 text-caption text-ink-muted">
         Their keywords are secret. Use their past clues to guess them, and to intercept their codes.
       </p>
-      {muted && (
-        <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-          {MUTED_HINT}
-        </p>
-      )}
+      {muted && <p className="mb-2 text-caption font-semibold text-accent-text">{MUTED_HINT}</p>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {columns.map((clues, i) => (
-          <div key={i} className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-            <p className="text-xs font-bold text-ink-muted">#{i + 1} · ?</p>
+          <div key={i} className="rounded-lg bg-card p-2 ring-1 ring-line">
+            <p className="text-caption font-bold text-ink-muted">#{i + 1} · ?</p>
             {notes && (
               <div className="mt-1">
                 <GuessField

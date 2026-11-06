@@ -1,5 +1,18 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, cn, LobbySettings } from '@vt/ui';
+import {
+  Button,
+  Chip,
+  Chips,
+  Field,
+  Hint,
+  Panel,
+  PlayerTag,
+  Select,
+  StickyBar,
+  Switch,
+  cn,
+  LobbySettings,
+} from '@vt/ui';
 import {
   MAX_ROUNDS,
   MAX_SEATS,
@@ -18,8 +31,8 @@ const choice = (on: boolean, editable: boolean) =>
   cn(
     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
     on
-      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-      : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
+      ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+      : 'bg-card ring-line-strong enabled:hover:bg-panel',
     !editable && !on && 'opacity-60',
   );
 
@@ -39,7 +52,7 @@ export function Players({
       <h3 className="font-bold">
         Players ({playing.length}/{MAX_SEATS})
       </h3>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-small">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center gap-1.5">
             <span aria-hidden>🎭</span>
@@ -53,7 +66,7 @@ export function Players({
         ))}
       </ul>
       {watching.length > 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-small text-ink-muted">
           Watching:{' '}
           {watching.map((s, i) => (
             <span key={s.id}>
@@ -121,44 +134,35 @@ export function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
+        {editable && <h3 className="text-sub font-bold">Game settings</h3>}
         <fieldset>
-          <legend className="text-sm font-semibold">
+          <legend className="text-small font-semibold">
             {view.editions.length > 1 ? 'Editions' : 'Locations'}
           </legend>
-          <div
-            className={cn(
-              'mt-1 grid gap-2',
-              view.editions.length > 1 ? 'grid-cols-2' : 'grid-cols-1',
-            )}
+          <Chips
+            label={view.editions.length > 1 ? 'Editions' : 'Locations'}
+            className="mt-1 flex-wrap"
           >
-            {view.editions.map((e) => {
-              const on = s.editions.includes(e.id);
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  aria-pressed={on}
-                  disabled={!editable || view.editions.length === 1}
-                  onClick={() => toggleEdition(e.id)}
-                  className={choice(on, editable)}
-                >
-                  <span className="block font-semibold">{display.editionLabel(e.id, e.label)}</span>
-                  <span className="block text-xs text-stone-600 dark:text-stone-400">
-                    {e.count} locations
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+            {view.editions.map((e) => (
+              <Chip
+                key={e.id}
+                pressed={s.editions.includes(e.id)}
+                disabled={!editable || view.editions.length === 1}
+                onClick={() => toggleEdition(e.id)}
+              >
+                {display.editionLabel(e.id, e.label)}
+                <span className="font-normal opacity-80">· {e.count} locations</span>
+              </Chip>
+            ))}
+          </Chips>
           {view.editions.length > 1 && (
-            <p className="mt-1 text-xs text-ink-muted">
+            <p className="mt-1 text-caption text-ink-muted">
               Pick one edition or both: {view.locations.length} locations in play.
             </p>
           )}
         </fieldset>
         <fieldset>
-          <legend className="text-sm font-semibold">Round length</legend>
+          <legend className="text-small font-semibold">Round length</legend>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {ROUND_SECONDS_OPTIONS.map((sec) => (
               <button
@@ -178,10 +182,8 @@ export function Lobby({
           </div>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="font-semibold">Rounds</span>
-            <select
-              className="mt-1 block h-11 w-full rounded-lg bg-white px-2 ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+          <Field label="Rounds">
+            <Select
               value={s.rounds === null ? 'auto' : String(s.rounds)}
               disabled={!editable}
               onChange={(e) =>
@@ -197,29 +199,28 @@ export function Lobby({
                   {n} {n === 1 ? 'round' : 'rounds'}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1 size-5 accent-amber-600"
-              checked={s.twoSpies}
-              disabled={!editable}
-              onChange={(e) => void act({ type: 'update-settings', twoSpies: e.target.checked })}
-            />
-            <span>
-              <span className="block font-semibold">Two spies</span>
-              <span className="block text-xs text-ink-muted">
-                From {TWO_SPIES_MIN} players. The spies don’t know each other.
-                {s.twoSpies && seated < TWO_SPIES_MIN && ` (One spy until ${TWO_SPIES_MIN} play.)`}
-              </span>
-            </span>
-          </label>
+            </Select>
+          </Field>
+          <Switch
+            on={s.twoSpies}
+            editable={editable}
+            title="Two spies"
+            help={`From ${TWO_SPIES_MIN} players. The spies don’t know each other.${
+              s.twoSpies && seated < TWO_SPIES_MIN ? ` (One spy until ${TWO_SPIES_MIN} play.)` : ''
+            }`}
+            onChange={(on) => void act({ type: 'update-settings', twoSpies: on })}
+          />
         </div>
       </LobbySettings>
+      <p className="text-center text-small text-ink-muted">
+        New to Masquerade?{' '}
+        <Button variant="quiet" size="sm" onClick={showGuide}>
+          Read the guide
+        </Button>
+      </p>
       {editable && (
         <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-1.5">
             <Button
               size="lg"
               disabled={blocker !== null}
@@ -227,20 +228,10 @@ export function Lobby({
             >
               Start game
             </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
           </div>
         </StickyBar>
       )}
-      <p className="text-center text-sm text-ink-muted">
-        New to Masquerade?{' '}
-        <button
-          type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
     </div>
   );
 }

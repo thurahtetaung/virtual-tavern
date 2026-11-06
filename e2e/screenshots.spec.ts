@@ -180,15 +180,15 @@ for (const [label, viewport] of [
     await shot(red.dec, 'guess');
     if (label === 'phone') {
       await red.dec
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name: /Chat/ })
+        .getByRole('tablist', { name: 'Enigma' })
+        .getByRole('tab', { name: /Chat/ })
         .click();
       await red.dec.getByLabel('Message your team').fill('first one is obviously the sea one');
       await red.dec.getByRole('button', { name: 'Send', exact: true }).click();
       await shot(red.dec, 'chat');
       await red.dec
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name: /Clues/ })
+        .getByRole('tablist', { name: 'Enigma' })
+        .getByRole('tab', { name: /Clues/ })
         .click();
       await shot(red.dec, 'clues');
       // The team notes, with enough of them to scroll inside their box.
@@ -211,8 +211,8 @@ for (const [label, viewport] of [
       await shot(red.dec, 'notes');
       // Red's Encryptor sees the notes greyed out until Red decodes.
       await red.enc
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name: /Clues/ })
+        .getByRole('tablist', { name: 'Enigma' })
+        .getByRole('tab', { name: /Clues/ })
         .click();
       await expect(red.enc.getByLabel('Add a note')).toBeDisabled();
       await red.enc.getByLabel('Add a note').evaluate((el) => {
@@ -220,12 +220,12 @@ for (const [label, viewport] of [
       });
       await shot(red.enc, 'notes-muted');
       await red.enc
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name: /Play/ })
+        .getByRole('tablist', { name: 'Enigma' })
+        .getByRole('tab', { name: /Play/ })
         .click();
       await red.dec
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name: /Play/ })
+        .getByRole('tablist', { name: 'Enigma' })
+        .getByRole('tab', { name: /Play/ })
         .click();
     }
     for (const [team, r] of Object.entries(roles)) {
@@ -777,7 +777,8 @@ for (const [label, viewport, colorScheme] of [
     const dealt = await readCards(players, names);
     const local = dealt.locals[0]!;
     const tab = async (p: Page, name: string) => {
-      if (phone) await p.getByRole('navigation').getByRole('button', { name }).click();
+      if (phone)
+        await p.getByRole('tablist', { name: 'Masquerade' }).getByRole('tab', { name }).click();
     };
     // Covered, the spy's and a local's screens are the same; then each peeks with Show.
     await shot(local, 'card-hidden');
@@ -1376,9 +1377,15 @@ for (const [label, viewport] of [
       .click();
     await shot(holder!, 'lady-result');
     if (phone) {
-      await host.getByRole('navigation').getByRole('button', { name: 'History' }).click();
+      await host
+        .getByRole('tablist', { name: 'Round Table' })
+        .getByRole('tab', { name: 'History' })
+        .click();
       await shot(host, 'history');
-      await host.getByRole('navigation').getByRole('button', { name: 'Table' }).click();
+      await host
+        .getByRole('tablist', { name: 'Round Table' })
+        .getByRole('tab', { name: 'Table' })
+        .click();
     }
     await rt.quest(t, good.slice(0, await rt.teamSize(t)));
     let assassin: Page | undefined;

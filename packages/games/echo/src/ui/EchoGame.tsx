@@ -32,20 +32,20 @@ function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number
   // Cards passed or lost to a wrong guess (a wrong guess costs the next card too).
   const missed = Math.max(0, view.settings.deckSize - view.score - view.cardsLeft);
   return (
-    <div className="flex items-center justify-between gap-2 text-sm sm:text-base">
+    <div className="flex items-center justify-between gap-2 text-small sm:text-body">
       <div className="flex min-w-0 items-center gap-3">
         <span role="img" aria-label={`Score ${view.score}`} className="font-bold tabular-nums">
           ⭐ {view.score} {view.score === 1 ? 'point' : 'points'}
         </span>
         {view.phase === 'playing' && (
-          <span className="text-stone-600 tabular-nums dark:text-stone-400">
+          <span className="shrink-0 text-ink-muted tabular-nums">
             {view.cardsLeft} {view.cardsLeft === 1 ? 'card' : 'cards'} left
             {missed > 0 && ` · ${missed} missed`}
           </span>
         )}
         {turn && (
           <span className="min-w-0 truncate">
-            <span className="text-stone-600 dark:text-stone-400">Guesser: </span>
+            <span className="text-ink-muted">Guesser: </span>
             <b>{turn.guesser === view.me?.id ? 'You' : nameOf(view, turn.guesser)}</b>
           </span>
         )}
@@ -126,10 +126,12 @@ export function EchoGame({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       <div className="min-w-0 space-y-3">
         <Scoreboard view={view} clockOffset={room.clockOffset} />
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
+          {status.text}
+        </Hint>
         {view.phase === 'over' ? (
           <GameOver
             view={view}

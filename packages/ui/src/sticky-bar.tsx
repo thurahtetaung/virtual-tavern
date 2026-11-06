@@ -12,7 +12,7 @@ const PHONE = '(max-width: 639px)';
  * tab bar when a game has one. It holds the one main action and, on phones, its refusal.
  */
 const BAR =
-  'fixed inset-x-0 bottom-[var(--vt-tabbar-h,0px)] z-40 border-t border-line bg-panel px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-vt-2';
+  'fixed inset-x-0 bottom-[var(--vt-tabbar-h,0px)] z-40 m-0 border-t border-line bg-panel px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-vt-2';
 
 /**
  * Keeps a screen's one main action reachable on phones.

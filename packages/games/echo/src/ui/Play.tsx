@@ -5,7 +5,18 @@ import {
   sameClue,
   waitingForHost,
 } from '@vt/game-sdk';
-import { Button, NameDot, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
+import {
+  Button,
+  FoldSummary,
+  Input,
+  NameDot,
+  Panel,
+  Row,
+  Rows,
+  StickyBar,
+  Superlatives,
+  cn,
+} from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -21,17 +32,14 @@ import { cancelReason, listNames, lossText, nameOf, stillWriting } from './statu
 
 type Act = (a: EchoAction, options?: ActOptions) => Promise<boolean>;
 
-const INPUT =
-  'block h-12 w-full rounded-lg bg-white px-3 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
-
 /** The secret word, big, for everyone who may see it. */
 function SecretWord({ word, label = 'The word' }: { word: string; label?: string }) {
   return (
     <p className="text-center">
-      <span className="block text-sm text-ink-muted">{label}</span>
+      <span className="block text-small text-ink-muted">{label}</span>
       <span
         data-testid="secret-word"
-        className="block text-3xl font-black tracking-wide break-words uppercase sm:text-4xl"
+        className="block font-display text-title font-bold tracking-wide break-words uppercase"
       >
         {word}
       </span>
@@ -48,7 +56,7 @@ function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act
   const offline = left.some((id) => room.players.find((p) => p.id === id)?.connected === false);
   return (
     <div className="space-y-2 text-center">
-      <p className="text-sm text-ink-muted">
+      <p className="text-small text-ink-muted">
         {done} of {turn.givers.length} clues in{names && ` · ${names}`}
       </p>
       {room.isHost && offline && (
@@ -73,9 +81,9 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
           onClick={() => void act({ type: 'pick', index: i })}
           className={cn(
             'flex aspect-[3/4] min-h-11 items-center justify-center rounded-xl text-3xl font-black ring-1 transition',
-            'bg-gradient-to-br from-amber-500 to-amber-700 text-white ring-amber-800/40',
+            'bg-accent text-accent-fg ring-accent-line shadow-vt-1',
             mine
-              ? 'hover:scale-105 hover:from-amber-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500'
+              ? 'hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
               : 'cursor-default opacity-60',
           )}
         >
@@ -114,43 +122,44 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       {clues.map((value, i) => (
         <label key={i} className="block">
-          <span className="text-sm font-semibold">
+          <span className="text-small font-semibold">
             {turn.perGiver === 2 ? `Clue ${i + 1}` : 'Your clue'}
           </span>
-          <input
+          <Input
             value={value}
             maxLength={MAX_CLUE_LENGTH}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            aria-invalid={problems[i] ? true : undefined}
+            invalid={!!problems[i]}
             onChange={(e) => setClues(clues.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="One word"
-            className={cn(INPUT, 'mt-1', problems[i] && 'ring-2 ring-danger dark:ring-rose-500')}
+            className="mt-1 text-sub"
           />
           {problems[i] && (
-            <span className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
+            <span role="alert" className="mt-1 block text-small text-danger-ink">
               {problems[i]}
             </span>
           )}
         </label>
       ))}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={busy || unchanged || trimmed.some((c) => !c) || problems.some(Boolean)}
-      >
-        {sent
-          ? unchanged
-            ? '✓ Sent'
-            : 'Change my clues'
-          : turn.perGiver === 2
-            ? 'Send clues'
-            : 'Send clue'}
-      </Button>
-      <RefusalSlot anchor="echo-clues" />
-      <p className="text-center text-xs text-ink-muted">
+      <StickyBar fixed refusal="echo-clues">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={busy || unchanged || trimmed.some((c) => !c) || problems.some(Boolean)}
+        >
+          {sent
+            ? unchanged
+              ? '✓ Sent'
+              : 'Change my clues'
+            : turn.perGiver === 2
+              ? 'Send clues'
+              : 'Send clue'}
+        </Button>
+      </StickyBar>
+      <p className="text-center text-caption text-ink-muted">
         Keep your screen away from the guesser, and don’t discuss clues.
       </p>
     </form>
@@ -160,7 +169,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
 /** Every clue, with its author; cancelled ones struck through with the reason. */
 function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
   if (clues.length === 0) {
-    return <p className="text-center text-sm text-ink-muted italic">No clues were given.</p>;
+    return <p className="text-center text-small text-ink-muted italic">No clues were given.</p>;
   }
   return (
     <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -169,20 +178,18 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
           key={`${c.by}-${i}`}
           className={cn(
             'min-w-0 rounded-xl px-3 py-2 ring-1',
-            c.cancelled
-              ? 'bg-stone-100 ring-stone-200 dark:bg-stone-800/60 dark:ring-stone-700'
-              : 'bg-accent-soft ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40',
+            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft ring-accent-line',
           )}
         >
           <span
             className={cn(
-              'block truncate text-lg font-bold',
+              'block truncate text-sub font-bold',
               c.cancelled && 'text-ink-muted line-through',
             )}
           >
             {c.text}
           </span>
-          <span className="flex items-center gap-1 text-xs text-ink-muted">
+          <span className="flex items-center gap-1 text-caption text-ink-muted">
             <span className="truncate">
               {c.name ?? nameOf(view, c.by)}
               {c.cancelled && ` · ${cancelReason(view, c)}`}
@@ -200,23 +207,26 @@ function GuesserClues({ turn }: { turn: TurnView }) {
   return (
     <div className="space-y-2">
       {turn.clues.length > 0 ? (
-        <ul aria-label="Your clues" className="flex flex-wrap justify-center gap-2">
-          {turn.clues.map((c, i) => (
-            <li
-              key={i}
-              className="rounded-xl bg-accent-soft px-4 py-2 text-2xl font-bold ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40"
-            >
-              {c.text}
-            </li>
-          ))}
-        </ul>
+        <div>
+          {/* The shared rows, named so the list reads as the guesser's clues. */}
+          <ul
+            aria-label="Your clues"
+            className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 ring-1 ring-accent-line"
+          >
+            {turn.clues.map((c, i) => (
+              <Row key={i} className="justify-center text-heading font-bold">
+                {c.text}
+              </Row>
+            ))}
+          </ul>
+        </div>
       ) : turn.cancelledCount > 0 ? (
         <p className="text-center font-semibold">Every clue was cancelled!</p>
       ) : (
         <p className="text-center font-semibold">No clues arrived in time.</p>
       )}
       {turn.cancelledCount > 0 && (
-        <p className="text-center text-sm text-ink-muted">
+        <p className="text-center text-caption text-ink-muted">
           {turn.cancelledCount} {turn.cancelledCount === 1 ? 'clue was' : 'clues were'} cancelled.
         </p>
       )}
@@ -236,13 +246,13 @@ function GuessForm({ act, wordCount }: { act: Act; wordCount: number | null }) {
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-2">
       <label className="block">
-        <span className="text-sm font-semibold">
+        <span className="text-small font-semibold">
           Your guess
           {wordCount !== null && wordCount > 1 && (
             <span className="font-normal text-ink-muted"> ({wordCount} words)</span>
           )}
         </span>
-        <input
+        <Input
           value={guess}
           maxLength={MAX_GUESS_LENGTH}
           autoComplete="off"
@@ -250,10 +260,10 @@ function GuessForm({ act, wordCount }: { act: Act; wordCount: number | null }) {
           spellCheck={false}
           onChange={(e) => setGuess(e.target.value)}
           placeholder="The secret word"
-          className={cn(INPUT, 'mt-1')}
+          className="mt-1 text-sub"
         />
       </label>
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
+      <StickyBar fixed refusal="echo-guess" className="grid grid-cols-[2fr_1fr] gap-2">
         <Button type="submit" size="lg" disabled={busy || !guess.trim()}>
           Guess
         </Button>
@@ -265,8 +275,7 @@ function GuessForm({ act, wordCount }: { act: Act; wordCount: number | null }) {
         >
           Pass
         </Button>
-      </div>
-      <RefusalSlot anchor="echo-guess" />
+      </StickyBar>
     </form>
   );
 }
@@ -275,22 +284,22 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
   right: {
     icon: '🎉',
     title: 'Got it!',
-    tone: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
+    tone: 'bg-success-soft text-success-ink ring-success-line',
   },
   pass: {
     icon: '⏭️',
     title: 'Passed',
-    tone: 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200',
+    tone: 'bg-sunk text-ink ring-line',
   },
   wrong: {
     icon: '💥',
     title: 'Not this time',
-    tone: 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
+    tone: 'bg-danger-soft text-danger-ink ring-danger-line',
   },
   'pass-timeout': {
     icon: '⏱',
     title: 'Time ran out',
-    tone: 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200',
+    tone: 'bg-sunk text-ink ring-line',
   },
 };
 
@@ -313,29 +322,31 @@ function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
   const missed = turn.missed.map((id) => nameOf(view, id));
   return (
     <div className="space-y-3">
-      <div className={cn('rounded-xl px-3 py-2 text-center', o.tone)}>
-        <p className="text-xl font-bold">
+      <div className={cn('rounded-xl px-3 py-2 text-center ring-1 ring-inset', o.tone)}>
+        <p className="text-sub font-bold">
           {o.icon} {o.title}
         </p>
-        <p className="text-sm">{outcomeLine(view, turn)}</p>
+        <p className="text-small">{outcomeLine(view, turn)}</p>
       </div>
       {turn.word && <SecretWord word={turn.word} label="The word was" />}
       <ClueList view={view} clues={turn.clues} />
       {missed.length > 0 && (
-        <p className="text-center text-sm text-ink-muted">
+        <p className="text-center text-small text-ink-muted">
           {turn.skipped
             ? `No clue from ${listNames(missed)}: the host went on without it.`
             : `⏱ No clue from ${listNames(missed)}: time ran out.`}
         </p>
       )}
       {(room.isHost || view.me?.playing) && (
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() => void act({ type: 'next-card', cardsLeft: view.cardsLeft })}
-        >
-          {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
-        </Button>
+        <StickyBar>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => void act({ type: 'next-card', cardsLeft: view.cardsLeft })}
+          >
+            {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
+          </Button>
+        </StickyBar>
       )}
     </div>
   );
@@ -394,15 +405,12 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   const forfeits = history.filter((h) => h.forfeit).length;
   return (
     <details className="group" open={open}>
-      <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
+      <FoldSummary className="px-0 text-body font-bold">
         Cards played ({history.length})
-        <span aria-hidden className="font-normal text-ink-muted transition group-open:rotate-90">
-          ▸
-        </span>
-      </summary>
-      <ol className="space-y-1 text-sm">
+      </FoldSummary>
+      <Rows className="text-small">
         {history.map((h, i) => (
-          <li key={i} className="flex items-baseline gap-2">
+          <Row key={i} className="min-h-9 items-baseline gap-2">
             <span aria-label={h.outcome}>{RESULT_ICON[h.outcome]}</span>
             <span className="font-semibold uppercase">{h.word}</span>
             <span className="min-w-0 truncate text-ink-muted">
@@ -413,22 +421,22 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
                   : ' passed'
                 : ` guessed “${h.guess ?? '—'}”`}
             </span>
-          </li>
+          </Row>
         ))}
         {burned > 0 && (
-          <li className="flex items-baseline gap-2 text-ink-muted">
+          <Row className="min-h-9 items-baseline gap-2 text-ink-muted">
             <span aria-hidden>🔥</span>
             {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
-          </li>
+          </Row>
         )}
         {forfeits > 0 && (
-          <li className="flex items-baseline gap-2 text-ink-muted">
+          <Row className="min-h-9 items-baseline gap-2 text-ink-muted">
             <span aria-hidden>↩️</span>
             {forfeits === 1 ? 'A won card was' : `${forfeits} won cards were`} given back for a
             wrong guess on the last card
-          </li>
+          </Row>
         )}
-      </ol>
+      </Rows>
     </details>
   );
 }
@@ -437,29 +445,42 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
 export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
   const deck = view.settings.deckSize;
   return (
-    <Panel className="space-y-3 text-center max-lg:p-3">
-      <p className="text-5xl font-black tabular-nums">
-        {view.score}
-        <span className="text-2xl text-ink-muted"> / {deck}</span>
-      </p>
-      <p className="text-2xl font-bold">{rating(view.score, deck)}</p>
-      {details ? (
-        <div className="space-y-3 text-left">{details}</div>
-      ) : (
-        <Superlatives lines={room.superlatives} />
+    <>
+      <Panel className="space-y-3 text-center max-lg:space-y-1 max-lg:p-3">
+        <p className="text-5xl font-black tabular-nums max-lg:text-display">
+          {view.score}
+          <span className="text-heading text-ink-muted"> / {deck}</span>
+        </p>
+        <p className="font-display text-title font-bold">{rating(view.score, deck)}</p>
+        {!details && <Superlatives lines={room.superlatives} />}
+        {!details && <EndButtons view={view} act={act} room={room} />}
+      </Panel>
+      {details && (
+        <>
+          {details}
+          <EndButtons view={view} act={act} room={room} />
+        </>
       )}
-      {room.isHost ? (
-        <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <p>{waitingForHost(room, 'start the next game')}</p>
-      )}
-    </Panel>
+    </>
+  );
+}
+
+/** Play again and Change setup: in the sticky bar on phones; guests read who starts the next game. */
+function EndButtons({ act, room }: Props) {
+  return room.isHost ? (
+    <StickyBar>
+      <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+        <Button size="lg" onClick={() => void act({ type: 'start' })}>
+          Play again
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+          Change setup
+        </Button>
+      </div>
+    </StickyBar>
+  ) : (
+    <p className="text-center text-small text-ink-2">
+      {waitingForHost(room, 'start the next game')}
+    </p>
   );
 }

@@ -3,8 +3,12 @@ import {
   Button,
   Countdown,
   EndTabs,
+  Fold,
   Hint,
+  Icon,
+  Notice,
   Panel,
+  Tag,
   RefusalSlot,
   StickyBar,
   Superlatives,
@@ -30,7 +34,7 @@ import { latestResult } from './result.ts';
 import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
 import { myRoleLabel, spymasterAlerts, startBlocker, statusFor, winHow } from './status.ts';
-import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_BUTTON, TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 import { Teams } from './Teams.tsx';
 
 export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
@@ -48,6 +52,8 @@ const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
 const TEAMS_ID = 'codenames-teams';
 /** Where the engine's refusal of the host's skip shows (the turn isn't stuck yet). */
 const SKIP_ANCHOR = 'codenames-skip';
+/** Where a refused guess or End turn shows: with the buttons (in the sticky bar on phones). */
+const GUESS_ANCHOR = 'codenames-guess';
 
 export function CodenamesGame({
   view,
@@ -95,7 +101,7 @@ export function CodenamesGame({
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         <Teams view={view} online={online} act={act} hostId={room.hostId} />
-        <p className="text-center text-sm">
+        <p className="text-center text-small">
           <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
           this game and has 9 agents to find; the other team has 8.
         </p>
@@ -107,7 +113,7 @@ export function CodenamesGame({
           ]}
           className="space-y-4"
         >
-          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
+          {room.isHost && <h3 className="text-sub font-bold">Game settings</h3>}
           <Settings
             settings={view.settings}
             wordLists={room.wordLists}
@@ -115,41 +121,41 @@ export function CodenamesGame({
             act={act}
           />
         </LobbySettings>
+        <p className="text-center text-small text-ink-muted">
+          First time playing?{' '}
+          <Button variant="quiet" size="sm" onClick={showGuide}>
+            Read the 2-minute guide
+          </Button>
+        </p>
         {room.isHost && (
           <StickyBar>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              <Button
-                variant="secondary"
-                title="Shuffling keeps anyone who chose to be a Spymaster."
-                onClick={() => void act({ type: 'randomize-teams' })}
-              >
-                🎲 Shuffle teams
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="lg"
+                  disabled={blocker !== null}
+                  onClick={() => void act({ type: 'start' })}
+                >
+                  Start game
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  title="Shuffling keeps anyone who chose to be a Spymaster."
+                  onClick={() => void act({ type: 'randomize-teams' })}
+                >
+                  <Icon name="shuffle" />
+                  Shuffle teams
+                </Button>
+              </div>
+              {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
               {/* Phones keep it as the button's tooltip, so the lobby fits the screen. */}
-              <span className="hidden basis-full text-xs text-ink-muted sm:block">
+              <p className="hidden text-caption text-ink-muted sm:block">
                 Shuffling keeps anyone who chose to be a Spymaster.
-              </span>
+              </p>
             </div>
           </StickyBar>
         )}
-        <p className="text-center text-sm text-ink-muted">
-          First time playing?{' '}
-          <button
-            type="button"
-            className="font-semibold text-amber-700 underline dark:text-amber-400"
-            onClick={showGuide}
-          >
-            Read the 2-minute guide
-          </button>
-        </p>
       </div>
     );
   }
@@ -213,23 +219,29 @@ function InGame({
     if (selected === null) return;
     const card = selected;
     setSelected(null);
-    await act({ type: 'guess', card, seen: view.log.length });
+    await act({ type: 'guess', card, seen: view.log.length }, { anchor: GUESS_ANCHOR });
   };
 
+  // The host's Play again and Change setup float in the sticky bar on phones; guests read who
+  // starts the next game in that spot.
   const endButtons = room.isHost ? (
-    <div className="flex flex-wrap justify-center gap-2">
-      <Button size="lg" onClick={() => void act({ type: 'start' })}>
-        Play again
-      </Button>
-      <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-        Change setup
-      </Button>
-    </div>
+    <StickyBar>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button size="lg" onClick={() => void act({ type: 'start' })}>
+          Play again
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+          Change setup
+        </Button>
+      </div>
+    </StickyBar>
   ) : (
-    <p>{waitingForHost(room, 'start the next game')}</p>
+    <p className="text-center text-small text-ink-2">
+      {waitingForHost(room, 'start the next game')}
+    </p>
   );
   const winner = view.winner && (
-    <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner])}>
+    <p className={cn('font-display text-title font-bold', TEAM_TEXT[view.winner])}>
       🏆 {TEAM_LABEL[view.winner]} team wins!
     </p>
   );
@@ -243,7 +255,7 @@ function InGame({
       {winner}
       <p>{winHow(view)}.</p>
       {yourTeam}
-      <p className="text-sm text-ink-muted">The full key is shown on the board below.</p>
+      <p className="text-small text-ink-muted">The full key is shown on the board below.</p>
       <Superlatives lines={room.superlatives} />
       {endButtons}
     </Panel>
@@ -252,13 +264,12 @@ function InGame({
   // the end fits the screen.
   const phoneEnd = (
     <>
-      <Panel className="space-y-2 text-center max-lg:p-3">
+      <Panel className="space-y-1 text-center max-lg:p-3">
         {winner}
-        <p className="text-sm">
+        <p className="text-small">
           {winHow(view)}.{' '}
           {me?.team && (me.team === view.winner ? 'Your team won!' : 'Your team lost this time.')}
         </p>
-        {endButtons}
       </Panel>
       <EndTabs
         tabs={[
@@ -294,71 +305,76 @@ function InGame({
           },
         ]}
       />
+      {endButtons}
     </>
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       {confirmDialog}
       <div
-        className={cn(
-          'min-w-0 space-y-3',
-          canGuess && 'pb-4',
-          shown && shown !== 'board' && 'hidden',
-        )}
+        className={cn('min-w-0 space-y-3', shown && shown !== 'board' && 'hidden')}
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
-        {result && <ResultBanner key={view.log.length} result={result} />}
+        {result && (
+          <ResultBanner
+            key={view.log.length}
+            result={result}
+            kind={result.card === null ? null : (view.board[result.card]?.kind ?? null)}
+          />
+        )}
         {spymasterAlerts(view, room.isHost).map((alert) => (
-          <div
+          <Notice
             key={alert.team}
+            tone="warn"
             role="alert"
-            data-testid="no-spymaster"
-            className={cn(
-              'flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl px-4 py-3 text-center text-sm ring-2 sm:text-base',
-              alert.mine || alert.canTake
-                ? 'bg-accent-soft font-semibold text-amber-950 ring-accent dark:ring-amber-400 dark:bg-amber-500/15 dark:text-amber-100'
-                : 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800/70 dark:text-stone-300 dark:ring-stone-600',
-            )}
+            testId="no-spymaster"
+            className={alert.mine || alert.canTake ? 'font-semibold' : undefined}
           >
-            <span>⚠️ {alert.text}</span>
-            {alert.canTake && (
-              <Button
-                size="sm"
-                variant={alert.team}
-                onClick={() => void act({ type: 'join-team', team: alert.team, role: 'spymaster' })}
-              >
-                Be the {TEAM_LABEL[alert.team]} Spymaster
-              </Button>
-            )}
-            {alert.stuck && room.isHost && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  void (async () => {
-                    if (
-                      await confirm({
-                        title: 'Back to the lobby?',
-                        body: 'This game ends for everyone.',
-                        confirmLabel: 'Back to lobby',
-                        danger: true,
-                      })
-                    ) {
-                      void act({ type: 'back-to-lobby' });
-                    }
-                  })()
-                }
-              >
-                Back to lobby
-              </Button>
-            )}
-          </div>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span>{alert.text}</span>
+              {alert.canTake && (
+                <Button
+                  size="sm"
+                  variant={TEAM_BUTTON[alert.team]}
+                  onClick={() =>
+                    void act({ type: 'join-team', team: alert.team, role: 'spymaster' })
+                  }
+                >
+                  Be the {TEAM_LABEL[alert.team]} Spymaster
+                </Button>
+              )}
+              {alert.stuck && room.isHost && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    void (async () => {
+                      if (
+                        await confirm({
+                          title: 'Back to the lobby?',
+                          body: 'This game ends for everyone.',
+                          confirmLabel: 'Back to lobby',
+                          danger: true,
+                        })
+                      ) {
+                        void act({ type: 'back-to-lobby' });
+                      }
+                    })()
+                  }
+                >
+                  Back to lobby
+                </Button>
+              )}
+            </span>
+          </Notice>
         ))}
         {/* Once the game is over, the result panel says who won (once). */}
         {view.phase !== 'over' && (
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
+            {status.text}
+          </Hint>
         )}
         {status.stalled && room.isHost && turn && (
           <div className="flex justify-center">
@@ -369,13 +385,13 @@ function InGame({
         )}
 
         {turn?.clue && (
-          <p className="text-center text-lg">
+          <p className="text-center text-sub">
             <span className="text-ink-muted">Clue: </span>
-            <b className={cn('text-2xl tracking-wide uppercase', TEAM_TEXT[turn.team])}>
+            <b className={cn('text-heading tracking-wide uppercase', TEAM_TEXT[turn.team])}>
               {turn.clue.word}
             </b>
             <span className="text-ink-muted"> · </span>
-            <b className="text-2xl">{turn.clue.count}</b>
+            <b className="text-heading">{turn.clue.count}</b>
           </p>
         )}
 
@@ -398,28 +414,30 @@ function InGame({
         )}
 
         {canGuess && (
-          // Sticky on phones, where the board scrolls; on desktop the board fits and the bar sits below it.
-          <div className="sticky bottom-[calc(var(--vt-tabbar-h,0px)+0.5rem)] z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur lg:static dark:bg-stone-900/90 dark:ring-stone-700">
-            <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
-              {selected === null
-                ? 'Pick a card to guess'
-                : `Guess ${view.board[selected]?.word.toUpperCase()}`}
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              disabled={!canPass}
-              title={canPass ? undefined : 'Guess at least once first'}
-              onClick={() => void act({ type: 'end-turn' })}
-            >
-              End turn
-            </Button>
-            <span className="basis-full text-center text-xs text-ink-muted">
-              {canPass
-                ? 'A guess flips the card for your whole team.'
-                : 'A guess flips the card for your whole team. Guess at least once first.'}
-            </span>
-          </div>
+          // In the bar at the foot of a phone screen, under the board on wider ones.
+          <StickyBar fixed refusal={GUESS_ANCHOR} refusalKey={view.log.length}>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
+                {selected === null
+                  ? 'Pick a card to guess'
+                  : `Guess ${view.board[selected]?.word.toUpperCase()}`}
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={!canPass}
+                title={canPass ? undefined : 'Guess at least once first'}
+                onClick={() => void act({ type: 'end-turn' }, { anchor: GUESS_ANCHOR })}
+              >
+                End turn
+              </Button>
+              <span className="basis-full text-center text-caption text-ink-muted">
+                {canPass
+                  ? 'A guess flips the card for your whole team.'
+                  : 'A guess flips the card for your whole team. Guess at least once first.'}
+              </span>
+            </div>
+          </StickyBar>
         )}
       </div>
 
@@ -433,7 +451,7 @@ function InGame({
       >
         {shown !== 'teams' && (
           <Panel>
-            <h3 className="mb-2 font-bold">Game log</h3>
+            <h3 className="mb-1 font-bold">Game log</h3>
             <GameLog view={view} />
           </Panel>
         )}
@@ -451,7 +469,7 @@ function InGame({
             {/* Not on your own team's guessing turn: there, End turn follows the normal rule. */}
             {!canGuess && (
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 className="w-full"
                 onClick={() =>
@@ -501,13 +519,12 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
             className={cn(
               'flex items-baseline gap-2 rounded-xl px-3 py-1.5',
               i === 1 && 'order-3',
-              view.turn?.team === team &&
-                'bg-white shadow-sm ring-2 ring-current dark:bg-stone-900',
+              view.turn?.team === team && 'bg-card shadow-vt-1 ring-2 ring-current',
               TEAM_TEXT[team],
             )}
           >
-            <span className="text-2xl font-black tabular-nums">{view.remaining[team]}</span>
-            <span className="text-sm font-semibold">
+            <span className="text-heading font-black tabular-nums">{view.remaining[team]}</span>
+            <span className="text-small font-semibold">
               {TEAM_LABEL[team]}
               {myTeam === team && ' (you)'} to find
             </span>
@@ -525,17 +542,10 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
         </div>
       </div>
       {role && myTeam && (
-        <p className="text-center text-sm">
-          <span
-            data-testid="my-role"
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-3 py-0.5 font-semibold ring-1',
-              TEAM_PANEL[myTeam],
-              TEAM_TEXT[myTeam],
-            )}
-          >
+        <p className="text-center" data-testid="my-role">
+          <Tag className={cn('px-3 ring-1', TEAM_PANEL[myTeam], TEAM_TEXT[myTeam])}>
             You: {role}
-          </span>
+          </Tag>
         </p>
       )}
     </div>
@@ -559,23 +569,23 @@ function TeamsSection(props: {
   const count = (team: 'red' | 'blue') => view.seats.filter((s) => s.team === team).length;
   const watching = view.seats.filter((s) => s.team === null).length;
   return (
-    <Panel>
-      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-          <h3 className="font-bold">Teams</h3>
-          <span className="flex items-center gap-2 text-sm text-ink-muted">
+    <Fold
+      open={open}
+      onToggle={setOpen}
+      summary={
+        <span className="flex flex-1 items-center justify-between gap-2">
+          <h3 className="text-body font-bold">Teams</h3>
+          <span className="flex items-center gap-2 text-small text-ink-muted">
             <span className={TEAM_TEXT.red}>Red {count('red')}</span>·
             <span className={TEAM_TEXT.blue}>Blue {count('blue')}</span>
             {watching > 0 && <span>· {watching} watching</span>}
-            <span aria-hidden className="transition-transform group-open:rotate-180">
-              ▾
-            </span>
           </span>
-        </summary>
-        <div id={TEAMS_ID} className="mt-3">
-          <Teams view={view} {...teams} compact />
-        </div>
-      </details>
-    </Panel>
+        </span>
+      }
+    >
+      <div id={TEAMS_ID}>
+        <Teams view={view} {...teams} compact />
+      </div>
+    </Fold>
   );
 }

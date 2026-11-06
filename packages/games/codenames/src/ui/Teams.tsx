@@ -1,7 +1,7 @@
 import { Button, PlayerTag, cn } from '@vt/ui';
 import type { CodenamesAction, CodenamesView, Team } from '../logic/types.ts';
 import { canTakeSpymaster as canTakeSeat } from './status.ts';
-import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_BUTTON, TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 interface Props {
   view: CodenamesView;
@@ -49,22 +49,24 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
 
   return (
     <section
-      className={cn('rounded-2xl p-3 ring-1', TEAM_PANEL[team])}
+      className={cn('rounded-xl border-t-2 p-3 ring-1', TEAM_PANEL[team], TEAM_LINE[team])}
       aria-label={`${TEAM_LABEL[team]} team`}
     >
       <header className="mb-2 flex items-baseline justify-between">
-        <h3 className={cn('text-lg font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]} team</h3>
+        <h3 className={cn('text-sub font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]} team</h3>
         {remaining !== null && (
-          <span className={cn('text-sm font-semibold', TEAM_TEXT[team])}>
+          <span className={cn('text-small font-semibold', TEAM_TEXT[team])}>
             {remaining} agents left
           </span>
         )}
       </header>
-      <div className="space-y-2 text-sm">
+      <div className="space-y-2 text-small">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Spymaster</p>
+          <p className="text-caption font-semibold tracking-wide text-ink-muted uppercase">
+            Spymaster
+          </p>
           {!compact && (
-            <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
+            <p className="mb-1 text-caption text-ink-muted">
               Sees the secret key and gives one-word clues.
             </p>
           )}
@@ -79,7 +81,7 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
           ) : canTakeSpymaster ? (
             <Button
               size="sm"
-              variant={team}
+              variant={TEAM_BUTTON[team]}
               className="mt-1 min-h-11"
               onClick={() => void act({ type: 'join-team', team, role: 'spymaster' })}
             >
@@ -90,13 +92,15 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
           )}
         </div>
         <div>
-          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Operatives</p>
+          <p className="text-caption font-semibold tracking-wide text-ink-muted uppercase">
+            Operatives
+          </p>
           {!compact && (
-            <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
+            <p className="mb-1 text-caption text-ink-muted">
               Guess the words from the clues. Best for a first game.
             </p>
           )}
-          <ul className={cn('flex flex-wrap gap-x-3 gap-y-1', compact && 'text-sm')}>
+          <ul className={cn('flex flex-wrap gap-x-3 gap-y-1', compact && 'text-small')}>
             {operatives.map((s) => (
               <li key={s.id}>
                 <Name id={s.id} name={s.name} me={me?.id} online={online(s.id)} hostId={hostId} />
@@ -131,7 +135,7 @@ export function Teams(props: Props) {
         <TeamColumn {...props} team="blue" />
       </div>
       {(spectators.length > 0 || canSpectate) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-ink-muted">
           <span className="font-semibold">Watching:</span>
           {spectators.map((s) => (
             <Name
@@ -147,7 +151,7 @@ export function Teams(props: Props) {
           {canSpectate && (
             <Button
               size="sm"
-              variant="ghost"
+              variant="quiet"
               onClick={() => void props.act({ type: 'join-team', team: null, role: 'operative' })}
             >
               Sit out (watch)

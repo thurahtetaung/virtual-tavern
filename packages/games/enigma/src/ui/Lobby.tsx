@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Hint,
+  Icon,
   PlayerTag,
   StickyBar,
   TimerSettings,
@@ -13,7 +14,7 @@ import {
 } from '@vt/ui';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
 import type { Status } from './status.ts';
-import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_BUTTON, TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 type Act = (a: EnigmaAction) => Promise<boolean>;
 
@@ -84,12 +85,12 @@ export function TeamsPicker({
             <section
               key={team}
               aria-label={`${TEAM_LABEL[team]} team`}
-              className={cn('rounded-2xl p-3 ring-1', TEAM_PANEL[team])}
+              className={cn('rounded-xl border-t-2 p-3 ring-1', TEAM_PANEL[team], TEAM_LINE[team])}
             >
-              <h3 className={cn('mb-2 text-lg font-bold', TEAM_TEXT[team])}>
+              <h3 className={cn('mb-2 text-sub font-bold', TEAM_TEXT[team])}>
                 {TEAM_LABEL[team]} team
               </h3>
-              <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              <ul className="flex flex-wrap gap-x-3 gap-y-1 text-small">
                 {members.map((s) => (
                   <li key={s.id}>
                     <PlayerName view={view} id={s.id} online={online(s.id)} hostId={hostId} />
@@ -100,7 +101,7 @@ export function TeamsPicker({
               {canJoin && (
                 <Button
                   size="sm"
-                  variant={team}
+                  variant={TEAM_BUTTON[team]}
                   className="mt-3"
                   onClick={() => void act({ type: 'join-team', team })}
                 >
@@ -111,7 +112,7 @@ export function TeamsPicker({
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small text-ink-muted">
         <span className="font-semibold">Watching:</span>
         {spectators.map((s) => (
           <PlayerName key={s.id} view={view} id={s.id} online={online(s.id)} hostId={hostId} />
@@ -120,7 +121,7 @@ export function TeamsPicker({
         {myTeam !== null && !playing && (
           <Button
             size="sm"
-            variant="ghost"
+            variant="quiet"
             onClick={() => void act({ type: 'join-team', team: null })}
           >
             Sit out (watch)
@@ -162,7 +163,7 @@ export function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
+        {editable && <h3 className="text-sub font-bold">Game settings</h3>}
         <WordListPicker
           selectedIds={view.settings.wordListIds}
           wordLists={room.wordLists}
@@ -173,7 +174,7 @@ export function Lobby({
           }
         />
         <fieldset>
-          <legend className="text-sm font-semibold">Turn order</legend>
+          <legend className="text-small font-semibold">Turn order</legend>
           {editable ? (
             <div className="mt-1 grid grid-cols-2 gap-2">
               {FLOWS.map((f) => (
@@ -183,17 +184,17 @@ export function Lobby({
                   aria-pressed={view.settings.flow === f.flow}
                   onClick={() => void act({ type: 'update-settings', flow: f.flow })}
                   className={cn(
-                    'rounded-lg px-3 py-2 text-left ring-1 transition',
+                    'min-h-11 rounded-lg px-3 py-2 text-left ring-1 transition',
                     view.settings.flow === f.flow
-                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                      : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                      ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+                      : 'bg-card ring-line-strong hover:bg-panel',
                   )}
                 >
                   <span className="block font-semibold">{f.title}</span>
                   {/* On phones only the chosen option explains itself, to save space. */}
                   <span
                     className={cn(
-                      'text-xs text-ink-muted',
+                      'text-caption text-ink-muted',
                       view.settings.flow === f.flow ? 'block' : 'hidden sm:block',
                     )}
                   >
@@ -203,7 +204,7 @@ export function Lobby({
               ))}
             </div>
           ) : (
-            <p className="text-sm">{FLOWS.find((f) => f.flow === view.settings.flow)!.title}</p>
+            <p className="text-small">{FLOWS.find((f) => f.flow === view.settings.flow)!.title}</p>
           )}
         </fieldset>
         <TimerSettings
@@ -214,38 +215,41 @@ export function Lobby({
           guessHelp="Time for teams to agree on their guesses."
           strictHelp="missing clues or guesses count as failed"
         />
-        <p className="-mt-2 text-xs text-ink-muted">
+        <p className="-mt-2 text-caption text-ink-muted">
           Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
           tight, especially with Strict timers.
         </p>
       </LobbySettings>
+      <p className="text-center text-small text-ink-muted">
+        New to Enigma?{' '}
+        <Button variant="quiet" size="sm" onClick={showGuide}>
+          Read the guide
+        </Button>
+      </p>
       {editable && (
         <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
-              🎲 Shuffle teams
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'randomize-teams' })}
+              >
+                <Icon name="shuffle" />
+                Shuffle teams
+              </Button>
+            </div>
+            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
           </div>
         </StickyBar>
       )}
-      <p className="text-center text-sm text-ink-muted">
-        New to Enigma?{' '}
-        <button
-          type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
     </div>
   );
 }

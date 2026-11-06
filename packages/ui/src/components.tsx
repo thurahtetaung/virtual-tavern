@@ -248,6 +248,7 @@ export function Notice({
   role = 'status',
   icon,
   dense = false,
+  testId,
   className,
   children,
 }: {
@@ -257,6 +258,7 @@ export function Notice({
   icon?: boolean | IconName;
   /** Less padding on phones, for game screens that must fit one screen. */
   dense?: boolean;
+  testId?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -264,6 +266,7 @@ export function Notice({
   return (
     <div
       role={role}
+      data-testid={testId}
       className={join(
         // A ring rather than a border, and snug lines: a notice takes no more height than its words.
         'flex items-start gap-2 rounded-xl px-3.5 text-small leading-snug ring-1 ring-inset',
