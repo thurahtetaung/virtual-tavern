@@ -15,6 +15,9 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // Each tsconfig keeps its last check in tsconfig.tsbuildinfo beside it (git-ignored), so a
+    // second typecheck only re-checks the files that changed and what depends on them.
+    "incremental": true
   }
 }

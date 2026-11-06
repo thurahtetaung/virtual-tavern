@@ -17,7 +17,7 @@
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "build": "pnpm -r build",
     "start": "pnpm --filter @vt/server start",
-    "lint": "TSESTREE_SINGLE_RUN=false eslint .",
+    "lint": "TSESTREE_SINGLE_RUN=false eslint . --concurrency 3",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit && pnpm -r typecheck",

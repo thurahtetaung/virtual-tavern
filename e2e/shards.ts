@@ -1,6 +1,6 @@
 // Splits the e2e specs into CI shards by measured run time, so no shard waits on a pile of slow
-// specs. Playwright's own `--shard` splits by test count in file order, which put every serial
-// back-room spec in the last shards.
+// specs. Playwright's own `--shard` splits by test count in file order, which ignores how long
+// each spec takes.
 //
 //   node e2e/shards.ts 2 4                      # the spec files for shard 2 of 4
 //   node e2e/shards.ts --plan 4                 # the split and each shard's estimated seconds
@@ -11,7 +11,6 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SHARED_STATE } from '../playwright.config.ts';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const TIMINGS = join(DIR, 'timings.json');
@@ -22,22 +21,20 @@ const WORKERS = 2;
 interface Spec {
   file: string;
   seconds: number;
-  serial: boolean;
 }
 
 interface Shard {
   files: string[];
-  serial: number;
-  parallel: number;
+  total: number;
   longest: number;
 }
 
 /**
- * How long a shard takes: serial specs run one at a time on one worker while the other specs
- * share every worker, and a spec's tests always run in order on a single worker.
+ * How long a shard takes: its specs share every worker (each worker has its own server), and a
+ * spec's tests always run in order on a single worker.
  */
 function estimate(s: Shard): number {
-  return Math.max(s.serial, (s.serial + s.parallel) / WORKERS, s.longest);
+  return Math.max(s.total / WORKERS, s.longest);
 }
 
 /** Spec files with no measured time in timings.json. */
@@ -58,11 +55,7 @@ function specs(): Spec[] {
   // spec needs a measured one.
   const missing = unmeasured();
   if (missing.length) throw new Error(missingMessage(missing));
-  return specFiles().map((file) => ({
-    file,
-    seconds: timings[file]!,
-    serial: SHARED_STATE.some((re) => re.test(file)),
-  }));
+  return specFiles().map((file) => ({ file, seconds: timings[file]! }));
 }
 
 function missingMessage(missing: string[]): string {
@@ -71,12 +64,7 @@ function missingMessage(missing: string[]): string {
 
 /** Longest spec first, each to the shard it finishes soonest: deterministic for a given input. */
 export function shards(total: number): Shard[] {
-  const out: Shard[] = Array.from({ length: total }, () => ({
-    files: [],
-    serial: 0,
-    parallel: 0,
-    longest: 0,
-  }));
+  const out: Shard[] = Array.from({ length: total }, () => ({ files: [], total: 0, longest: 0 }));
   const sorted = specs().sort((a, b) => b.seconds - a.seconds || a.file.localeCompare(b.file));
   for (const spec of sorted) {
     let best = out[0]!;
@@ -84,15 +72,13 @@ export function shards(total: number): Shard[] {
     for (const shard of out) {
       const time = estimate({
         files: shard.files,
-        serial: shard.serial + (spec.serial ? spec.seconds : 0),
-        parallel: shard.parallel + (spec.serial ? 0 : spec.seconds),
+        total: shard.total + spec.seconds,
         longest: Math.max(shard.longest, spec.seconds),
       });
       if (time < bestTime) [best, bestTime] = [shard, time];
     }
     best.files.push(spec.file);
-    if (spec.serial) best.serial += spec.seconds;
-    else best.parallel += spec.seconds;
+    best.total += spec.seconds;
     best.longest = Math.max(best.longest, spec.seconds);
   }
   return out;
