@@ -1,4 +1,4 @@
-import { Button } from '@vt/ui';
+import { Button, Field, Icon, Input } from '@vt/ui';
 import { useState } from 'react';
 import { ApiFailure, api } from '../lib/api.ts';
 import { forgetIdentity, playerToken } from '../lib/identity.ts';
@@ -31,26 +31,21 @@ export function ForgetMe() {
   };
 
   return (
-    <details
-      id="forget-me"
-      className="group rounded-xl px-4 py-3 ring-1 ring-stone-200 dark:ring-stone-800"
-    >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+    <details id="forget-me" className="group rounded-xl bg-panel ring-1 ring-line">
+      <summary className="flex min-h-13 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-2 font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
         🧹 Forget me: delete my data from the server
-        <span
-          aria-hidden
-          className="text-ink-muted transition group-open:rotate-90 motion-reduce:transition-none"
-        >
-          ▸
-        </span>
+        <Icon
+          name="chevron-down"
+          className="text-ink-faint transition-transform duration-[180ms] group-open:rotate-180 motion-reduce:transition-none"
+        />
       </summary>
       {done ? (
-        <p className="pt-2 text-stone-700 dark:text-stone-300" role="status">
+        <p className="px-4 pt-1 pb-4 text-ink-2" role="status">
           Done. The tavern has forgotten you. Next time you visit, you’ll be a mysterious stranger
           again: pick a name and pull up a chair.
         </p>
       ) : (
-        <div className="space-y-3 pt-2 text-stone-700 dark:text-stone-300">
+        <div className="space-y-3 px-4 pt-1 pb-4 text-ink-2">
           <p>
             This deletes the play history and names the server keeps for{' '}
             <strong>this browser</strong>, and this browser forgets your name and seat. Your past
@@ -59,15 +54,15 @@ export function ForgetMe() {
           <p className="text-sm text-ink-muted">
             Played on another phone too? Do this there as well: each device is its own player.
           </p>
-          <label className="block text-sm font-semibold">
-            Type <q>{PHRASE}</q> to confirm
-            <input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              className="mt-1 block h-11 w-full rounded-lg bg-white px-3 font-normal ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
-            />
-          </label>
+          <Field
+            label={
+              <>
+                Type <q>{PHRASE}</q> to confirm
+              </>
+            }
+          >
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+          </Field>
           <Button variant="danger" disabled={!ready} onClick={() => void forget()}>
             {busy ? 'Forgetting…' : 'Delete my data'}
           </Button>

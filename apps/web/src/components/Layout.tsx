@@ -1,10 +1,10 @@
-import { Button, Icon } from '@vt/ui';
+import { Button, Icon, Slate } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
 const NAV_LINK =
-  'inline-flex min-h-11 items-center px-1 hover:text-amber-700 dark:hover:text-amber-400';
+  'inline-flex min-h-11 items-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 /**
  * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
@@ -13,7 +13,7 @@ const NAV_LINK =
 export function Layout({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-stone-200/80 bg-white/60 backdrop-blur dark:border-stone-800 dark:bg-stone-950/60">
+      <header className="border-b border-line">
         <div
           className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : 'max-w-4xl'}`}
         >
@@ -23,7 +23,7 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
           >
             <Icon name="beer" size={24} className="text-accent-text" /> Virtual Tavern
           </Link>
-          <nav className="flex items-center gap-2 text-sm font-medium text-stone-600 sm:gap-4 dark:text-stone-400">
+          <nav className="flex items-center gap-2 text-small font-medium text-ink-2 sm:gap-4">
             {!wide && (
               <>
                 <Link to="/rules" className={NAV_LINK}>
@@ -44,7 +44,7 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
       {!wide && (
         <footer className="py-6 text-center text-xs text-ink-muted">
           A cosy corner of the internet for game nights with friends.{' '}
-          <Link to="/faq" className="underline hover:text-amber-700 dark:hover:text-amber-400">
+          <Link to="/faq" className="text-accent-text underline-offset-2 hover:underline">
             Questions?
           </Link>
         </footer>
@@ -113,17 +113,20 @@ export function LoadingStep({
     };
   }, [slowAfterMs]);
   return (
-    <div role="status" className="space-y-3 py-16 text-center">
-      <p className="text-ink-muted">{slow ? slowLabel : label}</p>
-      {slow && (
-        <>
-          <p className="text-sm text-ink-muted">Taking longer than usual.</p>
+    <Slate
+      kind="loading"
+      className="my-12"
+      title={slow ? slowLabel : label}
+      action={
+        slow && (
           <Button variant="secondary" onClick={() => window.location.reload()}>
             Reload
           </Button>
-        </>
-      )}
-    </div>
+        )
+      }
+    >
+      {slow && 'Taking longer than usual.'}
+    </Slate>
   );
 }
 
@@ -156,7 +159,7 @@ export function PageLoading({
  */
 export function RoomOpening() {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-page dark:bg-stone-950">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-page">
       <PageLoading wide label="Setting up your room…" />
     </div>
   );

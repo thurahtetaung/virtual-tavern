@@ -1,4 +1,4 @@
-import { Panel } from '@vt/ui';
+import { Icon, Panel } from '@vt/ui';
 import { Fragment } from 'react';
 import faqSource from '../../../../docs/faq.md?raw';
 import { ForgetMe } from '../components/ForgetMe.tsx';
@@ -19,29 +19,27 @@ export function FaqPage() {
   usePageTitle('Questions & answers');
   return (
     <Layout>
-      <h1 className="mb-2 text-3xl font-bold">Questions & answers</h1>
-      <p className="mb-6 text-stone-600 dark:text-stone-400">
+      <h1 className="text-title font-semibold">Questions & answers</h1>
+      <p className="mt-1 mb-6 text-ink-2 sm:text-sub">
         New here? These cover what this place is and how it works.
       </p>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {sections.map((section) => (
           <section key={section.title} aria-labelledby={`faq-${section.title}`}>
-            <h2 id={`faq-${section.title}`} className="mb-2 text-xl font-bold">
+            <h2 id={`faq-${section.title}`} className="mb-3 text-heading font-semibold">
               {section.title}
             </h2>
-            <Panel className="divide-y divide-stone-200 p-0 dark:divide-stone-800">
+            <Panel className="divide-y divide-line p-0">
               {section.items.map((item) => (
-                <details key={item.question} className="group px-4 py-3">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+                <details key={item.question} className="group">
+                  <summary className="flex min-h-13 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-2 font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
                     {item.question}
-                    <span
-                      aria-hidden
-                      className="text-ink-muted transition group-open:rotate-90 motion-reduce:transition-none"
-                    >
-                      ▸
-                    </span>
+                    <Icon
+                      name="chevron-down"
+                      className="text-ink-faint transition-transform duration-[180ms] group-open:rotate-180 motion-reduce:transition-none"
+                    />
                   </summary>
-                  <div className="space-y-2 pt-1 pb-1 text-stone-700 dark:text-stone-300">
+                  <div className="space-y-2 px-4 pt-1 pb-4 text-ink-2">
                     {item.answer.map((block, i) =>
                       block.kind === 'p' ? (
                         <p key={i}>

@@ -1,8 +1,9 @@
-import { Button, Panel } from '@vt/ui';
+import { Button, Card, Field, Icon, Input, Notice, buttonClass } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
 import { Layout, PageLoading, RoomOpening } from '../components/Layout.tsx';
+import { CategoryChips, GuideRow, NoMatch, ShelfCard, useShelf } from '../components/Shelf.tsx';
 import {
   type ClientGame,
   clientGames,
@@ -36,38 +37,16 @@ function useBackroomGames() {
   return games;
 }
 
-function GameLink({ game }: { game: ClientGame }) {
-  const { tagline } = useGameGuide(game);
-  return (
-    <Link to={`/rules/${game.id}`}>
-      <Panel className="h-full transition hover:ring-accent dark:hover:ring-amber-400">
-        <p className="text-xl font-bold">
-          {game.icon} {game.name}
-        </p>
-        <p className="mt-1 text-stone-600 dark:text-stone-400">{tagline}</p>
-      </Panel>
-    </Link>
-  );
-}
-
-function Tagline({ game }: { game: ClientGame }) {
-  const { tagline } = useGameGuide(game);
-  return <p className="mb-6 text-lg text-stone-600 dark:text-stone-400">{tagline}</p>;
-}
-
 /** In place of "Create a room" while the admin has the game switched off. */
 function NotAvailable({ name }: { name: string }) {
   return (
-    <p
-      role="status"
-      className="mb-6 rounded-xl bg-warn-soft p-4 text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-    >
+    <Notice tone="warn" icon className="mb-4">
       {name} isn’t available right now, so no new rooms can be opened. The rules are here to read.
-    </p>
+    </Notice>
   );
 }
 
-/** The end of a rules page: read enough, now play. */
+/** "Ready to play?": the end of a rules page, or its rail on a desktop. */
 function CreateRoom({ game }: { game: ClientGame }) {
   const [name, setName] = useState(savedName);
   const [needsName] = useState(() => !savedName());
@@ -75,13 +54,12 @@ function CreateRoom({ game }: { game: ClientGame }) {
     document.getElementById('rules-name')?.focus(),
   );
   return (
-    <Panel id="create-room" className="mt-8 scroll-mt-4 space-y-3 text-center">
+    <Card id="create-room" className="grid scroll-mt-4 gap-3 text-center">
       {creating && <RoomOpening />}
-      <p className="text-lg font-bold">Ready to play?</p>
+      <p className="text-sub font-semibold">Ready to play?</p>
       {needsName && (
-        <label className="mx-auto block max-w-sm text-left">
-          <span className="text-sm font-semibold">Your name</span>
-          <input
+        <Field label="Your name" className="text-left">
+          <Input
             id="rules-name"
             value={name}
             maxLength={24}
@@ -89,14 +67,82 @@ function CreateRoom({ game }: { game: ClientGame }) {
             onBlur={() => name.trim() && saveName(name)}
             placeholder="What should we call you?"
             autoComplete="nickname"
-            className="mt-1 h-12 w-full rounded-lg bg-white px-4 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
           />
-        </label>
+        </Field>
       )}
       <Button size="lg" disabled={creating !== null} onClick={() => void create(game.id)}>
         {creating ? 'Opening room…' : `Create ${article(game.name)} ${game.name} room`}
       </Button>
-    </Panel>
+    </Card>
+  );
+}
+
+/** Every public game's card (filtered by the chips), then the back room's guides when unlocked. */
+function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: ReadonlySet<string> }) {
+  const { chips, filter, shown } = useShelf(clientGames, 'vt.categories.rules');
+  const [name, setName] = useState(savedName);
+  const [askName, setAskName] = useState(false);
+  const { creating, create } = useCreateRoom(name, () => {
+    setAskName(true);
+    requestAnimationFrame(() => document.getElementById('rules-name')?.focus());
+  });
+  const games = shown.filter((g) => !off.has(g.id));
+  const backroomGames = backroom?.filter((g) => !off.has(g.id)) ?? [];
+  return (
+    <>
+      {creating && <RoomOpening />}
+      <h1 className="text-title font-semibold">How to play</h1>
+      <p className="mt-1 mb-4 text-ink-2">
+        Every game here is played on phones, together in one room. Pick one to learn it, or open a
+        table straight away.
+      </p>
+      {askName && (
+        <Field label="What should we call you?" className="mb-4 max-w-sm">
+          <Input
+            id="rules-name"
+            value={name}
+            maxLength={24}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => name.trim() && saveName(name)}
+            placeholder="Your name"
+            autoComplete="nickname"
+          />
+        </Field>
+      )}
+      <CategoryChips
+        chips={chips}
+        chosen={filter.chosen}
+        onToggle={filter.toggle}
+        onClear={filter.clear}
+        className="mb-3"
+      />
+      {filter.chosen.length > 0 && games.length > 0 && (
+        <p className="mb-3 flex items-center justify-between gap-2 text-small text-ink-muted">
+          {games.length === 1 ? '1 game matches' : `${games.length} games match`}
+          <Button variant="quiet" size="sm" onClick={filter.clear}>
+            Show all games
+          </Button>
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {games.length === 0 && <NoMatch onClear={filter.clear} />}
+        {games.map((g) => (
+          <ShelfCard key={g.id} game={g} creating={creating} onCreate={(id) => void create(id)} />
+        ))}
+      </div>
+      {backroomGames.length > 0 && (
+        <section aria-labelledby="rules-back-room">
+          <h2 id="rules-back-room" className="mt-10 mb-3 text-heading font-semibold">
+            <span aria-hidden>🕯️</span> The back room
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {backroomGames.map((g) => (
+              <GuideRow key={g.id} game={g} />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -121,28 +167,7 @@ export function RulesPage() {
   if (!gameId) {
     return (
       <Layout>
-        <h1 className="mb-6 text-3xl font-bold">How to play</h1>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {clientGames
-            .filter((g) => !off.has(g.id))
-            .map((g) => (
-              <GameLink key={g.id} game={g} />
-            ))}
-        </div>
-        {backroom && backroom.some((g) => !off.has(g.id)) && (
-          <section aria-labelledby="rules-back-room">
-            <h2 id="rules-back-room" className="mt-10 mb-4 text-2xl font-bold">
-              <span aria-hidden>🕯️</span> The back room
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {backroom
-                .filter((g) => !off.has(g.id))
-                .map((g) => (
-                  <GameLink key={g.id} game={g} />
-                ))}
-            </div>
-          </section>
-        )}
+        <GameList backroom={backroom} off={off} />
       </Layout>
     );
   }
@@ -150,38 +175,44 @@ export function RulesPage() {
   if (!game) return <PageLoading />;
   // A back-room game's rules lead back to the back room, where its rooms are made.
   const back = publicGame
-    ? { to: '/rules', label: '← All games' }
-    : { to: '/backroom', label: '← Back room' };
+    ? { to: '/rules', label: 'All games' }
+    : { to: '/backroom', label: 'Back room' };
+  const open = !off.has(game.id);
   return (
     <Layout>
       <Link
         to={back.to}
-        className="inline-flex min-h-11 items-center text-sm text-amber-700 hover:underline dark:text-amber-400"
+        className={buttonClass({ variant: 'quiet', size: 'sm', className: '-ml-3' })}
       >
+        <Icon name="arrow-left" size={16} />
         {back.label}
       </Link>
-      <h1 className="mt-2 mb-1 text-3xl font-bold">
-        {game.icon} How to play {game.name}
+      <h1 className="mt-2 text-title font-semibold">
+        <span aria-hidden>{game.icon}</span> How to play {game.name}
       </h1>
       <Tagline game={game} />
-      {off.has(game.id) && <NotAvailable name={game.name} />}
+      {!open && <NotAvailable name={game.name} />}
       <GameGuideView
         game={game}
+        ready={open ? <CreateRoom game={game} /> : undefined}
         done={
-          off.has(game.id) ? undefined : (
+          open ? (
             <Button
               size="sm"
-              className="min-h-11"
               onClick={() =>
                 document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
               }
             >
               {`Create ${article(game.name)} ${game.name} room`}
             </Button>
-          )
+          ) : undefined
         }
       />
-      {!off.has(game.id) && <CreateRoom game={game} />}
     </Layout>
   );
+}
+
+function Tagline({ game }: { game: ClientGame }) {
+  const { tagline } = useGameGuide(game);
+  return <p className="mt-1 mb-4 text-ink-2 sm:text-sub">{tagline}</p>;
 }

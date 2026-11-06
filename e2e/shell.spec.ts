@@ -149,7 +149,7 @@ test('a room code typed with spaces joins the room, and a taken name gets a numb
   const code = host.url().split('/r/')[1]!;
 
   const friend = await player('Kim');
-  const invite = friend.getByLabel('Got an invite link or room code?');
+  const invite = friend.getByLabel('Paste a room link or code');
   await invite.fill('not a code');
   await friend.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(friend.getByRole('alert')).toContainText('like "');
