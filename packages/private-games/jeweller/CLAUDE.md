@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Jeweller** (`packages/private-games/jeweller`, id `jeweller`) is a gem-merchant card game for 2 to 4, with its Cities and Strongholds modules (host options, combinable).
   - **Ids:** the 90 cards (`L1-01`…`L3-20`) and 10 nobles (`N01`…`N10`) are the table in `src/logic/cards.ts`; gems are `white`/`blue`/`green`/`red`/`black` plus `gold`; Cities are sides `C1a`…`C7b` (`src/logic/cities.ts`). The UI draws every card's points and cost itself, so art is only a backdrop.
   - **Rules (the owner's rulings):** the app pays gems before gold (`payment()`, editable); pass only when nothing at all is legal, and a full round of passes ends the game as it stands (`how: 'stalled'`); with Cities, only players meeting a City can win. Strongholds open the `hold` stage after every purchase, before the emptied spaces refill, and a full set on an affordable card offers a Conquest (`conquer` stage). Safe moves never make a Conquest.

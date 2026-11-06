@@ -3,7 +3,6 @@ import {
   type LoadedRig,
   LowEffectsNotice,
   ShowTargetsProvider,
-  symbolSource,
   Stamp,
   useShow,
   useShowSettings,
@@ -22,6 +21,7 @@ import {
 import type { GoingOnceView } from '../logic/types.ts';
 import { GAME_ID } from './assets.ts';
 import { moments } from './show.ts';
+import { phoneSymbol } from './phone-symbol.ts';
 
 // The phone's share of the show: its own small rig (the stamp, the LOT disc, the canvas frame and
 // the hourglass; a couple of KB), fetched only once the drawing starts, and the same moments as
@@ -134,7 +134,7 @@ export function RigIcon({ symbol, className }: { symbol: string; className?: str
   const rig = usePhoneRig();
   const svg = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState<string | null>(null);
-  const html = useMemo(() => (rig ? symbolSource(rig, symbol) : ''), [rig, symbol]);
+  const html = useMemo(() => (rig ? phoneSymbol(rig, symbol) : ''), [rig, symbol]);
   useLayoutEffect(() => {
     const g = svg.current?.firstElementChild as SVGGraphicsElement | null;
     if (!g?.getBBox) return;
@@ -149,8 +149,9 @@ export function RigIcon({ symbol, className }: { symbol: string; className?: str
       className={className}
       viewBox={box ?? '0 0 1 1'}
       style={{ visibility: box ? 'visible' : 'hidden' }}
-      dangerouslySetInnerHTML={{ __html: `<g>${html}</g>` }}
-    />
+    >
+      <g dangerouslySetInnerHTML={{ __html: html }} />
+    </svg>
   );
 }
 
@@ -178,7 +179,7 @@ export function PadFrame({ children }: { children: ReactNode }) {
       ro.disconnect();
     };
   }, [rig]);
-  const html = useMemo(() => (rig ? symbolSource(rig, 'painting.frame') : ''), [rig]);
+  const html = useMemo(() => (rig ? phoneSymbol(rig, 'painting.frame') : ''), [rig]);
   // One tree whether or not the art has come: the pad must never remount (a drawing in progress).
   const sx = size ? size[0] / CANVAS_W : 0;
   const sy = size ? size[1] / CANVAS_H : 0;
@@ -193,14 +194,12 @@ export function PadFrame({ children }: { children: ReactNode }) {
           className="pointer-events-none absolute inset-0"
           style={{ clipPath: 'inset(-24px -40px -40px -40px)' }}
         >
-          <svg
-            className="absolute left-0 top-0 overflow-visible"
-            width="1"
-            height="1"
-            dangerouslySetInnerHTML={{
-              __html: `<g transform="matrix(${sx},0,0,${sy},${FRAME_AT[0]! * sx},${FRAME_AT[1]! * sy})">${html}</g>`,
-            }}
-          />
+          <svg className="absolute left-0 top-0 overflow-visible" width="1" height="1">
+            <g
+              transform={`matrix(${sx},0,0,${sy},${FRAME_AT[0]! * sx},${FRAME_AT[1]! * sy})`}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </svg>
         </div>
       )}
       <div className="relative">{children}</div>

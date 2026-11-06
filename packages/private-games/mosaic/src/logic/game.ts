@@ -297,8 +297,12 @@ function wallPlace(
   auto?: Auto,
 ): GameError | null {
   const g = s.game!;
-  const w = g.walls?.[by];
   if (g.stage !== 'wall') return err('wrong-stage', 'That’s for the wall-tiling.');
+  if (by === '__proto__' || by === 'constructor' || by === 'prototype')
+    return err('not-playing', 'You are not in this game.');
+  if (!Object.hasOwn(g.players, by) || !Object.hasOwn(g.walls ?? {}, by))
+    return err('not-playing', 'You are not in this game.');
+  const w = g.walls?.[by];
   if (!w || g.removed.includes(by)) return err('not-playing', 'You are not in this game.');
   if (w.row === null) return err('done', 'Your wall is done for this round.');
   if (w.row !== row) return err('wrong-row', `Line ${w.row + 1} goes first.`);
@@ -497,6 +501,10 @@ function take(
  */
 function remove(s: MosaicState, player: PlayerId, now: number): GameError | null {
   const g = s.game!;
+  if (player === '__proto__' || player === 'constructor' || player === 'prototype')
+    return err('not-left', 'Only a player who has left can be removed.');
+  if (!Object.hasOwn(g.players, player))
+    return err('not-left', 'Only a player who has left can be removed.');
   const b = g.players[player];
   if (!b || g.left[player] === undefined)
     return err('not-left', 'Only a player who has left can be removed.');
@@ -566,6 +574,9 @@ function seatWaiting(s: MosaicState) {
 }
 
 function sit(state: MosaicState, playing: boolean, ctx: Ctx): Result {
+  if (ctx.by === '__proto__' || ctx.by === 'constructor' || ctx.by === 'prototype')
+    return err('not-seated', 'You are not in this room.');
+  if (!Object.hasOwn(state.seats, ctx.by)) return err('not-seated', 'You are not in this room.');
   const seat = state.seats[ctx.by];
   if (!seat) return err('not-seated', 'You are not in this room.');
   if (state.phase === 'playing' && state.game?.players[ctx.by])

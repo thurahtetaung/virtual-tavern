@@ -2,7 +2,16 @@ import { createRng } from '@vt/game-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mosaicBot } from './bot.ts';
 import { mosaic, setTestBag } from './game.ts';
-import { bonusOf, emptyBoard, lineProblem, previewOf, tileWall, wallSpaces } from './rules.ts';
+import {
+  bonusOf,
+  emptyBoard,
+  lineProblem,
+  previewOf,
+  runWall,
+  startScore,
+  tileWall,
+  wallSpaces,
+} from './rules.ts';
 import { FACES, flipSpecials, neighbours } from './specials.ts';
 import {
   HOST,
@@ -474,4 +483,24 @@ describe('special factories', () => {
 
 afterEach(() => {
   setTestBag(null);
+});
+
+describe('wall input safety', () => {
+  it.each([NaN, -1, 0.5, '__proto__' as unknown as number])(
+    'leaves the board alone for an invalid starting row %s',
+    (from) => {
+      const b = emptyBoard();
+      const before = JSON.stringify(b);
+      runWall(b, startScore(b), from, true, [], null);
+      expect(JSON.stringify(b)).toBe(before);
+    },
+  );
+
+  it('refuses a wall choice outside the legal numeric spaces', () => {
+    const b = emptyBoard();
+    b.lines[0] = { colour: 'blue', count: 1 };
+    const before = JSON.stringify(b);
+    expect(runWall(b, startScore(b), 0, true, [], () => '__proto__' as unknown as number)).toBe(0);
+    expect(JSON.stringify(b)).toBe(before);
+  });
 });

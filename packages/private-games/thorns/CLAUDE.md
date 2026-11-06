@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Thorns** (`packages/private-games/thorns`, id `thorns`) is a disc-bluffing bidding game for 3 to 6: three roses and a thorn each, discs stacked face down, bids, and the Challenger turns over their own first; two won challenges, or being the last left, wins. The commercial game's name is also one of its disc words, so the repo never uses that word at all.
   - **Ids:** discs are `rose`, `thorn` and `chance` (the Last Chance disc, a host option); text uses name tokens (`{rose}`, `{thorns}`, `{Chance}`, `src/logic/names.ts`, `fillNames`). Without a manifest discs are emoji on the player's room colour.
   - **Rules (the owner's rulings):** the lost disc is secret (random from another's thorn, the Challenger's choice from their own); a revealed thorn that was its owner's last disc knocks its owner out. A player who leaves is away, not out (skipped, discs kept, an away Challenger waited for); the host's `remove` takes them out. Strict timers never put a disc down except a round's first.
