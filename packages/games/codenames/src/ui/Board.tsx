@@ -56,9 +56,10 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                 // Wide cells from lg up, so five rows, the clue form and its refusal fit a 900px desktop window.
                 // The caption's and the corner mark's sizes are shared with the word (`CardWord`),
                 // which keeps clear of them.
-                // Phones show no caption (the legend under the board says what each colour is); from `sm` up
-                // it is 12 px, the smallest text on the site, as is the mark.
-                '[--cap-at:0px] [--cap-size:0px] [--mark-size:0.75rem] sm:[--cap-at:0.25rem] sm:[--cap-size:0.75rem] sm:[--mark-size:0.875rem]',
+                // Phones show no caption (the legend under the board says what each colour is). The
+                // caption and the mark are capped by the card's width, so larger browser text can't
+                // push them into the word, and are never under 12 px.
+                '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:max(12px,min(0.75rem,7cqw))] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
                 '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[5/2] motion-reduce:transition-none',
                 face,
                 interactive &&

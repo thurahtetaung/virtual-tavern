@@ -170,7 +170,8 @@ export function TabBar<T extends string>({
       onKeyDown={(e) => arrowKeys(e, items, value, onChange)}
       className={cn(
         'flex border-t border-line bg-panel pb-[env(safe-area-inset-bottom)]',
-        fixed && 'fixed inset-x-0 bottom-0 z-30 shadow-vt-2',
+        // No margin from a `space-y` parent: it would lift the bar off the foot of the screen.
+        fixed && 'fixed inset-x-0 bottom-0 z-30 m-0 shadow-vt-2',
         className,
       )}
     >
