@@ -434,8 +434,13 @@ export function PosterOverlay({ children }: { children: ReactNode }) {
           quiet.push(sib);
         }
     }
+    // The page under it doesn't scroll, so its scrollbar doesn't narrow the poster.
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = 'hidden';
     return () => {
       for (const el of quiet) el.inert = false;
+      root.style.overflow = overflow;
     };
   }, []);
   return (
