@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.89.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.88.0...v0.89.0) (2026-11-06)
+
+
+### Features
+
+* **web:** a display serif for headings, a shared icon set and a new wordmark ([#523](https://github.com/thurahtetaung/virtual-tavern/issues/523)) ([118e036](https://github.com/thurahtetaung/virtual-tavern/commit/118e036c53550ca5cc3a5a31190c240bef48a987))
+
 ## [0.88.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.87.0...v0.88.0) (2026-11-06)
 
 
