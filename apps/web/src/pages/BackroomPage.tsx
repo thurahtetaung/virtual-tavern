@@ -109,7 +109,7 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
         )}
         <Link
           to="/"
-          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:text-amber-200/50 dark:hover:text-amber-200"
+          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:hover:text-amber-200"
         >
           ← Back to the tavern
         </Link>
@@ -262,7 +262,7 @@ export function BackroomPage() {
         )}
         <Link
           to="/"
-          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:text-amber-200/50 dark:hover:text-amber-200"
+          className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:hover:text-amber-200"
         >
           ← Back to the tavern
         </Link>

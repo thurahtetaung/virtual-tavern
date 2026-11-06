@@ -378,11 +378,7 @@ function WishList({ view }: { view: GoingOnceView }) {
           const r = sold.get(w.title);
           return (
             <li key={w.title} className="flex items-baseline justify-between gap-3 py-1.5">
-              <span
-                className={cn('min-w-0', r && 'text-ink-muted line-through dark:text-stone-500')}
-              >
-                {w.title}
-              </span>
+              <span className={cn('min-w-0', r && 'text-ink-muted line-through')}>{w.title}</span>
               <span className="shrink-0 font-bold tabular-nums">{money(w.value)}</span>
             </li>
           );

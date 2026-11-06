@@ -344,7 +344,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
                 story
                   ? 'bg-accent-soft ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
                   : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
-                turn && turn.phase !== 'reveal' && !s.done && !story && 'opacity-60',
+                turn && turn.phase !== 'reveal' && !s.done && !story && 'text-ink-muted',
               )}
               title={story ? 'Storyteller' : s.done ? 'Done' : 'Still deciding'}
             >

@@ -1295,10 +1295,7 @@ export function Discards({
                           'bg-danger-soft font-bold text-danger-ink dark:bg-red-500/15 dark:text-red-300',
                         last &&
                           'bg-warn-soft font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30',
-                        !lost &&
-                          !last &&
-                          onFirework &&
-                          'text-ink-muted opacity-60 dark:text-stone-500',
+                        !lost && !last && onFirework && 'text-ink-muted opacity-60',
                       )}
                       title={`${SUIT_NAME[suit]} ${rank}: ${gone} of ${total} discarded`}
                     >

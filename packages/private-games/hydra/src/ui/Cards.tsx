@@ -12,7 +12,7 @@ const TEAM_BG: Record<Team, string> = {
 };
 export const TEAM_TEXT: Record<Team, string> = {
   blue: 'text-sky-700 dark:text-sky-300',
-  red: 'text-red-700 dark:text-red-400',
+  red: 'text-red-700 dark:text-red-300',
 };
 export const TEAM_SOFT: Record<Team, string> = {
   blue: 'bg-sky-50 ring-sky-200 dark:bg-sky-500/10 dark:ring-sky-500/30',

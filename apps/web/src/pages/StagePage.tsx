@@ -119,7 +119,7 @@ export function StagePage() {
             </Button>
           </form>
         )}
-        <p className="text-sm text-ink-muted dark:text-stone-500">
+        <p className="text-sm text-ink-muted">
           A table screen shows the room to everyone. It never plays, and the phones keep their own
           secrets.
         </p>

@@ -238,7 +238,7 @@ const PlayerRow = memo(function PlayerRow({
     return (
       <li
         className={cn(
-          'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60 dark:text-stone-500',
+          'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60',
           turnPlayer === p.id && 'ring-2 ring-line-strong dark:ring-stone-600',
         )}
         data-player={p.id}
