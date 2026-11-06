@@ -1,6 +1,6 @@
 import { Button, Card, Field, Icon, Input, Notice, buttonClass } from '@vt/ui';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
 import { Layout, PageLoading, RoomOpening } from '../components/Layout.tsx';
 import { CategoryChips, GuideRow, NoMatch, ShelfCard, useShelf } from '../components/Shelf.tsx';
@@ -77,38 +77,30 @@ function CreateRoom({ game }: { game: ClientGame }) {
   );
 }
 
-/** Every public game's card (filtered by the chips), then the back room's guides when unlocked. */
+/**
+ * The games list: the chips, a row per shown game leading to its guide, then "Open a table" with
+ * their cards; the back room's guides follow when unlocked. Without a saved name, "Create a room"
+ * opens the game's guide, whose "Ready to play?" asks for one.
+ */
 function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: ReadonlySet<string> }) {
-  const { chips, filter, shown } = useShelf(clientGames, 'vt.categories.rules');
-  const [name, setName] = useState(savedName);
-  const [askName, setAskName] = useState(false);
+  const navigate = useNavigate();
+  const { chips, filter, shown, categoriesOf } = useShelf(clientGames, 'vt.categories.rules');
+  const [name] = useState(savedName);
+  const pending = useRef<string | null>(null);
   const { creating, create } = useCreateRoom(name, () => {
-    setAskName(true);
-    requestAnimationFrame(() => document.getElementById('rules-name')?.focus());
+    if (pending.current) void navigate(`/rules/${pending.current}`);
   });
   const games = shown.filter((g) => !off.has(g.id));
   const backroomGames = backroom?.filter((g) => !off.has(g.id)) ?? [];
+  const chosen = chips.filter((c) => filter.chosen.includes(c.id));
   return (
     <>
       {creating && <RoomOpening />}
       <h1 className="text-title font-semibold">How to play</h1>
       <p className="mt-1 mb-4 text-ink-2">
-        Every game here is played on phones, together in one room. Pick one to learn it, or open a
-        table straight away.
+        Every game here is played on phones, together in one room. Filter by what kind of night it
+        is.
       </p>
-      {askName && (
-        <Field label="What should we call you?" className="mb-4 max-w-sm">
-          <Input
-            id="rules-name"
-            value={name}
-            maxLength={24}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => name.trim() && saveName(name)}
-            placeholder="Your name"
-            autoComplete="nickname"
-          />
-        </Field>
-      )}
       <CategoryChips
         chips={chips}
         chosen={filter.chosen}
@@ -116,26 +108,49 @@ function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: Reado
         onClear={filter.clear}
         className="mb-3"
       />
-      {filter.chosen.length > 0 && games.length > 0 && (
+      {chosen.length > 0 && games.length > 0 && (
         <p className="mb-3 flex items-center justify-between gap-2 text-small text-ink-muted">
-          {games.length === 1 ? '1 game matches' : `${games.length} games match`}
+          {`${games.length} ${games.length === 1 ? 'game is' : 'games are'} ${chosen
+            .map((c) => c.name.toLowerCase())
+            .join(' and ')}`}
           <Button variant="quiet" size="sm" onClick={filter.clear}>
             Show all games
           </Button>
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
         {games.length === 0 && <NoMatch onClear={filter.clear} />}
         {games.map((g) => (
-          <ShelfCard key={g.id} game={g} creating={creating} onCreate={(id) => void create(id)} />
+          <GuideRow key={g.id} game={g} categories={categoriesOf(g.id)} />
         ))}
       </div>
+      {games.length > 0 && (
+        <section aria-labelledby="rules-open-a-table">
+          <h2 id="rules-open-a-table" className="mt-8 mb-3 text-heading font-semibold">
+            Open a table
+          </h2>
+          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
+            {games.map((g) => (
+              <ShelfCard
+                key={g.id}
+                game={g}
+                brief
+                creating={creating}
+                onCreate={(id) => {
+                  pending.current = id;
+                  void create(id);
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       {backroomGames.length > 0 && (
         <section aria-labelledby="rules-back-room">
           <h2 id="rules-back-room" className="mt-10 mb-3 text-heading font-semibold">
             <span aria-hidden>🕯️</span> The back room
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
             {backroomGames.map((g) => (
               <GuideRow key={g.id} game={g} />
             ))}

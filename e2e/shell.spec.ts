@@ -122,7 +122,7 @@ test('a rules page names the tab and ends with a way to start playing', async ({
   page.on('pageerror', (e) => pageErrors.push(e.message));
   await page.goto('/rules');
   await expect(page).toHaveTitle('How to play · Virtual Tavern');
-  await page.getByRole('link', { name: /Echo/ }).click();
+  await page.getByRole('link', { name: /Echo/ }).first().click();
   await expect(page).toHaveTitle('How to play Echo · Virtual Tavern');
   // No name yet: the button asks for one first, then opens the room.
   await page.getByRole('button', { name: 'Create an Echo room' }).click();

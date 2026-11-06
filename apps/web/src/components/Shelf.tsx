@@ -1,5 +1,5 @@
 import type { GameCategory, GameSummary } from '@vt/protocol';
-import { Button, Chip, Chips, GameCard, Icon, Slate, buttonClass, cn } from '@vt/ui';
+import { Button, Chip, Chips, GameCard, Icon, Slate, Tag, buttonClass, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { ClientGame } from '../games/registry.ts';
@@ -29,7 +29,8 @@ export function useShelf(games: readonly ClientGame[], key: string) {
     const summary = listed.find((s) => s.id === g.id);
     return !summary?.off && shows(filter.chosen, summary?.categories ?? []);
   });
-  return { chips, filter, shown };
+  const categoriesOf = (id: string) => listed.find((s) => s.id === id)?.categories ?? [];
+  return { chips, filter, shown, categoriesOf };
 }
 
 /** "All" and one chip per category the list's games have; several may be on. */
@@ -84,18 +85,21 @@ export function ShelfCard({
   game,
   creating,
   onCreate,
+  brief = false,
 }: {
   game: ClientGame;
   creating: string | null;
   onCreate: (id: string) => void;
+  /** Only the pitch under the name (the games list's "Open a table", where the rows have the facts). */
+  brief?: boolean;
 }) {
   const guide = useGameGuide(game);
   return (
     <GameCard
       emblem={game.icon}
       name={game.name}
-      meta={`${guide.players} · ${guide.duration}`}
-      tagline={guide.tagline}
+      meta={brief ? guide.tagline : `${guide.players} · ${guide.duration}`}
+      tagline={brief ? undefined : guide.tagline}
       createAriaLabel={`Create ${article(game.name)} ${game.name} room`}
       creating={creating === game.id}
       disabled={creating !== null}
@@ -113,27 +117,42 @@ export function ShelfCard({
   );
 }
 
-/** A game's row in a list of guides: emblem, name, facts and a chevron, the whole row a link. */
-export function GuideRow({ game }: { game: ClientGame }) {
+/** A game's row in a list of guides: emblem, name, facts, its categories and a chevron; a link. */
+export function GuideRow({
+  game,
+  categories = [],
+}: {
+  game: ClientGame;
+  categories?: readonly GameCategory[];
+}) {
   const guide = useGameGuide(game);
   return (
     <Link
       to={`/rules/${game.id}`}
       className={cn(
-        'flex min-h-16 items-center gap-3 rounded-xl bg-card p-3 text-ink shadow-vt-1-edge ring-1 ring-line',
+        'flex min-h-16 items-center gap-3 rounded-xl bg-card p-4 text-ink shadow-vt-1-edge ring-1 ring-line',
         'transition-shadow duration-[180ms] hover:shadow-vt-2',
         'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus',
       )}
     >
       <span
         aria-hidden
-        className="grid size-12 shrink-0 place-items-center rounded-lg bg-sunk text-2xl leading-none"
+        className="grid size-13 shrink-0 place-items-center rounded-lg bg-sunk text-[28px] leading-none"
       >
         {game.icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sub leading-tight font-semibold">{game.name}</span>
-        <span className="block text-caption text-ink-muted">{guide.tagline}</span>
+        <span className="block text-caption text-ink-muted">
+          {guide.players} · {guide.duration}
+        </span>
+        {categories.length > 0 && (
+          <span className="mt-1 flex flex-wrap gap-1.5">
+            {categories.map((c) => (
+              <Tag key={c.id}>{c.name}</Tag>
+            ))}
+          </span>
+        )}
       </span>
       <Icon name="chevron-right" className="shrink-0 text-ink-faint" />
     </Link>

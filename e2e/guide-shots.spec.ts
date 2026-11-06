@@ -26,6 +26,7 @@ const PRIVATE = [
   'hogwarts',
   'tavern-brawl',
   'short-fuse',
+  'starlight',
   'thorns',
   'iconic',
   'stampede',
