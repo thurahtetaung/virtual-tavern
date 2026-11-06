@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.92.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.91.0...v0.92.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** table screen poster with one dark frame for every game's TV ([#531](https://github.com/thurahtetaung/virtual-tavern/issues/531)) ([60bf7b8](https://github.com/thurahtetaung/virtual-tavern/commit/60bf7b8b43673b6fa5cb29fa0adf421fb409bffe))
+
 ## [0.91.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.90.0...v0.91.0) (2026-11-06)
 
 
