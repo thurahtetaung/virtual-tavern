@@ -70,7 +70,7 @@ function CreateRoom({ game }: { game: ClientGame }) {
           />
         </Field>
       )}
-      <Button size="lg" disabled={creating !== null} onClick={() => void create(game.id)}>
+      <Button disabled={creating !== null} onClick={() => void create(game.id)}>
         {creating ? 'Opening room…' : `Create ${article(game.name)} ${game.name} room`}
       </Button>
     </Card>
