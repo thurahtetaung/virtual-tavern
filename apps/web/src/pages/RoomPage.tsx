@@ -27,7 +27,16 @@ import {
   useSecondsLeft,
 } from '@vt/ui';
 import { PosterInfoProvider, useShowProfile } from '@vt/ui/show';
-import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
@@ -692,7 +701,8 @@ function Room({
   return (
     <Layout wide room>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
-          icon over a one-word label). A long name takes a smaller size and up to two lines. */}
+          icon over a one-word label). A long name takes a smaller size and up to two lines,
+          breaking only between words (`RoomTitle`). */}
       <div
         ref={roomHeader}
         data-ui="room-header"
@@ -712,7 +722,7 @@ function Room({
           >
             {game.icon}
           </span>
-          <span className="line-clamp-2 min-w-0 break-words">{game.name}</span>
+          <RoomTitle key={game.name} name={game.name} />
         </h1>
         <div className="flex shrink-0 gap-1.5 sm:gap-2">
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
@@ -966,6 +976,53 @@ const isBackroomGame = (game: ClientGame) => !findGame(game.id);
 /** The door, for a player whose unlock stopped working inside a room, saying why. */
 const backToTheDoor = (roomId: string, reason: LockReason) =>
   `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&locked=${reason}`;
+
+/**
+ * Font sizes a room title steps down through when one of its words doesn't fit the header (the
+ * first is the size the header gave it); past the last, the title ends in an ellipsis on one line.
+ */
+const TITLE_SIZES = [undefined, 17, 16, 15] as const;
+
+/**
+ * The game's name in the room header: up to two lines, breaking only between words. A word too
+ * wide for the space shrinks the name step by step to 15 px, then the name is cut with an
+ * ellipsis (the full name stays in the text, so the heading's accessible name, and in `title`).
+ * Keyed by the name, so a new name fits from the start.
+ */
+function RoomTitle({ name }: { name: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  // The width the steps were measured at: a new width starts again from the first size.
+  const [{ step }, setFit] = useState({ step: 0, width: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && step < TITLE_SIZES.length && el.scrollWidth > el.clientWidth)
+      setFit((f) => ({ ...f, step: f.step + 1 }));
+  });
+  // Fit again when the header's width changes (a turned phone, a header button coming or going).
+  useEffect(() => {
+    const el = ref.current?.parentElement;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      setFit((f) => (f.width === el.clientWidth ? f : { step: 0, width: el.clientWidth }));
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  const cut = step >= TITLE_SIZES.length;
+  return (
+    <span
+      ref={ref}
+      title={cut ? name : undefined}
+      data-fit={cut ? 'cut' : step}
+      className={cn('min-w-0', cut ? 'truncate' : 'line-clamp-2')}
+      style={{ fontSize: cut ? '15px' : TITLE_SIZES[step] && `${TITLE_SIZES[step]}px` }}
+    >
+      {name}
+    </span>
+  );
+}
 
 /**
  * Room header buttons: 52 px, a 24 px icon over a one-word label, on every screen, so nobody has to

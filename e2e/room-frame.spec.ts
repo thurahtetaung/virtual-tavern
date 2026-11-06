@@ -1,5 +1,7 @@
 import { type Browser, type Locator, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { playEscape } from './recap-play.ts';
 
 // The room frame on a phone: a Spymaster giving a clue sees the header, the status line, the board
 // and the clue form in the sticky bar above the tab bar, all on one 390 × 844 screen with no
@@ -317,4 +319,104 @@ test('a Round Table leader picks a team at a full table on one phone screen', as
     .click();
   await expect(lead.getByRole('button', { name: /^Tap \d more$/ })).toBeVisible();
   await fitsOneScreen(lead, 'Round Table');
+});
+
+// A long back-room title with all four header buttons (Night shows after a finished game) on a
+// phone: the name never breaks inside a word, and the header stays one row.
+test('a long game name never breaks inside a word in a full phone header', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const TITLE = 'Phantasmagorical Midsummer Masquerade Extravaganza';
+  const visitor = async (name: string) => {
+    const context = await browser.newContext();
+    const p = await context.newPage();
+    p.on('pageerror', (e) => pageErrors.push(`${name}: ${e.message}`));
+    p.on('dialog', (d) => void d.accept());
+    await ownLoginLimit(p);
+    await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    return p;
+  };
+  const unlock = async (p: Page, url = '/backroom') => {
+    await p.goto(url);
+    await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+    await p.getByRole('button', { name: 'Knock' }).click();
+  };
+  const admin = await visitor('Admin');
+  await admin.goto('/tavern-keeper');
+  await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
+  await admin.getByRole('button', { name: 'Sign in' }).click();
+  await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
+  await admin.getByRole('button', { name: /Open the back room|Change password/ }).click();
+  await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
+  const setTitle = (title: string | null) =>
+    admin.request.put('/api/admin/games/masquerade-originals', { data: { title } });
+  expect((await setTitle(TITLE)).ok()).toBe(true);
+  try {
+    const host = await visitor('Hana');
+    await unlock(host);
+    await host.getByRole('button', { name: `Create a ${TITLE} room` }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(
+      ['Ana', 'Ben'].map(async (n) => {
+        const p = await visitor(n);
+        await unlock(p, `/backroom?next=${encodeURIComponent(new URL(url).pathname)}`);
+        await expect(p).toHaveURL(url);
+        return p;
+      }),
+    );
+    const players = [host, ...others];
+    const names = new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben'][i]!]));
+    await host.getByLabel('Rounds').selectOption('1');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    await playEscape(players, names);
+
+    await host.setViewportSize(PHONE);
+    const header = host.locator('[data-ui="room-header"]');
+    await expect(header.getByRole('button', { name: /^Night recap/ })).toBeVisible();
+    await expect(header.getByRole('button')).toHaveCount(4);
+    await expect(header.getByRole('heading', { level: 1 })).toHaveAccessibleName(TITLE);
+
+    // Each line of the name starts after a space, or the name is cut with an ellipsis on one line.
+    const fit = () =>
+      header.locator('h1 > span:not([aria-hidden])').evaluate((el) => {
+        const text = el.firstChild!;
+        const range = document.createRange();
+        const breaks: number[] = [];
+        let top: number | null = null;
+        for (let i = 0; i < text.textContent!.length; i++) {
+          range.setStart(text, i);
+          range.setEnd(text, i + 1);
+          const rect = [...range.getClientRects()].find((r) => r.width > 0);
+          if (!rect) continue;
+          if (top !== null && rect.top > top + 2) breaks.push(i);
+          top = rect.top;
+        }
+        const style = getComputedStyle(el);
+        return {
+          midWord: breaks.filter((i) => text.textContent![i - 1] !== ' '),
+          cut: style.whiteSpace === 'nowrap' && style.textOverflow === 'ellipsis',
+          title: el.getAttribute('title'),
+          size: style.fontSize,
+          overflow: el.scrollWidth > el.clientWidth,
+        };
+      });
+    await expect.poll(async () => (await fit()).midWord).toEqual([]);
+    const name = await fit();
+    test.info().annotations.push({ type: 'fit', description: JSON.stringify(name) });
+    if (name.cut) expect(name.title).toBe(TITLE);
+    else expect(name.overflow).toBe(false);
+
+    // One row: every part of the header shares its middle, and nothing spills out of it.
+    const row = await header.evaluate((el) => ({
+      spill: el.scrollWidth > el.clientWidth || document.scrollingElement!.scrollWidth > 390,
+      middles: [...el.children].map((c) => {
+        const r = c.getBoundingClientRect();
+        return Math.round(r.top + r.height / 2);
+      }),
+    }));
+    expect(row.spill).toBe(false);
+    expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
+  } finally {
+    await setTitle(null);
+  }
 });
