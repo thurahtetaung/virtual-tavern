@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.96.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.95.0...v0.96.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** hidden-role back-room games on the new design ([#540](https://github.com/thurahtetaung/virtual-tavern/issues/540)) ([74e9a20](https://github.com/thurahtetaung/virtual-tavern/commit/74e9a20c9d1d255608726d1f8fd35263321abc23))
+
 ## [0.95.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.94.0...v0.95.0) (2026-11-06)
 
 
