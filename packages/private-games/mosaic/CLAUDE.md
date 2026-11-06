@@ -12,7 +12,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules that surprise (the owner's rulings in `game.test.ts`, `options.test.ts` and the guide):** taking the first-player marker with a full floor costs nothing; an empty bag takes the whole lid, and a round that would start with no tiles ends the game. A joker on a colour's space bars that colour from the row; jokers count for rows and columns, never a colour. Any choice of wall space runs the `wall` stage. There is no undo; the pick sheet has a confirm step.
   - **`view()`:** everything on the table is public; the bag only as counts per colour.
   - **Testing:** `MOSAIC_TEST_BAG` (e.g. `top:<letters>;wall0:<letters>;sf:sf4,-,sf5`) stacks the bag, fills the first seat's wall rows and fixes special factory faces, with the first seat starting.
-  - **Phones:** the wall choice and the wall-tiling's Next round sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
+  - **Phones:** Play, Boards and Scores sit on the shared `TabBar` below 1024 px; the wall choice and the wall-tiling's Next round sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
 ## Assets
 

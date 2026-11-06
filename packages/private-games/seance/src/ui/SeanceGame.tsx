@@ -8,14 +8,16 @@ import {
   clock,
   cn,
   useSecondsLeft,
-  useReservedHeight,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   useSpectatorPrompt,
   useWideScreen,
   useConfirm,
   useAbandonGame,
   NameDot,
 } from '@vt/ui';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Poster, PosterClock, PosterOverlay, PosterSlate } from '@vt/ui/show';
 import {
   AWAY_SECONDS,
@@ -51,6 +53,7 @@ import { ReadyNoteContext, useReadyNote } from './ready-note.ts';
 export type SeanceUiProps = GameUiProps<SeanceView, SeanceAction>;
 type Act = SeanceUiProps['act'];
 type Tab = 'main' | 'others' | 'table';
+const TABS_ID = 'seance-sections';
 
 /** Buzzes once each time it becomes the viewer's move (a new key). */
 function useTurnBuzz(key: string | null) {
@@ -58,61 +61,6 @@ function useTurnBuzz(key: string | null) {
     if (key === null) return;
     if ('vibrate' in navigator) navigator.vibrate([150, 80, 150]);
   }, [key]);
-}
-
-/**
- * The phone's bottom navigation. Séance keeps its own bar for now for the "needs you" dot on a
- * tab; it reserves its height like the shared one, so a sticky bar sits on top of it.
- */
-function TabBar({
-  tabs,
-  tab,
-  onChange,
-  alert,
-}: {
-  tabs: { id: Tab; icon: string; label: string }[];
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  alert: Tab | null;
-}) {
-  const bar = useRef<HTMLElement>(null);
-  const wide = useWideScreen();
-  useReservedHeight('--vt-tabbar-h', bar, !wide);
-  return (
-    <nav
-      ref={bar}
-      aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-    >
-      {tabs.map((it) => {
-        const on = tab === it.id;
-        return (
-          <button
-            key={it.id}
-            type="button"
-            aria-current={on ? 'page' : undefined}
-            onClick={() => onChange(it.id)}
-            className={cn(
-              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
-              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
-              on
-                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
-                : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            <span className="flex items-center gap-1 text-xl leading-none">
-              {it.icon}
-              {alert === it.id && !on && (
-                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
-              )}
-            </span>
-            {it.label}
-          </button>
-        );
-      })}
-    </nav>
-  );
 }
 
 /** How long a psychic is away before the host is offered what to do about the seat. */
@@ -555,6 +503,7 @@ function SeanceTable({
   });
   const tab = picked.key === stepKey ? picked.tab : defaultTab;
   const setTab = (t: Tab) => setPicked({ tab: t, key: stepKey });
+  const wide = useWideScreen();
 
   const inGame = ghost || !!me;
   useSpectatorPrompt(
@@ -628,23 +577,32 @@ function SeanceTable({
 
   // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
   const ghostFinal = ghost && finalStage;
-  const tabs: { id: Tab; icon: string; label: string }[] = ghost
+  const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = ghost
     ? [
-        { id: 'main', icon: finalStage ? '🗳️' : '👥', label: finalStage ? 'Final' : 'Psychics' },
-        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: '🃏', label: 'Hand' }]),
-        { id: 'table', icon: '🕰️', label: 'Table' },
+        {
+          id: 'main',
+          icon: finalStage ? 'check' : 'users',
+          label: finalStage ? 'Final' : 'Psychics',
+        },
+        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: 'hand' as const, label: 'Hand' }]),
+        { id: 'table', icon: 'hourglass', label: 'Table' },
       ]
     : me
       ? [
-          { id: 'main', icon: finalStage ? '🗳️' : '🔮', label: finalStage ? 'Final' : 'My vision' },
-          { id: 'others', icon: '🧿', label: 'Others' },
-          { id: 'table', icon: '🕰️', label: 'Table' },
+          {
+            id: 'main',
+            icon: finalStage ? 'check' : 'moon',
+            label: finalStage ? 'Final' : 'My vision',
+          },
+          { id: 'others', icon: 'users', label: 'Others' },
+          { id: 'table', icon: 'hourglass', label: 'Table' },
         ]
       : [
-          ...(finalStage ? [{ id: 'main' as Tab, icon: '🗳️', label: 'Final' }] : []),
-          { id: 'others', icon: '🧿', label: 'Psychics' },
-          { id: 'table', icon: '🕰️', label: 'Table' },
+          ...(finalStage ? [{ id: 'main' as Tab, icon: 'check' as const, label: 'Final' }] : []),
+          { id: 'others', icon: 'users', label: 'Psychics' },
+          { id: 'table', icon: 'hourglass', label: 'Table' },
         ];
+  // The "needs you" dot: on the tab holding your move, while another tab is open.
   const alert: Tab | null = status.yourMove ? 'main' : null;
 
   const finalPanel = finalStage && (
@@ -759,13 +717,38 @@ function SeanceTable({
               : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
         )}
       >
-        {main && <div className={cn('min-w-0 space-y-2', onTab('main'))}>{main}</div>}
-        {second && <div className={cn('min-w-0', onTab('others'))}>{second}</div>}
-        <div className={cn('min-w-0 space-y-2', onTab('table'))}>
+        {main && (
+          <div
+            className={cn('min-w-0 space-y-2', onTab('main'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'main'))}
+          >
+            {main}
+          </div>
+        )}
+        {second && (
+          <div
+            className={cn('min-w-0', onTab('others'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'others'))}
+          >
+            {second}
+          </div>
+        )}
+        <div
+          className={cn('min-w-0 space-y-2', onTab('table'))}
+          {...(!wide && tabPanelProps(TABS_ID, 'table'))}
+        >
           <TableTab view={view} content={content} />
         </div>
       </div>
-      <TabBar tabs={tabs} tab={tab} onChange={setTab} alert={alert} />
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Game sections"
+          value={tab}
+          onChange={setTab}
+          items={tabs.map((t) => ({ ...t, badge: alert === t.id && tab !== t.id ? 'dot' : 0 }))}
+        />
+      )}
       {overlay}
       {confirmLockDialog}
     </div>

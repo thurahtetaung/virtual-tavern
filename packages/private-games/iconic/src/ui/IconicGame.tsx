@@ -18,9 +18,11 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  TabBar,
   Superlatives,
   Switch,
   cn,
+  tabPanelProps,
   useAbandonGame,
   useConfirm,
   useSpectatorPrompt,
@@ -544,8 +546,8 @@ function Play({
   const g = view.game!;
   const r = g.round;
   const target = view.settings.length === 'twelve' ? ` of ${WORDS_TO_END}` : '';
-  // Wide screens put the scores beside the board while clues are given (see Clue).
-  const scoresBeside = useWide() && r.stage === 'clue';
+  // While clues are given the scores sit beside the board (wide) or in their own tab (phones).
+  const scoresBeside = r.stage === 'clue';
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-ink-muted">
@@ -801,7 +803,7 @@ function Clue({
   const inTeam = r.givers.includes(room.you) || r.helper === room.you;
   const isGiver = r.givers.includes(room.you);
   const [chosenSet, setActive] = useState<SetId>('main');
-  const [tab, setTab] = useState<'board' | 'guesses'>(inTeam ? 'board' : 'guesses');
+  const [tab, setTab] = useState<ClueTab>(inTeam ? 'board' : 'guesses');
   const [confirm, dialog] = useConfirm();
   // Back to the main set whenever its marker is off the board (a wipe, a new word).
   const active: SetId = r.board.main.marker !== null ? chosenSet : 'main';
@@ -912,45 +914,52 @@ function Clue({
       <Tips view={view} you={room.you} />
       <div className="flex justify-end">{clock}</div>
       <ClueStrip board={r.board} art={art} />
-      <div role="tablist" aria-label="View" className="grid grid-cols-2 gap-1">
-        {(
-          [
-            ['board', '🧩 Board'],
-            [
-              'guesses',
-              `💬 Guesses (${r.guesses.length})${isGiver && unjudged ? ` · ${unjudged} new` : ''}`,
-            ],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            className={cn(
-              'min-h-11 rounded-lg py-2 text-sm font-semibold ring-1',
-              tab === k
-                ? 'bg-accent-soft text-accent-text ring-accent-line'
-                : 'bg-panel text-ink-muted ring-line',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}>
+      <Panel
+        className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'board')}
+      >
         {controls}
         {/* Phones: the icons take what the screen has left and scroll inside it. */}
         <PhoneFill>{boardView}</PhoneFill>
       </Panel>
-      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}>
+      <Panel
+        className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'guesses')}
+      >
         {guesses}
       </Panel>
+      <div
+        className={cn('flex flex-col gap-2', tab !== 'scores' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'scores')}
+      >
+        <Scores view={view} room={room} open />
+        {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+      </div>
       {isGuessing(view, room.you) && <GuessForm view={view} act={act} />}
+      <TabBar
+        id={CLUE_TABS_ID}
+        label="View"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'board', label: 'Board', icon: 'layout-grid' },
+          {
+            id: 'guesses',
+            label: `Guesses (${r.guesses.length})`,
+            icon: 'message-circle',
+            // The clue givers see how many guesses wait for their judgement.
+            badge: isGiver ? unjudged : 0,
+          },
+          { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+        ]}
+      />
     </>
   );
 }
+
+/** The phone tabs while clues are given. */
+type ClueTab = 'board' | 'guesses' | 'scores';
+const CLUE_TABS_ID = 'iconic-clue';
 
 /** A box as tall as the window below its top, so the page under it never scrolls. */
 function FillWindow({ className, children }: { className: string; children: ReactNode }) {
@@ -1354,7 +1363,7 @@ function Reveal({
   );
 }
 
-function Scores({ view, room }: { view: IconicView; room: GameRoomInfo }) {
+function Scores({ view, room, open }: { view: IconicView; room: GameRoomInfo; open?: boolean }) {
   const g = view.game!;
   const scoring = view.settings.scoring;
   const rows = g.players
@@ -1362,7 +1371,7 @@ function Scores({ view, room }: { view: IconicView; room: GameRoomInfo }) {
     .map((p) => ({ ...p, value: scoring ? p.score : p.guessed }))
     .sort((a, b) => b.value - a.value);
   return (
-    <details className="rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-line">
+    <details className="rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-line" open={open}>
       <summary className="cursor-pointer font-semibold">
         {scoring ? 'Scores' : 'Words guessed'}
       </summary>

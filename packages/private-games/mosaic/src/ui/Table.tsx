@@ -1,5 +1,15 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, Modal, PlayerTag, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Modal,
+  PlayerTag,
+  ProtectedImage,
+  RefusalSlot,
+  TabBar,
+  cn,
+  tabPanelProps,
+} from '@vt/ui';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { closeTo, countOf } from '../logic/rules.ts';
 import { SPECIAL_CHIP, SPECIAL_SHORT, SPECIAL_TEXT } from '../logic/specials.ts';
@@ -34,6 +44,7 @@ export interface TableProps {
 }
 
 type Tab = 'play' | 'boards' | 'scores';
+const TABS_ID = 'mosaic-view';
 
 /** Whether the desktop layout is showing (Tailwind's `lg`). */
 const useWide = () => useMatch('(min-width: 1024px)');
@@ -561,34 +572,19 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     if (await act({ type: 'take', ...move }, { anchor: PLAY_ANCHOR })) setPick(null);
   };
 
-  const tabs = (
-    <div
-      role="tablist"
-      aria-label="View"
-      className="flex gap-1 rounded-xl bg-panel p-1 ring-1 ring-line lg:hidden"
-    >
-      {(
-        [
-          ['play', 'Play'],
-          ['boards', 'Boards'],
-          ['scores', 'Scores'],
-        ] as const
-      ).map(([id, label]) => (
-        <button
-          key={id}
-          role="tab"
-          type="button"
-          aria-selected={tab === id}
-          onClick={() => setTab(id)}
-          className={cn(
-            'min-h-11 flex-1 rounded-lg text-sm font-semibold',
-            tab === id ? 'bg-card shadow-sm' : 'text-ink-muted',
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+  // Phones and tablets: the views on the shared bottom tab bar; wide screens show them all.
+  const tabs = !wide && (
+    <TabBar
+      id={TABS_ID}
+      label="View"
+      value={tab}
+      onChange={setTab}
+      items={[
+        { id: 'play', label: 'Play', icon: 'gamepad-2' },
+        { id: 'boards', label: 'Boards', icon: 'layout-grid' },
+        { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+      ]}
+    />
   );
 
   const clockLine = (drafting || choosing.length > 0) && clock && (
@@ -717,7 +713,6 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {tabs}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
         <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
           {others
@@ -727,7 +722,10 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             ))}
         </aside>
 
-        <div className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}>
+        <div
+          className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}
+          {...(!wide && tabPanelProps(TABS_ID, 'play'))}
+        >
           {/* The wall-tiling shows every board itself; on phones it stands in for these. */}
           {!(tiling && !wide) && (
             <div className="flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden" aria-label="Players">
@@ -768,14 +766,14 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </aside>
 
         {tab === 'boards' && (
-          <div className="flex flex-col gap-2 lg:hidden">
+          <div className="flex flex-col gap-2 lg:hidden" {...tabPanelProps(TABS_ID, 'boards')}>
             {g.players.map((p) => (
               <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="md" />
             ))}
           </div>
         )}
         {tab === 'scores' && (
-          <div className="flex flex-col gap-2 lg:hidden">
+          <div className="flex flex-col gap-2 lg:hidden" {...tabPanelProps(TABS_ID, 'scores')}>
             <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
               <Scores view={view} room={room} art={art} />
             </div>
@@ -784,6 +782,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         )}
       </div>
 
+      {tabs}
       {open && me && (
         <PickSheet
           key={`${open.source}:${open.colour}`}
