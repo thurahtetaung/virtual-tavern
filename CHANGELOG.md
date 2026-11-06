@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.94.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.93.0...v0.94.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** new game room frame: header buttons, status line, sticky action bar and sheets ([#535](https://github.com/thurahtetaung/virtual-tavern/issues/535)) ([ba05334](https://github.com/thurahtetaung/virtual-tavern/commit/ba05334fdcada5da4161cece250604a4138c4225))
+
 ## [0.93.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.92.0...v0.93.0) (2026-11-06)
 
 
