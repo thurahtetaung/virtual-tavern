@@ -27,12 +27,12 @@
   "going-once.spec.ts": 162,
   "guide-shots.spec.ts": 1,
   "guides.spec.ts": 5,
-  "hogwarts.spec.ts": 36,
+  "hogwarts.spec.ts": 132,
   "hoodwink.spec.ts": 22,
-  "hydra.spec.ts": 95,
+  "hydra.spec.ts": 123,
   "iconic.spec.ts": 44,
   "inquest-allies.spec.ts": 22,
-  "inquest.spec.ts": 34,
+  "inquest.spec.ts": 56,
   "jeweller-shots.spec.ts": 1,
   "jeweller.spec.ts": 13,
   "lobby-fit.spec.ts": 125,
@@ -44,7 +44,7 @@
   "mosaic.spec.ts": 23,
   "nightfall-alien.spec.ts": 81,
   "nightfall-vampire.spec.ts": 101,
-  "nightfall.spec.ts": 59,
+  "nightfall.spec.ts": 90,
   "player-colours.spec.ts": 8,
   "playtest.spec.ts": 45,
   "question-decks.spec.ts": 2,
@@ -87,5 +87,5 @@
   "tavern-brawl-zone.spec.ts": 26,
   "tavern-brawl.spec.ts": 23,
   "thorns-shots.spec.ts": 1,
-  "thorns.spec.ts": 32
+  "thorns.spec.ts": 39
 }
