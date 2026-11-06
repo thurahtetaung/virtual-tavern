@@ -33,7 +33,7 @@ import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
-import { Layout, LoadingStep, PageLoading, ThemeSwitch } from '../components/Layout.tsx';
+import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
 import { useBackroomPage } from '../lib/backroom.ts';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
@@ -1209,11 +1209,6 @@ function People({
           )}
         </div>
       )}
-      {/* Phones: the site header (and its theme switch) makes way for the room's own. */}
-      <div className="flex items-center justify-between gap-2 sm:hidden">
-        <span className="text-small font-semibold">Theme</span>
-        <ThemeSwitch />
-      </div>
       <p className="text-sm text-ink-muted">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.

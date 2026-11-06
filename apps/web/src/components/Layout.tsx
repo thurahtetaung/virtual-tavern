@@ -19,8 +19,7 @@ export function Layout({
   wide?: boolean;
   /**
    * A game room: on phones the site header makes way for the room's own (its 56 px go to the
-   * table; the theme switch moves into the Players drawer), and the page keeps the height of the
-   * fixed sticky bar and tab bar free at its foot.
+   * table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
    */
   room?: boolean;
 }) {
@@ -80,7 +79,7 @@ const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
  * choice can always be undone, and every tap but that last one visibly changes the page. It shows
  * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
-export function ThemeSwitch() {
+function ThemeSwitch() {
   const { theme, resolved, setTheme } = useTheme();
   const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
   const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';
