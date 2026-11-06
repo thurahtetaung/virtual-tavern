@@ -304,6 +304,72 @@ test('a back-room playtest with bots: one human, two bots, no unlock', async ({ 
   await context.close();
 });
 
+test('a Codenames playtest lobby fits a phone with the playtest bar', async ({ browser }) => {
+  const phone = { width: 390, height: 844 };
+  const { context, admin } = await keeper(browser, { viewport: phone, colorScheme: 'dark' });
+  // A list named like the live one, so the Settings summary wraps to two lines as it does there.
+  const name = 'Codenames: core words';
+  const created = await admin.request.post('/api/admin/word-lists', {
+    data: { name, words: Array.from({ length: 30 }, (_, i) => `word${i + 1}`) },
+  });
+  expect(created.ok()).toBe(true);
+  const listId = ((await created.json()) as { id: string }).id;
+  try {
+    const ana = await startPlaytest(context, admin, /^Codenames/);
+    const bar = ana.getByRole('region', { name: 'Playtest' });
+    await expect(bar).toBeVisible();
+    const settings = ana.getByTestId('host-settings');
+    const fold = settings.locator('summary');
+    if ((await settings.getAttribute('open')) === null) await fold.click();
+    await ana.getByRole('button', { name: 'Change word lists' }).click();
+    const picker = ana.getByRole('dialog');
+    for (const box of await picker.getByRole('checkbox', { checked: true }).all())
+      await box.uncheck();
+    await picker.getByRole('checkbox', { name }).check();
+    await picker.getByRole('button', { name: 'Save' }).click();
+    await expect(picker).toBeHidden();
+    await fold.click();
+    await expect(settings).not.toHaveAttribute('open');
+    await expect(fold).toContainText(name);
+    // The summary's text runs to two lines, as on the live site.
+    const lines = await fold.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.bottom))).size;
+    });
+    expect(lines, 'settings summary lines').toBeGreaterThanOrEqual(2);
+    await expect(ana.getByRole('button', { name: 'Start game' })).toBeVisible();
+    await expect(ana.getByRole('button', { name: /2-minute guide/ })).toBeVisible();
+    // Nothing scrolls: the bar's height comes out of the frame's gaps, not the lobby.
+    await expect
+      .poll(() => ana.evaluate(() => document.scrollingElement!.scrollHeight))
+      .toBeLessThanOrEqual(phone.height);
+    const size = await ana.evaluate(() => {
+      const guide = [...document.querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('2-minute guide'),
+      )!;
+      return {
+        h: document.scrollingElement!.scrollHeight,
+        w: document.scrollingElement!.scrollWidth,
+        guideBottom: Math.round(guide.getBoundingClientRect().bottom),
+      };
+    });
+    expect(size.w).toBeLessThanOrEqual(phone.width);
+    test.info().annotations.push({
+      type: 'height',
+      description: `${size.h}x${size.w}, guide bottom ${size.guideBottom}`,
+    });
+    // Codenames has no bots, so the phone's sheet is the playtest's, not "Bots".
+    await expect(bar.getByRole('button', { name: 'Bots', exact: true })).toHaveCount(0);
+    await bar.getByRole('button', { name: 'Playtest', exact: true }).click();
+    const sheet = ana.getByRole('dialog', { name: 'Playtest' });
+    await expect(sheet.getByRole('button', { name: 'End playtest' })).toBeVisible();
+  } finally {
+    await admin.request.delete(`/api/admin/word-lists/${listId}`);
+    await context.close();
+  }
+});
+
 test('a normal room opened in two tabs of one browser is still one player', async ({ browser }) => {
   const context = await browser.newContext();
   context.on('page', watch);
