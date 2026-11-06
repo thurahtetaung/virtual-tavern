@@ -1,4 +1,4 @@
-import { Button, RefusalSlot, cn } from '@vt/ui';
+import { Button, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { useState } from 'react';
 import type { HydraAction, HydraView, Power } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -122,10 +122,10 @@ export function Dock({
             className={cn(
               'flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
               g.myVote === b
-                ? 'bg-accent-soft ring-4 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
+                ? 'bg-accent-soft ring-4 ring-accent'
                 : g.myVote
-                  ? 'opacity-55 ring-stone-300 dark:ring-stone-700'
-                  : 'bg-white ring-stone-300 hover:scale-[1.02] dark:bg-stone-800 dark:ring-stone-600',
+                  ? 'opacity-55 ring-line-strong'
+                  : 'bg-card ring-line-strong hover:scale-[1.02]',
             )}
           >
             <BallotFace ballot={b} c={c} className="h-10 sm:h-14" />
@@ -138,7 +138,7 @@ export function Dock({
     body = (
       <div className="space-y-1.5">
         <details
-          className="group text-center text-xs text-stone-600 sm:pointer-events-none dark:text-stone-400"
+          className="group text-center text-xs text-ink-muted sm:pointer-events-none"
           open={false}
         >
           <summary className="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">
@@ -147,9 +147,7 @@ export function Dock({
           </summary>
           <p className="mt-0.5">{c.powerText(power)}</p>
         </details>
-        <p className="hidden text-center text-xs text-stone-600 sm:block dark:text-stone-400">
-          {c.powerText(power)}
-        </p>
+        <p className="hidden text-center text-xs text-ink-muted sm:block">{c.powerText(power)}</p>
         {target ? (
           sure === target || power !== 'execute' ? (
             <div className="flex gap-2">
@@ -192,14 +190,16 @@ export function Dock({
     );
   }
   if (!body) return null;
+  // Phones keep the dock in the bar at the foot of the screen, above the tab bar; wider screens
+  // show it under the table.
   return (
-    <div
-      className="sticky bottom-[4.25rem] z-20 rounded-2xl bg-white/95 p-2.5 shadow-[0_-4px_24px_rgba(0,0,0,0.12)] ring-1 ring-stone-200 backdrop-blur lg:static lg:shadow-sm dark:bg-stone-900/95 dark:ring-stone-700"
-      data-testid="dock"
+    <StickyBar
+      fixed
+      refusal="dock"
+      className="sm:rounded-2xl sm:bg-card sm:p-2.5 sm:shadow-vt-1 sm:ring-1 sm:ring-line"
     >
-      {body}
-      <RefusalSlot anchor="dock" />
-    </div>
+      <div data-testid="dock">{body}</div>
+    </StickyBar>
   );
 }
 
@@ -209,7 +209,7 @@ function SeatsPrompt({ text, onClick }: { text: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-center text-sm font-semibold text-amber-800 dark:text-amber-300"
+      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-center text-sm font-semibold text-accent-text"
       data-testid="seats-prompt"
     >
       <span className="hy-breathe inline-block">{text}</span>

@@ -9,6 +9,7 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  useReservedHeight,
   useWideScreen,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -59,6 +60,9 @@ function TabBar({
   onChange: (t: Tab) => void;
   alert: Tab | null;
 }) {
+  const bar = useRef<HTMLElement>(null);
+  const wide = useWideScreen();
+  useReservedHeight('--vt-tabbar-h', bar, !wide);
   const items: { id: Tab; icon: string; label: string }[] = [
     { id: 'table', icon: '🏛️', label: 'Table' },
     { id: 'log', icon: '📜', label: 'Log' },
@@ -66,29 +70,36 @@ function TabBar({
   ];
   return (
     <nav
+      ref={bar}
       aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
     >
-      {items.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          aria-current={tab === it.id ? 'page' : undefined}
-          onClick={() => onChange(it.id)}
-          className={cn(
-            'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
-          )}
-        >
-          <span className="flex items-center gap-1 text-lg leading-none">
-            {it.icon}
-            {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
+      {items.map((it) => {
+        const on = tab === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            aria-current={on ? 'page' : undefined}
+            onClick={() => onChange(it.id)}
+            className={cn(
+              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
+              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
+              on
+                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
+                : 'text-ink-muted hover:text-ink',
             )}
-          </span>
-          {it.label}
-        </button>
-      ))}
+          >
+            <span className="flex items-center gap-1 text-xl leading-none">
+              {it.icon}
+              {alert === it.id && !on && (
+                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
+              )}
+            </span>
+            {it.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -198,7 +209,7 @@ function WaitingChips({
       data-testid="waiting-on"
     >
       {confirmDialog}
-      <span className="shrink-0 font-semibold text-stone-600 dark:text-stone-400">
+      <span className="shrink-0 font-semibold text-ink-muted">
         Waiting on{ids.length > 3 ? ` (${ids.length})` : ''}:
       </span>
       {ids.map((id) => {
@@ -338,7 +349,7 @@ function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
             key={i}
             className={cn(
               'h-1.5 rounded-full transition-all',
-              at === i ? 'w-4 bg-accent dark:bg-amber-500' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
+              at === i ? 'w-4 bg-accent' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
             )}
           />
         ))}
@@ -400,18 +411,16 @@ function SeatsPanel({
       ref={panelRef}
       aria-label={c.copy('seats.heading')}
       className={cn(
-        'scroll-mt-20 rounded-2xl bg-stone-200/70 p-2 shadow-inner ring-1 ring-stone-300 lg:p-3 dark:bg-stone-900 dark:ring-stone-700',
-        picking && 'ring-2 ring-accent dark:ring-amber-500/70',
+        'scroll-mt-20 rounded-2xl bg-sunk p-2 shadow-inner ring-1 ring-line-strong lg:p-3',
+        picking && 'ring-2 ring-accent',
         className,
       )}
       data-testid="seats-panel"
     >
-      <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-stone-600 uppercase lg:mb-2 lg:text-sm dark:text-stone-400">
+      <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
         <span>👥 {c.copy('seats.heading')}</span>
         {picking && (
-          <span className="hy-breathe text-amber-700 normal-case dark:text-amber-400">
-            {c.copy('seats.pick')} 👇
-          </span>
+          <span className="hy-breathe text-accent-text normal-case">{c.copy('seats.pick')} 👇</span>
         )}
       </h3>
       {children}
@@ -670,7 +679,7 @@ export function HydraGame({
   }
 
   return (
-    <ThemeRoot c={c} plain={plain} className="space-y-2 pb-20 lg:pb-4">
+    <ThemeRoot c={c} plain={plain} className="space-y-2 lg:pb-4">
       <HydraStyles />
       <HeaderStrip
         view={view}
@@ -687,20 +696,17 @@ export function HydraGame({
       {legend && <ScoreLegend g={g} c={c} onClose={() => setLegend(false)} />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {talkNow && (
-        <p className="hy-rise rounded-xl bg-special-soft px-3 py-1.5 text-center text-sm font-semibold text-violet-950 ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40">
+        <p className="hy-rise rounded-xl bg-special-soft px-3 py-1.5 text-center text-sm font-semibold text-special-ink ring-1 ring-special-line">
           🗣️ {talkNow}
         </p>
       )}
       {latest && now - latest.at < 20_000 && (
-        <p
-          className="rounded-xl bg-stone-100 px-3 py-1 text-center text-sm dark:bg-stone-800"
-          role="status"
-        >
+        <p className="rounded-xl bg-sunk px-3 py-1 text-center text-sm" role="status">
           📣 {noticeText(c, latest)}
         </p>
       )}
       {nudged !== null && now - nudged < NUDGE_MS && status.yourMove && (
-        <p className="hy-pop rounded-xl bg-accent-line dark:bg-amber-400 px-3 py-1 text-center text-sm font-bold text-stone-950">
+        <p className="hy-pop rounded-xl bg-accent-line px-3 py-1 text-center text-sm font-bold text-ink">
           👋 {c.copy('nudged')}
         </p>
       )}
@@ -708,7 +714,7 @@ export function HydraGame({
       {showWhy && (
         <p
           role="alert"
-          className="rounded-xl bg-danger-soft px-3 py-1.5 text-center text-sm text-rose-900 ring-1 ring-danger-line dark:ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100"
+          className="rounded-xl bg-danger-soft px-3 py-1.5 text-center text-sm text-danger-ink ring-1 ring-danger-line"
         >
           🔒 {why.text}
         </p>
@@ -762,7 +768,7 @@ export function HydraGame({
           )}
           {/* Tips sit under the table, so they never push a seat under the dock. */}
           {tip && (
-            <div className="flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+            <div className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
               <span className="flex-1">💡 {tip[1]}</span>
               <button
                 type="button"

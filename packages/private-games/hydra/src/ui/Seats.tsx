@@ -112,18 +112,18 @@ export function Seats({
                 'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow transition active:scale-[0.98]',
                 compact ? 'min-h-[2.9rem] pr-7 pl-2' : 'min-h-[3.4rem] pr-9 pl-2.5',
                 p.dead
-                  ? 'bg-stone-200 opacity-60 grayscale ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700'
+                  ? 'bg-sunk opacity-60 grayscale ring-1 ring-line-strong'
                   : selected
-                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
+                    ? 'bg-accent-soft ring-2 ring-accent'
                     : pick && !why
                       ? // Yours to pick: an accent ring that pulses gently (still under reduced motion).
-                        'hy-pickable bg-white ring-2 ring-accent dark:bg-stone-800 dark:ring-amber-400'
+                        'hy-pickable bg-card ring-2 ring-accent'
                       : president || chancellor
-                        ? 'bg-accent-soft/70 ring-2 ring-accent/80 dark:ring-amber-400/80 dark:bg-amber-500/10'
+                        ? 'bg-accent-soft/70 ring-2 ring-accent/80'
                         : waiting.includes(p.id)
-                          ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-800 dark:ring-sky-500'
-                          : 'bg-white ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
-                pick && !why && !selected && 'hover:bg-accent-soft dark:hover:bg-stone-700',
+                          ? 'bg-card ring-2 ring-sky-400 dark:ring-sky-500'
+                          : 'bg-card ring-1 ring-line-strong',
+                pick && !why && !selected && 'hover:bg-accent-soft',
                 pick && why && 'opacity-45',
               )}
             >
@@ -167,7 +167,7 @@ export function Seats({
                     className={cn(
                       'rounded px-1',
                       vote === 'yes'
-                        ? 'bg-white text-stone-900 ring-1 ring-stone-400'
+                        ? 'bg-white text-ink ring-1 ring-line-strong'
                         : 'bg-stone-800 text-white',
                     )}
                   >
@@ -210,10 +210,9 @@ export function Seats({
                   className={cn(
                     'flex items-center justify-center rounded-full ring-1',
                     compact ? 'size-5 text-[0.65rem]' : 'size-6 text-xs',
-                    mark === 'trust' &&
-                      'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
+                    mark === 'trust' && 'bg-accent-line text-accent-text ring-accent',
                     mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
-                    !mark && 'text-ink-muted ring-stone-300 dark:ring-stone-600',
+                    !mark && 'text-ink-muted ring-line-strong',
                   )}
                 >
                   {mark === 'trust' ? '⭐' : mark === 'doubt' ? '✕' : '☆'}

@@ -115,7 +115,7 @@ export function Suspects(props: Common) {
               <span
                 key={s.id}
                 aria-label={`${s.name}${s.formerFs ? ' was' : ' is'} the Forensic Scientist`}
-                className="flex shrink-0 items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-xs font-semibold text-sky-900 ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-xs font-semibold text-info-ink ring-1 ring-info-line"
               >
                 <ChipLabel p={s} view={view} /> 🔬
               </span>
@@ -134,8 +134,8 @@ export function Suspects(props: Common) {
                 className={cn(
                   'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                   !grid && k === i
-                    ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-                    : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
+                    ? 'bg-accent text-accent-fg ring-accent'
+                    : 'bg-card text-ink-2 ring-line-strong',
                   s.gone && 'opacity-60',
                 )}
               >
@@ -151,9 +151,7 @@ export function Suspects(props: Common) {
           onClick={() => setGrid(!grid)}
           className={cn(
             'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
-            grid
-              ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-              : 'ring-stone-300 dark:ring-stone-600',
+            grid ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
           )}
         >
           ▦ Grid
@@ -226,10 +224,7 @@ export function AllSuspects(props: Common) {
   return (
     <ul className="grid gap-3 xl:grid-cols-2" aria-label="Suspects">
       {suspectsOf(g).map((p) => (
-        <li
-          key={p.id}
-          className="rounded-xl bg-white/70 p-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
-        >
+        <li key={p.id} className="rounded-xl bg-card/70 p-2 ring-1 ring-line">
           <h4 className="mb-1 flex items-center gap-1 text-sm font-bold">
             <ChipLabel p={p} view={props.view} /> <BadgeDot p={p} />
           </h4>
@@ -246,7 +241,7 @@ export function AllSuspects(props: Common) {
  */
 export function CrimePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
   const bar =
-    'flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700';
+    'flex min-h-10 items-center gap-1.5 rounded-xl bg-card px-3 text-xs text-ink-muted ring-1 ring-line';
   return (
     <div data-testid="crime-peek">
       <Peek

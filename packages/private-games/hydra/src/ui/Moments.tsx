@@ -142,7 +142,7 @@ function Stamp({
         DISPLAY,
         tone === 'good' && 'border-success dark:border-emerald-400 text-emerald-300',
         tone === 'bad' && 'border-danger dark:border-rose-400 text-rose-300',
-        tone === 'gold' && 'border-accent-line dark:border-amber-300 text-amber-200',
+        tone === 'gold' && 'border-accent-line text-amber-200',
       )}
       style={{ ['--d' as string]: `${delay}ms` }}
     >
@@ -273,7 +273,7 @@ function EnactMoment({ c, m }: { c: Content; m: Extract<Moment, { kind: 'enact' 
       )}
       {up && m.power && (
         <div
-          className="hy-rise flex items-center gap-3 rounded-2xl bg-red-900/70 px-4 py-2 ring-2 ring-accent-line/70 dark:ring-amber-300/70"
+          className="hy-rise flex items-center gap-3 rounded-2xl bg-red-900/70 px-4 py-2 ring-2 ring-accent-line/70"
           style={{ ['--d' as string]: '350ms' }}
         >
           {icon ? (

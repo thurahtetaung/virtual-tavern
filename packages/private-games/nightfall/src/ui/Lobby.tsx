@@ -77,7 +77,7 @@ const TEAM_PILL: Record<Team, string> = {
   alien: 'bg-success-soft text-lime-900 dark:bg-lime-500/15 dark:text-lime-200',
   synthetic: 'bg-info-soft text-cyan-900 dark:bg-cyan-500/15 dark:text-cyan-200',
   blob: 'bg-danger-soft text-pink-900 dark:bg-pink-500/15 dark:text-pink-200',
-  mortician: 'bg-stone-200 text-stone-900 dark:bg-stone-500/20 dark:text-stone-100',
+  mortician: 'bg-sunk text-ink',
 };
 
 /** A ready-made setup: its name, a tag, one line, and why it can't be picked (as text). */
@@ -108,7 +108,7 @@ function PresetCard({
           'flex h-full w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left ring-1 transition',
           on
             ? 'bg-special-soft ring-2 ring-special dark:ring-indigo-500 dark:bg-indigo-500/10'
-            : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
+            : 'bg-card ring-line-strong hover:bg-panel',
           !roles && 'opacity-60',
         )}
       >
@@ -121,13 +121,13 @@ function PresetCard({
                 ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
                 : preset.level === 'chaos'
                   ? 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200'
-                  : 'bg-stone-200 text-stone-800 dark:bg-stone-700 dark:text-stone-100',
+                  : 'bg-sunk text-ink',
             )}
           >
             {LEVEL_LABEL[preset.level]}
           </span>
         </span>
-        <span className="text-xs text-stone-600 dark:text-stone-400">{preset.description}</span>
+        <span className="text-xs text-ink-muted">{preset.description}</span>
         {!roles && (
           <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
             Needs {minPlayers}+ players
@@ -163,10 +163,10 @@ function Segmented<T extends string | number>({
             disabled={disabled}
             onClick={() => onChange(o.id)}
             className={cn(
-              'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-stone-300 transition dark:ring-stone-700',
+              'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
               o.id === value
                 ? 'bg-special text-white ring-special dark:bg-indigo-600 dark:ring-indigo-500'
-                : 'bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-800',
+                : 'bg-card hover:bg-panel',
               disabled && o.id !== value && 'opacity-50',
             )}
           >
@@ -201,7 +201,7 @@ function RoleTile({
         'flex w-[6.5rem] flex-col items-center gap-1 rounded-xl p-1.5 ring-1',
         count > 0
           ? 'bg-special-soft ring-special dark:bg-indigo-500/10 dark:ring-indigo-400/60'
-          : 'ring-stone-200 dark:ring-stone-800',
+          : 'ring-line',
       )}
     >
       <button
@@ -228,7 +228,7 @@ function RoleTile({
             aria-label={`One less ${deck.name(role)}`}
             disabled={count === 0}
             onClick={() => onChange(count - 1)}
-            className="size-8 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-800"
+            className="size-8 rounded-full bg-sunk font-bold disabled:opacity-30"
           >
             −
           </button>
@@ -238,7 +238,7 @@ function RoleTile({
             aria-label={`One more ${deck.name(role)}`}
             disabled={count >= max}
             onClick={() => onChange(count + 1)}
-            className="size-8 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-800"
+            className="size-8 rounded-full bg-sunk font-bold disabled:opacity-30"
           >
             +
           </button>
@@ -299,7 +299,7 @@ function AlienOptions({
             </Button>
           )}
         </div>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           With these cards the narrator draws some instructions at random, like a hidden deck. These
           are the odds of each{editable ? '; tap − or + to change them' : ''}. The narrator says
           what came up out loud for everyone, as it does the ripples, but never who acts on it.
@@ -319,7 +319,7 @@ function AlienOptions({
                 {entries.map(([key, value]) => (
                   <li
                     key={key}
-                    className="flex items-center gap-2 rounded-lg bg-stone-100 px-2 py-1 text-sm dark:bg-stone-800/60"
+                    className="flex items-center gap-2 rounded-lg bg-sunk px-2 py-1 text-sm"
                   >
                     <span className="min-w-0 flex-1 truncate">{ENTRY_LABEL[t][key] ?? key}</span>
                     {editable && (
@@ -328,7 +328,7 @@ function AlienOptions({
                         aria-label={`Less likely: ${ENTRY_LABEL[t][key] ?? key}`}
                         disabled={value <= 0}
                         onClick={() => set(t, key, value - WEIGHT_STEP)}
-                        className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                        className="size-7 rounded-full bg-sunk font-bold disabled:opacity-30"
                       >
                         −
                       </button>
@@ -342,7 +342,7 @@ function AlienOptions({
                         aria-label={`More likely: ${ENTRY_LABEL[t][key] ?? key}`}
                         disabled={value >= MAX_WEIGHT}
                         onClick={() => set(t, key, value + WEIGHT_STEP)}
-                        className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                        className="size-7 rounded-full bg-sunk font-bold disabled:opacity-30"
                       >
                         +
                       </button>
@@ -430,7 +430,7 @@ export function Lobby({
           ))}
         </ul>
         {view.seats.some((x) => !x.playing) && (
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             Watching:{' '}
             {view.seats
               .filter((x) => !x.playing)
@@ -479,7 +479,7 @@ export function Lobby({
             {usesMarks(s.roles) ? ` · ${seated.length} Marks` : ''}
           </span>
         </div>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           One card per player, three in the centre
           {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}. Tap a
           card to read it.
@@ -517,9 +517,7 @@ export function Lobby({
             <Button size="sm" onClick={() => setRoles(recommended(seated.length))}>
               Use the recommended cards for {tableSize}
             </Button>
-            <span className="text-xs text-stone-600 dark:text-stone-400">
-              or add and remove cards below.
-            </span>
+            <span className="text-xs text-ink-muted">or add and remove cards below.</span>
           </div>
         )}
         {editable && (
@@ -566,7 +564,7 @@ export function Lobby({
                 aria-label={deck.setName(set)}
                 className="group space-y-1"
               >
-                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold text-stone-600 dark:text-stone-400">
+                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold text-ink-muted">
                   <span aria-hidden className="transition group-open:rotate-90">
                     ▸
                   </span>
@@ -641,7 +639,7 @@ export function Lobby({
           onChange={(narration) => void act({ type: 'update-settings', narration })}
           disabled={!editable}
         />
-        <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="narration-help">
+        <p className="text-xs text-ink-muted" data-testid="narration-help">
           {NARRATION_HELP[s.narration]}
         </p>
         <div className="flex flex-wrap gap-4">
@@ -694,7 +692,7 @@ export function Lobby({
                       'rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                       on
                         ? 'bg-special dark:bg-violet-600 text-white ring-special dark:ring-violet-600'
-                        : 'ring-stone-300 dark:ring-stone-700',
+                        : 'ring-line-strong',
                     )}
                   >
                     {deck.artifactName(a)}

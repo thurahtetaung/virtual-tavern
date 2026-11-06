@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   NAMES,
   type Player,
@@ -267,4 +268,18 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   await expect(badge).toHaveCount(0);
   // The rules drawer's "In your room" keeps the role hidden too.
   await checkGuidePeek(page, NAMES.red);
+  // A nomination on a phone: the boards, the seats and the dock on one screen.
+  const pres = await president(players);
+  await pres.page
+    .getByRole('navigation', { name: 'Game sections' })
+    .getByRole('button', { name: /Table/ })
+    .click();
+  const chan = await eligible(pres, players, () => false);
+  await pres.page
+    .getByRole('button', { name: `Nominate ${chan.name} as ${pres.w.chancellor}` })
+    .click();
+  await expect(
+    pres.page.getByTestId('dock').getByRole('button', { name: `Nominate ${chan.name}` }),
+  ).toBeVisible();
+  await expectPhoneFit(pres.page, 'hydra nominate');
 });

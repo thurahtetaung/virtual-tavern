@@ -104,8 +104,7 @@ const TEAM_TONE: Record<string, string> = {
   synthetic:
     'from-slate-100 to-cyan-200 text-cyan-950 dark:from-cyan-950 dark:to-stone-900 dark:text-cyan-100',
   blob: 'from-pink-100 to-fuchsia-200 text-fuchsia-950 dark:from-fuchsia-950 dark:to-stone-900 dark:text-pink-100',
-  mortician:
-    'from-stone-200 to-stone-400 text-stone-950 dark:from-stone-800 dark:to-stone-950 dark:text-stone-100',
+  mortician: 'from-stone-200 to-stone-400 text-ink dark:from-stone-800 dark:to-stone-950',
 };
 
 export const emblem = (role: RoleId) => EMBLEM[role];
@@ -435,7 +434,7 @@ export function RoleDetails({ role, deck }: { role: RoleId; deck: Deck }) {
           {def.count > 1 && <Badge>×{def.count} in the box</Badge>}
         </div>
         <p>{deck.text(role)}</p>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {setup ? winFor(role, setup.roles, setup.artifacts) : def.win}
         </p>
       </div>
@@ -467,10 +466,10 @@ export function RoleChip({
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1 transition hover:brightness-95',
         light
-          ? 'bg-white text-stone-950 ring-stone-500'
+          ? 'bg-white text-ink ring-stone-500'
           : muted
-            ? 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700'
-            : 'bg-accent-soft text-amber-950 ring-accent-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40',
+            ? 'bg-sunk text-ink-2 ring-line-strong'
+            : 'bg-accent-soft text-accent-text ring-accent-line',
         className,
       )}
     >
@@ -499,7 +498,7 @@ export function ArtifactChip({ id, deck }: { id: ArtifactId; deck: Deck }) {
           <p>{deck.artifactText(id)}</p>
         </div>
         {ARTIFACTS[id].becomes && (
-          <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">
+          <p className="mt-2 text-sm text-ink-muted">
             It replaces the holder’s role, team and powers.
           </p>
         )}
@@ -585,7 +584,7 @@ export function MarkDetails({
       <div className="space-y-2">
         <p>{deck.markText(mark)}</p>
         {doppel && (
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             One of the Doppelgänger’s own Marks: it works the same.
           </p>
         )}

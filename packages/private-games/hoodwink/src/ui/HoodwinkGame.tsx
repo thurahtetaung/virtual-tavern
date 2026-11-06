@@ -9,9 +9,12 @@ import {
   useSpectatorPrompt,
   useAbandonGame,
   cn,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   useWideScreen,
 } from '@vt/ui';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, Stage } from './Play.tsx';
@@ -28,6 +31,15 @@ import {
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 
 export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
+
+/** Phones in play: the question, the scores and the players one at a time, from the tab bar. */
+type PlayTab = 'play' | 'scores' | 'players';
+const PLAY_TABS_ID = 'hoodwink-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'play', label: 'Play', icon: 'gamepad-2' },
+  { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+  { id: 'players', label: 'Players', icon: 'users' },
+];
 
 /** One line on every play screen: the round, the viewer's score and the timer. */
 function Scoreboard({
@@ -144,6 +156,11 @@ export function HoodwinkGame({
   const wide = useWideScreen();
   const phoneEnd = view.phase === 'over' && !wide;
   const status = statusFor(view, room.isHost, blocker, room, revealing);
+  // Seated players on phones get the tab bar while the game is on; watchers keep one page, where
+  // the seat control is.
+  const tabbed = !wide && view.phase === 'playing' && !!view.me?.playing;
+  const [tab, setTab] = useState<PlayTab>('play');
+  const shown: PlayTab | null = tabbed ? tab : null;
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -190,12 +207,15 @@ export function HoodwinkGame({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-      <div className="min-w-0 space-y-3">
+      <div
+        className={cn('min-w-0 space-y-3', shown && shown !== 'play' && 'hidden')}
+        {...(shown === 'play' && tabPanelProps(PLAY_TABS_ID, 'play'))}
+      >
         <Scoreboard view={view} clockOffset={room.clockOffset} revealing={revealing} />
         {view.phase === 'playing' && view.round?.double && (
           <p
             data-testid="final-round"
-            className="rounded-xl bg-danger-soft px-3 py-2 text-center text-sm font-bold text-rose-900 ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+            className="rounded-xl bg-danger-soft px-3 py-2 text-center text-sm font-bold text-danger-ink ring-1 ring-danger-line"
           >
             🔥 Final round: every point counts double!
           </p>
@@ -214,7 +234,7 @@ export function HoodwinkGame({
         ) : (
           view.round && (
             <>
-              <ContinueWithout view={view} room={room} act={act} online={online} />
+              {!shown && <ContinueWithout view={view} room={room} act={act} online={online} />}
               <Panel>
                 <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
               </Panel>
@@ -222,12 +242,30 @@ export function HoodwinkGame({
           )
         )}
       </div>
-      <aside className={cn('space-y-3', phoneEnd && 'hidden')}>
+      <aside
+        className={cn('space-y-3', (phoneEnd || shown === 'play') && 'hidden')}
+        {...(shown && shown !== 'play' && tabPanelProps(PLAY_TABS_ID, shown))}
+      >
+        {shown === 'players' && (
+          <ContinueWithout view={view} room={room} act={act} online={online} />
+        )}
         <Panel className="space-y-3">
-          <Scores view={view} revealing={revealing} />
-          <Table view={view} online={online} act={act} hostId={room.hostId} />
+          {shown !== 'players' && <Scores view={view} revealing={revealing} />}
+          {shown !== 'scores' && (
+            <Table view={view} online={online} act={act} hostId={room.hostId} />
+          )}
         </Panel>
       </aside>
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Game sections"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }

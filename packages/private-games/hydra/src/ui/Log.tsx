@@ -42,9 +42,9 @@ function PassedMismatch({ f, c }: { f: Flag; c: Content }) {
 
 /** Who cast a ballot, each with their dot. */
 function Voters({ view, ids }: { view: HydraView; ids: string[] }) {
-  if (!ids.length) return <p className="text-stone-600 dark:text-stone-400">—</p>;
+  if (!ids.length) return <p className="text-ink-muted">—</p>;
   return (
-    <ul className="flex flex-wrap gap-x-2 gap-y-0.5 text-stone-600 dark:text-stone-400">
+    <ul className="flex flex-wrap gap-x-2 gap-y-0.5 text-ink-muted">
       {ids.map((id) => (
         <li key={id} className="inline-flex min-w-0 items-center gap-1">
           <span className="truncate">{nameOf(view, id)}</span>
@@ -110,9 +110,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
               onClick={() => setFilter(f)}
               className={cn(
                 'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
-                filter === f
-                  ? 'bg-accent dark:bg-amber-500 text-white ring-accent dark:ring-amber-600 dark:text-stone-950'
-                  : 'ring-stone-300 dark:ring-stone-700',
+                filter === f ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
               )}
             >
               {f === 'all' ? 'All' : f === 'claims' ? 'Claims' : 'Votes'}
@@ -131,7 +129,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
           return (
             <li
               key={r.n}
-              className="rounded-xl bg-white p-2.5 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
+              className="rounded-xl bg-card p-2.5 text-sm shadow-sm ring-1 ring-line"
               data-testid="round"
             >
               <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -213,7 +211,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   {flagsAt(r.n).map((f) => (
                     <li
                       key={f.kind}
-                      className="rounded-lg bg-accent-soft px-2 py-1 text-xs text-amber-950 ring-1 ring-accent-line dark:ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100"
+                      className="rounded-lg bg-accent-soft px-2 py-1 text-xs text-accent-text ring-1 ring-accent-line"
                     >
                       ⚠ Doesn’t add up:{' '}
                       {f.kind === 'passed-mismatch' ? (
@@ -284,7 +282,7 @@ export function PlayerRecord({
           <span>Your private mark:</span>
           <button
             type="button"
-            className="min-h-10 rounded-full px-3 font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+            className="min-h-10 rounded-full px-3 font-semibold ring-1 ring-line-strong"
             onClick={() => onMark(id)}
           >
             {mark === 'trust' ? '⭐ Trusted' : mark === 'doubt' ? '✕ Suspected' : '☆ No mark'}
@@ -293,7 +291,7 @@ export function PlayerRecord({
         <label className="block">
           <span className="font-semibold">Your notes (only on this device)</span>
           <textarea
-            className="mt-1 min-h-20 w-full rounded-lg bg-white p-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+            className="mt-1 min-h-20 w-full rounded-lg bg-card p-2 ring-1 ring-line-strong"
             value={notes[id] ?? ''}
             maxLength={280}
             placeholder="Claimed RRB in round 3 but…"
@@ -316,7 +314,7 @@ export function PlayerRecord({
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.n} className="border-t border-stone-200 dark:border-stone-800">
+                  <tr key={r.n} className="border-t border-line">
                     <td className="py-1">{r.n}</td>
                     <td>
                       {nameOf(view, r.president)} + {nameOf(view, r.chancellor)}

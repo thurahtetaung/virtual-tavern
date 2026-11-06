@@ -63,8 +63,8 @@ function Choice({
       className={cn(
         'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
-          ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-          : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50 disabled:opacity-60 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600 dark:hover:bg-stone-700',
+          ? 'bg-accent text-accent-fg ring-accent'
+          : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:opacity-60',
       )}
     >
       {children}
@@ -139,7 +139,7 @@ export function Lobby({
             📖 How to play
           </Button>
         </div>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {rolesSummary(seated.length, view, content) ||
             `${room.gameName ?? 'Inquest'} needs 4 to ${max} players.`}
         </p>
@@ -149,9 +149,7 @@ export function Lobby({
               key={p.id}
               className={cn(
                 'flex items-center gap-1 rounded-full px-3 py-1 text-sm ring-1',
-                p.playing
-                  ? 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'
-                  : 'opacity-60 ring-dashed ring-stone-300',
+                p.playing ? 'bg-card ring-line-strong' : 'opacity-60 ring-dashed ring-line-strong',
               )}
             >
               <PlayerTag
@@ -166,9 +164,7 @@ export function Lobby({
                 </span>
               )}
               {s.fsPick === p.id && (s.fsMode === 'host' || s.fsMode === 'host-volunteers') && (
-                <span className="rounded bg-accent/20 dark:bg-amber-500/20 px-1 text-xs font-bold">
-                  FS
-                </span>
+                <span className="rounded bg-accent/20 px-1 text-xs font-bold">FS</span>
               )}
               {!p.playing && <span className="text-xs">watching</span>}
             </li>

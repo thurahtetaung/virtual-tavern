@@ -99,7 +99,7 @@ export function Tile({
                   )}
                 >
                   {isNew && (
-                    <span className="rounded bg-accent-line dark:bg-amber-400 px-0.5 text-[0.7em] font-black text-amber-950 uppercase">
+                    <span className="rounded bg-accent-line px-0.5 text-[0.7em] font-black text-accent-text uppercase">
                       new
                     </span>
                   )}
@@ -114,9 +114,9 @@ export function Tile({
           const cls = cn(
             'flex w-full items-center gap-1 rounded px-1.5 py-px text-left text-[12px] leading-tight',
             marked
-              ? 'bg-accent/25 dark:bg-amber-500/25 font-bold text-amber-50 ring-1 ring-accent/70 dark:ring-amber-400/70'
+              ? 'bg-accent/25 font-bold text-amber-50 ring-1 ring-accent/70'
               : 'text-stone-200',
-            isPending && 'bg-info/30 dark:bg-sky-500/30 ring-2 ring-info-line dark:ring-sky-300',
+            isPending && 'bg-info/30 ring-2 ring-info-line',
           );
           return (
             <li key={i}>
@@ -146,11 +146,7 @@ export function Tile({
   // One ring at a time: utilities of the same kind don't override each other by class order.
   const cls = cn(
     'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow dark:bg-stone-950',
-    selected
-      ? 'ring-4 ring-info dark:ring-sky-400'
-      : fresh || isNew
-        ? 'ring-2 ring-accent dark:ring-amber-400'
-        : 'ring-1 ring-stone-700',
+    selected ? 'ring-4 ring-info' : fresh || isNew ? 'ring-2 ring-accent' : 'ring-1 ring-stone-700',
     dim && 'opacity-50',
     className,
   );
@@ -159,11 +155,7 @@ export function Tile({
       type="button"
       data-tile={tile}
       data-slot={slot}
-      className={cn(
-        cls,
-        'cursor-pointer',
-        !selected && !fresh && !isNew && 'hover:ring-info dark:hover:ring-sky-400',
-      )}
+      className={cn(cls, 'cursor-pointer', !selected && !fresh && !isNew && 'hover:ring-info')}
       onClick={onTile}
       aria-pressed={selected}
       aria-label={`Tile: ${title}`}

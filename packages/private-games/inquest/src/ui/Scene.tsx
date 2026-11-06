@@ -1,4 +1,4 @@
-import { Button, Hint, RefusalSlot, cn } from '@vt/ui';
+import { Button, Hint, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
@@ -59,7 +59,7 @@ export function Timeline({
               {no.moved ? <span aria-hidden>↪</span> : <BulletIcon />}
               <span
                 className={cn(
-                  fresh(b) && 'font-semibold text-amber-700 dark:text-amber-300',
+                  fresh(b) && 'font-semibold text-accent-text',
                   no.movedLater && 'text-ink-muted',
                 )}
               >
@@ -85,9 +85,9 @@ export function Timeline({
             key={b.seq}
             title={bulletLine(b, content, no)}
             className={cn(
-              'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
+              'flex shrink-0 items-center gap-1 rounded-full bg-sunk px-2 py-0.5',
               (fresh(b) || (g.stage !== 'discuss' && i === g.bullets.length - 1)) &&
-                'ring-2 ring-accent dark:ring-amber-400',
+                'ring-2 ring-accent',
               no.movedLater && 'opacity-60',
             )}
           >
@@ -125,8 +125,8 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
         <li
           key={seq}
           className={cn(
-            'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
-            seq === newest && 'ring-2 ring-accent dark:ring-amber-400',
+            'flex shrink-0 items-center gap-1 rounded-full bg-sunk px-2 py-0.5',
+            seq === newest && 'ring-2 ring-accent',
           )}
         >
           <BulletIcon className="h-3" />
@@ -368,7 +368,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </div>
       )}
       {incoming !== null && mode !== 'useful' && (
-        <div className="rounded-xl bg-info-soft p-2 ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/40">
+        <div className="rounded-xl bg-info-soft p-2 ring-1 ring-info-line">
           <div className="grid grid-cols-2 items-center gap-2">
             <Tile tile={incoming} bullet={null} content={content} />
             <p className="text-sm font-semibold">
@@ -378,7 +378,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </div>
       )}
       {mode === 'useful' && ev?.kind === 'useful-clue' && ev.options && (
-        <div className="space-y-1 rounded-xl bg-info-soft p-2 ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/40">
+        <div className="space-y-1 rounded-xl bg-info-soft p-2 ring-1 ring-info-line">
           <p className="text-sm font-semibold">
             {cur?.tile === undefined
               ? 'Pick one of these tiles:'
@@ -404,39 +404,45 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
             <Tile
               key={`${i}-${g.slots[i]!.tile}`}
               slot={i}
-              className="scroll-mt-20 scroll-mb-[calc(8.5rem+env(safe-area-inset-bottom))] lg:scroll-mb-24"
+              className="scroll-mt-20 scroll-mb-[calc(var(--vt-sticky-h,0px)+var(--vt-tabbar-h,0px)+1rem)] lg:scroll-mb-24"
               {...tileProps(i)}
             />
           ))}
         </div>
       )}
-      {confirm && (
-        <div
-          role="group"
-          aria-label="Confirm"
-          className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-accent dark:ring-amber-400 lg:bottom-2 dark:bg-stone-900/95"
-        >
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="md"
-              className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
-              onClick={confirm.run}
-            >
-              {confirm.label}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => pick(null)}>
-              Cancel
-            </Button>
+      {confirm ? (
+        // Phones keep the move in the bar at the foot of the screen, above the tab bar.
+        <StickyBar fixed refusal="inquest-scene">
+          <div
+            role="group"
+            aria-label="Confirm"
+            className="rounded-xl sm:sticky sm:bottom-2 sm:z-10 sm:bg-card sm:p-1.5 sm:shadow-vt-2 sm:ring-1 sm:ring-accent"
+          >
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="md"
+                className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
+                onClick={confirm.run}
+              >
+                {confirm.label}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => pick(null)}>
+                Cancel
+              </Button>
+            </div>
+            {confirm.note && (
+              <p className="px-1 pt-0.5 text-caption leading-tight text-ink-muted">
+                {confirm.note}
+              </p>
+            )}
           </div>
-          {confirm.note && (
-            <p className="px-1 pt-0.5 text-[11px] leading-tight text-ink-muted">{confirm.note}</p>
-          )}
-        </div>
+        </StickyBar>
+      ) : (
+        <RefusalSlot anchor="inquest-scene" />
       )}
-      <RefusalSlot anchor="inquest-scene" />
       {g.bullets.length > 0 && <Timeline g={g} content={content} />}
       {g.removed.length > 0 && (
-        <details className="rounded-xl bg-stone-100 p-2 text-sm dark:bg-stone-900">
+        <details className="rounded-xl bg-sunk p-2 text-sm">
           <summary className="cursor-pointer font-semibold">
             Removed tiles ({g.removed.length})
           </summary>
@@ -448,7 +454,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </details>
       )}
       {g.bullets.length > 0 && (
-        <details className="rounded-xl bg-stone-100 p-2 dark:bg-stone-900">
+        <details className="rounded-xl bg-sunk p-2">
           <summary className="cursor-pointer text-sm font-semibold">Full bullet timeline</summary>
           <div className="mt-2">
             <Timeline g={g} content={content} full />
@@ -466,7 +472,7 @@ export function TipBox({ children, onClose }: { children: ReactNode; onClose: ()
   return (
     <div
       role="note"
-      className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line"
     >
       <span aria-hidden>💡</span>
       <span className="flex-1">{children}</span>

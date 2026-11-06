@@ -12,8 +12,10 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  useReservedHeight,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EventKind } from '../logic/content.ts';
 import { lastRoundText } from '../logic/names.ts';
 import type { InquestAction, InquestView } from '../logic/types.ts';
@@ -59,6 +61,9 @@ function TabBar({
   onChange: (t: Tab) => void;
   alert: Tab | null;
 }) {
+  const bar = useRef<HTMLElement>(null);
+  const wide = useWideScreen();
+  useReservedHeight('--vt-tabbar-h', bar, !wide);
   const items: { id: Tab; icon: string; label: string }[] = [
     { id: 'scene', icon: '🧩', label: 'Scene' },
     { id: 'suspects', icon: '🗂️', label: 'Suspects' },
@@ -66,29 +71,36 @@ function TabBar({
   ];
   return (
     <nav
+      ref={bar}
       aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
     >
-      {items.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          aria-current={tab === it.id ? 'page' : undefined}
-          onClick={() => onChange(it.id)}
-          className={cn(
-            'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
-          )}
-        >
-          <span className="flex items-center gap-1 text-lg leading-none">
-            {it.icon}
-            {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
+      {items.map((it) => {
+        const on = tab === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            aria-current={on ? 'page' : undefined}
+            onClick={() => onChange(it.id)}
+            className={cn(
+              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
+              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
+              on
+                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
+                : 'text-ink-muted hover:text-ink',
             )}
-          </span>
-          {it.label}
-        </button>
-      ))}
+          >
+            <span className="flex items-center gap-1 text-xl leading-none">
+              {it.icon}
+              {alert === it.id && !on && (
+                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
+              )}
+            </span>
+            {it.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -118,9 +130,7 @@ function PresentBar({
     <div
       className={cn(
         'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-1.5 ring-1',
-        mine
-          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
-          : 'bg-white/90 ring-stone-200 dark:bg-stone-900/90 dark:ring-stone-700',
+        mine ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card/90 ring-line',
       )}
     >
       <div className="min-w-0 flex-[1_1_9rem] leading-tight">
@@ -128,7 +138,7 @@ function PresentBar({
           🎙️{' '}
           {mine ? 'Your turn to present' : `${nameOf(view, speaker)}${offline ? ' (offline)' : ''}`}
         </p>
-        <p className="text-xs text-stone-600 dark:text-stone-400">
+        <p className="text-xs text-ink-muted">
           {g.round >= g.finalRound ? 'Last chance · ' : `Round ${g.round} · `}
           {next ? `Up next: ${next === view.me?.id ? 'you' : nameOf(view, next)}` : 'Last speaker'}
         </p>
@@ -186,9 +196,7 @@ export function FinalBar({
       aria-label="Final accusations"
       className={cn(
         'space-y-1.5 px-2 py-1.5',
-        mine
-          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
-          : 'ring-1 ring-danger dark:ring-rose-400',
+        mine ? 'bg-accent-soft ring-2 ring-accent' : 'ring-1 ring-danger',
       )}
     >
       {confirmDialog}
@@ -200,7 +208,7 @@ export function FinalBar({
               ? 'Final accusations: your turn'
               : `Final accusations: ${nameOf(view, accuser)}${offline ? ' (offline)' : ''} is accusing…`}
           </p>
-          <p className="text-xs text-stone-600 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {f.index + 1} of {f.order.length} ·{' '}
             {next ? `Up next: ${next === view.me?.id ? 'you' : nameOf(view, next)}` : 'Last one'}
           </p>
@@ -269,15 +277,13 @@ function DiscussBar({
       aria-label="Discussion"
       className={cn(
         'space-y-1 rounded-xl px-2 py-1.5 ring-1',
-        fs && late
-          ? 'bg-danger-soft ring-2 ring-danger dark:ring-rose-500 dark:bg-rose-500/15'
-          : 'bg-white/90 ring-accent dark:ring-amber-400 dark:bg-stone-900/90',
+        fs && late ? 'bg-danger-soft ring-2 ring-danger' : 'bg-card/90 ring-accent',
       )}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <div className="min-w-0 flex-[1_1_9rem] leading-tight">
           <p className="text-sm font-bold">💬 Discuss the evidence</p>
-          <p className="text-xs text-stone-600 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {g.round >= g.finalRound ? 'Last round' : `Round ${g.round}`} · new bullets highlighted
           </p>
         </div>
@@ -288,9 +294,7 @@ function DiscussBar({
               aria-label={late ? 'Discussion time is up' : `${left} seconds of discussion left`}
               className={cn(
                 'rounded-lg px-2 py-1 font-bold tabular-nums',
-                late
-                  ? 'bg-danger dark:bg-rose-600 text-white'
-                  : 'bg-stone-200 font-mono text-lg text-stone-800 dark:bg-stone-800 dark:text-stone-100',
+                late ? 'bg-danger text-on-fill' : 'bg-sunk font-mono text-lg text-ink',
               )}
             >
               ⏱ {late ? 'Time’s up' : clock(left)}
@@ -350,7 +354,7 @@ function Banners({
         (g.stage === 'collect' || g.stage === 'discuss' || g.stage === 'present') && (
           <p
             role="status"
-            className="rounded-xl bg-danger dark:bg-rose-600 px-3 py-1.5 text-center text-sm font-semibold text-white"
+            className="rounded-xl bg-danger px-3 py-1.5 text-center text-sm font-semibold text-on-fill"
           >
             ⏳ {content.eventName('countdown')}: this is the last round.{' '}
             {lastRoundText(view.settings).replace(/^a/, 'A')}.
@@ -359,7 +363,7 @@ function Banners({
       {playing && g.myRole === 'forensic' && g.perfect.some((p) => p.switched) && (
         <p
           role="status"
-          className="rounded-xl bg-rose-950 px-3 py-1.5 text-center text-sm font-semibold text-rose-50 ring-1 ring-danger dark:ring-rose-500"
+          className="rounded-xl bg-rose-950 px-3 py-1.5 text-center text-sm font-semibold text-rose-50 ring-1 ring-danger"
         >
           🎭 Secret: you peeked at an event, so you now win with the Murderer’s side. Keep answering
           truthfully, but your bullets may mislead.
@@ -368,7 +372,7 @@ function Banners({
       {playing && fsAway && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-1.5 text-sm ring-1 ring-accent dark:ring-amber-400 dark:bg-amber-500/15"
+          className="flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-1.5 text-sm ring-1 ring-accent"
         >
           <span className="flex-1">
             ⏸ Waiting for the Forensic Scientist ({nameOf(view, g.fs)}, offline).
@@ -395,12 +399,12 @@ function Banners({
         </div>
       )}
       {handover && g.stage !== 'done' && (
-        <p className="rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/30">
+        <p className="rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line">
           🔁 {handover.text}
         </p>
       )}
       {latest && latest.id > seenNotice && latest !== handover && g.stage !== 'done' && (
-        <p className="flex items-center gap-2 rounded-xl bg-stone-100 px-3 py-1 text-sm dark:bg-stone-800">
+        <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
           <span className="flex-1">📣 {latest.text}</span>
           <button
             type="button"
@@ -413,19 +417,17 @@ function Banners({
       )}
       {playing && waiting && !yourMove && g.stage !== 'present' && g.stage !== 'final' && (
         <p
-          className="flex flex-wrap items-center gap-1 text-xs text-stone-600 dark:text-stone-400"
+          className="flex flex-wrap items-center gap-1 text-xs text-ink-muted"
           aria-label="Waiting on"
         >
           Waiting on:
           {waiting.label && (
-            <span className="rounded-full bg-stone-200 px-2 py-0.5 font-semibold dark:bg-stone-800">
-              {waiting.label}
-            </span>
+            <span className="rounded-full bg-sunk px-2 py-0.5 font-semibold">{waiting.label}</span>
           )}
           {waiting.ids.map((id) => (
             <span
               key={id}
-              className="flex min-w-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 font-semibold dark:bg-stone-800"
+              className="flex min-w-0 items-center gap-1 rounded-full bg-sunk px-2 py-0.5 font-semibold"
             >
               <span className="truncate">
                 {id === view.me?.id
@@ -585,7 +587,7 @@ export function InquestGame({
   );
 
   return (
-    <div className="space-y-2 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="space-y-2">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {!inGame && (
         <Button

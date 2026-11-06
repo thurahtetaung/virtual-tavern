@@ -16,6 +16,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   EndTabs,
+  Fold,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -75,7 +76,13 @@ export function ThornsGame({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <div
+      className={
+        view.phase === 'playing'
+          ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl'
+          : 'mx-auto flex w-full max-w-3xl flex-col gap-3'
+      }
+    >
       <ThornsStyles />
       {view.phase === 'lobby' || !view.game ? (
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
@@ -102,8 +109,9 @@ export function ThornsGame({
 
 const TIPS_KEY = 'thorns.tips.v1';
 
-/** First-time tips, until dismissed (per seat in a playtest). */
+/** First-time tips, until dismissed (per seat in a playtest); folded on phones. */
 function Tips({ art }: { art: Art }) {
+  const wide = useWideScreen();
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
@@ -114,8 +122,12 @@ function Tips({ art }: { art: Art }) {
   if (seen) return null;
   const f = (s: string) => fillNames(s, art.names);
   return (
-    <aside className="th-rise flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
+    <Fold
+      summary={<span className="font-semibold">New here? Three things to know</span>}
+      open={wide || undefined}
+      className="th-rise bg-info-soft text-info-ink ring-info-line"
+      bodyClassName="flex flex-col gap-2 text-sm"
+    >
       <ul className="list-disc space-y-1 pl-5">
         <li>{f('Only you see your own discs. Everyone else sees how many are on your mat.')}</li>
         <li>
@@ -138,7 +150,7 @@ function Tips({ art }: { art: Art }) {
       >
         Got it
       </Button>
-    </aside>
+    </Fold>
   );
 }
 
@@ -230,7 +242,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -242,7 +254,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="flex items-center gap-2 text-sm text-ink-muted dark:text-stone-400">
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
           <DiscView face="rose" seat={0} color={undefined} art={art} size={24} />
           <DiscView face="thorn" seat={0} color={undefined} art={art} size={24} />
           {fillNames(
@@ -367,7 +379,7 @@ function End({
                         <span className="w-24 truncate">{name(p.id)}</span>
                         <span className="flex items-center">
                           {stack.length === 0 ? (
-                            <span className="text-ink-muted dark:text-stone-400">—</span>
+                            <span className="text-ink-muted">—</span>
                           ) : (
                             stack.map((d, i) => (
                               <DiscView
@@ -398,26 +410,27 @@ function End({
         ]}
       />
       {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
+        <StickyBar refusal="th-end">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
+            >
+              Play again
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
+            >
+              Change setup
+            </Button>
+          </div>
+        </StickyBar>
       ) : (
         <Hint>{waitingForHost(room, 'start the next game')}</Hint>
       )}
-      <RefusalSlot anchor="th-end" />
     </Panel>
   );
 }

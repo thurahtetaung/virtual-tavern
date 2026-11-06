@@ -185,7 +185,7 @@ export function SolveSheet({
       )}
       {(step === 2 || step === 3 || step === 4) && suspect && (
         <div className="space-y-2">
-          <p className="text-sm text-stone-600 dark:text-stone-400">{suspect.name}’s cards</p>
+          <p className="text-sm text-ink-muted">{suspect.name}’s cards</p>
           <div
             className={cn('grid gap-1.5', suspect.clue.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}
           >

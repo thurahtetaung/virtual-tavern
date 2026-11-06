@@ -19,8 +19,13 @@ import {
   LobbySettings,
   NameDot,
   useWideScreen,
+  Fold as SharedFold,
+  TabBar,
+  type TabBarItem,
+  Tabs,
+  tabPanelProps,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   EDITIONS,
   EDITION_IDS,
@@ -169,7 +174,7 @@ function Seats({
         ))}
         {playing.length === 0 && <li className="text-ink-muted italic">Nobody seated yet</li>}
       </ul>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
           <PlayerTag
@@ -216,7 +221,7 @@ function Seats({
   );
 }
 
-/** A folded lobby section: a 44 px summary line, so Start stays on a phone's first screen. */
+/** A folded lobby section: a 48 px summary line, so Start stays on a phone's first screen. */
 function Fold({
   title,
   summary,
@@ -227,18 +232,18 @@ function Fold({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group">
-      <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+    <SharedFold
+      summary={
         <span>
           <span className="font-semibold">{title}</span>
           <span className="text-ink-muted"> · {summary}</span>
         </span>
-        <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
-          ▸
-        </span>
-      </summary>
-      <div className="pt-2">{children}</div>
-    </details>
+      }
+      className="bg-transparent ring-0"
+      bodyClassName="px-0 pt-2 pb-0"
+    >
+      {children}
+    </SharedFold>
   );
 }
 
@@ -294,19 +299,17 @@ function Lobby({
                   onClick={() => void act({ type: 'update-settings', edition: id })}
                   className={cn(
                     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-                    on
-                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                      : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
+                    on ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line enabled:hover:bg-sunk',
                     !editable && !on && 'opacity-60',
                   )}
                 >
                   <span className="block font-semibold">
                     {id === 'classic' ? 'Classic' : '2019 edition'}
                   </span>
-                  <span className="block text-xs text-stone-600 dark:text-stone-400">
+                  <span className="block text-xs text-ink-muted">
                     {deckSize(id)} cards · {e.minPlayers}–{e.maxPlayers} players
                   </span>
-                  <span className="block text-xs text-stone-600 dark:text-stone-400">
+                  <span className="block text-xs text-ink-muted">
                     {tokensToWin(e, n, s.short)} tokens to win
                     {id === '2019' ? ' · Spy, Chancellor' : ''}
                   </span>
@@ -333,8 +336,8 @@ function Lobby({
                 className={cn(
                   'h-11 flex-1 rounded-lg px-3 text-sm ring-1 transition disabled:cursor-default',
                   on
-                    ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                    : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
+                    ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                    : 'ring-line enabled:hover:bg-sunk',
                   !editable && !on && 'opacity-60',
                 )}
               >
@@ -389,7 +392,7 @@ function Lobby({
         New here?{' '}
         <button
           type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
+          className="font-semibold text-accent-text underline"
           onClick={showGuide}
         >
           Read the guide
@@ -414,7 +417,7 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
           key={i}
           className={cn(
             'size-2 rounded-full',
-            i < tokens ? 'bg-danger dark:bg-rose-400' : 'bg-stone-300 dark:bg-stone-700',
+            i < tokens ? 'bg-danger' : 'bg-stone-300 dark:bg-stone-700',
           )}
         />
       ))}
@@ -444,7 +447,7 @@ function Discards({
       type="button"
       aria-label={`${p.name}’s discards: ${p.discards.map(deck.name).join(', ')}`}
       onClick={onOpen}
-      className="-my-1 flex min-h-11 max-w-full min-w-11 items-center rounded-lg px-1 transition hover:bg-stone-100 dark:hover:bg-stone-800"
+      className="-my-1 flex min-h-11 max-w-full min-w-11 items-center rounded-lg px-1 transition hover:bg-sunk"
     >
       <ul aria-label="Discards" className="flex min-w-0">
         {/* The newest cards matter most: show the last few, newest on top. */}
@@ -485,9 +488,7 @@ function PlayerTile({
       aria-label={`${p.name}${me ? ' (you)' : ''}`}
       className={cn(
         'min-w-0 space-y-1 rounded-xl px-2 py-1.5 ring-1',
-        isTurn
-          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-          : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
+        isTurn ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
         p.out && 'opacity-60',
       )}
     >
@@ -523,19 +524,19 @@ function PlayerTile({
       {(isTurn || p.protected || spy) && (
         <div className="flex flex-wrap gap-1">
           {isTurn && (
-            <Badge className="bg-accent-soft px-1.5 py-0 text-[0.65rem] text-amber-950 dark:bg-amber-500/30 dark:text-amber-100">
+            <Badge className="bg-accent-soft px-1.5 py-0 text-[0.65rem] text-accent-text">
               {me ? 'your turn' : 'their turn'}
             </Badge>
           )}
           {p.protected && (
-            <Badge className="bg-danger-soft px-1.5 py-0 text-[0.65rem] text-rose-900 dark:bg-rose-500/20 dark:text-rose-100">
+            <Badge className="bg-danger-soft px-1.5 py-0 text-[0.65rem] text-danger-ink">
               <span aria-label="protected" title="Protected by the Handmaid until their next turn">
                 🌸 protected
               </span>
             </Badge>
           )}
           {spy && (
-            <Badge className="bg-stone-200 px-1.5 py-0 text-[0.65rem] text-stone-900 dark:bg-stone-700 dark:text-stone-100">
+            <Badge className="bg-sunk px-1.5 py-0 text-[0.65rem] text-ink">
               <span
                 aria-label="played a Spy"
                 title="Played a Spy: gains a token if the only player still in who did"
@@ -572,6 +573,14 @@ function sinceMyTurn(view: RoyalPostView): LogEntry[] {
   return entries.slice(last + 1);
 }
 
+/** Phones in play: the table (with your hand) and its history, from the tab bar. */
+type PlayTab = 'table' | 'history';
+const PLAY_TABS_ID = 'royal-post-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'history', label: 'History', icon: 'scroll-text' },
+];
+
 function Table({
   view,
   room,
@@ -593,21 +602,8 @@ function Table({
   const myTurn = !!round && round.current === me?.id && round.stage === 'play';
   const [viewing, setViewing] = useState<Role | null>(null);
   const [pileOf, setPileOf] = useState<string | null>(null);
-  // The hand bar is fixed over the page, so the page pads by its measured height.
-  const handBar = useRef<HTMLElement>(null);
-  const [handHeight, setHandHeight] = useState(0);
   // Once the round is over the result shows everyone's last card, yours included.
   const showHand = view.hand.length > 0 && view.phase === 'playing' && round?.stage !== 'over';
-  useEffect(() => {
-    const el = handBar.current;
-    if (!el || typeof ResizeObserver === 'undefined') {
-      setHandHeight(0);
-      return;
-    }
-    const observer = new ResizeObserver(() => setHandHeight(el.offsetHeight));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [showHand]);
 
   const chancellor =
     !!round && round.stage === 'chancellor' && round.current === me?.id && view.phase === 'playing';
@@ -622,6 +618,11 @@ function Table({
   const wide = useWideScreen();
   // Phones: the table, the log and the seats are tabs of the end, so it fits the screen.
   const phoneEnd = view.phase === 'over' && !wide;
+  // Seated players on phones get the tab bar while the game is on.
+  const tabbed = !wide && view.phase === 'playing' && !!me?.playing;
+  const [tab, setTab] = useState<PlayTab>('table');
+  const shown: PlayTab | null = tabbed ? tab : null;
+  const journal = <Journal view={view} deck={deck} />;
   const tableBlock = (
     <>
       {round && (
@@ -658,7 +659,7 @@ function Table({
                 </span>
                 <span
                   aria-hidden
-                  className="w-full text-center text-[0.7rem] leading-tight font-semibold break-words hyphens-auto text-stone-700 dark:text-stone-300"
+                  className="w-full text-center text-[0.7rem] leading-tight font-semibold break-words hyphens-auto text-ink-2"
                 >
                   {deck.name(role)}
                 </span>
@@ -670,7 +671,8 @@ function Table({
 
       {recent.length > 0 && <Recent view={view} entries={recent} />}
 
-      <Journal view={view} deck={deck} />
+      {/* Wider screens keep the history in the side column; the end's table tab keeps it too. */}
+      {view.phase !== 'playing' && journal}
 
       {view.seats.some((s) => !s.playing) && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
@@ -687,101 +689,131 @@ function Table({
 
   return (
     <div
-      className={cn('mx-auto max-w-4xl space-y-3', showHand && 'pb-48')}
-      style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
+      className={cn(
+        'mx-auto max-w-4xl',
+        view.phase === 'playing' &&
+          'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6',
+      )}
     >
-      {round && (
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span className="flex flex-wrap items-center gap-x-2">
-            <span>
-              Round {round.number} · {view.target} to win
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CardBack deck={deck} className="w-3.5 rounded-sm" />
+      <div
+        className={cn('min-w-0 space-y-3', shown === 'history' && 'hidden')}
+        {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+      >
+        {round && (
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+            <span className="flex flex-wrap items-center gap-x-2">
               <span>
-                <b className="tabular-nums">{round.deckCount}</b> left in the deck
+                Round {round.number} · {view.target} to win
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <CardBack deck={deck} className="w-3.5 rounded-sm" />
+                <span>
+                  <b className="tabular-nums">{round.deckCount}</b> left in the deck
+                </span>
               </span>
             </span>
-          </span>
-          {/* Kept on one line: a squeezed "Time's up!" badge would wrap. */}
-          <span className="shrink-0 whitespace-nowrap">
-            <Countdown
-              deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
-              clockOffset={room.clockOffset}
-              label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
-              soft={view.settings.timerMode !== 'strict'}
-              atZero={
-                round.stage === 'chancellor'
-                  ? 'then a card is kept at random'
-                  : 'then the lower card is played'
-              }
-              expiredHint="Just a reminder: the turn waits until a card is played."
-            />
-          </span>
-        </div>
-      )}
-
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-
-      {view.phase === 'over' ? (
-        <Podium
-          view={view}
-          deck={deck}
-          act={act}
-          room={room}
-          table={phoneEnd ? tableBlock : null}
-        />
-      ) : (
-        round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
-      )}
-
-      {!phoneEnd && tableBlock}
-
-      {showHand && (
-        <section
-          ref={handBar}
-          aria-label="Your hand"
-          className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
-        >
-          <div className="mx-auto flex max-w-4xl items-end gap-3 px-3 py-2">
-            <div className="min-w-0 flex-1 space-y-1 text-xs text-ink-muted">
-              <p className="font-semibold">Your hand</p>
-              {me && <Tokens tokens={me.tokens} target={view.target} />}
-              {myTurn && (
-                <p className="text-amber-700 dark:text-amber-400">
-                  {mustPlayCountess(view.hand)
-                    ? `You must play the ${deck.name('countess')}: tap her.`
-                    : 'Tap a card to play it.'}
-                </p>
-              )}
-              {chancellor && !chancellorOpen && (
-                <Button size="sm" onClick={() => setDismissed(null)}>
-                  Choose a card to keep
-                </Button>
-              )}
-            </div>
-            <ul className="flex shrink-0 gap-2">
-              {view.hand.map((role, i) => (
-                <li key={`${role}-${i}`} className="w-20 sm:w-24">
-                  <Card
-                    role={role}
-                    rank={rankIn(edition, role)}
-                    deck={deck}
-                    size="md"
-                    // A forced Countess: the card that forces her can't be played.
-                    dimmed={myTurn && role !== 'countess' && mustPlayCountess(view.hand)}
-                    hint={
-                      myTurn && role !== 'countess' && mustPlayCountess(view.hand)
-                        ? 'can’t be played now'
-                        : undefined
-                    }
-                    onClick={() => setViewing(role)}
-                  />
-                </li>
-              ))}
-            </ul>
+            {/* Kept on one line: a squeezed "Time's up!" badge would wrap. */}
+            <span className="shrink-0 whitespace-nowrap">
+              <Countdown
+                deadline={
+                  round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null
+                }
+                clockOffset={room.clockOffset}
+                label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
+                soft={view.settings.timerMode !== 'strict'}
+                atZero={
+                  round.stage === 'chancellor'
+                    ? 'then a card is kept at random'
+                    : 'then the lower card is played'
+                }
+                expiredHint="Just a reminder: the turn waits until a card is played."
+              />
+            </span>
           </div>
-        </section>
+        )}
+
+        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+
+        {view.phase === 'over' ? (
+          <Podium
+            view={view}
+            deck={deck}
+            act={act}
+            room={room}
+            table={phoneEnd ? tableBlock : null}
+          />
+        ) : (
+          round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
+        )}
+
+        {!phoneEnd && tableBlock}
+
+        {showHand && (
+          // Phones keep the hand in the bar at the foot of the screen; wider screens show it here.
+          <StickyBar fixed off={shown === 'history'}>
+            <section
+              aria-label="Your hand"
+              className="rounded-xl bg-card ring-1 ring-line max-sm:rounded-none max-sm:bg-transparent max-sm:ring-0"
+            >
+              <div className="mx-auto flex max-w-4xl items-end gap-3 px-3 py-2 max-sm:p-0">
+                <div className="min-w-0 flex-1 space-y-1 text-xs text-ink-muted">
+                  <p className="font-semibold">Your hand</p>
+                  {me && <Tokens tokens={me.tokens} target={view.target} />}
+                  {myTurn && (
+                    <p className="text-accent-text">
+                      {mustPlayCountess(view.hand)
+                        ? `You must play the ${deck.name('countess')}: tap her.`
+                        : 'Tap a card to play it.'}
+                    </p>
+                  )}
+                  {chancellor && !chancellorOpen && (
+                    <Button size="sm" onClick={() => setDismissed(null)}>
+                      Choose a card to keep
+                    </Button>
+                  )}
+                </div>
+                <ul className="flex shrink-0 gap-2">
+                  {view.hand.map((role, i) => (
+                    <li key={`${role}-${i}`} className="w-20 sm:w-24">
+                      <Card
+                        role={role}
+                        rank={rankIn(edition, role)}
+                        deck={deck}
+                        size="md"
+                        // A forced Countess: the card that forces her can't be played.
+                        dimmed={myTurn && role !== 'countess' && mustPlayCountess(view.hand)}
+                        hint={
+                          myTurn && role !== 'countess' && mustPlayCountess(view.hand)
+                            ? 'can’t be played now'
+                            : undefined
+                        }
+                        onClick={() => setViewing(role)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          </StickyBar>
+        )}
+      </div>
+      {view.phase === 'playing' && (!shown || shown === 'history') && (
+        <aside
+          className="mt-3 space-y-3 lg:mt-0"
+          {...(shown === 'history' && tabPanelProps(PLAY_TABS_ID, 'history'))}
+        >
+          {journal}
+        </aside>
+      )}
+      {tabbed && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Game sections"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
       )}
 
       <PlaySheet
@@ -915,17 +947,17 @@ function PlaySheet({
             </div>
           </div>
           {canPlay && role === 'countess' && mustCountess && (
-            <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-amber-950 dark:bg-amber-500/15 dark:text-amber-100">
+            <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent-text">
               You must play her: your other card is the {deck.name(forcing)}.
             </p>
           )}
           {canPlay && countessLock && (
-            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">
               You hold the Countess with the {deck.name(forcing)}, so you must play the Countess.
             </p>
           )}
           {canPlay && role === 'princess' && (
-            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-ink">
               Playing her knocks you out of the round!
             </p>
           )}
@@ -947,8 +979,8 @@ function PlaySheet({
                       className={cn(
                         'flex h-11 min-w-0 items-center gap-1.5 rounded-lg px-3 font-semibold ring-1 transition',
                         target === p.id
-                          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                          : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                          ? 'bg-accent-soft ring-2 ring-accent'
+                          : 'ring-line hover:bg-sunk',
                       )}
                     >
                       <span className="min-w-0 truncate">{p.id === me ? 'Yourself' : p.name}</span>
@@ -987,8 +1019,8 @@ function PlaySheet({
                       className={cn(
                         'flex h-12 flex-col justify-center rounded-lg px-2 text-left text-sm ring-1 transition',
                         guess === c.role
-                          ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-                          : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                          ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                          : 'ring-line hover:bg-sunk',
                         c.unseen === 0 && guess !== c.role && 'opacity-50',
                       )}
                     >
@@ -1248,7 +1280,7 @@ function Recent({ view, entries }: { view: RoyalPostView; entries: LogEntry[] })
     <section
       aria-label={watcher ? 'Latest moves' : 'Since your turn'}
       aria-live="polite"
-      className="space-y-1 text-sm leading-7 text-stone-700 dark:text-stone-300"
+      className="space-y-1 text-sm leading-7 text-ink-2"
     >
       <h3 className="text-xs font-semibold text-ink-muted">
         {watcher ? 'Latest moves' : 'Since your turn'}
@@ -1256,10 +1288,7 @@ function Recent({ view, entries }: { view: RoyalPostView; entries: LogEntry[] })
       </h3>
       <ul className="space-y-0.5">
         {shown.map((e) => (
-          <li
-            key={e.id}
-            className={cn(touches(view, e) && 'font-semibold text-rose-800 dark:text-rose-200')}
-          >
+          <li key={e.id} className={cn(touches(view, e) && 'font-semibold text-danger-ink')}>
             <Rich line={describeLog(view, e)} />
           </li>
         ))}
@@ -1275,45 +1304,25 @@ const touches = (view: RoyalPostView, e: LogEntry) =>
     (e.kind === 'out' && e.player === view.me.id));
 
 type JournalTab = 'log' | 'count' | 'notes';
+const JOURNAL_ID = 'royal-post-journal';
 
 /** The log, the card count and your notes, as tabs so a phone screen doesn't grow. */
 function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   const [tab, setTab] = useState<JournalTab>('log');
   if (view.log.length === 0 && !view.round) return null;
-  const tabs: { id: JournalTab; label: string }[] = [
+  const tabs: { id: JournalTab; label: string; count?: number }[] = [
     { id: 'log', label: 'Log' },
     { id: 'count', label: 'Card count' },
     ...(view.notes.length > 0
-      ? [{ id: 'notes' as const, label: `Notes (${notesByRound(view).current.length})` }]
+      ? [{ id: 'notes' as const, label: 'Notes', count: notesByRound(view).current.length }]
       : []),
   ];
   const current = tabs.some((t) => t.id === tab) ? tab : 'log';
   return (
-    <section
-      aria-label="Table records"
-      className="rounded-xl bg-white/80 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
-    >
-      <div role="tablist" className="flex border-b border-stone-200 dark:border-stone-800">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={current === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'h-11 flex-1 truncate px-2 text-sm font-semibold transition',
-              current === t.id
-                ? 'border-b-2 border-accent dark:border-amber-500 text-stone-900 dark:text-stone-100'
-                : 'text-ink-muted hover:text-stone-800 dark:hover:text-stone-200',
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+    <section aria-label="Table records" className="rounded-xl bg-card ring-1 ring-line">
+      <Tabs id={JOURNAL_ID} label="Table records" tabs={tabs} value={current} onChange={setTab} />
       <div
-        role="tabpanel"
+        {...tabPanelProps(JOURNAL_ID, current)}
         // The card count is short and fixed, so it shows in full; the rest scroll in a box.
         className={cn('px-3 py-2', current !== 'count' && 'max-h-56 overflow-y-auto sm:max-h-72')}
       >
@@ -1372,9 +1381,9 @@ function Log({ view }: { view: RoyalPostView }) {
           key={e.id}
           className={cn(
             'border-l-2 pl-2',
-            fresh.has(e.id) ? 'border-accent dark:border-amber-500' : 'border-transparent',
+            fresh.has(e.id) ? 'border-accent' : 'border-transparent',
             e.kind === 'round-end' && 'font-semibold',
-            touches(view, e) && 'text-rose-800 dark:text-rose-200',
+            touches(view, e) && 'text-danger-ink',
           )}
         >
           <span className="mr-1 text-xs text-ink-muted tabular-nums">R{e.round}</span>
@@ -1397,7 +1406,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
         {view.round.deckCount}) or set aside face down. Discards and your own hand are counted out.
       </p>
       {view.knownDeck.length > 0 && (
-        <p className="text-xs text-amber-800 dark:text-amber-300" data-testid="known-deck">
+        <p className="text-xs text-accent-text" data-testid="known-deck">
           📜 Still in the deck, as you put them: the last {view.knownDeck.length} card
           {view.knownDeck.length === 1 ? ' is ' : 's are '}
           {listNames(view.knownDeck.map((r) => deck.name(r)))}
@@ -1420,7 +1429,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
                   key={i}
                   className={cn(
                     'h-3 w-2 rounded-sm',
-                    i < c.unseen ? 'bg-danger dark:bg-rose-400' : 'bg-stone-300 dark:bg-stone-700',
+                    i < c.unseen ? 'bg-danger' : 'bg-stone-300 dark:bg-stone-700',
                   )}
                 />
               ))}
@@ -1428,9 +1437,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
             <span aria-hidden className="w-10 text-right text-xs text-ink-muted tabular-nums">
               {c.unseen}/{c.total}
             </span>
-            {c.inDeck > 0 && (
-              <span className="text-xs text-amber-800 dark:text-amber-300">{c.inDeck} in deck</span>
-            )}
+            {c.inDeck > 0 && <span className="text-xs text-accent-text">{c.inDeck} in deck</span>}
           </li>
         ))}
       </ul>
@@ -1475,7 +1482,7 @@ function RoundSecrets({ view }: { view: RoyalPostView }) {
   const ending = roundEndingNotes(view);
   if (ending.length === 0) return null;
   return (
-    <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
+    <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7">
       <p className="text-xs font-semibold text-ink-muted">Only you can see this</p>
       {ending.map((n) => (
         <p key={n.id}>
@@ -1510,7 +1517,7 @@ function RoundResult({
   return (
     <Panel aria-label="Round result" className="space-y-3 text-center">
       <p className="text-xl font-bold">💌 {headline}</p>
-      <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
+      <p className="text-sm leading-7 text-ink-muted">
         {result.reason === 'last-standing'
           ? 'Everyone else was knocked out.'
           : 'The deck ran out, so the highest card won.'}
@@ -1528,9 +1535,11 @@ function RoundResult({
       <FinalHands view={view} deck={deck} />
       <RoundSecrets view={view} />
       {room.isHost ? (
-        <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
-          Next round
-        </Button>
+        <StickyBar>
+          <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
+            Next round
+          </Button>
+        </StickyBar>
       ) : (
         <p className="text-sm text-ink-muted">{waitingForHost(room, 'deal the next round')}</p>
       )}
@@ -1584,7 +1593,7 @@ function Podium({
               label: '💌 Round',
               content: (
                 <div className="space-y-2">
-                  <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
+                  <p className="text-sm leading-7 text-ink-muted">
                     Last round: <Rich line={describeLog(view, last)} />
                   </p>
                   <FinalHands view={view} deck={deck} />
@@ -1606,14 +1615,14 @@ function Podium({
         ]}
       />
       {room.isHost ? (
-        <div className="flex flex-wrap justify-center gap-2">
+        <StickyBar className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change setup
           </Button>
-        </div>
+        </StickyBar>
       ) : (
         <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
       )}

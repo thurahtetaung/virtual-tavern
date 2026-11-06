@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   type Player,
   claim,
@@ -91,6 +92,15 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
   await expect(host.getByTestId('score-legend')).toContainText('electing the Archon as Keeper');
   await host.getByTestId('scoreboard').click();
   await expect(host.getByTestId('score-legend')).toBeHidden();
+  // A nomination on a phone, with the edition's art and words: boards, seats and dock fit.
+  {
+    const pres = await president(players);
+    const chan = await eligible(pres, players, () => false);
+    await pres.page
+      .getByRole('button', { name: `Nominate ${chan.name} as ${pres.w.chancellor}` })
+      .click();
+    await expectPhoneFit(pres.page, 'hogwarts nominate');
+  }
 
   // Two sessions with their claims; the President names their discard.
   for (let i = 0; i < 2; i++) {
