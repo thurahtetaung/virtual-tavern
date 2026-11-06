@@ -11,14 +11,20 @@ type Act = (a: RoundTableAction) => Promise<boolean>;
 export function QuestTrack({
   view,
   onPick,
+  compact = false,
 }: {
   view: RoundTableView;
   /** Targeting: the leader taps a quest to attempt it. */
   onPick?: (slot: number) => void;
+  /** Phones in play: one 44 px strip, the vote marks beside it. */
+  compact?: boolean;
 }) {
   const g = view.game!;
   return (
-    <ol aria-label="Quests" className="grid grid-cols-5 gap-1.5 sm:gap-3">
+    <ol
+      aria-label="Quests"
+      className={cn('grid grid-cols-5', compact ? 'min-w-0 flex-1 gap-1' : 'gap-1.5 sm:gap-3')}
+    >
       {g.quests.map((q, slot) => {
         const result = g.results.find((r) => r.slot === slot);
         const current = g.slot === slot && !result && view.phase === 'playing';
@@ -30,7 +36,8 @@ export function QuestTrack({
           <>
             <span
               className={cn(
-                'flex aspect-square w-full max-w-16 items-center justify-center rounded-full text-lg font-bold ring-2 sm:text-xl',
+                'flex items-center justify-center rounded-full font-bold ring-2',
+                compact ? 'size-8 text-small' : 'aspect-square w-full max-w-16 text-lg sm:text-xl',
                 result?.success && 'bg-team-b text-on-fill ring-team-b',
                 result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
@@ -46,7 +53,12 @@ export function QuestTrack({
                   : `✕${result.fails > 1 ? result.fails : ''}`
                 : q.size}
             </span>
-            <span className="text-caption leading-tight text-ink-muted">
+            <span
+              className={cn(
+                'text-caption text-ink-muted',
+                compact ? 'leading-none whitespace-nowrap' : 'leading-tight',
+              )}
+            >
               {locked ? '🔒 later' : q.failsNeeded > 1 ? '2 fails' : `Quest ${slot + 1}`}
             </span>
           </>
@@ -80,11 +92,14 @@ export function QuestTrack({
 }
 
 /** Rejected teams in a row this round: five, and Evil wins. */
-export function VoteTrack({ view }: { view: RoundTableView }) {
+export function VoteTrack({ view, compact = false }: { view: RoundTableView; compact?: boolean }) {
   const n = view.game!.rejections;
   return (
     <div
-      className="flex items-center justify-center gap-2 text-caption text-ink-muted"
+      className={cn(
+        'flex items-center justify-center text-caption text-ink-muted',
+        compact ? 'shrink-0 flex-col gap-1 leading-none' : 'gap-2',
+      )}
       aria-label={`${n} of ${MAX_REJECTIONS} teams rejected in a row`}
       role="img"
     >
@@ -94,7 +109,7 @@ export function VoteTrack({ view }: { view: RoundTableView }) {
           <span
             key={i}
             className={cn(
-              'size-3 rounded-full ring-1',
+              compact ? 'size-2.5 rounded-full ring-1' : 'size-3 rounded-full ring-1',
               i < n
                 ? 'bg-team-a ring-team-a'
                 : i === MAX_REJECTIONS - 1
@@ -104,7 +119,8 @@ export function VoteTrack({ view }: { view: RoundTableView }) {
           />
         ))}
       </span>
-      <span>5th rejection: Evil wins</span>
+      {/* Phones: the strip has no room; the label above says what the marks count. */}
+      {!compact && <span>5th rejection: Evil wins</span>}
     </div>
   );
 }

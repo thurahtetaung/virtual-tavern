@@ -11,6 +11,7 @@ import {
   Chip,
   Chips,
   Countdown,
+  FitArea,
   Fold,
   Hint,
   NameDot,
@@ -1008,6 +1009,8 @@ export function MasqueradeBoard({
     className: tabbed && tab !== t ? 'hidden' : undefined,
     ...(tabbed && tab === t ? tabPanelProps(TABS_ID, t) : {}),
   });
+  // In play, a tab's area scrolls inside itself so the page never does.
+  const fit = tabbed && view.phase === 'playing';
   const alert: Tab | null = round?.canGuess ? 'locations' : status.yourMove ? 'play' : null;
   const dot = (t: Tab) => (alert === t && tab !== t ? ('dot' as const) : undefined);
   const tabItems: readonly TabBarItem<Tab>[] = [
@@ -1023,66 +1026,72 @@ export function MasqueradeBoard({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div {...panel('play')} className={cn('min-w-0 space-y-3', panel('play').className)}>
           <StatusHint view={view} room={room} />
-          {round?.redealtAfter && round.stage === 'talk' && (
-            <p className="text-center text-small text-ink-muted">
-              {round.redealtAfter} left while a spy, so the round was dealt again.
-            </p>
-          )}
-          {view.phase === 'over' && (
-            <Podium
-              view={view}
-              act={act}
-              room={room}
-              details={
-                phoneEnd
-                  ? {
-                      round: round?.stage === 'reveal' && (
-                        <Reveal view={view} display={display} act={act} room={room} />
-                      ),
-                      players: (
-                        <Panel>
-                          <Players view={view} online={online} hostId={room.hostId} />
-                        </Panel>
-                      ),
-                    }
-                  : undefined
-              }
-            />
-          )}
-          {round && round.stage === 'reveal' && !phoneEnd && (
-            <Reveal view={view} display={display} act={act} room={room} />
-          )}
-          {round && round.stage !== 'reveal' && view.phase === 'playing' && (
-            <>
-              {/* The vote and the guess come before the card, so they're above the art on phones. */}
-              <GuessPanel round={round} onOpenBoard={() => setTab('locations')} />
-              <VotePanel view={view} round={round} act={act} room={room} />
-              <MyCard key={round.deal} round={round} display={display} />
-              <ReadyToggle round={round} act={act} room={room} />
-              <HowItWorks view={view} round={round} />
-              {round.stage === 'guess' && round.votes && (
-                <Panel className="space-y-2">
-                  <h3 className="text-small font-bold">How everyone voted</h3>
-                  <VotesList view={view} votes={round.votes} spies={round.caught ?? []} />
+          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-3">
+            {round?.redealtAfter && round.stage === 'talk' && (
+              <p className="text-center text-small text-ink-muted">
+                {round.redealtAfter} left while a spy, so the round was dealt again.
+              </p>
+            )}
+            {view.phase === 'over' && (
+              <Podium
+                view={view}
+                act={act}
+                room={room}
+                details={
+                  phoneEnd
+                    ? {
+                        round: round?.stage === 'reveal' && (
+                          <Reveal view={view} display={display} act={act} room={room} />
+                        ),
+                        players: (
+                          <Panel>
+                            <Players view={view} online={online} hostId={room.hostId} />
+                          </Panel>
+                        ),
+                      }
+                    : undefined
+                }
+              />
+            )}
+            {round && round.stage === 'reveal' && !phoneEnd && (
+              <Reveal view={view} display={display} act={act} room={room} />
+            )}
+            {round && round.stage !== 'reveal' && view.phase === 'playing' && (
+              <>
+                {/* The vote and the guess come before the card, so they're above the art on phones. */}
+                <GuessPanel round={round} onOpenBoard={() => setTab('locations')} />
+                <VotePanel view={view} round={round} act={act} room={room} />
+                <MyCard key={round.deal} round={round} display={display} />
+                <ReadyToggle round={round} act={act} room={room} />
+                <HowItWorks view={view} round={round} />
+                {round.stage === 'guess' && round.votes && (
+                  <Panel className="space-y-2">
+                    <h3 className="text-small font-bold">How everyone voted</h3>
+                    <VotesList view={view} votes={round.votes} spies={round.caught ?? []} />
+                  </Panel>
+                )}
+              </>
+            )}
+            {!phoneEnd && (
+              <>
+                <Scores view={view} />
+                <Panel>
+                  <Players view={view} online={online} hostId={room.hostId} />
                 </Panel>
-              )}
-            </>
-          )}
-          {!phoneEnd && (
-            <>
-              <Scores view={view} />
-              <Panel>
-                <Players view={view} online={online} hostId={room.hostId} />
-              </Panel>
-            </>
-          )}
+              </>
+            )}
+          </FitArea>
         </div>
         <div className="min-w-0 space-y-4">
           <div {...panel('locations')}>
-            <LocationsBoard view={view} display={display} act={act} />
+            <FitArea on={fit && tab === 'locations'} resetKey={stepKey}>
+              <LocationsBoard view={view} display={display} act={act} />
+            </FitArea>
           </div>
           <div {...panel('ideas')}>
-            <IdeasBoard view={view} display={display} />
+            <FitArea on={fit && tab === 'ideas'} resetKey={stepKey}>
+              <IdeasBoard view={view} display={display} />
+            </FitArea>
           </div>
         </div>
       </div>

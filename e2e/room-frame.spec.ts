@@ -119,6 +119,61 @@ test('a Spymaster on a phone gives a clue on one screen, and a refusal covers no
   await expect(clueBox(spy)).toHaveValue('Tavern');
 });
 
+test('a Spymaster on a 1440 × 900 desktop sees the clue form and its refusal without scrolling', async ({
+  browser,
+}) => {
+  const desk = async (name: string, url: string) => {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      colorScheme: 'light',
+    });
+    const p = await context.newPage();
+    p.on('pageerror', (e) => pageErrors.push(`${name}: ${e.message}`));
+    await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await p.goto(url);
+    return p;
+  };
+  const host = await desk('Hana', '/');
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const url = host.url();
+  const [ana, ben, cy] = await Promise.all(['Ana', 'Ben', 'Cy'].map((n) => desk(n, url)));
+  const seat = async (p: Page, team: 'Red' | 'Blue', spymaster: boolean) =>
+    p
+      .getByRole('region', { name: `${team} team` })
+      .getByRole('button', {
+        name: spymaster ? 'Be the Spymaster' : `Join ${team} as Operative`,
+      })
+      .click();
+  await seat(host, 'Red', true);
+  await seat(ana!, 'Red', false);
+  await seat(ben!, 'Blue', true);
+  await seat(cy!, 'Blue', false);
+  await host.getByRole('button', { name: 'Start game' }).click();
+  const clueBox = (p: Page) => p.getByPlaceholder('e.g. Ocean');
+  await expect
+    .poll(async () => (await clueBox(host).count()) + (await clueBox(ben!).count()))
+    .toBe(1);
+  const spy = (await clueBox(host).count()) > 0 ? host : ben!;
+  const first = (await spy
+    .getByRole('region', { name: 'Word cards' })
+    .getByRole('button')
+    .first()
+    .getAttribute('aria-label'))!.split(',')[0]!;
+  await clueBox(spy).fill(first);
+  await spy.getByRole('button', { name: '1', exact: true }).click();
+  await spy.getByRole('button', { name: 'Give clue' }).click();
+  const refusal = spy.getByRole('alert').filter({ hasText: 'word on the board' });
+  await expect(refusal).toBeVisible();
+  await expect(refusal).toBeInViewport({ ratio: 1 });
+  await expect(clueBox(spy)).toBeInViewport({ ratio: 1 });
+  const { scroll, client } = await page(spy);
+  test
+    .info()
+    .annotations.push({ type: 'fit', description: `Codenames desktop: page ${scroll}/${client}` });
+  expect(scroll).toBe(client);
+});
+
 /**
  * The phone frame's checks for one screen: the page doesn't scroll or run sideways, the sticky bar
  * (when there is one) sits on the tab bar, clear of `field`, and the tab bar ends on the screen.
@@ -217,7 +272,19 @@ test('an Echo guesser guesses on one phone screen', async ({ browser }) => {
   const guess = host.getByLabel('Your guess');
   await expect(guess).toBeVisible();
   await guess.fill('a guess');
-  await fitsOneScreen(host, 'Echo', guess);
+  // Echo has no tab bar: the players and the cards played lie below, so the page may scroll, but
+  // the clues, the guess box and the bar holding Guess and Pass all fit the first screen.
+  const bar = await box(host.locator('[data-ui="sticky-bar"]'));
+  const field = await box(guess);
+  const clues = await box(host.getByRole('list', { name: 'Your clues' }));
+  test.info().annotations.push({
+    type: 'fit',
+    description: `Echo: clues top ${Math.round(clues.y)}, field bottom ${Math.round(field.y + field.height)}, bar ${Math.round(bar.y)}–${Math.round(bar.y + bar.height)}`,
+  });
+  expect(field.y + field.height).toBeLessThanOrEqual(bar.y);
+  expect(clues.y).toBeGreaterThanOrEqual(0);
+  expect(bar.y + bar.height).toBeLessThanOrEqual(PHONE.height + 1);
+  expect((await page(host)).width).toBeLessThanOrEqual(PHONE.width);
 });
 
 test('a Masquerade player reads their card on one phone screen', async ({ browser }) => {

@@ -53,13 +53,13 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
               disabled={!interactive}
               onClick={() => onPick?.(i)}
               className={cn(
-                // Wide cells from lg up, so five rows plus the header fit a 900px desktop window.
+                // Wide cells from lg up, so five rows, the clue form and its refusal fit a 900px desktop window.
                 // The caption's and the corner mark's sizes are shared with the word (`CardWord`),
                 // which keeps clear of them.
                 // Phones show no caption (the legend under the board says what each colour is); from `sm` up
                 // it is 12 px, the smallest text on the site, as is the mark.
                 '[--cap-at:0px] [--cap-size:0px] [--mark-size:0.75rem] sm:[--cap-at:0.25rem] sm:[--cap-size:0.75rem] sm:[--mark-size:0.875rem]',
-                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
+                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[5/2] motion-reduce:transition-none',
                 face,
                 interactive &&
                   'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',

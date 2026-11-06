@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   EndTabs,
+  FitArea,
   Hint,
   Notice,
   Panel,
@@ -207,6 +208,9 @@ export function EnigmaGame({
     className: tabbed && tab !== t ? 'hidden' : undefined,
     ...(tabbed && tab === t ? tabPanelProps(TABS_ID, t) : {}),
   });
+  // In play, a tab's area scrolls inside itself so the page never does.
+  const fit = tabbed && view.phase === 'playing';
+  const stepKey = `${view.round}-${view.stage}`;
   const tabItems: readonly TabBarItem<Tab>[] = [
     {
       id: 'play',
@@ -363,60 +367,66 @@ export function EnigmaGame({
               </div>
             </section>
           )}
-          {view.stage === 'showdown' && view.phase === 'playing' && (
-            <ShowdownPanel view={view} act={act} />
-          )}
-          {view.phase !== 'over' && view.stage !== 'showdown' && (
-            <>
-              {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
-              <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
-                {shown.map((tx) => (
-                  <TransmissionCard
-                    key={`${view.round}-${tx.team}`}
-                    view={view}
-                    tx={tx}
-                    act={act}
-                    online={online}
-                    isHost={room.isHost}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
-            <StickyBar>
-              <div className="flex justify-center">
-                <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
-                  {outcome?.winner === 'draw'
-                    ? 'Start the showdown'
-                    : outcome
-                      ? 'See results'
-                      : isLastReveal
-                        ? 'Next round'
-                        : 'Continue'}
-                </Button>
-              </div>
-            </StickyBar>
-          )}
+          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-4">
+            {view.stage === 'showdown' && view.phase === 'playing' && (
+              <ShowdownPanel view={view} act={act} />
+            )}
+            {view.phase !== 'over' && view.stage !== 'showdown' && (
+              <>
+                {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
+                <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
+                  {shown.map((tx) => (
+                    <TransmissionCard
+                      key={`${view.round}-${tx.team}`}
+                      view={view}
+                      tx={tx}
+                      act={act}
+                      online={online}
+                      isHost={room.isHost}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+            {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
+              <StickyBar>
+                <div className="flex justify-center">
+                  <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
+                    {outcome?.winner === 'draw'
+                      ? 'Start the showdown'
+                      : outcome
+                        ? 'See results'
+                        : isLastReveal
+                          ? 'Next round'
+                          : 'Continue'}
+                  </Button>
+                </div>
+              </StickyBar>
+            )}
+          </FitArea>
         </div>
 
         <div {...panel('clues')} className={cn('space-y-4', panel('clues').className)}>
-          {sheetTeams.map((team) =>
-            view.teams[team].keywords && (team === myTeam || view.phase === 'over') ? (
-              <OwnSheet key={team} view={view} team={team} />
-            ) : (
-              <OpponentSheet key={team} view={view} team={team} act={act} />
-            ),
-          )}
+          <FitArea on={fit && tab === 'clues'} resetKey={stepKey} className="space-y-4">
+            {sheetTeams.map((team) =>
+              view.teams[team].keywords && (team === myTeam || view.phase === 'over') ? (
+                <OwnSheet key={team} view={view} team={team} />
+              ) : (
+                <OpponentSheet key={team} view={view} team={team} act={act} />
+              ),
+            )}
+          </FitArea>
         </div>
       </div>
 
       <aside {...panel('chat')} className={cn('space-y-4', panel('chat').className)}>
-        <TeamChat view={view} act={act} />
-        <Panel>
-          <h3 className="mb-2 font-bold">Teams</h3>
-          <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
-        </Panel>
+        <FitArea on={fit && tab === 'chat'} resetKey={stepKey} className="space-y-4">
+          <TeamChat view={view} act={act} />
+          <Panel>
+            <h3 className="mb-2 font-bold">Teams</h3>
+            <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
+          </Panel>
+        </FitArea>
       </aside>
 
       {tabbed && (
