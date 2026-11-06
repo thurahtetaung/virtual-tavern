@@ -68,6 +68,22 @@ export function parseOklch(value) {
   return [l, Number(m[3]), Number(m[4])];
 }
 
+/** Parses `#9b5b22` (or `#fff`) into oklch [L (0–1), C, H], so hex tokens share the contrast maths. */
+export function parseHex(value) {
+  const m = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(value.trim());
+  if (!m) throw new Error(`not a hex colour: ${value}`);
+  const hex = m[1].length === 3 ? [...m[1]].map((d) => d + d).join('') : m[1];
+  const dec = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [0, 2, 4].map((i) => dec(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const l_ = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m_ = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s_ = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const l = 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_;
+  const a = 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_;
+  const bb = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_;
+  return [l, Math.hypot(a, bb), ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360];
+}
+
 const round = (n, places) => Number(n.toFixed(places));
 export const formatOklch = ([l, c, h]) =>
   `oklch(${round(l * 100, 1)}% ${round(c, 3)} ${round(h, 2)})`;
