@@ -78,7 +78,7 @@ The shell and `@vt/ui` share the patterns every game needs, so use them rather t
 
 ## Word content
 
-Games read word lists through `ctx.content`. Set `usesWordLists: true` on the definition: each list is tagged with the games that offer it ("Used by" in the admin editor), and a room's `ctx.content` only sees the lists tagged for its game, with lists made only for that game first; lists an admin has switched off are hidden too, so a saved selection may name lists `ctx.content` no longer returns. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see CLAUDE.md for the format.
+Games read word lists through `ctx.content`. Set `usesWordLists: true` on the definition: each list is tagged with the games that offer it ("Used by" in the admin editor), and a room's `ctx.content` only sees the lists tagged for its game, with lists made only for that game first; lists an admin has switched off are hidden too, so a saved selection may name lists `ctx.content` no longer returns. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see `docs/architecture.md` ("Built-in word packs") for the format.
 
 ## Question content
 
@@ -129,6 +129,8 @@ A back-room game (`access: 'private'`) never names its commercial original in th
 - Server: `apps/server/src/games/registry.ts`
 - Web: `apps/web/src/games/registry.ts` (with a lazy import of the UI; keep the literal `id: '<id>',` line, which a test reads)
 - Add the package to `apps/server/package.json` (devDependencies) and `apps/web/package.json` (dependencies), run `pnpm install`, and update the tests that list every game id (`apps/server/src/app.test.ts`, `apps/server/src/routes/backroom.test.ts`).
+
+- Write the package's own `CLAUDE.md` in the style of its siblings: its ids, rules and the owner's rulings, what `view()` hides, its test rig and, for a back-room game, an **Assets** section with the upload folder layout and `manifest.json` shape. Add the game to the list at the top of the root `CLAUDE.md`.
 
 ## 5. Test it
 
