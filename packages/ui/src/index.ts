@@ -24,3 +24,4 @@ export * from './superlatives.tsx';
 export * from './player-colors.tsx';
 export * from './manifest.ts';
 export * from './drawing.tsx';
+export * from './icon.tsx';
