@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.97.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.96.0...v0.97.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** public games on the new design: shared tab bar, sticky moves and colour tokens ([#541](https://github.com/thurahtetaung/virtual-tavern/issues/541)) ([03b451c](https://github.com/thurahtetaung/virtual-tavern/commit/03b451c5cc74178d16454487f692a8ddebcf105c))
+
 ## [0.96.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.95.0...v0.96.0) (2026-11-06)
 
 
