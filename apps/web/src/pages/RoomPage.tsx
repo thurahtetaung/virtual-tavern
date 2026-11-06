@@ -24,7 +24,7 @@ import {
   usePhone,
   useSecondsLeft,
 } from '@vt/ui';
-import { useShowProfile } from '@vt/ui/show';
+import { PosterInfoProvider, useShowProfile } from '@vt/ui/show';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
@@ -340,6 +340,10 @@ function Room({
   const nightGameNames = night.recap?.games;
   // Back-room games keep their own emoji on the card, for a browser that has the back room.
   const privateGames = usePrivateGames(recapOpen || wraps > 0);
+  const posterInfo = useMemo(
+    () => ({ emblem: game.icon, name: game.name, code: roomId }),
+    [game.icon, game.name, roomId],
+  );
   const cardCtx = useMemo((): CardContext => {
     const gameInfo = (id: string) => {
       if (id === game.id) return game;
@@ -785,23 +789,28 @@ function Room({
           {introOn && !phone && (
             <GuideIntro game={game} onRules={readRules} onClose={intro.close} />
           )}
-          <BotNames.Provider value={botNames}>
-            <PlayerColors.Provider value={playerColors}>
-              <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
-                <Game
-                  view={gameView}
-                  room={roomInfo!}
-                  act={act}
-                  showGuide={showGuide}
-                  setYourMove={setYourMove}
-                  setSpectator={setSpectator}
-                  setAbandon={setAbandon}
-                  pickColor={openColor}
-                  profile={profile}
-                />
-              </SuperlativesNote.Provider>
-            </PlayerColors.Provider>
-          </BotNames.Provider>
+          {/* A game's in-room table screen names the game, as the paired one does. */}
+          <PosterInfoProvider value={posterInfo}>
+            <BotNames.Provider value={botNames}>
+              <PlayerColors.Provider value={playerColors}>
+                <SuperlativesNote.Provider
+                  value={playtest ? '🧪 Playtest preview: not saved' : null}
+                >
+                  <Game
+                    view={gameView}
+                    room={roomInfo!}
+                    act={act}
+                    showGuide={showGuide}
+                    setYourMove={setYourMove}
+                    setSpectator={setSpectator}
+                    setAbandon={setAbandon}
+                    pickColor={openColor}
+                    profile={profile}
+                  />
+                </SuperlativesNote.Provider>
+              </PlayerColors.Provider>
+            </BotNames.Provider>
+          </PosterInfoProvider>
         </Suspense>
       )}
 

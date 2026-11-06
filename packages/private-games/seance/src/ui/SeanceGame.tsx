@@ -917,7 +917,6 @@ function SeanceTableScreen({
             Leave table screen
           </Button>
         }
-        eyebrow={`Hour ${roman(g.hour)} of VII`}
         headline={headline}
         clock={g.deadline !== null ? <PosterClock deadline={g.deadline} /> : undefined}
         choices={atTable(g).map((p) => {

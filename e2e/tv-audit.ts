@@ -28,6 +28,8 @@ export interface TvAudit {
 export async function auditTv(page: Page, label: string, path?: string): Promise<TvAudit> {
   const audit = await page.evaluate((name): TvAudit => {
     const visible = (el: Element) => {
+      // Under an in-room table screen the page is inert (and covered): not on screen.
+      if (el.closest('[inert]')) return false;
       const r = el.getBoundingClientRect();
       if (r.width <= 1 || r.height <= 1) return false;
       if (r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false;
