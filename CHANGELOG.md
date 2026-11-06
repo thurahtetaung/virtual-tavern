@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.95.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.94.0...v0.95.0) (2026-11-06)
+
+
+### Features
+
+* **web:** restyle the tavern keeper pages with the shared parts ([#539](https://github.com/thurahtetaung/virtual-tavern/issues/539)) ([e92a2c3](https://github.com/thurahtetaung/virtual-tavern/commit/e92a2c360d3c4154788e773ebdd06c0d8bce3fbc))
+
+
+### Performance Improvements
+
+* cut CI and local test time with per-worker e2e servers and faster state copies ([#537](https://github.com/thurahtetaung/virtual-tavern/issues/537)) ([9a0761d](https://github.com/thurahtetaung/virtual-tavern/commit/9a0761d058ea18a8fbadb86f4a37947872322cd0))
+
 ## [0.94.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.93.0...v0.94.0) (2026-11-06)
 
 
