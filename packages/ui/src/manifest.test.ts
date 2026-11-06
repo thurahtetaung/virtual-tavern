@@ -62,3 +62,31 @@ describe('loadManifest', () => {
     ]);
   });
 });
+
+describe('coverOf', () => {
+  it("names the cover in the game's own asset folder", async () => {
+    const { coverOf } = await page();
+    expect(coverOf('reverie', { cover: 'cover.webp' })).toEqual({
+      src: '/api/backroom/assets/reverie/cover.webp',
+    });
+    expect(coverOf('iconic', { cover: 'box/cover.webp', coverDarkDim: true })).toEqual({
+      src: '/api/backroom/assets/iconic/box/cover.webp',
+      dimInDark: true,
+    });
+  });
+
+  it('has none without a manifest, a cover, or with a path outside the folder', async () => {
+    const { coverOf } = await page();
+    expect(coverOf('reverie', null)).toBeNull();
+    expect(coverOf('reverie', { title: 'x' })).toBeNull();
+    expect(coverOf('reverie', { cover: 42 })).toBeNull();
+    for (const cover of [
+      '',
+      '/cover.webp',
+      '../nightfall/cover.webp',
+      'a/../b.webp',
+      'https://x/y',
+    ])
+      expect(coverOf('reverie', { cover })).toBeNull();
+  });
+});

@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 
 /**
  * The private `encore/manifest.json` (asset storage only, never in the repo). Every field is
@@ -19,7 +19,7 @@ import type { GuideFooter } from '@vt/game-sdk';
  */
 export type ArtRef = string | { art?: string; thumb?: string };
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   cards?: Record<string, ArtRef>;
   artUp?: 'low' | 'high';

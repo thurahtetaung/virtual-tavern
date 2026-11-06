@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import type { LocationDisplay } from '@vt/game-masquerade/ui';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ export const GAME_ID = 'masquerade-originals';
  * relative to the game's folder; anything left out falls back to a numbered placeholder.
  * Location art is landscape (600×360, 5:3), shown with object-cover.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   /** The card back (landscape, about 20:13), shown on the spy's card. */
   back?: string;
   editions?: Partial<Record<'e1' | 'e2', { name?: string }>>;

@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
@@ -25,7 +26,7 @@ export const GAME_ID = 'seance';
  * padded to 3), with no separate thumbnail. Everything is optional: without it, cards are
  * numbered placeholders.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   back?: string;
   sets?: Partial<Record<SetId, { name?: string; description?: string }>>;
   pools?: Partial<Record<PoolId, { name?: string; description?: string; art?: string }>>;

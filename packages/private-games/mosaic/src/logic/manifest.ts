@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import type { Colour, Special, Tile } from './types.ts';
 
 /**
@@ -18,7 +18,7 @@ import type { Colour, Special, Tile } from './types.ts';
  *   credit: "…" | { title, paragraphs: […], links: [{ label, href }] }
  * }
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   tiles?: Partial<Record<Tile | 'white', string>>;
   jokers?: string;

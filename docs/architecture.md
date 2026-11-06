@@ -22,6 +22,10 @@ Every game with sound shows the same per-player volume sliders, 0–100 % (0 is 
 
 Each game's `GameGuide` (`src/logic/guide.ts`) renders on `/rules/:gameId` and in the in-room rules drawer through `apps/web/src/components/GuideView.tsx`, in four tabs: Learn (goal + a 4–7 step stepper, which is also the lobby's one-time intro), the game's tiles (an optional `catalog` adds a Cards tab), Rules (sections banded `basics`/`details`/`edge`, greyed "Not in this game" when their `option` is off) and Cheat sheet. The drawer passes the viewer's own view to the guide's `room()`; the rules page offers `presets` instead. Back-room guides are `makeGuide(names)` + `nameGuide(manifest)` so real names, card text and art come only from the manifest (`private.test.ts` checks no stand-in survives). See `docs/adding-a-game.md` §2. Update the guide in the same change as any rule change.
 
+## Back room pages
+
+`useBackroomPage()` (`apps/web/src/lib/backroom.ts`) sets `<html data-room="back">` on `/backroom` and in a back-room game's room, and removes it on leaving; `index.css` then deepens only the surface tokens (`page`, `panel`, `card` in dark, `sunk`, `line`, `lamp`), so no component changes. The lobby shows each game in the shared `GameCard` with its art strip: the cover its manifest names (`coverOf` in `@vt/ui`, read through `loadManifest` once the card nears the screen, since some manifests are large), framed on the `sunk` well, and the game's emoji emblem while there is none or it fails to load. `coverDarkDim` dims a mostly white cover a little in dark mode only. The covers and manifest entries live in R2 like all back-room art; nothing about them is in the repository.
+
 ## Table screen
 
 Code: `apps/server/src/stage.ts`, `routes/stage.ts`, web `pages/StagePage.tsx`, `pages/StageShowPage.tsx`, `stage/`, `components/TableScreen.tsx`; `docs/adding-a-game.md` "Table screen".

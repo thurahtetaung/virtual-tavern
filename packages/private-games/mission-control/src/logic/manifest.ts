@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 
 /**
  * The private `mission-control/manifest.json` (asset storage only, never in the repo). Every
@@ -57,7 +57,7 @@ export interface VoyageArt {
   logbook?: Record<string, LogbookEntry>;
 }
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   /** Per campaign (by voyage key): art and names that differ from the top-level ones. */
   voyages?: Record<string, VoyageArt>;

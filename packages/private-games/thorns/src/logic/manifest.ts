@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import { type Names, PLACEHOLDER_NAMES } from './names.ts';
 
 /**
@@ -29,7 +29,7 @@ export interface ManifestSet {
   thumbs?: { rose?: string; thorn?: string; back?: string; mat?: string; matScored?: string };
 }
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   names?: Partial<Record<keyof Omit<Names, 'title'>, string>>;
   sets?: ManifestSet[];

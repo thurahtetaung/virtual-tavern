@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import type { Level, Token } from './types.ts';
 
 /**
@@ -22,7 +22,7 @@ import type { Level, Token } from './types.ts';
  */
 export type ArtRef = string | { art?: string; thumb?: string; name?: string };
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   cards?: Record<string, ArtRef>;
   backs?: Record<string, string>;

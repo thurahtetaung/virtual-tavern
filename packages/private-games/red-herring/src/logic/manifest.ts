@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 
 /**
  * The private `red-herring/manifest.json` (asset storage only, never in the repo). Every field is
@@ -31,7 +31,7 @@ export const MARKER_COLORS = [
 ] as const;
 export type MarkerColor = (typeof MARKER_COLORS)[number];
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   back?: string;
   sets?: Partial<Record<'base' | 'noir', { name?: string; from?: number; to?: number }>>;
   components?: {

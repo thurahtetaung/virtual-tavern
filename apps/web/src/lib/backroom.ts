@@ -59,3 +59,18 @@ export function useBackroom() {
   }, [refresh]);
   return { status, refresh };
 }
+
+/**
+ * Marks the page as the back room (`<html data-room="back">`, whose surfaces `index.css` deepens)
+ * while `on`, and clears the mark on leaving.
+ */
+export function useBackroomPage(on = true): void {
+  useEffect(() => {
+    if (!on) return;
+    const root = document.documentElement;
+    root.dataset.room = 'back';
+    return () => {
+      delete root.dataset.room;
+    };
+  }, [on]);
+}

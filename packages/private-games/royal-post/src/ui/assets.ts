@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { Edition, Role } from '../logic/types.ts';
@@ -5,7 +6,7 @@ import type { Edition, Role } from '../logic/types.ts';
 export const GAME_ID = 'royal-post';
 
 /** What the private manifest in asset storage describes, per edition. */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   editions: Partial<
     Record<
       Edition,

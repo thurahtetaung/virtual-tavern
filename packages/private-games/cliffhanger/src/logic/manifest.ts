@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import {
   type DeckKind,
   FILM_GENRES,
@@ -41,7 +41,7 @@ export interface TapeArt {
  * Tape and face-off art is portrait, boxes in its portrait coordinates; the game shows it turned onto
  * its side so the title (and a blanked genre band's name) reads left to right.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   credit?:
     string | { title?: string; paragraphs?: string[]; links?: { label?: string; href?: string }[] };

@@ -1,3 +1,4 @@
+import type { ManifestCover } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { CARDS, HEROES } from '../logic/cards.ts';
@@ -11,7 +12,7 @@ export const GAME_ID = 'tavern-brawl';
  * heroes' cards. Paths are relative to the game's folder. Without it, everything shows as neutral
  * placeholders (the hero words and symbol-built card names).
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   sets?: Record<string, { name?: string; box?: string } | undefined>;
   heroes?: Partial<

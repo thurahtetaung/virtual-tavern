@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import { NAME_FALLBACKS, type Names, PLACEHOLDER_NAMES } from './names.ts';
 import type { BoardSize } from './tables.ts';
 import type { Ballot, Policy, Power, Team } from './types.ts';
@@ -31,7 +31,7 @@ export interface BoardGeometry {
  *    text, changes } }`.
  * Role art lists are pools of any length: each player gets one portrait from their team's pool.
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   names?: Partial<Names>;
   art?: {

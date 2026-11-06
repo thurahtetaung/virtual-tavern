@@ -2,7 +2,7 @@ import {
   Children,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
-  type InputHTMLAttributes,
+  type ComponentProps,
   type ReactNode,
   type SelectHTMLAttributes,
 } from 'react';
@@ -313,7 +313,7 @@ export function Input({
   invalid = false,
   className,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+}: ComponentProps<'input'> & { invalid?: boolean }) {
   return (
     <input
       data-ui="input"

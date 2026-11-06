@@ -1,3 +1,5 @@
+import type { GameCover } from './game-card.tsx';
+
 /**
  * A back-room game's private manifest, fetched once per page and shared by everything that reads
  * it (the game's own UI, the room shell's guide and recap names). When the page knows the
@@ -33,4 +35,20 @@ export function loadManifest(gameId: string): Promise<Record<string, unknown> | 
     manifests.set(gameId, p);
   }
   return p;
+}
+
+/**
+ * A game's cover for its card, from its manifest's `cover` (see `ManifestCover` in
+ * `@vt/game-sdk`), or null when it names none or names a path outside the game's folder.
+ */
+export function coverOf(
+  gameId: string,
+  manifest: Record<string, unknown> | null,
+): GameCover | null {
+  const path = manifest?.cover;
+  if (typeof path !== 'string' || !/^[\w-][\w./-]*$/.test(path) || path.includes('..')) return null;
+  return {
+    src: `/api/backroom/assets/${gameId}/${path}`,
+    ...(manifest?.coverDarkDim === true && { dimInDark: true }),
+  };
 }

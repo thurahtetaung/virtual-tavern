@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import { type Names, PLACEHOLDER_NAMES } from './names.ts';
 
 /**
@@ -11,7 +11,7 @@ import { type Names, PLACEHOLDER_NAMES } from './names.ts';
  *   credit: { title, paragraphs: […], links: [{ label, href }] }
  * }
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   names?: Partial<Record<keyof Omit<Names, 'title'>, string>>;
   credit?: { title?: string; paragraphs?: string[]; links?: { label?: string; href?: string }[] };

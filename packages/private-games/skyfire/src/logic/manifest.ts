@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import type { Suit } from './cards.ts';
 
 /**
@@ -25,7 +25,7 @@ import type { Suit } from './cards.ts';
 /** `zoom`: a sharper large copy, for the card sheet (else `art`). */
 export type ArtRef = string | { art?: string; thumb?: string; zoom?: string };
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   cards?: Record<string, ArtRef>;
   back?: ArtRef;

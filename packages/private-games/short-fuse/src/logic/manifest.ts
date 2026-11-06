@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import { CARD_TYPES, type CardType } from './cards.ts';
 import { type Names, PLACEHOLDER_NAMES } from './names.ts';
 import type { Art } from './types.ts';
@@ -18,7 +18,7 @@ import type { Art } from './types.ts';
  *   credit: { title, paragraphs: […], links: [{ label, href }] }
  * }
  */
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   back?: string;
   names?: {

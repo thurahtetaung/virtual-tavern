@@ -1,4 +1,4 @@
-import type { GuideFooter } from '@vt/game-sdk';
+import type { GuideFooter, ManifestCover } from '@vt/game-sdk';
 import type { Kind } from './types.ts';
 
 /**
@@ -53,7 +53,7 @@ export interface ModuleArt {
   dialCentre?: [number, number];
 }
 
-export interface Manifest {
+export interface Manifest extends ManifestCover {
   title?: string;
   names?: {
     modules?: Partial<Record<Kind, string>>;
