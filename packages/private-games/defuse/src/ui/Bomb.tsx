@@ -586,18 +586,33 @@ export function BombScreen({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-ink-muted">Front</p>
+              <p
+                className={cn('font-semibold text-ink-muted', readOnly ? 'text-[24px]' : 'text-xs')}
+              >
+                Front
+              </p>
               <FaceGrid b={b} face={0} art={art} now={now} onOpen={openModule} open={open} />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-ink-muted">Back</p>
+              <p
+                className={cn('font-semibold text-ink-muted', readOnly ? 'text-[24px]' : 'text-xs')}
+              >
+                Back
+              </p>
               <FaceGrid b={b} face={1} art={art} now={now} onOpen={openModule} open={open} />
             </div>
           </div>
           <div className={cn('grid gap-3', readOnly ? 'grid-cols-4' : 'grid-cols-2')}>
             {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
               <div key={side} className="space-y-1">
-                <p className="text-xs font-semibold text-ink-muted">{VIEW_NAME[side]}</p>
+                <p
+                  className={cn(
+                    'font-semibold text-ink-muted',
+                    readOnly ? 'text-[24px]' : 'text-xs',
+                  )}
+                >
+                  {VIEW_NAME[side]}
+                </p>
                 <div
                   className={cn(
                     (side === 'left' || side === 'right') &&

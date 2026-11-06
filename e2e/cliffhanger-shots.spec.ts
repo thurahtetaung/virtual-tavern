@@ -8,6 +8,7 @@ import {
   table,
 } from './cliffhanger-play.ts';
 import { test } from './fixtures.ts';
+import { auditTv } from './tv-audit.ts';
 import { type Look, visitor } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/cliffhanger-shots.spec.ts
@@ -130,9 +131,9 @@ test('cliffhanger table screen (tv-dark)', async ({ browser }) => {
   test.setTimeout(420_000);
   const phone: Look = { viewport: { width: 390, height: 844 }, colorScheme: 'dark' };
   const tvLook: Look = { viewport: { width: 1920, height: 1080 }, colorScheme: 'dark' };
-  const shot = async (p: Page, name: string) => {
-    await p.screenshot({ path: `${DIR}/tv-dark-${name}.png` });
-  };
+  // Every shot here is the table screen's, measured too.
+  const shot = (p: Page, name: string) =>
+    auditTv(p, `cliffhanger ${name}`, `${DIR}/tv-dark-${name}.png`);
   cleanup.push(await importPacks(browser));
   const [ana, ben, cleo, dev] = (await table(browser, ['Ana', 'Ben', 'Cleo', 'Dev'], phone)) as [
     Page,

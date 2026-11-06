@@ -49,8 +49,13 @@ export function PlayerTag({
         </span>
       )}
       {host && <HostCrown />}
-      {you && <span className="text-caption font-normal text-ink-muted">(you)</span>}
-      {offline && <Badge>offline</Badge>}
+      {/* Never smaller than the caption size, and in step with a big name (a table screen's). */}
+      {you && (
+        <span className="text-[length:max(var(--text-caption),0.75em)] font-normal text-ink-muted">
+          (you)
+        </span>
+      )}
+      {offline && <Badge className="text-[length:max(var(--text-caption),0.7em)]">offline</Badge>}
     </span>
   );
 }

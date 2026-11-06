@@ -6,3 +6,4 @@ export * from './profile.ts';
 export * from './rig.ts';
 export * from './use-show.ts';
 export * from './reveal.tsx';
+export * from './poster.tsx';

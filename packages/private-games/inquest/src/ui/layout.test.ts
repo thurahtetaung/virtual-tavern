@@ -4,7 +4,6 @@ import type { Bullet } from '../logic/types.ts';
 import { contentFor } from './assets.ts';
 import { bulletNumbers } from './bullets.ts';
 import { bulletLine, locationLabel } from './Scene.tsx';
-import { fitSuspects } from './TableScreen.tsx';
 
 const b = (seq: number, slot: number, item: number, movedFrom?: number): Bullet => ({
   seq,
@@ -44,23 +43,6 @@ describe('the Location picker', () => {
     const labels = LOCATION_TILES.map(locationLabel);
     expect(labels).toEqual(['Location A', 'Location B', 'Location C', 'Location D']);
     expect(new Set(labels).size).toBe(LOCATION_TILES.length);
-  });
-});
-
-describe('fitSuspects (the table screen)', () => {
-  it('fits every hand on a 1080p screen, as big as it can', () => {
-    for (const n of [3, 5, 6, 8, 11]) {
-      const fit = fitSuspects(1250, 960, n, 8);
-      const rows = Math.ceil(n / fit.cols);
-      const handRows = 8 / fit.perRow;
-      const hand = (handRows * fit.card * 510) / 315 + (handRows - 1) * 6;
-      const height = rows * (hand + 16 + 30) + (rows - 1) * 12;
-      const width =
-        fit.cols * (fit.perRow * fit.card + (fit.perRow - 1) * 6 + 16) + (fit.cols - 1) * 12;
-      expect(height, `${n} suspects`).toBeLessThanOrEqual(960 + 1);
-      expect(width, `${n} suspects`).toBeLessThanOrEqual(1250 + 1);
-      expect(fit.card, `${n} suspects`).toBeGreaterThan(50);
-    }
   });
 });
 

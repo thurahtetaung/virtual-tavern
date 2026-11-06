@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { auditTv } from './tv-audit.ts';
 import {
   drawAndSend,
   importPacks,
@@ -134,7 +135,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
           })
         : null;
       const shot = async (name: string, phone: Page = cleo) => {
-        if (tv) await tv.screenshot({ path: `${dir}/tv-${name}.png` });
+        if (tv)
+          await auditTv(tv, `sketchy ${name} (${colorScheme} phones)`, `${dir}/tv-${name}.png`);
         await phone.screenshot({ path: `${dir}/phone-${name}.png` });
       };
       await hana.waitForTimeout(1500);

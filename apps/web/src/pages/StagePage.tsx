@@ -1,9 +1,12 @@
 import { STAGE_CODE_LENGTH, type StagePaired, type StageStatus } from '@vt/protocol';
-import { Button } from '@vt/ui';
+import { Button, Icon, cn } from '@vt/ui';
+import { Poster, PosterInfoProvider } from '@vt/ui/show';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ApiFailure, api } from '../lib/api.ts';
+import { type ResolvedTheme, useStageTheme } from '../lib/theme.ts';
 import { usePageTitle } from '../lib/title.ts';
+import { ShellScene } from '../stage/StageFrame.tsx';
 import { startShow } from '../stage/start.ts';
 
 /**
@@ -13,6 +16,7 @@ import { startShow } from '../stage/start.ts';
  */
 export function StagePage() {
   usePageTitle('Table screen');
+  const { theme, setTheme } = useStageTheme();
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,79 +55,117 @@ export function StagePage() {
   };
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-page p-4 text-ink dark:bg-stone-950 dark:text-stone-100">
-      <div className="w-full max-w-xl space-y-6 text-center">
-        <p className="text-7xl" aria-hidden>
-          📺
-        </p>
-        <h1 className="text-3xl font-bold sm:text-4xl">Table screen</h1>
-        {roomId ? (
-          <>
-            <p className="text-lg text-ink-muted dark:text-stone-400">
-              This screen is paired with the room. Start the show when everyone can see it.
-            </p>
-            <Button
-              size="lg"
-              className="h-20 w-full text-2xl"
-              autoFocus
-              onClick={() => {
-                startShow();
-                void navigate(`/stage/${roomId}`);
-              }}
-            >
-              ▶ Start the show
-            </Button>
-            <button
-              type="button"
-              className="text-sm text-amber-700 underline dark:text-amber-400"
-              onClick={() => {
-                setRoomId(null);
-                setCode('');
-              }}
-            >
-              Pair with another room
-            </button>
-          </>
-        ) : (
-          <form onSubmit={(e) => void pair(e)} className="space-y-4">
-            <p className="text-lg text-ink-muted dark:text-stone-400">
-              The host finds a code under 👥 Players → 📺 Table screen. Type it here.
-            </p>
-            <label className="block">
-              <span className="sr-only">Pairing code</span>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                maxLength={STAGE_CODE_LENGTH + 2}
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                autoFocus
-                placeholder="ABC123"
-                aria-invalid={error !== null}
-                className="h-20 w-full rounded-xl border-2 border-line bg-card text-center font-mono text-5xl font-bold tracking-[0.3em] uppercase placeholder:text-stone-300 focus:border-accent focus:outline-none dark:focus:border-amber-500 dark:border-stone-700 dark:bg-stone-900 dark:placeholder:text-stone-700"
-              />
-            </label>
-            {error && (
-              <p role="alert" className="font-medium text-danger-ink dark:text-rose-300">
-                {error}
-              </p>
+    <ShellScene>
+      <PosterInfoProvider value={{ emblem: '📺', name: 'Table screen' }}>
+        <Poster
+          headline={roomId ? 'Ready when you are' : 'Pair this screen'}
+          line={
+            roomId
+              ? 'This screen is paired with the room. Start the show when everyone can see it.'
+              : 'The host finds a code under 👥 Players → 📺 Table screen. Type it here.'
+          }
+          footer={{
+            icon: 'tv',
+            text: 'A table screen shows the room to everyone. It never plays, and the phones keep their own secrets.',
+          }}
+          footerEnd={<ThemeSwitch theme={theme} setTheme={setTheme} />}
+        >
+          <div className="mt-4 w-[880px] space-y-6">
+            {roomId ? (
+              <>
+                <Button
+                  size="lg"
+                  className="h-28 w-full text-[40px]"
+                  autoFocus
+                  onClick={() => {
+                    startShow();
+                    void navigate(`/stage/${roomId}`);
+                  }}
+                >
+                  ▶ Start the show
+                </Button>
+                <button
+                  type="button"
+                  className="text-[28px] text-accent-text underline"
+                  onClick={() => {
+                    setRoomId(null);
+                    setCode('');
+                  }}
+                >
+                  Pair with another room
+                </button>
+              </>
+            ) : (
+              <form onSubmit={(e) => void pair(e)} className="space-y-6">
+                <label className="block">
+                  <span className="sr-only">Pairing code</span>
+                  <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    maxLength={STAGE_CODE_LENGTH + 2}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    autoFocus
+                    placeholder="ABC123"
+                    aria-invalid={error !== null}
+                    className="h-32 w-full rounded-3xl border-2 border-line-input bg-card text-center font-mono text-[80px] font-bold tracking-[0.3em] uppercase placeholder:text-ink-faint focus:border-accent focus:outline-none"
+                  />
+                </label>
+                {error && (
+                  <p role="alert" className="text-[28px] font-medium text-danger-ink">
+                    {error}
+                  </p>
+                )}
+                <Button
+                  size="lg"
+                  type="submit"
+                  className="h-24 w-full text-[36px]"
+                  disabled={busy || code.replace(/[\s-]/g, '').length !== STAGE_CODE_LENGTH}
+                >
+                  Pair this screen
+                </Button>
+              </form>
             )}
-            <Button
-              size="lg"
-              type="submit"
-              className="h-16 w-full text-xl"
-              disabled={busy || code.replace(/[\s-]/g, '').length !== STAGE_CODE_LENGTH}
-            >
-              Pair this screen
-            </Button>
-          </form>
-        )}
-        <p className="text-sm text-ink-muted">
-          A table screen shows the room to everyone. It never plays, and the phones keep their own
-          secrets.
-        </p>
-      </div>
-    </main>
+          </div>
+        </Poster>
+      </PosterInfoProvider>
+    </ShellScene>
+  );
+}
+
+/**
+ * This screen's own Light / Dark switch: the table screen runs dark, and a bright room can turn
+ * it light. Only here, before the show starts; the show itself has nothing to press.
+ */
+function ThemeSwitch({
+  theme,
+  setTheme,
+}: {
+  theme: ResolvedTheme;
+  setTheme: (t: ResolvedTheme) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="This screen’s colours"
+      className="inline-flex rounded-full border border-line bg-panel p-1"
+    >
+      {(['dark', 'light'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-pressed={theme === t}
+          onClick={() => setTheme(t)}
+          className={cn(
+            'inline-flex items-center gap-3 rounded-full px-6 py-2 text-[28px] font-semibold',
+            theme === t ? 'bg-accent text-accent-fg' : 'text-ink-2',
+          )}
+        >
+          <Icon name={t === 'dark' ? 'moon' : 'sun'} size={28} />
+          {t === 'dark' ? 'Dark' : 'Light'}
+        </button>
+      ))}
+    </div>
   );
 }

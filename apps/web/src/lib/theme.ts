@@ -76,3 +76,41 @@ export function useTheme() {
 
   return { theme, resolved, setTheme };
 }
+
+const STAGE_THEME_KEY = 'vt.stage.theme';
+
+function readStageTheme(): ResolvedTheme {
+  try {
+    return localStorage.getItem(STAGE_THEME_KEY) === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/**
+ * The table screen's own theme: dark whatever the site's choice (a TV in a dim room), unless this
+ * screen was switched to light for a bright room. Kept per screen; applied while a table-screen
+ * page shows, and the site's own theme comes back when it leaves.
+ */
+export function useStageTheme() {
+  const [theme, setThemeState] = useState<ResolvedTheme>(readStageTheme);
+  useEffect(() => {
+    applyTheme(theme, theme);
+  }, [theme]);
+  useEffect(
+    () => () => {
+      const site = readTheme();
+      applyTheme(site, site === 'system' ? systemTheme() : site);
+    },
+    [],
+  );
+  const setTheme = useCallback((next: ResolvedTheme) => {
+    try {
+      localStorage.setItem(STAGE_THEME_KEY, next);
+    } catch {
+      // Private mode: the choice lasts for this page only.
+    }
+    setThemeState(next);
+  }, []);
+  return { theme, setTheme };
+}

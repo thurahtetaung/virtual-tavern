@@ -89,8 +89,15 @@ export function CategoryCard({
         className,
       )}
     >
-      <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">Category</p>
-      <p className={cn('font-black', big ? 'text-4xl' : 'text-2xl')}>{text}</p>
+      <p
+        className={cn(
+          'font-bold tracking-wide text-ink-muted uppercase',
+          big ? 'text-[24px]' : 'text-xs',
+        )}
+      >
+        Category
+      </p>
+      <p className={cn('font-black', big ? 'text-[48px] leading-tight' : 'text-2xl')}>{text}</p>
     </div>
   );
 }

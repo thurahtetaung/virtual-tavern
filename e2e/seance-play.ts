@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect } from '@playwright/test';
+import { auditTv } from './tv-audit.ts';
 import { type Player, unlock, visitor } from './inquest-play.ts';
 import { openSettings } from './lobby-settings.ts';
 
@@ -195,6 +196,19 @@ export async function seanceScreenshots(
   for (const p of psychics.slice(1, 3))
     await guess(p.page, (await targetOf(ghost, p.name))!, p.name === 'Ben');
   await shot(ana, 'mine');
+  if (label === 'desktop' && process.env.SCREENSHOTS) {
+    // A watcher puts the table on a shared screen: the poster, in the table screen's dark.
+    const tv = await visitor(browser, 'Tv', errors, {
+      viewport: { width: 1920, height: 1080 },
+      colorScheme: 'light',
+    });
+    await unlock(tv, `/backroom?next=${encodeURIComponent(new URL(ghost.url()).pathname)}`);
+    await tv.getByRole('button', { name: '📺 Table screen' }).click();
+    await expect(tv.getByLabel('Table screen')).toBeVisible();
+    await tv.waitForTimeout(800);
+    await auditTv(tv, 'seance in-room visions', `test-results/shots/${prefix}-tv-table-screen.png`);
+    await tv.context().close();
+  }
   // Ana changes her guess after Ready: the note tells her to tap Ready again.
   const cand = ana.getByRole('list', { name: 'Candidates' }).locator('button[data-pick]');
   await cand.nth(0).click();

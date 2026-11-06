@@ -13,7 +13,8 @@ import {
   useAbandonGame,
   NameDot,
 } from '@vt/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { Poster, PosterClock, PosterOverlay, PosterSlate } from '@vt/ui/show';
 import {
   AWAY_SECONDS,
   type PsychicView,
@@ -41,6 +42,8 @@ import {
   waitingForVision,
 } from './status.ts';
 import { TableTab, Verdicts } from './Table.tsx';
+import { Avatar } from './Card.tsx';
+import { PILLARS } from '../logic/cards.ts';
 import { ReadyNoteContext, useReadyNote } from './ready-note.ts';
 
 export type SeanceUiProps = GameUiProps<SeanceView, SeanceAction>;
@@ -689,21 +692,12 @@ function SeanceTable({
 
   if (!inGame && tableScreen)
     return (
-      <div className="space-y-3" aria-label="Table screen">
-        <div className="flex items-center gap-3 rounded-xl bg-stone-900 px-4 py-2 text-stone-50">
-          <p className="flex-1 text-xl font-semibold">{status.text}</p>
-          <Button variant="secondary" size="sm" onClick={() => setTableScreen(false)}>
-            Leave table screen
-          </Button>
-        </div>
-        <StepBar view={view} room={room} act={act} />
-        <RevealPanel view={view} room={room} act={act} content={content} />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <TableTab view={view} content={content} />
-          {finalPanel || second}
-        </div>
-        {overlay}
-      </div>
+      <SeanceTableScreen
+        view={view}
+        content={content}
+        headline={status.text}
+        onExit={() => setTableScreen(false)}
+      />
     );
 
   return (
@@ -892,5 +886,91 @@ function CompareOverlay({
       pickedLabel={pickedLabel}
       canPick={canPick}
     />
+  );
+}
+
+/**
+ * A watcher's in-room table screen: the table on the table-screen poster, in the table screen's
+ * theme. Only what reads across a room: the step, the hour and its clock, and each psychic's
+ * progress (the cards stay on the phones). Leave is the only thing on it to press.
+ */
+function SeanceTableScreen({
+  view,
+  content,
+  headline,
+  onExit,
+}: {
+  view: SeanceView;
+  content: Content;
+  headline: ReactNode;
+  onExit: () => void;
+}) {
+  const g = view.game!;
+  const lastHour = g.verdicts.at(-1)?.hour;
+  return (
+    <PosterOverlay>
+      <Poster
+        label="Table screen"
+        meta={`Hour ${roman(g.hour)} of VII`}
+        corner={
+          <Button variant="secondary" size="lg" className="text-[24px]" onClick={onExit}>
+            Leave table screen
+          </Button>
+        }
+        headline={headline}
+        clock={g.deadline !== null ? <PosterClock deadline={g.deadline} /> : undefined}
+        choices={atTable(g).map((p) => {
+          const verdict =
+            lastHour === undefined
+              ? undefined
+              : g.verdicts.find((v) => v.hour === lastHour && v.color === p.color);
+          return (
+            <PosterSlate
+              key={p.color}
+              state={p.finishedHour !== null ? 'won' : p.ready ? 'on' : 'open'}
+              className="w-[240px] content-start gap-3"
+              testId={`seance-tv-${p.color}`}
+            >
+              <Avatar color={p.color} content={content} name={p.name} size="lg" />
+              <span className="block truncate text-[32px]">{p.name}</span>
+              <span className="flex justify-center gap-2 text-[32px]">
+                {PILLARS.map((pillar, i) => (
+                  <span
+                    key={pillar}
+                    aria-label={`${content.pillarName(pillar)}: ${p.found[i] !== undefined ? 'found' : 'not yet'}`}
+                    className={cn(
+                      'rounded-xl px-1',
+                      p.found[i] === undefined && i !== p.step && 'opacity-40',
+                      i === p.step && p.found[i] === undefined && 'ring-2 ring-special',
+                    )}
+                  >
+                    {p.found[i] !== undefined ? '✓' : content.pillarIcon(pillar)}
+                  </span>
+                ))}
+              </span>
+              <span className="block text-[24px] font-medium">
+                {p.finishedHour !== null
+                  ? `Done in hour ${roman(p.finishedHour)}`
+                  : p.gone || p.absent
+                    ? 'Away'
+                    : p.ready
+                      ? 'Ready'
+                      : 'Searching'}
+                {verdict && ` · ${verdict.correct ? '✅' : '❌'}`}
+              </span>
+            </PosterSlate>
+          );
+        })}
+        footer={{
+          icon: 'users',
+          text: `🐦‍⬛ Ravens: ${
+            g.difficulty === 'easy'
+              ? `1 per hour${g.ravenHour === g.hour ? ' (used)' : ''}`
+              : `${g.ravensLeft} left`
+          } · ${g.deckCount} in the pile`,
+        }}
+        footerEnd={{ icon: 'tv', text: 'The visions stay on the phones.' }}
+      />
+    </PosterOverlay>
   );
 }

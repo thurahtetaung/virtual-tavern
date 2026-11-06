@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect } from '@playwright/test';
+import { auditTv } from './tv-audit.ts';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import {
@@ -1521,12 +1522,17 @@ for (const [label, viewport, colorScheme] of [
       // A watcher puts the public table on a shared screen.
       const tv = await inquestVisitor(browser, 'Tv', errors, {
         viewport: { width: 1920, height: 1080 },
-        colorScheme: 'dark',
+        colorScheme: 'light',
       });
       await unlockInquest(tv, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
       await tv.getByRole('button', { name: '📺 Table screen' }).click();
       await expect(tv.getByLabel('Table screen')).toBeVisible();
-      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-table-screen.png` });
+      await tv.waitForTimeout(800);
+      await auditTv(
+        tv,
+        'inquest in-room presenting',
+        `test-results/shots/inquest${''}-tv-table-screen.png`,
+      );
       await tv.context().close();
     }
     await tab(speaker.page, 'Suspects');
@@ -1735,12 +1741,17 @@ for (const [label, viewport, colorScheme] of [
     if (label === 'desktop') {
       const tv = await inquestVisitor(browser, 'Tv', errors, {
         viewport: { width: 1920, height: 1080 },
-        colorScheme: 'dark',
+        colorScheme: 'light',
       });
       await unlockInquest(tv, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
       await tv.getByRole('button', { name: '📺 Table screen' }).click();
       await expect(tv.getByLabel('Table screen')).toBeVisible();
-      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-final-accusations.png` });
+      await tv.waitForTimeout(800);
+      await auditTv(
+        tv,
+        'inquest in-room final accusations',
+        `test-results/shots/inquest${''}-tv-final-accusations.png`,
+      );
       await tv.context().close();
     }
     // The host skips everyone else's turn: every final accusation missed.
@@ -1884,13 +1895,17 @@ for (const [label, viewport, colorScheme] of [
     if (label === 'desktop') {
       const tv = await inquestVisitor(browser, 'Tv', errors, {
         viewport: { width: 1920, height: 1080 },
-        colorScheme: 'dark',
+        colorScheme: 'light',
       });
       await unlockInquest(tv, `/backroom?next=${encodeURIComponent(path)}`);
       await tv.getByRole('button', { name: '📺 Table screen' }).click();
       await expect(tv.getByLabel('Table screen')).toBeVisible();
       await tv.waitForTimeout(1500);
-      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-allies-13-suspects.png` });
+      await auditTv(
+        tv,
+        'inquest in-room 13 suspects',
+        `test-results/shots/inquest${''}-tv-allies-13-suspects.png`,
+      );
       await tv.context().close();
     }
 

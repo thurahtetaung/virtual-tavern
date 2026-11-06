@@ -40,6 +40,14 @@ const StatsPage = lazy(() =>
   import('./pages/StatsPage.tsx').then((m) => ({ default: m.StatsPage })),
 );
 
+/**
+ * The table screen's pages load on a plain page in the screen's own theme (set before first
+ * paint): never the site's frame, whose theme would flash on the TV.
+ */
+function StageLoading() {
+  return <div className="fixed inset-0 bg-page" aria-busy="true" />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <IconSprite />
@@ -59,8 +67,22 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/tavern-keeper/playtest" element={<PlaytestPage />} />
               <Route path="/tavern-keeper/components" element={<ComponentsPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
-              <Route path="/stage" element={<StagePage />} />
-              <Route path="/stage/:roomId" element={<StageShowPage />} />
+              <Route
+                path="/stage"
+                element={
+                  <Suspense fallback={<StageLoading />}>
+                    <StagePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/stage/:roomId"
+                element={
+                  <Suspense fallback={<StageLoading />}>
+                    <StageShowPage />
+                  </Suspense>
+                }
+              />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

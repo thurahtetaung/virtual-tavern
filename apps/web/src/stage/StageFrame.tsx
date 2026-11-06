@@ -1,8 +1,7 @@
-import { Scene } from '@vt/ui/show';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 /**
- * The table screen's frame: the whole screen, black around the stage, with the pointer hidden
+ * The table screen's frame: the whole screen, the page colour around the stage, with the pointer hidden
  * once it rests (a TV has nobody at a mouse). A game's `Stage` puts its own `Scene` (from
  * `@vt/ui/show`) inside it, so the scene's camera and dim layers answer to the game's show.
  */
@@ -22,7 +21,7 @@ export function StageFrame({ children }: { children: ReactNode }) {
   };
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-black"
+      className="fixed inset-0 overflow-hidden bg-page text-ink"
       style={{ cursor: pointer ? 'auto' : 'none' }}
       onPointerMove={moved}
       data-testid="scene"
@@ -32,17 +31,9 @@ export function StageFrame({ children }: { children: ReactNode }) {
   );
 }
 
-/** The shell's own table-screen pages (the generic stage, notices): a plain 1280 × 720 scene. */
+/** The shell's own table-screen pages (the generic stage, notices): posters in the frame. */
 export function ShellScene({ children }: { children: ReactNode }) {
-  return (
-    <StageFrame>
-      <Scene>
-        <div className="h-full w-full bg-page text-ink dark:bg-stone-950 dark:text-stone-100">
-          {children}
-        </div>
-      </Scene>
-    </StageFrame>
-  );
+  return <StageFrame>{children}</StageFrame>;
 }
 
 /** Keeps the screen awake while the table screen shows, where the browser can. */
