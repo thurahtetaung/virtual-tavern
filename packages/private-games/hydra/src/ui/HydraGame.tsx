@@ -2,6 +2,7 @@ import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game
 import {
   Button,
   Countdown,
+  Fold,
   Hint,
   NameDot,
   cn,
@@ -33,6 +34,7 @@ import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab, useRoleReveal } from './Me.tsx';
 import { Chaos, LeaderCheck, MomentView, useMoments } from './Moments.tsx';
+import { useFitOnPhone } from './fit.ts';
 import { phoneTabPanel, tabPanel, type Tab } from './panels.ts';
 import { type SeatPick, Seats, whyText } from './Seats.tsx';
 import {
@@ -468,6 +470,8 @@ export function HydraGame({
   const [legend, setLegend] = useState(false);
   const wide = useWideScreen();
   const seatsRef = useRef<HTMLElement>(null);
+  // Phones: a big table's seats scroll inside their panel rather than the page.
+  useFitOnPhone(seatsRef);
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
@@ -742,7 +746,12 @@ export function HydraGame({
                   <BoardCarousel view={view} c={c} />
                   <DeckChip g={g} c={c} className="mt-1" />
                 </div>
-                <SeatsPanel c={c} picking={!!pick} panelRef={seatsRef} className="lg:hidden">
+                <SeatsPanel
+                  c={c}
+                  picking={!!pick}
+                  panelRef={seatsRef}
+                  className="max-sm:overflow-y-auto max-sm:overscroll-contain lg:hidden"
+                >
                   {seatGrid()}
                 </SeatsPanel>
                 <div className="hidden lg:block">
@@ -767,18 +776,35 @@ export function HydraGame({
             </>
           )}
           {/* Tips sit under the table, so they never push a seat under the dock. */}
-          {tip && (
-            <div className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
-              <span className="flex-1">💡 {tip[1]}</span>
-              <button
-                type="button"
-                className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
-                onClick={() => dismissTip(tip[0])}
+          {tip &&
+            (wide ? (
+              <div className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
+                <span className="flex-1">💡 {tip[1]}</span>
+                <button
+                  type="button"
+                  className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+                  onClick={() => dismissTip(tip[0])}
+                >
+                  Got it
+                </button>
+              </div>
+            ) : (
+              // Phones: the tip folds to its first line, so the seats and the dock fit the screen.
+              <Fold
+                summary={<span className="line-clamp-1 text-sm">💡 {tip[1]}</span>}
+                className="bg-info-soft text-info-ink ring-info-line"
+                bodyClassName="flex items-start gap-2 px-3 pb-2 text-sm"
               >
-                Got it
-              </button>
-            </div>
-          )}
+                <span className="flex-1">{tip[1]}</span>
+                <button
+                  type="button"
+                  className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+                  onClick={() => dismissTip(tip[0])}
+                >
+                  Got it
+                </button>
+              </Fold>
+            ))}
           <Dock
             view={view}
             c={c}

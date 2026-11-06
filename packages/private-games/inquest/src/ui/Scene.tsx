@@ -7,6 +7,7 @@ import type { Content } from './assets.ts';
 import { type BulletNo, bulletNumbers } from './bullets.ts';
 import { BulletIcon, Tile } from './Tile.tsx';
 import { useTip } from './tips.ts';
+import { useFitOnPhone } from './fit.ts';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -170,6 +171,9 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
   });
   const cur = pending.key === stepKey ? pending.p : null;
   const pick = (p: Pending | null) => setPending({ key: stepKey, p });
+  // Phones: the tiles and what follows them scroll inside, so the page itself never scrolls.
+  const below = useRef<HTMLDivElement>(null);
+  useFitOnPhone(below);
   const [tipOpen, dismissTip] = useTip('scene');
   const [fsTipOpen, dismissFsTip] = useTip('fs-picker');
   const [paceTipOpen, dismissPaceTip] = useTip('fs-pacing');
@@ -398,69 +402,71 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
           </div>
         </div>
       )}
-      {g.slots.length > 0 && (
-        <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-          {g.slots.map((_, i) => (
-            <Tile
-              key={`${i}-${g.slots[i]!.tile}`}
-              slot={i}
-              className="scroll-mt-20 scroll-mb-[calc(var(--vt-sticky-h,0px)+var(--vt-tabbar-h,0px)+1rem)] lg:scroll-mb-24"
-              {...tileProps(i)}
-            />
-          ))}
-        </div>
-      )}
-      {confirm ? (
-        // Phones keep the move in the bar at the foot of the screen, above the tab bar.
-        <StickyBar fixed refusal="inquest-scene">
-          <div
-            role="group"
-            aria-label="Confirm"
-            className="rounded-xl sm:sticky sm:bottom-2 sm:z-10 sm:bg-card sm:p-1.5 sm:shadow-vt-2 sm:ring-1 sm:ring-accent"
-          >
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="md"
-                className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
-                onClick={confirm.run}
-              >
-                {confirm.label}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => pick(null)}>
-                Cancel
-              </Button>
-            </div>
-            {confirm.note && (
-              <p className="px-1 pt-0.5 text-caption leading-tight text-ink-muted">
-                {confirm.note}
-              </p>
-            )}
-          </div>
-        </StickyBar>
-      ) : (
-        <RefusalSlot anchor="inquest-scene" />
-      )}
-      {g.bullets.length > 0 && <Timeline g={g} content={content} />}
-      {g.removed.length > 0 && (
-        <details className="rounded-xl bg-sunk p-2 text-sm">
-          <summary className="cursor-pointer font-semibold">
-            Removed tiles ({g.removed.length})
-          </summary>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-            {g.removed.map((s, i) => (
-              <Tile key={i} tile={s.tile} bullet={s.bullet} content={content} dim />
+      <div ref={below} className="space-y-2 max-sm:overflow-y-auto max-sm:overscroll-contain">
+        {g.slots.length > 0 && (
+          <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {g.slots.map((_, i) => (
+              <Tile
+                key={`${i}-${g.slots[i]!.tile}`}
+                slot={i}
+                className="scroll-mt-20 scroll-mb-[calc(var(--vt-sticky-h,0px)+var(--vt-tabbar-h,0px)+1rem)] lg:scroll-mb-24"
+                {...tileProps(i)}
+              />
             ))}
           </div>
-        </details>
-      )}
-      {g.bullets.length > 0 && (
-        <details className="rounded-xl bg-sunk p-2">
-          <summary className="cursor-pointer text-sm font-semibold">Full bullet timeline</summary>
-          <div className="mt-2">
-            <Timeline g={g} content={content} full />
-          </div>
-        </details>
-      )}
+        )}
+        {confirm ? (
+          // Phones keep the move in the bar at the foot of the screen, above the tab bar.
+          <StickyBar fixed refusal="inquest-scene">
+            <div
+              role="group"
+              aria-label="Confirm"
+              className="rounded-xl sm:sticky sm:bottom-2 sm:z-10 sm:bg-card sm:p-1.5 sm:shadow-vt-2 sm:ring-1 sm:ring-accent"
+            >
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="md"
+                  className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
+                  onClick={confirm.run}
+                >
+                  {confirm.label}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => pick(null)}>
+                  Cancel
+                </Button>
+              </div>
+              {confirm.note && (
+                <p className="px-1 pt-0.5 text-caption leading-tight text-ink-muted">
+                  {confirm.note}
+                </p>
+              )}
+            </div>
+          </StickyBar>
+        ) : (
+          <RefusalSlot anchor="inquest-scene" />
+        )}
+        {g.bullets.length > 0 && <Timeline g={g} content={content} />}
+        {g.removed.length > 0 && (
+          <details className="rounded-xl bg-sunk p-2 text-sm">
+            <summary className="cursor-pointer font-semibold">
+              Removed tiles ({g.removed.length})
+            </summary>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              {g.removed.map((s, i) => (
+                <Tile key={i} tile={s.tile} bullet={s.bullet} content={content} dim />
+              ))}
+            </div>
+          </details>
+        )}
+        {g.bullets.length > 0 && (
+          <details className="rounded-xl bg-sunk p-2">
+            <summary className="cursor-pointer text-sm font-semibold">Full bullet timeline</summary>
+            <div className="mt-2">
+              <Timeline g={g} content={content} full />
+            </div>
+          </details>
+        )}
+      </div>
       {g.slots.length === 0 && g.stage !== 'night' && mode !== 'location' && (
         <Hint>The Forensic Scientist is laying out the tiles…</Hint>
       )}
