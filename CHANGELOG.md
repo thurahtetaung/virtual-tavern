@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.90.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.89.0...v0.90.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** new shared buttons, inputs, chips, notices, tabs and game card ([#526](https://github.com/thurahtetaung/virtual-tavern/issues/526)) ([eda2996](https://github.com/thurahtetaung/virtual-tavern/commit/eda29969995de6b8660e8ec09e3e5fcce8f161fe))
+
 ## [0.89.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.88.0...v0.89.0) (2026-11-06)
 
 
