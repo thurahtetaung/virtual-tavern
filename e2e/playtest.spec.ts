@@ -27,8 +27,8 @@ async function keeper(
   await admin.goto('/tavern-keeper');
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
-  await admin.getByRole('link', { name: '🧪 Playtest' }).click();
-  await expect(admin.getByRole('heading', { name: '🧪 New playtest' })).toBeVisible();
+  await admin.getByRole('link', { name: 'Playtest', exact: true }).click();
+  await expect(admin.getByRole('heading', { name: 'New playtest' })).toBeVisible();
   return { context, admin };
 }
 
@@ -42,11 +42,11 @@ async function startPlaytest(
   game: RegExp,
   { seats, humans = false }: { seats?: number; humans?: boolean } = {},
 ) {
-  await admin.getByRole('radio', { name: game }).click();
+  await admin.getByRole('button', { name: game }).click();
   if (seats !== undefined) {
     const count = admin.getByRole('group', { name: 'Seats' });
     for (;;) {
-      const now = Number(await count.locator('span[aria-live]').innerText());
+      const now = Number(await count.locator('output[aria-live]').innerText());
       if (now === seats) break;
       await count
         .getByRole('button', { name: now < seats ? 'One seat more' : 'One seat fewer' })
@@ -54,8 +54,9 @@ async function startPlaytest(
     }
   }
   if (humans) {
-    const bots = admin.getByRole('button', { name: /^Seat \d+: bot$/ });
-    while ((await bots.count()) > 0) await bots.first().click();
+    const bots = admin.getByRole('group', { name: /^Seat \d+: bot$/ });
+    while ((await bots.count()) > 0)
+      await bots.first().getByRole('button', { name: 'Human', exact: true }).click();
   }
   const opened = context.waitForEvent('page');
   await admin.getByRole('button', { name: 'Start playtest' }).click();
@@ -143,6 +144,10 @@ test('every seat of a Round Table playtest is its own tab in one browser, off th
 
   // The host seat ends it: every tab says so.
   await ana.getByRole('button', { name: 'End playtest' }).click();
+  await ana
+    .getByRole('dialog', { name: 'End this playtest?' })
+    .getByRole('button', { name: 'End playtest', exact: true })
+    .click();
   for (const p of players)
     await expect(p.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
   await admin.reload();
@@ -163,6 +168,7 @@ test('a back-room playtest needs no back-room unlock', async ({ browser }) => {
   await expect(ben.getByRole('region', { name: 'Your hand' })).toBeVisible();
   // The admin's own page ends it this time.
   await admin.getByRole('button', { name: 'End', exact: true }).click();
+  await admin.getByRole('dialog').getByRole('button', { name: 'End', exact: true }).click();
   for (const p of [ana, ben])
     await expect(p.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
   await context.close();
@@ -229,17 +235,17 @@ test('one human and four bots play a whole Round Table game, off the record', as
 }) => {
   test.setTimeout(240_000);
   const { context, admin } = await keeper(browser);
-  await admin.getByRole('radio', { name: /^Round Table/ }).click();
+  await admin.getByRole('button', { name: /^Round Table/ }).click();
   // Seat 1 is you; the rest default to bots.
-  await expect(admin.getByRole('button', { name: /^Seat \d+: bot$/ })).toHaveCount(4);
+  await expect(admin.getByRole('group', { name: /^Seat \d+: bot$/ })).toHaveCount(4);
   const ana = await startPlaytest(context, admin, /^Round Table/);
   const bar = ana.getByRole('region', { name: 'Playtest' });
   // The bots are there, always online, and marked.
   await expect(ana.getByText('Players (5/10)')).toBeVisible();
   await expect(ana.getByRole('img', { name: 'bot' })).toHaveCount(4);
-  await bar.getByRole('radio', { name: 'Fast bots' }).click();
-  await expect(bar.getByRole('radio', { name: 'Fast bots' })).toHaveAttribute(
-    'aria-checked',
+  await bar.getByRole('button', { name: 'Fast bots' }).click();
+  await expect(bar.getByRole('button', { name: 'Fast bots' })).toHaveAttribute(
+    'aria-pressed',
     'true',
   );
   await ana.getByRole('button', { name: 'Start game' }).click();
@@ -267,6 +273,10 @@ test('one human and four bots play a whole Round Table game, off the record', as
   await bar.getByRole('button', { name: '⏸ Pause bots' }).click();
   await expect(bar.getByRole('button', { name: '▶ Resume bots' })).toBeVisible();
   await ana.getByRole('button', { name: 'End playtest' }).click();
+  await ana
+    .getByRole('dialog', { name: 'End this playtest?' })
+    .getByRole('button', { name: 'End playtest', exact: true })
+    .click();
   await expect(ana.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
   await context.close();
 });
@@ -279,16 +289,17 @@ test('a back-room playtest with bots: one human, two bots, no unlock', async ({ 
   await expect(ana.getByText('Players (3/4)')).toBeVisible();
   await ana
     .getByRole('region', { name: 'Playtest' })
-    .getByRole('radio', { name: 'Fast bots' })
+    .getByRole('button', { name: 'Fast bots' })
     .click();
   await expect(
-    ana.getByRole('region', { name: 'Playtest' }).getByRole('radio', { name: 'Fast bots' }),
-  ).toHaveAttribute('aria-checked', 'true');
+    ana.getByRole('region', { name: 'Playtest' }).getByRole('button', { name: 'Fast bots' }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await ana.getByRole('button', { name: 'Start game' }).click();
   await expect(ana.getByRole('region', { name: 'Your hand' })).toBeVisible();
   // The bots take their turns until it is Ana's (or the round is over).
   await expect(ana).toHaveTitle(/^● Your turn · Ana/, { timeout: 30_000 });
   await admin.getByRole('button', { name: 'End', exact: true }).click();
+  await admin.getByRole('dialog').getByRole('button', { name: 'End', exact: true }).click();
   await expect(ana.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
   await context.close();
 });

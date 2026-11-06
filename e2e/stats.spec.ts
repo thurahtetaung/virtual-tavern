@@ -168,10 +168,11 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
   await mockStatsApi(page);
   await openStatsAsAdmin(page);
   for (const name of ['Live', 'Overview', 'Games', 'Players', 'Fun']) {
-    // Every tab shows in full: the strip wraps rather than hiding the last one off the edge.
-    const box = (await tab(page, name).boundingBox())!;
-    expect(box.x + box.width, `${name} tab`).toBeLessThanOrEqual(390 - 16);
+    // The tab strip stays inside the page gutter and scrolls sideways within itself.
+    const strip = (await page.getByRole('tablist', { name: 'Stats sections' }).boundingBox())!;
+    expect(strip.x + strip.width, 'tab strip').toBeLessThanOrEqual(390 - 16);
     await tab(page, name).click();
+    await expect(tab(page, name)).toBeInViewport();
     await expect(page.getByRole('tabpanel', { name })).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))

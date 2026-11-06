@@ -10,9 +10,34 @@ import type {
   WordListSummary,
 } from '@vt/protocol';
 import { MAX_WORDS_PER_LIST } from '@vt/protocol';
-import { Badge, Button, Panel, cn } from '@vt/ui';
-import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AdminNav } from '../components/AdminNav.tsx';
+import {
+  Badge,
+  Button,
+  Chip,
+  Chips,
+  FOCUS_RING,
+  Field,
+  Icon,
+  Input,
+  Notice,
+  Panel,
+  Row,
+  Rows,
+  Slate,
+  cn,
+  useConfirm,
+} from '@vt/ui';
+import {
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { AdminFrame, AdminTitle } from '../components/AdminNav.tsx';
 import { AdminSection } from '../components/AdminSection.tsx';
 import { AdminSwitch } from '../components/AdminSwitch.tsx';
 import { Layout } from '../components/Layout.tsx';
@@ -46,70 +71,69 @@ export function AdminPage() {
   }, [refresh]);
 
   return (
-    <Layout>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-3xl font-bold">Tavern keeper</h1>
-        {session?.signedIn && (
-          <Button
-            variant="ghost"
-            onClick={() => void api('/api/admin/logout', { method: 'POST' }).then(refresh)}
-          >
-            Sign out
-          </Button>
-        )}
-      </div>
+    <Layout admin>
+      <AdminTitle signedIn={session?.signedIn} onSignOut={refresh} />
       {!session ? (
-        <p className="text-ink-muted">Loading…</p>
+        <Slate kind="loading" title="Loading…" />
       ) : !session.enabled ? (
-        <Panel>The admin area is turned off. Set ADMIN_PASSWORD on the server to enable it.</Panel>
+        <Slate
+          icon="lock"
+          title="The admin area is turned off. Set ADMIN_PASSWORD on the server to enable it."
+        />
       ) : !session.signedIn ? (
         <Login onDone={refresh} />
       ) : (
-        <div className="space-y-8">
-          <AdminNav current="lists" />
+        <AdminFrame current="lists">
           <OffsiteBackup />
           <BackroomAdmin />
           <RecapAdmin />
           <WordLists />
           <QuestionDecks />
           <ContentPacks />
-        </div>
+        </AdminFrame>
       )}
     </Layout>
   );
 }
 
 function Login({ onDone }: { onDone: () => void }) {
-  const toast = useToast();
   const [password, setPassword] = useState('');
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setSending(true);
     try {
       await api('/api/admin/login', { method: 'POST', body: { password } });
       onDone();
     } catch (err) {
-      toast((err as Error).message);
+      setRefusal((err as Error).message);
+    } finally {
+      setSending(false);
     }
   };
   return (
-    <Panel className="mx-auto max-w-sm">
-      <form onSubmit={(e) => void submit(e)} className="space-y-3">
-        <label className="block">
-          <span className="text-sm font-semibold">Admin password</span>
-          <input
+    <div className="mx-auto grid w-full max-w-[400px] justify-items-center gap-4 pt-4">
+      <Icon name="lock" size={40} className="text-accent-text" />
+      <form onSubmit={(e) => void submit(e)} className="grid w-full gap-3">
+        <Field label="Admin password" error={refusal}>
+          <Input
             type="password"
             autoFocus
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 h-11 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+            invalid={refusal !== null}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setRefusal(null);
+            }}
           />
-        </label>
-        <Button type="submit" className="w-full" disabled={!password}>
+        </Field>
+        <Button type="submit" size="lg" className="w-full" sending={sending} disabled={!password}>
           Sign in
         </Button>
       </form>
-    </Panel>
+    </div>
   );
 }
 
@@ -134,7 +158,9 @@ function parseWords(text: string) {
 /** The shared password for back-room (private) games. */
 function BackroomAdmin() {
   const toast = useToast();
+  const [confirm, dialog] = useConfirm();
   const [open, setOpen] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
   const [password, setPassword] = useState('');
   const load = useCallback(
     () =>
@@ -149,6 +175,7 @@ function BackroomAdmin() {
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
       await api('/api/admin/backroom/password', { method: 'PUT', body: { password } });
       setPassword('');
@@ -159,12 +186,19 @@ function BackroomAdmin() {
       load();
     } catch (err) {
       toast((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
   const signOutAll = async () => {
-    if (!window.confirm('Sign everyone out of the back room? They will need the password again.'))
-      return;
+    const yes = await confirm({
+      title: 'Sign everyone out of the back room?',
+      body: 'They will need the password again.',
+      confirmLabel: 'Sign everyone out',
+      danger: true,
+    });
+    if (!yes) return;
     try {
       await api('/api/admin/backroom/sign-out-all', { method: 'POST' });
       toast('Everyone has been signed out of the back room.', 'info');
@@ -176,37 +210,57 @@ function BackroomAdmin() {
   return (
     <AdminSection
       id="backroom"
-      title="🕯️ Back room"
+      title={
+        <>
+          <Icon name="flame" />
+          Back room
+        </>
+      }
       label="Back room"
       defaultOpen
-      summary={open === null ? '' : open ? 'Open' : 'Closed: no password yet'}
+      aside={
+        open !== null && (
+          <Badge tone={open ? 'success' : 'warn'}>
+            {open ? 'Open' : 'Closed: no password yet'}
+          </Badge>
+        )
+      }
     >
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-small text-ink-2">
         One shared password unlocks private games for 30 days per device.
       </p>
-      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-2 sm:flex-row">
-        <label className="sr-only" htmlFor="backroom-password">
-          Back room password
-        </label>
-        <input
-          id="backroom-password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          minLength={4}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={open ? 'New password' : 'Set a password'}
-          className="h-11 rounded-lg bg-white px-3 ring-1 ring-stone-300 sm:flex-1 dark:bg-stone-800 dark:ring-stone-600"
-        />
-        <Button type="submit" disabled={password.length < 4}>
+      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <Field label="New password" className="sm:flex-1">
+          <Input
+            id="backroom-password"
+            aria-label="Back room password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            minLength={4}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={open ? 'New password' : 'Set a password'}
+          />
+        </Field>
+        <Button
+          type="submit"
+          variant="secondary"
+          className="sm:min-h-12"
+          sending={saving}
+          disabled={password.length < 4}
+        >
           {open ? 'Change password' : 'Open the back room'}
         </Button>
       </form>
       {open && (
-        <Button variant="secondary" size="sm" onClick={() => void signOutAll()}>
-          Sign everyone out
-        </Button>
+        <div className="grid justify-items-start gap-1">
+          <Button variant="danger" size="sm" onClick={() => void signOutAll()}>
+            Sign everyone out
+          </Button>
+          <p className="text-caption text-ink-muted">They will need the password again.</p>
+        </div>
       )}
+      {dialog}
     </AdminSection>
   );
 }
@@ -231,15 +285,12 @@ export function OffsiteBackupLine({
   timeZone?: string;
 }) {
   const { warn, text } = offsiteLine(status, timeZone);
-  return (
-    <p
-      role={warn ? 'alert' : 'status'}
-      className={cn(
-        'rounded-lg px-3 py-2 text-sm',
-        warn ? 'bg-warn-soft font-semibold text-warn-ink ring-1 ring-warn-line' : 'text-ink-muted',
-      )}
-    >
-      {warn ? '⚠️ ' : '💾 '}
+  return warn ? (
+    <Notice tone="warn" icon role="alert" className="font-semibold">
+      {text}
+    </Notice>
+  ) : (
+    <p role="status" className="text-small text-ink-muted">
       {text}
     </p>
   );
@@ -271,10 +322,10 @@ function RecapAdmin() {
     }
   };
   return (
-    <Panel className="flex items-start justify-between gap-3">
+    <Panel className="flex items-start justify-between gap-3 lg:p-5">
       <div>
-        <h2 className="text-xl font-bold">🍻 Night recaps</h2>
-        <p id="recap-switch-help" className="text-sm text-stone-600 dark:text-stone-400">
+        <h2 className="text-sub font-semibold">Night recaps</h2>
+        <p id="recap-switch-help" className="text-small text-ink-muted">
           Awards on every end screen, and a shareable recap of each room's night. Switching them off
           hides the recap everywhere straight away; nothing is deleted.
         </p>
@@ -387,13 +438,16 @@ function WordLists() {
           }}
         />
       ) : (
-        <div className="space-y-4">
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+        <div className="space-y-3">
+          <p className="text-small text-ink-2">
             Hosts choose from these lists when setting up a game. A game needs at least 25 words
             across the chosen lists. Switch a list off to hide it from hosts without deleting it.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setEditing('new')}>+ New list</Button>
+            <Button variant="secondary" onClick={() => setEditing('new')}>
+              <Icon name="plus" />
+              New list
+            </Button>
             <Button
               variant="secondary"
               onClick={() => void downloadAll()}
@@ -402,43 +456,32 @@ function WordLists() {
               {zipping ? 'Zipping…' : 'Download all (.zip)'}
             </Button>
           </div>
-          {lists === null && <p className="text-ink-muted">Loading lists…</p>}
-          <ul className="space-y-2">
-            {lists?.map((l) => (
-              <li key={l.id}>
-                <Panel
-                  className={cn(
-                    'flex items-center gap-1 p-0 pr-2 transition hover:ring-accent dark:hover:ring-amber-400',
-                    !l.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
-                  )}
-                >
+          {lists === null && <Slate kind="loading" title="Loading lists…" />}
+          {lists?.length === 0 && <Slate title="No lists yet." />}
+          {!!lists?.length && (
+            <Rows>
+              {lists.map((l) => (
+                <Row key={l.id} className="gap-1">
                   <button
                     type="button"
                     onClick={() => void open(l.id)}
-                    className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+                    className={cn(
+                      'flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-lg py-1 pr-2 text-left hover:bg-panel',
+                      FOCUS_RING,
+                    )}
                   >
                     <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span
-                          id={`list-${l.id}`}
-                          className={cn('font-bold', !l.enabled && 'text-ink-muted')}
-                        >
-                          {l.name}
-                        </span>
-                        {!l.enabled && <Badge>Disabled</Badge>}
-                      </span>
-                      <span className={cn('block', !l.enabled && 'opacity-60')}>
-                        {l.description && (
-                          <span className="block text-sm text-ink-muted">{l.description}</span>
-                        )}
-                        <GameTags ids={l.games} games={games} />
-                      </span>
+                      <ItemName id={`list-${l.id}`} name={l.name} enabled={l.enabled} />
+                      {l.description && (
+                        <span className="block text-small text-ink-muted">{l.description}</span>
+                      )}
+                      <GameTags ids={l.games} games={games} />
                     </span>
                     <span
                       className={cn(
-                        'shrink-0 text-sm',
+                        'shrink-0 text-small',
                         l.wordCount < 25 && l.enabled
-                          ? 'font-semibold text-rose-600'
+                          ? 'font-semibold text-danger-ink'
                           : 'text-ink-muted',
                       )}
                     >
@@ -446,13 +489,13 @@ function WordLists() {
                     </span>
                   </button>
                   <Button
-                    variant="ghost"
+                    variant="quiet"
                     size="icon"
                     aria-label={`Download ${l.name} as .txt`}
                     title="Download .txt"
                     onClick={() => void download(l.id)}
                   >
-                    <DownloadIcon />
+                    <Icon name="download" />
                   </Button>
                   <AdminSwitch
                     checked={l.enabled}
@@ -461,11 +504,10 @@ function WordLists() {
                     aria-label="Enabled"
                     aria-describedby={`list-${l.id}`}
                   />
-                </Panel>
-              </li>
-            ))}
-            {lists?.length === 0 && <li className="text-ink-muted italic">No lists yet.</li>}
-          </ul>
+                </Row>
+              ))}
+            </Rows>
+          )}
         </div>
       )}
     </AdminSection>
@@ -485,6 +527,7 @@ function countLine(n: number, noun: string, off: number, extra?: string) {
  */
 function QuestionDecks() {
   const toast = useToast();
+  const [confirm, dialog] = useConfirm();
   const [decks, setDecks] = useState<QuestionDeckSummary[] | null>(null);
   const [games, setGames] = useState<GameSummary[]>([]);
   useEffect(() => {
@@ -532,12 +575,13 @@ function QuestionDecks() {
   };
 
   const remove = async (deck: QuestionDeckSummary) => {
-    if (
-      !window.confirm(
-        `Delete "${deck.name}" and its ${deck.questionCount} questions? Download it first if you might want it back.`,
-      )
-    )
-      return;
+    const yes = await confirm({
+      title: `Delete "${deck.name}" and its ${deck.questionCount} questions?`,
+      body: 'Download it first if you might want it back.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!yes) return;
     try {
       await api(`/api/admin/question-decks/${deck.id}`, { method: 'DELETE' });
       toast(`Deleted "${deck.name}".`, 'info');
@@ -585,10 +629,10 @@ function QuestionDecks() {
         )
       }
     >
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-small text-ink-2">
         Trivia games draw their questions from these decks. The questions are private: import them
-        with <code className="text-xs">scripts/import-question-decks.mjs</code>, never into the
-        repository. Switch a deck off to hide it from hosts without deleting it.
+        with <Code>scripts/import-question-decks.mjs</Code>, never into the repository. Switch a
+        deck off to hide it from hosts without deleting it.
       </p>
       <div>
         <Button
@@ -599,60 +643,45 @@ function QuestionDecks() {
           {zipping ? 'Zipping…' : 'Download all decks (.zip)'}
         </Button>
       </div>
-      {decks === null && <p className="text-ink-muted">Loading decks…</p>}
-      <ul className="space-y-2">
-        {decks?.map((d) => (
-          <li key={d.id}>
-            <Panel
-              className={cn(
-                'flex items-center gap-1 p-0 py-2 pr-2 pl-4',
-                !d.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
-              )}
-            >
+      {decks === null && <Slate kind="loading" title="Loading decks…" />}
+      {decks?.length === 0 && <Slate title="No decks yet." />}
+      {!!decks?.length && (
+        <Rows>
+          {decks.map((d) => (
+            <Row key={d.id} className="gap-1">
               <div className="min-w-0 flex-1 py-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span
-                    id={`deck-${d.id}`}
-                    className={cn('font-bold break-words', !d.enabled && 'text-ink-muted')}
-                  >
-                    {d.name}
-                  </span>
-                  {d.adult && (
-                    <span className="inline-flex items-center rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
-                      Adult
-                    </span>
-                  )}
-                  {!d.enabled && <Badge>Disabled</Badge>}
+                <ItemName
+                  id={`deck-${d.id}`}
+                  name={d.name}
+                  enabled={d.enabled}
+                  tag={d.adult && <Badge tone="danger">Adult</Badge>}
+                />
+                {d.description && (
+                  <span className="block text-small text-ink-muted">{d.description}</span>
+                )}
+                <span className="block text-small text-ink-muted">
+                  {d.questionCount} {d.questionCount === 1 ? 'question' : 'questions'}
                 </span>
-                <span className={cn('block', !d.enabled && 'opacity-60')}>
-                  {d.description && (
-                    <span className="block text-sm text-ink-muted">{d.description}</span>
-                  )}
-                  <span className="block text-sm text-ink-muted">
-                    {d.questionCount} {d.questionCount === 1 ? 'question' : 'questions'}
-                  </span>
-                  <GameTags ids={d.games} games={games} />
-                </span>
+                <GameTags ids={d.games} games={games} />
               </div>
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="icon"
                 aria-label={`Download ${d.name} as .json`}
                 title="Download .json"
                 onClick={() => void download(d.id)}
               >
-                <DownloadIcon />
+                <Icon name="download" />
               </Button>
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="icon"
+                className="text-danger-ink hover:bg-danger-soft"
                 aria-label={`Delete ${d.name}`}
                 title="Delete"
                 onClick={() => void remove(d)}
               >
-                <span className="text-rose-700 dark:text-rose-400">
-                  <TrashIcon />
-                </span>
+                <Icon name="trash-2" />
               </Button>
               <AdminSwitch
                 checked={d.enabled}
@@ -661,11 +690,11 @@ function QuestionDecks() {
                 aria-label="Enabled"
                 aria-describedby={`deck-${d.id}`}
               />
-            </Panel>
-          </li>
-        ))}
-        {decks?.length === 0 && <li className="text-ink-muted italic">No decks yet.</li>}
-      </ul>
+            </Row>
+          ))}
+        </Rows>
+      )}
+      {dialog}
     </AdminSection>
   );
 }
@@ -677,6 +706,7 @@ function QuestionDecks() {
  */
 function ContentPacks() {
   const toast = useToast();
+  const [confirm, dialog] = useConfirm();
   const [packs, setPacks] = useState<ContentPackSummary[] | null>(null);
   const load = useCallback(
     () =>
@@ -711,7 +741,13 @@ function ContentPacks() {
     }
   };
   const remove = async (p: ContentPackSummary) => {
-    if (!window.confirm(`Delete "${p.name}"? Download it first if you might want it back.`)) return;
+    const yes = await confirm({
+      title: `Delete "${p.name}"?`,
+      body: 'Download it first if you might want it back.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!yes) return;
     try {
       await api(`/api/admin/content-packs/${p.id}`, { method: 'DELETE' });
       toast(`Deleted "${p.name}".`, 'info');
@@ -736,59 +772,46 @@ function ContentPacks() {
       title="Content packs"
       summary={packs && countLine(packs.length, 'pack', packs.filter((p) => !p.enabled).length)}
     >
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-small text-ink-2">
         Private content for back-room games that need more than words or questions. Import it with{' '}
-        <code className="text-xs">scripts/import-content-pack.mjs</code>, never into the repository.
+        <Code>scripts/import-content-pack.mjs</Code>, never into the repository.
       </p>
       <div>
         <Button variant="secondary" onClick={() => void downloadAll()} disabled={!packs?.length}>
           Download all packs (.json)
         </Button>
       </div>
-      {packs === null && <p className="text-ink-muted">Loading packs…</p>}
-      <ul className="space-y-2">
-        {packs?.map((p) => (
-          <li key={p.id}>
-            <Panel
-              className={cn(
-                'flex items-center gap-1 p-0 py-2 pr-2 pl-4',
-                !p.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
-              )}
-            >
+      {packs === null && <Slate kind="loading" title="Loading packs…" />}
+      {packs?.length === 0 && <Slate title="No packs yet." />}
+      {!!packs?.length && (
+        <Rows>
+          {packs.map((p) => (
+            <Row key={p.id} className="gap-1">
               <div className="min-w-0 flex-1 py-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <span
-                    id={`pack-${p.id}`}
-                    className={cn('font-bold break-words', !p.enabled && 'text-ink-muted')}
-                  >
-                    {p.name}
-                  </span>
-                  {!p.enabled && <Badge>Disabled</Badge>}
-                </span>
-                <span className="block text-sm text-ink-muted">
+                <ItemName id={`pack-${p.id}`} name={p.name} enabled={p.enabled} />
+                <span className="block text-small text-ink-muted">
                   {p.gameId} · {p.kind} · {p.entries} {p.entries === 1 ? 'entry' : 'entries'} ·{' '}
                   {Math.ceil(p.size / 1024)} KB
                 </span>
               </div>
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="icon"
                 aria-label={`Download ${p.name} as .json`}
                 title="Download .json"
                 onClick={() => void download(p)}
               >
-                <DownloadIcon />
+                <Icon name="download" />
               </Button>
               <Button
-                variant="ghost"
+                variant="quiet"
                 size="icon"
+                className="text-danger-ink hover:bg-danger-soft"
                 aria-label={`Delete ${p.name}`}
                 title="Delete"
                 onClick={() => void remove(p)}
               >
-                <span className="text-rose-700 dark:text-rose-400">
-                  <TrashIcon />
-                </span>
+                <Icon name="trash-2" />
               </Button>
               <AdminSwitch
                 checked={p.enabled}
@@ -796,62 +819,51 @@ function ContentPacks() {
                 aria-label="Enabled"
                 aria-describedby={`pack-${p.id}`}
               />
-            </Panel>
-          </li>
-        ))}
-        {packs?.length === 0 && <li className="text-ink-muted italic">No packs yet.</li>}
-      </ul>
+            </Row>
+          ))}
+        </Rows>
+      )}
+      {dialog}
     </AdminSection>
   );
 }
 
-function TrashIcon() {
+/** An item's name, bold, with a "Disabled" tag (and muted) when it is switched off. */
+function ItemName({
+  id,
+  name,
+  enabled,
+  tag,
+}: {
+  id: string;
+  name: string;
+  enabled: boolean;
+  tag?: ReactNode;
+}) {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
-    </svg>
+    <span className="flex flex-wrap items-center gap-2">
+      <span id={id} className={cn('font-semibold break-words', !enabled && 'text-ink-muted')}>
+        {name}
+      </span>
+      {tag}
+      {!enabled && <Badge>Disabled</Badge>}
+    </span>
   );
 }
 
-function DownloadIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
-    </svg>
-  );
+/** A script name in running text. */
+function Code({ children }: { children: ReactNode }) {
+  return <code className="rounded bg-sunk px-1 font-mono text-caption">{children}</code>;
 }
 
-/** The games a list is offered in, as small chips (ids of games not on this server are skipped). */
+/** The games a list is offered in, as small tags (ids of games not on this server are skipped). */
 function GameTags({ ids, games }: { ids: readonly string[]; games: readonly GameSummary[] }) {
   const names = games.filter((g) => ids.includes(g.id)).map((g) => g.name);
   if (!names.length) return null;
   return (
     <span className="mt-1 flex flex-wrap gap-1">
       {names.map((n) => (
-        <span
-          key={n}
-          className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
-        >
-          {n}
-        </span>
+        <Badge key={n}>{n}</Badge>
       ))}
     </span>
   );
@@ -868,6 +880,7 @@ function Editor({
   onClose: () => void;
 }) {
   const toast = useToast();
+  const [confirm, dialog] = useConfirm();
   // null = untouched: an existing list keeps its tags, a new one is offered in every game.
   const [picked, setPicked] = useState<string[] | null>(null);
   const usedBy = picked ?? (list ? list.games : games.map((g) => g.id));
@@ -905,8 +918,14 @@ function Editor({
   };
 
   const remove = async () => {
-    if (!list || !window.confirm(`Delete "${list.name}"? Rooms using it will need another list.`))
-      return;
+    if (!list) return;
+    const yes = await confirm({
+      title: `Delete "${list.name}"?`,
+      body: 'Rooms using it will need another list.',
+      confirmLabel: 'Delete list',
+      danger: true,
+    });
+    if (!yes) return;
     try {
       await api(`/api/admin/word-lists/${list.id}`, { method: 'DELETE' });
       onClose();
@@ -934,131 +953,112 @@ function Editor({
 
   return (
     <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onClose}
-        className="text-sm text-amber-700 hover:underline dark:text-amber-400"
-      >
+      <Button variant="quiet" size="sm" className="-ml-2" onClick={onClose}>
         ← Back to lists
-      </button>
-      <Panel className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-semibold">Name</span>
-            <input
-              value={name}
-              maxLength={60}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 h-11 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-semibold">Description (optional)</span>
-            <input
-              value={description}
-              maxLength={200}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 h-11 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
-            />
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <AdminSwitch id={switchId} checked={enabled} onChange={setEnabled} />
-          <label htmlFor={switchId} className="cursor-pointer">
-            <span className="block text-sm font-semibold">Enabled</span>
-            <span className="block text-xs text-ink-muted">
-              {enabled
-                ? 'Hosts can pick this list.'
-                : 'Hidden from hosts and rooms until switched back on.'}{' '}
-              Saved with the list.
-            </span>
-          </label>
-        </div>
-        {games.length > 0 && (
-          <fieldset>
-            <legend className="text-sm font-semibold">Used by</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {games.map((g) => (
-                <label
-                  key={g.id}
-                  className="flex h-11 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
-                >
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(g.id)}
-                    onChange={() => toggle(g.id)}
-                    className="size-4 accent-amber-600"
-                  />
-                  {g.name}
-                </label>
-              ))}
-            </div>
-            {noGames && <p className="mt-1 text-sm text-rose-600">Pick at least one game.</p>}
-          </fieldset>
-        )}
-        <label className="block">
-          <span className="text-sm font-semibold">Words</span>
-          <span className="block text-xs text-ink-muted">
-            One per line (commas work too). Paste as many as you like; duplicates are removed
-            automatically.
-          </span>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={16}
-            spellCheck={false}
-            className="mt-1 w-full rounded-lg bg-white p-3 font-mono text-sm ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+      </Button>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name">
+          <Input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Description (optional)">
+          <Input
+            value={description}
+            maxLength={200}
+            onChange={(e) => setDescription(e.target.value)}
           />
+        </Field>
+      </div>
+      <div className="flex items-center gap-2">
+        <AdminSwitch id={switchId} checked={enabled} onChange={setEnabled} />
+        <label htmlFor={switchId} className="cursor-pointer">
+          <span className="block text-small font-semibold">Enabled</span>
+          <span className="block text-caption text-ink-muted">
+            {enabled
+              ? 'Hosts can pick this list.'
+              : 'Hidden from hosts and rooms until switched back on.'}{' '}
+            Saved with the list.
+          </span>
         </label>
-        <p className="text-sm">
-          <b>{parsed.words.length}</b> unique words
-          {parsed.duplicates > 0 && (
-            <span className="text-ink-muted">
-              {' '}
-              · {parsed.duplicates} duplicates will be dropped
-            </span>
+      </div>
+      {games.length > 0 && (
+        <div className="grid gap-1.5">
+          <span className="text-small font-semibold">Used by</span>
+          <Chips label="Used by">
+            {games.map((g) => (
+              <Chip key={g.id} pressed={chosen.includes(g.id)} onClick={() => toggle(g.id)}>
+                {g.name}
+              </Chip>
+            ))}
+          </Chips>
+          {noGames && (
+            <Notice tone="danger" icon>
+              Pick at least one game.
+            </Notice>
           )}
-          {parsed.words.length < 25 && (
-            <span className="text-amber-700 dark:text-amber-400">
-              {' '}
-              · fewer than 25, so mix it with another list
-            </span>
+        </div>
+      )}
+      <label className="grid gap-1.5">
+        <span className="text-small font-semibold">Words</span>
+        <span className="text-caption text-ink-muted">
+          One per line (commas work too). Paste as many as you like; duplicates are removed
+          automatically.
+        </span>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={16}
+          spellCheck={false}
+          className={cn(
+            'block w-full rounded-lg border border-line-input bg-card p-3.5 font-mono text-small text-ink focus:border-focus',
+            FOCUS_RING,
           )}
-          {parsed.tooLong.length > 0 && (
-            <span className="text-rose-600">
-              {' '}
-              · too long (max 40 characters): {parsed.tooLong.slice(0, 3).join(', ')}
-            </span>
-          )}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void save()} disabled={invalid || saving}>
-            {saving ? 'Saving…' : 'Save list'}
-          </Button>
-          <Button variant="secondary" onClick={() => fileInput.current?.click()}>
-            Import .txt
-          </Button>
-          <Button variant="secondary" onClick={exportFile} disabled={parsed.words.length === 0}>
-            Export .txt
-          </Button>
-          {list && (
-            <Button variant="danger" className="ml-auto" onClick={() => void remove()}>
+        />
+      </label>
+      <p className="text-small">
+        <b>{parsed.words.length}</b> unique words
+        {parsed.duplicates > 0 && (
+          <span className="text-ink-muted"> · {parsed.duplicates} duplicates will be dropped</span>
+        )}
+        {parsed.words.length < 25 && (
+          <span className="text-warn-ink"> · fewer than 25, so mix it with another list</span>
+        )}
+      </p>
+      {parsed.tooLong.length > 0 && (
+        <Notice tone="danger" icon>
+          too long (max 40 characters): {parsed.tooLong.slice(0, 3).join(', ')}
+        </Notice>
+      )}
+      <div className="flex flex-wrap items-start gap-2">
+        <Button sending={saving} onClick={() => void save()} disabled={invalid || saving}>
+          {saving ? 'Saving…' : 'Save list'}
+        </Button>
+        <Button variant="secondary" onClick={() => fileInput.current?.click()}>
+          Import .txt
+        </Button>
+        <Button variant="secondary" onClick={exportFile} disabled={parsed.words.length === 0}>
+          Export .txt
+        </Button>
+        {list && (
+          <div className="grid justify-items-start gap-1 sm:ml-auto sm:justify-items-end">
+            <Button variant="danger" onClick={() => void remove()}>
               Delete list
             </Button>
-          )}
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".txt,.csv,text/plain"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void importFile(file);
-              e.target.value = '';
-            }}
-          />
-        </div>
-      </Panel>
+            <p className="text-caption text-ink-muted">Rooms using it will need another list.</p>
+          </div>
+        )}
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".txt,.csv,text/plain"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void importFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {dialog}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { type GameStats, WORD_KINDS, type WordKind } from '@vt/protocol';
-import { cn } from '@vt/ui';
+import { Chip, Chips, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { loadPrivateGames } from '../games/registry.ts';
 import type { Labeler } from '../recap/resolve.ts';
@@ -19,7 +19,7 @@ import { columnsOption, isEmptySeries, matrixOption } from './options.ts';
 import { type ChartTokens, slotColor } from './palette.ts';
 import { useChartTokens } from './theme.ts';
 import { kindsWithWords, knownWordKinds, wordKindLabel } from './word-kinds.ts';
-import { ChartCard, Chip, ChipRow, EChart, EmptyState, Legend, Skeleton, StatTile } from './ui.tsx';
+import { ChartCard, EChart, EmptyState, Legend, Skeleton, StatTile } from './ui.tsx';
 
 /** Games tab: one sub-tab per game. */
 export function GamesTab() {
@@ -28,17 +28,17 @@ export function GamesTab() {
   if (!selected) return <EmptyState>No games yet.</EmptyState>;
   return (
     <div className="space-y-4">
-      <ChipRow label="Game">
+      <Chips label="Game">
         {ctx.games.map((g) => (
           <Chip
             key={g.id}
-            selected={g.id === selected.id}
+            pressed={g.id === selected.id}
             onClick={() => ctx.setParams({ game: g.id })}
           >
             <span aria-hidden>{g.icon}</span> {g.name}
           </Chip>
         ))}
-      </ChipRow>
+      </Chips>
       <GameView key={selected.id} game={selected} />
     </div>
   );
@@ -238,7 +238,7 @@ function FigureTile({ fig, color }: { fig: FigureModel; color: string }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(fig.ratio * 100)}
-          className="mt-1 block h-1.5 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-800"
+          className="mt-1 block h-1.5 overflow-hidden rounded-full bg-sunk "
         >
           <span
             className="block h-full rounded-full"
@@ -406,9 +406,7 @@ function SettingsUsage({ data, color }: { data?: GameStats; color: string }) {
                         minWidth: r.games ? 3 : 0,
                       }}
                     />
-                    <span className="text-stone-600 tabular-nums dark:text-stone-400">
-                      {plain(r.games)}
-                    </span>
+                    <span className="text-ink-2 tabular-nums ">{plain(r.games)}</span>
                   </li>
                 ))}
               </ul>
@@ -454,13 +452,13 @@ function Words({ game }: { game: GameInfo }) {
       }
       legend={
         kinds ? (
-          <ChipRow label="Word kind">
+          <Chips label="Word kind">
             {kinds.map((k) => (
-              <Chip key={k} selected={k === kind} onClick={() => setKind(k)}>
+              <Chip key={k} pressed={k === kind} onClick={() => setKind(k)}>
                 {wordKindLabel(game.id, k)}
               </Chip>
             ))}
-          </ChipRow>
+          </Chips>
         ) : undefined
       }
     >
@@ -484,11 +482,7 @@ function Words({ game }: { game: GameInfo }) {
                 title={`${w.word}: ${w.count}`}
                 style={{ fontSize: size }}
                 className={cn(
-                  size >= 24
-                    ? 'font-bold'
-                    : size >= 18
-                      ? 'font-semibold'
-                      : 'text-stone-600 dark:text-stone-400',
+                  size >= 24 ? 'font-bold' : size >= 18 ? 'font-semibold' : 'text-ink-2 ',
                 )}
               >
                 {w.word}

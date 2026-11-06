@@ -41,7 +41,7 @@ test('the table screen poster: pairing, both themes, and every generic game', as
   await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('link', { name: '🧪 Playtest' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Playtest', exact: true })).toBeVisible();
 
   // Pairing: dark out of the box, whatever the device asks for; then the screen's own Light.
   await page.goto('/stage');

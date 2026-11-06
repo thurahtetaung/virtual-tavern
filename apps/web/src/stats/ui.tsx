@@ -1,4 +1,4 @@
-import { Panel, cn } from '@vt/ui';
+import { Card, Slate, Button, cn } from '@vt/ui';
 import type { EChartsCoreOption } from 'echarts/core';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { echarts } from './echarts.ts';
@@ -49,7 +49,7 @@ export function EChart({
       role="region"
       aria-label={`${label}, scrolls sideways`}
       tabIndex={0}
-      className="-mx-1 overflow-x-auto rounded-lg px-1 pb-1 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+      className="-mx-1 overflow-x-auto rounded-lg px-1 pb-1 focus-visible:outline-3 focus-visible:outline-focus "
     >
       {plot}
     </div>
@@ -60,10 +60,10 @@ export function EChart({
 
 export function DataTable({ table, caption }: { table: TableData; caption: string }) {
   return (
-    <div className="max-h-80 overflow-auto rounded-lg ring-1 ring-stone-200 dark:ring-stone-800">
+    <div className="max-h-80 overflow-auto rounded-lg ring-1 ring-line ">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="sticky top-0 bg-stone-100 text-xs text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+        <thead className="sticky top-0 bg-sunk text-xs text-ink-2 ">
           <tr>
             {table.columns.map((c, i) => (
               <th
@@ -78,7 +78,7 @@ export function DataTable({ table, caption }: { table: TableData; caption: strin
         </thead>
         <tbody className="tabular-nums">
           {table.rows.map((row, r) => (
-            <tr key={r} className="border-t border-stone-100 dark:border-stone-800">
+            <tr key={r} className="border-t border-line ">
               {row.map((cell, i) =>
                 i === 0 ? (
                   <th key={i} scope="row" className="px-3 py-1.5 font-medium whitespace-nowrap">
@@ -102,30 +102,20 @@ export function Skeleton({ height = 160, className }: { height?: number; classNa
   return (
     <div
       aria-hidden
-      className={cn(
-        'animate-pulse rounded-xl bg-stone-200/70 motion-reduce:animate-none dark:bg-stone-800/70',
-        className,
-      )}
+      className={cn('animate-pulse rounded-xl bg-sunk motion-reduce:animate-none ', className)}
       style={{ height }}
     />
   );
 }
 
 export function EmptyState({ children = 'No games in this range yet' }: { children?: ReactNode }) {
-  return (
-    <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl bg-stone-100/70 px-4 py-6 text-center text-sm text-ink-muted dark:bg-stone-800/40 dark:text-stone-400">
-      <span aria-hidden className="text-2xl">
-        🕯️
-      </span>
-      {children}
-    </div>
-  );
+  return <Slate title={children} />;
 }
 
 /** Legend entries: a swatch beside each name, names in text colours (never the series colour). */
 export function Legend({ items }: { items: { name: string; color: string }[] }) {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-600 dark:text-stone-400">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2 ">
       {items.map((i) => (
         <li key={i.name} className="flex items-center gap-1.5">
           <span
@@ -183,7 +173,7 @@ export function ChartCard({
   const [asTable, setAsTable] = useState(false);
   const titleId = useId();
   return (
-    <Panel
+    <Card
       className={cn('flex min-w-0 flex-col gap-3', className)}
       aria-labelledby={titleId}
       role="region"
@@ -196,14 +186,15 @@ export function ChartCard({
           {subtitle && <p className="text-xs text-ink-muted">{subtitle}</p>}
         </div>
         {table && !empty && !loading && (
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="sm"
             aria-pressed={asTable}
             onClick={() => setAsTable((v) => !v)}
-            className="-my-2 -mr-2 h-11 shrink-0 rounded-lg px-3 text-xs font-semibold text-stone-600 hover:bg-stone-200/70 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500 dark:text-stone-300 dark:hover:bg-stone-800"
+            className="-my-2 -mr-2 h-11 shrink-0 rounded-lg px-3 text-xs font-semibold text-ink-2 hover:bg-sunk focus-visible:outline-3 focus-visible:outline-focus "
           >
             {asTable ? 'Show as chart' : 'Show as table'}
-          </button>
+          </Button>
         )}
       </div>
       {loading ? (
@@ -218,13 +209,13 @@ export function ChartCard({
           {children}
         </>
       )}
-    </Panel>
+    </Card>
   );
 }
 
 const DELTA_STYLE = {
-  good: 'text-green-700 dark:text-green-500',
-  bad: 'text-rose-700 dark:text-rose-400',
+  good: 'text-success-ink',
+  bad: 'text-danger-ink ',
   flat: 'text-ink-muted',
 };
 
@@ -264,14 +255,12 @@ export function StatTile({
           ? '✦'
           : '•';
   return (
-    <Panel className={cn('flex min-w-0 flex-col gap-1 p-3 sm:p-4', className)}>
-      <span className="truncate text-xs font-medium text-stone-600 dark:text-stone-400">
-        {label}
-      </span>
+    <Card className={cn('flex min-w-0 flex-col gap-1 p-3 sm:p-4', className)}>
+      <span className="truncate text-xs font-medium text-ink-2 ">{label}</span>
       {loading ? (
         <Skeleton height={32} className="w-16" />
       ) : (
-        <span className="text-2xl leading-tight font-semibold sm:text-3xl">
+        <span className="text-num font-semibold tabular-nums">
           {value}
           {unit && <span className="ml-1 text-sm font-medium text-ink-muted">{unit}</span>}
         </span>
@@ -283,69 +272,6 @@ export function StatTile({
         </span>
       )}
       {hint && !loading && <span className="text-xs text-ink-muted">{hint}</span>}
-    </Panel>
-  );
-}
-
-/** A horizontal chip row that scrolls sideways on phones instead of wrapping or overflowing. */
-export function ChipRow({
-  label,
-  children,
-  className,
-  bleed = true,
-}: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-  /** Scroll right to the screen edge (through the page's 16 px gutter). */
-  bleed?: boolean;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className={cn(
-        // The fade and the end spacer show there is more to scroll to, and let the last chip clear it.
-        "flex gap-1.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']",
-        bleed && '-mx-4 px-4',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-export function Chip({
-  selected,
-  onClick,
-  children,
-  role,
-  controls,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
-  role?: 'tab';
-  controls?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role={role}
-      aria-selected={role === 'tab' ? selected : undefined}
-      aria-pressed={role === 'tab' ? undefined : selected}
-      aria-controls={controls}
-      onClick={onClick}
-      className={cn(
-        'h-11 shrink-0 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-        selected
-          ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900'
-          : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-800',
-      )}
-    >
-      {children}
-    </button>
+    </Card>
   );
 }

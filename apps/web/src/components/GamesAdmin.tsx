@@ -8,16 +8,13 @@ import type {
   MusicPhase,
 } from '@vt/protocol';
 import { MAX_CATEGORY_NAME } from '@vt/protocol';
-import { Button, cn } from '@vt/ui';
+import { Button, Chip, Chips, FOCUS_RING, Fold, Icon, Input, Slate, cn, useConfirm } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { findGame, usePrivateGames } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
 import { AdminSection } from './AdminSection.tsx';
 import { AdminSwitch } from './AdminSwitch.tsx';
-
-const FIELD =
-  'h-11 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
 
 const plural = (n: number, noun: string, many = `${noun}s`) => `${n} ${n === 1 ? noun : many}`;
 
@@ -53,7 +50,7 @@ export function GamesAdmin() {
     }
   };
 
-  if (!data) return <p className="text-ink-muted">Loading…</p>;
+  if (!data) return <Slate kind="loading" title="Loading…" />;
   const { categories, games } = data;
   const off = games.filter((g) => !g.settings.enabled).length;
   return (
@@ -61,16 +58,16 @@ export function GamesAdmin() {
       <CategoryEditor categories={categories} games={games} busy={busy} change={change} />
       <section aria-labelledby="games-heading" className="space-y-3">
         <div>
-          <h2 id="games-heading" className="text-xl font-bold">
+          <h2 id="games-heading" className="text-sub font-semibold">
             Games
           </h2>
-          <p className="text-sm text-ink-muted">
+          <p className="text-small text-ink-muted">
             {plural(games.length, 'game')}
             {off ? `, ${off} off` : ', all on'}. A game that is off leaves the game lists and opens
             no new rooms; rooms already open finish their game, and you can still playtest it.
           </p>
         </div>
-        <ul className="grid gap-3 lg:grid-cols-2">
+        <ul className="grid gap-3">
           {games.map((g) => (
             <GameSettingsCard
               key={g.gameId}
@@ -119,26 +116,24 @@ function GameSettingsCard({
     <li
       aria-labelledby={id}
       data-testid={`game-card-${game.gameId}`}
-      className={cn(
-        'space-y-3 rounded-2xl bg-card/85 p-4 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        !settings.enabled && 'opacity-80',
-      )}
+      className={cn('space-y-3 rounded-xl bg-card p-4 shadow-vt-1-edge ring-1 ring-line lg:p-5')}
     >
       <div className="flex items-start gap-3">
-        <span className="text-3xl" aria-hidden>
+        <span
+          className="grid size-11 shrink-0 place-items-center rounded-lg bg-sunk text-2xl"
+          aria-hidden
+        >
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 id={id} className="font-bold">
+          <h3 id={id} className="font-semibold">
             {shown}
           </h3>
           <p className="text-xs text-ink-muted">
             {game.private ? 'Back room' : 'Front room'}
             {settings.title && ` · code name ${game.name}`}
             {' · '}
-            <span
-              className={cn(!settings.enabled && 'font-semibold text-warn-ink dark:text-amber-300')}
-            >
+            <span className={cn(!settings.enabled && 'font-semibold text-warn-ink')}>
               {settings.enabled ? 'On' : 'Off: hidden, no new rooms'}
             </span>
           </p>
@@ -163,51 +158,43 @@ function GameSettingsCard({
       )}
 
       <div>
-        <p className="text-sm font-semibold">Categories</p>
+        <p className="text-small font-semibold">Categories</p>
         {categories.length === 0 ? (
-          <p className="text-sm text-ink-muted">Add a category above to tag games.</p>
+          <p className="text-small text-ink-muted">Add a category above to tag games.</p>
         ) : (
-          <div role="group" aria-labelledby={id} className="mt-1 flex flex-wrap gap-1.5">
-            {categories.map((c) => {
-              const on = settings.categories.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  aria-pressed={on}
-                  aria-busy={busy || undefined}
-                  onClick={() => {
-                    if (!busy) tick(c.id);
-                  }}
-                  className={cn(
-                    'inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm ring-1 transition',
-                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-                    on
-                      ? 'bg-accent font-semibold text-accent-fg ring-accent'
-                      : 'bg-card text-ink-muted ring-line-strong hover:bg-accent-soft dark:hover:bg-stone-800',
-                  )}
-                >
-                  <span aria-hidden>{on ? '✓' : c.emoji}</span>
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
+          <Chips label={shown} className="mt-1">
+            {categories.map((c) => (
+              <Chip
+                key={c.id}
+                pressed={settings.categories.includes(c.id)}
+                aria-busy={busy || undefined}
+                onClick={() => {
+                  if (!busy) tick(c.id);
+                }}
+              >
+                <span aria-hidden>{c.emoji}</span>
+                {c.name}
+              </Chip>
+            ))}
+          </Chips>
         )}
       </div>
 
       {game.musicPhases && (
-        <details className="group rounded-xl ring-1 ring-line dark:ring-stone-800">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-            <span aria-hidden>🎵</span> Music
-            <span className="font-normal text-ink-muted">
-              {settings.music ? 'your own picks' : 'the default picks'}
-            </span>
-          </summary>
-          <div className="space-y-3 px-3 pb-3">
-            <MusicEditor gameId={game.gameId} phases={game.musicPhases} save={save} />
-          </div>
-        </details>
+        <Fold
+          className="bg-card"
+          bodyClassName="space-y-3"
+          summary={
+            <>
+              <span className="font-semibold">Music</span>
+              <span className="text-ink-muted">
+                {settings.music ? 'your own picks' : 'the default picks'}
+              </span>
+            </>
+          }
+        >
+          <MusicEditor gameId={game.gameId} phases={game.musicPhases} save={save} />
+        </Fold>
       )}
     </li>
   );
@@ -233,21 +220,21 @@ function TitleField({
   };
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-      <label htmlFor={`title-${gameId}`} className="w-full text-sm font-semibold">
+      <label htmlFor={`title-${gameId}`} className="w-full text-small font-semibold">
         Title for unlocked players
       </label>
-      <input
+      <Input
         id={`title-${gameId}`}
         value={draft}
         maxLength={80}
         placeholder={name}
         onChange={(e) => setDraft(e.target.value)}
-        className={cn(FIELD, 'min-w-0 flex-1 basis-40')}
+        className="min-w-0 flex-1 basis-40"
       />
       <Button
         type="submit"
+        variant="secondary"
         size="sm"
-        className="min-h-11"
         aria-label={`Save the title of ${name}`}
         disabled={busy || draft.trim() === (title ?? '')}
       >
@@ -333,20 +320,20 @@ function MusicEditor({
   };
 
   const tracks = info?.tracks ? Object.values(info.tracks) : null;
-  if (!info) return <p className="text-sm text-ink-muted">Loading…</p>;
+  if (!info) return <Slate kind="loading" title="Loading…" />;
   if (!tracks?.length)
     return (
-      <p className="text-sm text-ink-muted italic">
+      <p className="text-small text-ink-muted">
         No tracks uploaded yet. Upload the game’s assets to choose music.
       </p>
     );
   return (
     <>
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-small text-ink-2">
         The background tracks each phase plays, on the devices that narrate. Each game moves on to
         the next track in a phase’s list.
       </p>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-small">
         Preview volume
         <input
           type="range"
@@ -364,9 +351,9 @@ function MusicEditor({
               onClick={() => preview(t.file)}
               aria-pressed={playing === t.file}
               className={cn(
-                'inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-sm ring-1 ring-stone-300 dark:ring-stone-700',
-                playing === t.file &&
-                  'bg-accent text-accent-fg ring-accent dark:bg-amber-500 dark:text-stone-950',
+                'inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-small ring-1 ring-line-strong hover:bg-panel',
+                FOCUS_RING,
+                playing === t.file && 'bg-accent text-accent-fg ring-accent hover:bg-accent-hover',
               )}
             >
               {playing === t.file ? '■' : '▶'} {t.name ?? t.file}{' '}
@@ -378,19 +365,18 @@ function MusicEditor({
       <div className="space-y-3">
         {phases.map((phase) => (
           <fieldset key={phase.id} className="space-y-1">
-            <legend className="text-sm font-semibold">{phase.label}</legend>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <legend className="text-small font-semibold">{phase.label}</legend>
+            <Chips label={phase.label}>
               {tracks.map((t) => (
-                <label key={t.file} className="flex min-h-11 items-center gap-1 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={draft[phase.id]?.includes(t.file) ?? false}
-                    onChange={() => toggle(phase.id, t.file)}
-                  />
+                <Chip
+                  key={t.file}
+                  pressed={draft[phase.id]?.includes(t.file) ?? false}
+                  onClick={() => toggle(phase.id, t.file)}
+                >
                   {t.name ?? t.file}
-                </label>
+                </Chip>
               ))}
-            </div>
+            </Chips>
           </fieldset>
         ))}
       </div>
@@ -416,6 +402,7 @@ function CategoryEditor({
   busy: boolean;
   change: Change;
 }) {
+  const [confirm, dialog] = useConfirm();
   const tagged = games.filter((g) => g.settings.categories.length).length;
   const move = (index: number, by: number) => {
     const ids = categories.map((c) => c.id);
@@ -423,10 +410,20 @@ function CategoryEditor({
     ids.splice(index + by, 0, id!);
     void change('PUT', '/api/admin/games/categories/order', { ids });
   };
+  const remove = async (c: GameCategoryDef) => {
+    const used = games.filter((g) => g.settings.categories.includes(c.id)).length;
+    const yes = await confirm({
+      title: `Delete "${c.name}"?`,
+      body: used ? `It comes off ${plural(used, 'game')}.` : undefined,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (yes) void change('DELETE', `/api/admin/games/categories/${encodeURIComponent(c.id)}`);
+  };
   return (
     <AdminSection
       id="categories"
-      title="🗂️ Categories"
+      title="Categories"
       label="Categories"
       summary={
         categories.length
@@ -434,16 +431,16 @@ function CategoryEditor({
           : 'No categories yet'
       }
     >
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-small text-ink-2">
         The filter chips above the game lists. A list only shows the chips its games have, and the
         front room never shows a category only back-room games use.
       </p>
       {categories.length === 0 ? (
-        <p className="text-sm text-ink-muted" data-testid="no-categories">
-          No categories yet. Add one below.
-        </p>
+        <div data-testid="no-categories">
+          <Slate title="No categories yet. Add one below." />
+        </div>
       ) : (
-        <ul className="space-y-2" aria-label="Categories">
+        <ul className="divide-y divide-line" aria-label="Categories">
           {categories.map((c, i) => (
             <CategoryRow
               key={`${c.id}:${c.name}:${c.emoji}`}
@@ -455,15 +452,7 @@ function CategoryEditor({
                 change('PUT', `/api/admin/games/categories/${encodeURIComponent(c.id)}`, body)
               }
               onMove={(by) => move(i, by)}
-              onDelete={() => {
-                const used = games.filter((g) => g.settings.categories.includes(c.id)).length;
-                if (
-                  window.confirm(
-                    `Delete "${c.name}"?${used ? ` It comes off ${plural(used, 'game')}.` : ''}`,
-                  )
-                )
-                  void change('DELETE', `/api/admin/games/categories/${encodeURIComponent(c.id)}`);
-              }}
+              onDelete={() => void remove(c)}
             />
           ))}
         </ul>
@@ -472,6 +461,7 @@ function CategoryEditor({
         busy={busy}
         onAdd={(body) => change('POST', '/api/admin/games/categories', body)}
       />
+      {dialog}
     </AdminSection>
   );
 }
@@ -501,28 +491,28 @@ function CategoryRow({
     if (changed) void onSave({ name, emoji });
   };
   return (
-    <li>
+    <li className="py-2">
       <form onSubmit={save} className="flex flex-wrap items-center gap-2">
-        <input
+        <Input
           aria-label={`${category.name} emoji`}
           value={emoji}
           maxLength={16}
           onChange={(e) => setEmoji(e.target.value)}
-          className={cn(FIELD, 'w-14 text-center text-lg')}
+          className="w-14 px-0 text-center text-lg"
         />
-        <input
+        <Input
           aria-label={`${category.name} name`}
           value={name}
           maxLength={MAX_CATEGORY_NAME}
           onChange={(e) => setName(e.target.value)}
-          className={cn(FIELD, 'min-w-0 flex-1 basis-24')}
+          className="min-w-0 flex-1 basis-24"
         />
         <span className="flex gap-1">
           {changed && (
             <Button
               type="submit"
+              variant="secondary"
               size="sm"
-              className="min-h-11"
               aria-label={`Save ${category.name}`}
               disabled={busy}
             >
@@ -530,34 +520,32 @@ function CategoryRow({
             </Button>
           )}
           <Button
-            size="sm"
-            variant="ghost"
-            className="min-h-11 min-w-11 px-0"
+            size="icon"
+            variant="quiet"
             aria-label={`Move ${category.name} up`}
             disabled={first || busy}
             onClick={() => onMove(-1)}
           >
-            ↑
+            <Icon name="arrow-up" />
           </Button>
           <Button
-            size="sm"
-            variant="ghost"
-            className="min-h-11 min-w-11 px-0"
+            size="icon"
+            variant="quiet"
             aria-label={`Move ${category.name} down`}
             disabled={last || busy}
             onClick={() => onMove(1)}
           >
-            ↓
+            <Icon name="arrow-down" />
           </Button>
           <Button
-            size="sm"
-            variant="ghost"
-            className="min-h-11 min-w-11 px-0"
+            size="icon"
+            variant="quiet"
+            className="text-danger-ink hover:bg-danger-soft"
             aria-label={`Delete ${category.name}`}
             disabled={busy}
             onClick={onDelete}
           >
-            ✕
+            <Icon name="x" />
           </Button>
         </span>
       </form>
@@ -583,28 +571,23 @@ function AddCategory({
   };
   return (
     <form onSubmit={(e) => void add(e)} className="flex flex-wrap items-center gap-2 pt-1">
-      <input
+      <Input
         aria-label="New category emoji"
         placeholder="🎲"
         value={emoji}
         maxLength={16}
         onChange={(e) => setEmoji(e.target.value)}
-        className={cn(FIELD, 'w-14 text-center text-lg')}
+        className="w-14 px-0 text-center text-lg"
       />
-      <input
+      <Input
         aria-label="New category name"
         placeholder="New category"
         value={name}
         maxLength={MAX_CATEGORY_NAME}
         onChange={(e) => setName(e.target.value)}
-        className={cn(FIELD, 'min-w-0 flex-1 basis-32')}
+        className="min-w-0 flex-1 basis-32"
       />
-      <Button
-        type="submit"
-        size="sm"
-        className="min-h-11"
-        disabled={!name.trim() || !emoji.trim() || busy}
-      >
+      <Button type="submit" variant="secondary" disabled={!name.trim() || !emoji.trim() || busy}>
         Add
       </Button>
     </form>

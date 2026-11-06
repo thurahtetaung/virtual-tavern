@@ -1,5 +1,5 @@
 import type { FunFact, RecentNight, RoomRecap } from '@vt/protocol';
-import { Panel, cn } from '@vt/ui';
+import { Card, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '../components/Drawer.tsx';
 import { type CardContext, NightCard, nightLabel } from '../recap/RecapSheet.tsx';
@@ -45,7 +45,7 @@ function TavernTales({ facts, loading }: { facts: FunFact[]; loading: boolean })
       aria-labelledby="tavern-tales"
       className={cn('space-y-3 transition-opacity', loading && 'opacity-60')}
     >
-      <h3 id="tavern-tales" className="text-xl font-bold">
+      <h3 id="tavern-tales" className="text-sub font-semibold">
         📜 Tavern tales
       </h3>
       {facts.length === 0 ? (
@@ -107,7 +107,7 @@ function RecentNights() {
 
   return (
     <section aria-labelledby="recent-nights" className="space-y-3">
-      <h3 id="recent-nights" className="text-xl font-bold">
+      <h3 id="recent-nights" className="text-sub font-semibold">
         🍻 Recent tavern nights
       </h3>
       {!nights ? (
@@ -121,11 +121,11 @@ function RecentNights() {
               <button
                 type="button"
                 onClick={() => show(n)}
-                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm ring-1 ring-stone-200 hover:bg-stone-100 dark:bg-stone-900 dark:ring-stone-800 dark:hover:bg-stone-800"
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-card px-3 py-2 text-left text-sm ring-1 ring-line hover:bg-sunk "
               >
                 <span>
                   <b>{nightLabel(n, (id) => ctx.gameInfo(id))}</b>
-                  <span className="text-stone-600 dark:text-stone-400">
+                  <span className="text-ink-2 ">
                     {' '}
                     · {clock(n.startedAt)}–{clock(n.endedAt)} · {n.games}{' '}
                     {n.games === 1 ? 'game' : 'games'}
@@ -156,7 +156,7 @@ export function FactCard({ fact }: { fact: FunFact }) {
   const tokens = useChartTokens();
   const game = fact.gameId ? ctx.gameInfo(fact.gameId) : undefined;
   return (
-    <Panel className="flex h-full flex-col gap-1.5 p-4">
+    <Card className="flex h-full flex-col gap-1.5 p-4">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-semibold">{fact.title}</h4>
         {game && (
@@ -170,16 +170,16 @@ export function FactCard({ fact }: { fact: FunFact }) {
           </span>
         )}
       </div>
-      <p className="text-sm text-stone-700 dark:text-stone-300">{fact.text}</p>
+      <p className="text-sm text-ink-2 ">{fact.text}</p>
       {fact.playerId && fact.playerId !== ctx.params.player && (
         <button
           type="button"
           onClick={() => ctx.setParams({ tab: 'players', player: fact.playerId })}
-          className="-mb-2 -ml-2 h-11 self-start rounded-lg px-2 text-sm font-semibold text-amber-700 hover:bg-accent-soft/60 dark:text-amber-400 dark:hover:bg-amber-500/10"
+          className="-mb-2 -ml-2 h-11 self-start rounded-lg px-2 text-sm font-semibold text-accent-text hover:bg-accent-soft/60 "
         >
           See player →
         </button>
       )}
-    </Panel>
+    </Card>
   );
 }

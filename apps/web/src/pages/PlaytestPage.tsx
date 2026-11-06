@@ -1,7 +1,7 @@
-import { Panel } from '@vt/ui';
+import { Slate, buttonClass } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { AdminNav } from '../components/AdminNav.tsx';
+import { AdminFrame, AdminTitle } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { PlaytestAdmin } from '../components/PlaytestAdmin.tsx';
 import { api } from '../lib/api.ts';
@@ -21,25 +21,27 @@ export function PlaytestPage() {
   }, []);
 
   return (
-    <Layout>
-      <h1 className="mb-4 text-3xl font-bold">Tavern keeper</h1>
+    <Layout admin>
+      <AdminTitle
+        signedIn={session?.signedIn}
+        onSignOut={() => setSession((s) => s && { ...s, signedIn: false })}
+      />
       {!session ? (
-        <p className="text-ink-muted">Loading…</p>
+        <Slate kind="loading" title="Loading…" />
       ) : !session.enabled || !session.signedIn ? (
-        <Panel className="mx-auto max-w-sm space-y-3 text-center">
-          <p>Playtests are for the tavern keeper. Sign in first.</p>
-          <Link
-            to="/tavern-keeper"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-accent px-4 font-semibold text-white hover:bg-accent-hover dark:hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
-          >
+        <Slate
+          icon="lock"
+          className="mx-auto max-w-sm"
+          title={<>Playtests are for the tavern keeper. Sign in first.</>}
+        >
+          <Link to="/tavern-keeper" className={buttonClass()}>
             Sign in
           </Link>
-        </Panel>
+        </Slate>
       ) : (
-        <>
-          <AdminNav current="playtest" className="mb-4" />
+        <AdminFrame current="playtest">
           <PlaytestAdmin />
-        </>
+        </AdminFrame>
       )}
     </Layout>
   );

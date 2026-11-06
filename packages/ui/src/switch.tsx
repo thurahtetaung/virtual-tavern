@@ -16,6 +16,10 @@ export function Switch({
   tag,
   tagTone = 'danger',
   testId,
+  compact = false,
+  busy = false,
+  id,
+  describedBy,
 }: {
   on: boolean;
   editable: boolean;
@@ -26,11 +30,22 @@ export function Switch({
   tag?: string;
   tagTone?: 'danger' | 'special';
   testId?: string;
+  /** Only the track in a 44 px target, named by `title` (a list row's trailing switch). */
+  compact?: boolean;
+  /** A change is on its way (`aria-busy`). */
+  busy?: boolean;
+  id?: string;
+  /** The id of the text that describes it (`aria-describedby`). */
+  describedBy?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
+      id={id}
+      aria-label={compact ? title : undefined}
+      aria-describedby={describedBy}
+      aria-busy={busy || undefined}
       data-ui="switch"
       aria-checked={on}
       aria-disabled={!editable || undefined}
@@ -39,19 +54,25 @@ export function Switch({
       }}
       data-testid={testId}
       className={cn(
-        'flex min-h-11 w-full items-start gap-3 rounded-xl p-3 text-left ring-1 transition-colors duration-[180ms]',
         FOCUS_RING,
-        !editable
-          ? 'cursor-default bg-panel ring-line'
-          : on
-            ? 'bg-accent-soft ring-accent-line'
-            : 'bg-card ring-line hover:bg-panel',
+        compact
+          ? // Just the track, centred in a 44 px target, for a row's trailing control.
+            'inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-lg'
+          : 'flex min-h-11 w-full items-start gap-3 rounded-xl p-3 text-left ring-1 transition-colors duration-[180ms]',
+        !compact &&
+          (!editable
+            ? 'cursor-default bg-panel ring-line'
+            : on
+              ? 'bg-accent-soft ring-accent-line'
+              : 'bg-card ring-line hover:bg-panel'),
+        compact && busy && 'cursor-wait',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'mt-0.5 flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-[180ms]',
+          'flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-[180ms]',
+          !compact && 'mt-0.5',
           !editable ? (on ? 'bg-ink-faint' : 'bg-line') : on ? 'bg-accent' : 'bg-line-strong',
         )}
       >
@@ -63,7 +84,7 @@ export function Switch({
           )}
         />
       </span>
-      <span className="min-w-0">
+      <span className={compact ? 'sr-only' : 'min-w-0'}>
         <span className={cn('block font-semibold', editable ? 'text-ink' : 'text-ink-muted')}>
           {title}
           {tag && (

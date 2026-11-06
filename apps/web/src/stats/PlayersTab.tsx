@@ -44,7 +44,7 @@ function Leaderboard() {
         <caption className="sr-only">
           Players, sorted by {SORTS.find((s) => s.key === sort)!.label.toLowerCase()}
         </caption>
-        <thead className="bg-stone-100/80 text-xs text-stone-600 dark:bg-stone-800/60 dark:text-stone-300">
+        <thead className="bg-sunk text-xs text-ink-2 ">
           <tr>
             <th scope="col" className="w-8 py-2 pl-3 text-left font-semibold">
               #
@@ -63,8 +63,8 @@ function Leaderboard() {
                   type="button"
                   onClick={() => setSort(s.key)}
                   className={cn(
-                    'h-11 rounded-lg px-2 font-semibold hover:bg-stone-200/70 dark:hover:bg-stone-700',
-                    sort === s.key && 'text-stone-900 dark:text-stone-100',
+                    'h-11 rounded-lg px-2 font-semibold hover:bg-sunk ',
+                    sort === s.key && 'text-ink ',
                   )}
                 >
                   {s.label}
@@ -76,16 +76,13 @@ function Leaderboard() {
         </thead>
         <tbody>
           {rows.slice(0, limit).map((p, i) => (
-            <tr
-              key={p.id}
-              className="border-t border-stone-100 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/40"
-            >
+            <tr key={p.id} className="border-t border-line hover:bg-sunk ">
               <td className="py-1 pl-3 text-ink-muted tabular-nums">{i + 1}</td>
               <th scope="row" className="max-w-0 px-2 py-1 text-left font-normal sm:max-w-none">
                 <button
                   type="button"
                   onClick={() => ctx.setParams({ player: p.id })}
-                  className="flex min-h-11 w-full min-w-0 flex-col justify-center rounded-lg text-left hover:text-amber-700 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500 dark:hover:text-amber-400"
+                  className="flex min-h-11 w-full min-w-0 flex-col justify-center rounded-lg text-left hover:text-accent-text focus-visible:outline-3 focus-visible:outline-focus "
                 >
                   <span className="truncate font-semibold">{p.name}</span>
                   {p.aliases.length > 1 && (
@@ -108,7 +105,7 @@ function Leaderboard() {
         </tbody>
       </table>
       {rows.length > limit && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-3 py-2 dark:border-stone-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2 ">
           <span className="text-xs text-ink-muted">
             Showing {plain(limit)} of {plain(rows.length)} players
           </span>
@@ -181,7 +178,7 @@ function ProfileView({ p }: { p: PlayerProfile }) {
       <Panel className="space-y-2">
         <h3 className="text-2xl font-bold">{p.name}</h3>
         {p.aliases.length > 1 && (
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+          <p className="text-sm text-ink-2 ">
             Also known as{' '}
             {p.aliases
               .filter((a) => a !== p.name)
@@ -230,7 +227,7 @@ function ProfileView({ p }: { p: PlayerProfile }) {
             rows: p.names.map((n) => [n.name, n.uses, dateOf(n.firstSeen), dateOf(n.lastSeen)]),
           }}
         >
-          <ul className="divide-y divide-stone-100 text-sm dark:divide-stone-800">
+          <ul className="divide-y divide-line text-sm ">
             {p.names.map((n) => (
               <li key={n.name} className="flex items-baseline justify-between gap-3 py-2">
                 <span className="min-w-0 truncate font-semibold">{n.name}</span>

@@ -13,8 +13,10 @@ export const OUTPUT = join(root, 'packages/ui/src/icon-sprite.generated.ts');
 /** Every icon the design system uses, by its Lucide name. Keep sorted. */
 export const ICONS = [
   'armchair',
+  'arrow-down',
   'arrow-left',
   'arrow-right',
+  'arrow-up',
   'beer',
   'book-open',
   'chart-bar',
@@ -25,6 +27,7 @@ export const ICONS = [
   'crown',
   'dice-5',
   'door-open',
+  'download',
   'flame',
   'gamepad-2',
   'hand',
@@ -44,6 +47,7 @@ export const ICONS = [
   'shuffle',
   'skull',
   'sun',
+  'trash-2',
   'triangle-alert',
   'tv',
   'upload',
