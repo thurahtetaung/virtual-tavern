@@ -211,6 +211,110 @@
   --color-stone-950: #1a1512;
 }
 
+/*
+ * Type. Fraunces (self-hosted from /fonts/, OFL) is the display face: page titles, game names, the
+ * wordmark. Everything else is the device's own sans. `font-display: swap` shows the fallback at
+ * once; the fallback faces are local Georgia and Times scaled to Fraunces' width and line metrics,
+ * so the swap moves nothing. Utilities: `font-display`, `font-sans` (body), `font-mono`, and
+ * `text-display` … `text-caption` / `text-num`, which grow a step on desktop.
+ */
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/fraunces.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces Fallback';
+  src: local('Georgia');
+  font-weight: 400;
+  size-adjust: 104%;
+  ascent-override: 94%;
+  descent-override: 24.5%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Fraunces Fallback';
+  src: local('Georgia Bold'), local('Georgia-Bold');
+  font-weight: 700;
+  size-adjust: 103%;
+  ascent-override: 95%;
+  descent-override: 24.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Fraunces Fallback Times';
+  src:
+    local('Times New Roman'), local('TimesNewRomanPSMT'), local('Liberation Serif'),
+    local('LiberationSerif');
+  font-weight: 400;
+  size-adjust: 115%;
+  ascent-override: 85%;
+  descent-override: 22.2%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Fraunces Fallback Times';
+  src:
+    local('Times New Roman Bold'), local('TimesNewRomanPS-BoldMT'), local('Liberation Serif Bold'),
+    local('LiberationSerif-Bold');
+  font-weight: 700;
+  size-adjust: 115%;
+  ascent-override: 85%;
+  descent-override: 22.2%;
+  line-gap-override: 0%;
+}
+
+@theme inline {
+  --font-display: var(--f-display);
+  --font-serif: var(--f-display);
+  --font-sans: var(--f-body);
+  --font-mono: var(--f-mono);
+  --text-display: var(--t-display);
+  --text-display--line-height: 1.05;
+  --text-title: var(--t-title);
+  --text-title--line-height: 1.1;
+  --text-heading: var(--t-heading);
+  --text-heading--line-height: 1.2;
+  --text-sub: var(--t-sub);
+  --text-sub--line-height: 1.3;
+  --text-body: var(--t-body);
+  --text-body--line-height: 1.5;
+  --text-small: var(--t-small);
+  --text-small--line-height: 1.45;
+  --text-caption: var(--t-caption);
+  --text-caption--line-height: 1.35;
+  --text-num: var(--t-num);
+  --text-num--line-height: 1;
+}
+
+:root {
+  --f-display: 'Fraunces', 'Fraunces Fallback', 'Fraunces Fallback Times', ui-serif, Georgia, serif;
+  --f-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --f-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --t-display: 34px;
+  --t-title: 28px;
+  --t-heading: 22px;
+  --t-sub: 17px;
+  --t-body: 16px;
+  --t-small: 14px;
+  --t-caption: 12px;
+  --t-num: 22px;
+}
+@media (min-width: 48rem) {
+  :root {
+    --t-display: 44px;
+    --t-title: 34px;
+    --t-heading: 24px;
+    --t-sub: 18px;
+    --t-num: 24px;
+  }
+}
+
 @layer base {
   html {
     color-scheme: light;
@@ -226,7 +330,7 @@
   }
   h1,
   h2 {
-    font-family: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+    font-family: var(--f-display);
   }
 }
 

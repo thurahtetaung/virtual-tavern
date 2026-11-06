@@ -3,7 +3,14 @@ import { extendTailwindMerge } from 'tailwind-merge';
 // In Tailwind v4 a font size only sets the line height as a fallback (`var(--tw-leading, …)`), so a
 // `leading-*` class wins whatever comes after it. tailwind-merge still drops a `leading-*` that is
 // followed by a font size, which would undo it.
-const merge = extendTailwindMerge({ override: { conflictingClassGroups: { 'font-size': [] } } });
+// The type scale's sizes (`text-title`, `text-caption`…, in apps/web/src/index.css) are sizes, not
+// colours, so `cn('text-ink', 'text-title')` keeps both.
+const merge = extendTailwindMerge({
+  override: { conflictingClassGroups: { 'font-size': [] } },
+  extend: {
+    theme: { text: ['display', 'title', 'heading', 'sub', 'body', 'small', 'caption', 'num'] },
+  },
+});
 
 /**
  * Joins class names and resolves Tailwind conflicts, so a class passed in later (an override such as

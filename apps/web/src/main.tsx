@@ -1,3 +1,4 @@
+import { IconSprite } from '@vt/ui';
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router';
@@ -37,6 +38,7 @@ const StatsPage = lazy(() =>
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <IconSprite />
     <ErrorBoundary>
       <ToastProvider>
         <BrowserRouter>
