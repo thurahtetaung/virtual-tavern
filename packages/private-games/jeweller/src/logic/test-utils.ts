@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { jeweller } from './game.ts';
 import { noPieces } from './rules.ts';
 import type { JewellerAction, JewellerState, Level, Pieces, PlayerState } from './types.ts';
@@ -55,7 +55,7 @@ export function harness(
       return h.state;
     },
     rig(fn) {
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       fn(s);
       h.state = s;
     },
@@ -83,7 +83,7 @@ export const pieces = (p: Partial<Pieces>): Pieces => ({ ...noPieces(), ...p });
 /** Sets a player's pieces, bought cards, reserves or nobles. */
 export function setPlayer(h: Harness, id: string, p: Partial<PlayerState>) {
   h.rig((s) => {
-    Object.assign(s.game!.players[id]!, structuredClone(p));
+    Object.assign(s.game!.players[id]!, clone(p));
   });
 }
 

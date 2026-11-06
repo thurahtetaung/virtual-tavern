@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -62,7 +63,7 @@ const newSeed = (rng: Rng) => rng.int(2 ** 32);
 const hiddenRng = (state: TavernBrawlState, now: number) =>
   createRng((state.seed ^ now ^ state.seq) >>> 0);
 
-const draft = (state: TavernBrawlState): TavernBrawlState => structuredClone(state);
+const draft = (state: TavernBrawlState): TavernBrawlState => clone(state);
 
 export const players = (state: Pick<TavernBrawlState, 'seats'>): PlayerId[] =>
   Object.entries(state.seats).flatMap(([id, s]) => (s.playing ? [id] : []));
@@ -562,7 +563,7 @@ function gameView(state: TavernBrawlState, g: Game, viewer: PlayerId | null): Ga
     knockouts: g.knockouts.map((k) => ({ ...k })),
     winners: [...g.winners],
     endReason: g.endReason,
-    tally: structuredClone(g.tally),
+    tally: clone(g.tally),
     hands: over
       ? Object.fromEntries(g.order.map((id) => [id, g.players[id]!.hand.map((i) => ref(g, i))]))
       : null,

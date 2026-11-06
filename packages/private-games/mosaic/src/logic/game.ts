@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -69,7 +70,7 @@ type Ctx = ActionCtx;
 type Result = MosaicState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: MosaicState): MosaicState => structuredClone(s);
+const draft = (s: MosaicState): MosaicState => clone(s);
 const hiddenRng = (state: MosaicState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -939,8 +940,8 @@ function gameView(state: MosaicState, g: Game): GameView {
     round: g.round,
     stage: g.stage,
     turns: g.turns,
-    scoring: g.scoring ? structuredClone(g.scoring) : null,
-    walls: g.walls ? structuredClone(g.walls) : null,
+    scoring: g.scoring ? clone(g.scoring) : null,
+    walls: g.walls ? clone(g.walls) : null,
     tilingUntil: g.tilingUntil,
     ready: [...g.ready],
     clock:

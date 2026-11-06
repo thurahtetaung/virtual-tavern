@@ -1,8 +1,8 @@
 name: Caches
 
 # A cache saved by a PR's run is only visible to that PR, so each PR would start cold. This fills
-# the caches the e2e shards read (the pnpm store, the browser and its system packages) from main,
-# where every PR can restore them.
+# the caches the CI jobs read (the pnpm store, the browser and its system packages, and tsc's
+# incremental typecheck) from main, where every PR can restore them.
 on:
   push:
     branches: [main]
@@ -22,3 +22,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/playwright
+      # tsc keeps each project's last check in tsconfig.tsbuildinfo (incremental), so a cache of
+      # those re-checks only what changed since: PRs start from this one.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tsconfig.tsbuildinfo
+            apps/*/tsconfig.tsbuildinfo
+            packages/*/tsconfig.tsbuildinfo
+            packages/*/*/tsconfig.tsbuildinfo
+          key: tsc-${{ github.sha }}
+          restore-keys: tsc-
+      - run: pnpm typecheck

@@ -1,4 +1,4 @@
-import { type Rng, createRng, isGameError } from '@vt/game-sdk';
+import { clone, type Rng, createRng, isGameError } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { groups, mosaicBot } from './bot.ts';
 import { mosaic } from './game.ts';
@@ -11,7 +11,7 @@ import { COLOURS, type MosaicAction, type MosaicState, SIZE, type Split, TILES }
  * that leaks nothing is the same for both, for every viewer.
  */
 function scramble(state: MosaicState): MosaicState {
-  const s = structuredClone(state);
+  const s = clone(state);
   s.seed = (s.seed + 12345) >>> 0;
   if (s.game) s.game.bag.reverse();
   return s;

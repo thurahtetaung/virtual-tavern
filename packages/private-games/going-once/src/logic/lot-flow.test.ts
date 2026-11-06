@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { sendHints } from './hints.ts';
 import { dealContacts, saidAs } from './lines.ts';
-import { createRng } from '@vt/game-sdk';
+import { clone, createRng } from '@vt/game-sdk';
 import {
   HOST,
   SQUIGGLE,
@@ -297,7 +297,7 @@ describe('hints the original’s way (the owner’s rulings, 2026-10-26)', () =>
   it('offers revenge after a forced buy that made no profit at all', () => {
     const h = auctioning(3, 3);
     bid(h, 'p2', 400);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.auction!.screwed = { target: 'p2', by: 'p1' };
     s.game!.items[s.game!.lots[0]!]!.value = 400;
     h.state = s;
@@ -310,7 +310,7 @@ describe('hints the original’s way (the owner’s rulings, 2026-10-26)', () =>
     /** Lot 4, after p3 bought one of `artists`' cheaper drawings for $1,500 each. */
     const setUp = (artists: string[]) => {
       const h = auctioning(3, 3);
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       const g = s.game!;
       for (const id of g.order) {
         g.players[id]!.sent = ['intro'];

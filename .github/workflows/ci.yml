@@ -44,28 +44,47 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
+      # tsc keeps each project's last check in tsconfig.tsbuildinfo (incremental), so a cache of
+      # those re-checks only what changed since. main's copy comes from caches.yml.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tsconfig.tsbuildinfo
+            apps/*/tsconfig.tsbuildinfo
+            packages/*/tsconfig.tsbuildinfo
+            packages/*/*/tsconfig.tsbuildinfo
+          key: tsc-${{ github.sha }}
+          restore-keys: tsc-
       - run: pnpm typecheck
       - run: pnpm build
 
+  # Vitest splits the test files between two jobs; the seeded fuzz tests are the slow ones.
   unit:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-      - run: pnpm test
-
-  # The browser suite, split across parallel jobs. Each shard builds and starts its own server with
-  # its own in-memory database, so specs that share server state (the back-room project) stay safe.
-  # e2e/shards.ts balances the shards by the measured run times in e2e/timings.json. The build
-  # takes seconds, so each shard builds its own rather than waiting on a shared artifact.
-  e2e:
-    name: e2e (shard ${{ matrix.shard }}/4)
+    name: Unit tests (shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm test --shard="${SHARD}/2"
+        env:
+          SHARD: ${{ matrix.shard }}
+
+  # The browser suite, split across parallel jobs. Each shard builds its own server, and each of its
+  # Playwright workers starts one with its own in-memory database (e2e/fixtures.ts), so specs that
+  # change server state never meet. e2e/shards.ts balances the shards by the measured run times in
+  # e2e/timings.json. The build takes seconds, so each shard builds its own rather than waiting on
+  # a shared artifact.
+  e2e:
+    name: e2e (shard ${{ matrix.shard }}/8)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -73,7 +92,7 @@ jobs:
       - uses: ./.github/actions/playwright
       - run: |
           # A separate assignment, so a failing split fails the step instead of running everything.
-          list=$(node e2e/shards.ts "$SHARD" 4)
+          list=$(node e2e/shards.ts "$SHARD" 8)
           read -ra specs <<< "$list"
           pnpm exec playwright test "${specs[@]}"
         env:

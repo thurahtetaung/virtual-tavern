@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -83,7 +84,7 @@ export function turnDial(s: Settings, dial: CaseDial): Partial<Settings> | null 
 }
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: State): State => structuredClone(s);
+const draft = (s: State): State => clone(s);
 
 // ---- Test rig ----
 

@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type Drawing,
@@ -90,7 +91,7 @@ type Ctx = ActionCtx;
 type Result = GoingOnceState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: GoingOnceState): GoingOnceState => structuredClone(s);
+const draft = (s: GoingOnceState): GoingOnceState => clone(s);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 const hiddenRng = (state: GoingOnceState, now: number) => createRng((state.seed ^ now) >>> 0);
 

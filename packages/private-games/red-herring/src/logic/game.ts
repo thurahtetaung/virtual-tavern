@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -647,7 +648,7 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
 function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): RedHerringState {
   let state: RedHerringState = {
     phase: 'lobby',
-    settings: structuredClone(DEFAULT_SETTINGS),
+    settings: clone(DEFAULT_SETTINGS),
     seed: newSeed(ctx.rng),
     seats: {},
     game: null,

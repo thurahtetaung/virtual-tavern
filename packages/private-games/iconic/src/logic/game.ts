@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -49,9 +50,7 @@ type Ctx = ActionCtx;
 type Result = IconicState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-/** State is plain JSON, and a JSON round trip copies it several times faster than structuredClone. */
-const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-const draft = (s: IconicState): IconicState => copy(s);
+const draft = (s: IconicState): IconicState => clone(s);
 const hiddenRng = (state: IconicState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -844,12 +843,12 @@ function roundView(state: IconicState, g: Game, viewer: PlayerId | null): RoundV
     clueBy:
       r.stage === 'clue' && mins !== null && r.clueAt !== null ? r.clueAt + mins * 60_000 : null,
     reminded: r.reminded,
-    board: copy(r.board),
+    board: clone(r.board),
     guesses: r.guesses.map((x) => ({ ...x })),
     gaveUp: [...r.gaveUp],
     helper: r.helper,
     helperOpen: helperOpen(state),
-    result: r.result ? copy(r.result) : null,
+    result: r.result ? clone(r.result) : null,
     auto: !!r.auto,
     card: open || (isGiver && r.stage === 'choose') ? r.card.map((w) => ({ ...w })) : null,
     secret:
@@ -894,7 +893,7 @@ function view(state: IconicState, viewer: PlayerId | null): IconicView {
   }));
   return {
     phase: state.phase,
-    settings: copy(state.settings),
+    settings: clone(state.settings),
     wordLists: state.wordLists.map((l) => ({ ...l })),
     seats,
     me: seats.find((s) => s.id === viewer) ?? null,

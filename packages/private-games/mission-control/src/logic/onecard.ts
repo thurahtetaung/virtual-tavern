@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import type { Rng } from '@vt/game-sdk';
 import { type CardId, DECK, TRUMP, isTrump, suitOf } from './cards.ts';
 import type { Check } from './checks.ts';
@@ -250,7 +251,7 @@ export function drawFromRight(a: Attempt, rng: Rng): Attempt {
     return options.length ? options[rng.int(options.length)]! : null;
   };
   const picks = crew.map((s) => ({ to: s, from: right(s), card: takeFrom(right(s)) }));
-  const hands = structuredClone(a.hands);
+  const hands = clone(a.hands);
   let dummy = a.dummy && { up: [...a.dummy.up], down: [...a.dummy.down] };
   for (const p of picks) {
     if (!p.card) continue;

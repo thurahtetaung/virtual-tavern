@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { encore, parseCards } from './game.ts';
 import type { EncoreAction, EncoreState, HandCard } from './types.ts';
 
@@ -49,7 +49,7 @@ export function harness(n = 3, seed = 7, settings: Partial<EncoreState['settings
       return h.state;
     },
     rig(fn) {
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       fn(s);
       h.state = s;
     },

@@ -1,4 +1,4 @@
-import { GameError, type Rng, createRng } from '@vt/game-sdk';
+import { clone, GameError, type Rng, createRng } from '@vt/game-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { missionControlBot } from './bot.ts';
 import type { CardId } from './cards.ts';
@@ -29,7 +29,7 @@ function scrambled(
   viewer: string | null,
   rng: Rng,
 ): MissionControlState {
-  const s = structuredClone(state);
+  const s = clone(state);
   const a = s.attempt;
   if (!a || a.stage === 'done') return s;
   const mine = new Set(viewer ? controls(a, viewer) : []);

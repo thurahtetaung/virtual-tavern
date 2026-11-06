@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { type TypeId } from './cards.ts';
 import { conveyor } from './game.ts';
 import type { Card, ConveyorAction, ConveyorState, Played } from './types.ts';
@@ -54,7 +54,7 @@ export function harness(
       return h.state;
     },
     rig(fn) {
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       fn(s);
       h.state = s;
     },

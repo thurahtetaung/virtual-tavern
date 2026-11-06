@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import type { PlayerId } from '@vt/game-sdk';
 import {
   bankRefusal,
@@ -34,7 +35,7 @@ function picture(item: Item, withStrokes: boolean): LotPicture {
   if (item.hidden) return { item: item.id, drawing: null, house: null, hidden: true };
   return {
     item: item.id,
-    drawing: withStrokes && item.drawing ? structuredClone(item.drawing) : null,
+    drawing: withStrokes && item.drawing ? clone(item.drawing) : null,
     house: item.drawing ? null : item.house,
     hidden: false,
   };
@@ -202,7 +203,7 @@ function mineView(state: GoingOnceState, g: Game, viewer: PlayerId): MineView | 
         item: id,
         title: item.title,
         sent: item.drawing !== null,
-        drawing: g.stage === 'draw' && item.drawing ? structuredClone(item.drawing) : null,
+        drawing: g.stage === 'draw' && item.drawing ? clone(item.drawing) : null,
       };
     }),
     wish: g.stage === 'draw' ? [] : p.wish.map((w) => ({ title: w.title, value: w.value })),

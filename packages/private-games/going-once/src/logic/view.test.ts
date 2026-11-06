@@ -1,4 +1,4 @@
-import { type PlayerId, createRng, encodeDrawing, isGameError, pickOne } from '@vt/game-sdk';
+import { clone, type PlayerId, createRng, encodeDrawing, isGameError, pickOne } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import {
@@ -175,7 +175,7 @@ describe('view', () => {
 
   it('shows the screw picker only to the screwer', () => {
     const h = auctioning(3, 2);
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.auction!.lot = s.game!.lots.length - 2;
     h.state = s;
     h.act('p1', { type: 'screw' });

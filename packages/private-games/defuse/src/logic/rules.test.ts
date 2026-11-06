@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { LIGHTS, act, createBomb, infoOf, runTo } from './bomb.ts';
 import {
@@ -209,7 +210,7 @@ describe.each([2, 418, 99_999])('a bomb under manual %i', (manual) => {
       const printed = wiresAnswer(m, { ...infoOf(b), rules: PRINTED });
       if (printed !== right) {
         differ++;
-        const c = structuredClone(b);
+        const c = clone(b);
         expect(act(c, m.id, { op: 'cut', wire: printed }, LIGHTS.clock + 10)).toBe('strike');
       }
       expect(act(b, m.id, { op: 'cut', wire: right }, LIGHTS.clock + 10)).toBe('solve');

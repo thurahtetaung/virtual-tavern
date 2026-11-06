@@ -1,4 +1,4 @@
-import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
+import { clone, type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { mosaic } from './game.ts';
 import { columnOf, noCounts } from './rules.ts';
 import type { Board, Colour, Counts, MosaicAction, MosaicState, Tile } from './types.ts';
@@ -51,7 +51,7 @@ export function harness(n = 2, seed = 7, settings: Partial<MosaicState['settings
       return h.state;
     },
     rig(fn) {
-      const s = structuredClone(h.state);
+      const s = clone(h.state);
       fn(s);
       h.state = s;
     },
@@ -128,7 +128,7 @@ export function setBoard(
         draw(c);
       }
     if (b.lines) {
-      board.lines = structuredClone(b.lines);
+      board.lines = clone(b.lines);
       for (const l of b.lines)
         for (let i = 0; i < l.count; i++) draw(i < (l.jokers ?? 0) ? 'joker' : l.colour!);
     }

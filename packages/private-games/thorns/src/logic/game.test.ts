@@ -1,3 +1,4 @@
+import { clone } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { thorns } from './game.ts';
 import {
@@ -121,7 +122,7 @@ describe('the flip', () => {
 
   it('then other players’ tops, switching freely; a second point wins', () => {
     const h = started(3, { first: 'p1' });
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p1!.points = 1;
     h.state = s;
     rigStacks(h, { p1: ['rose'], p2: ['rose', 'rose'], p3: ['thorn', 'rose'] }, 'p1');
@@ -198,7 +199,7 @@ describe('the flip', () => {
     expect(game(h).players.p1!.out).toBe(true);
     expect(round(h).stage).toBe('starter');
     expect(h.refuse('p1', { type: 'starter', player: 'p1' })).toBe('bad-player');
-    const named = structuredClone(h.state);
+    const named = clone(h.state);
     h.act('p1', { type: 'starter', player: 'p4' });
     h.tick();
     expect(round(h).starter).toBe('p4');
@@ -234,7 +235,7 @@ describe('the flip', () => {
 
   it('when that leaves nobody, the thorn’s owner wins; one left wins', () => {
     const h = started(3, { first: 'p1', settings: { lastChance: false } });
-    const s = structuredClone(h.state);
+    const s = clone(h.state);
     s.game!.players.p3!.out = true;
     s.game!.players.p3!.discs = [];
     s.game!.players.p3!.hand = [];

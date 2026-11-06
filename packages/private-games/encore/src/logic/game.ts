@@ -1,4 +1,5 @@
 import {
+  clone,
   type ActionCtx,
   type CreateCtx,
   type GameDefinition,
@@ -48,7 +49,7 @@ type Ctx = ActionCtx;
 type Result = EncoreState | GameError;
 
 const err = (code: string, message: string) => new GameError(code, message);
-const draft = (s: EncoreState): EncoreState => structuredClone(s);
+const draft = (s: EncoreState): EncoreState => clone(s);
 const hiddenRng = (state: EncoreState, now: number) => createRng((state.seed ^ now) >>> 0);
 const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
@@ -237,7 +238,7 @@ function endRound(s: EncoreState, ender: PlayerId, how: EndHow) {
     .reverse()
     .find((e): e is Extract<LogEntry, { kind: 'show' }> => e.kind === 'show' && e.by === ender);
   const last = shown && shown.round === g.round ? shown.cards : (g.table?.cards ?? []);
-  g.results.push({ round: g.round, ender, how, last: structuredClone(last), rows });
+  g.results.push({ round: g.round, ender, how, last: clone(last), rows });
   g.finalHands = Object.fromEntries(g.order.map((id) => [id, [...g.players[id]!.hand]]));
   log(s, {
     kind: 'end',
@@ -804,7 +805,7 @@ function gameView(state: EncoreState, g: Game, viewer: PlayerId | null): GameVie
     current: g.current,
     table: g.table ? { cards: g.table.cards.map((c) => ({ ...c })), owner: g.table.owner } : null,
     reserve: g.reserve.length,
-    results: structuredClone(g.results),
+    results: clone(g.results),
     clock:
       g.clock && state.phase === 'playing' && g.stage !== 'scores'
         ? {
@@ -814,7 +815,7 @@ function gameView(state: EncoreState, g: Game, viewer: PlayerId | null): GameVie
             reminded: g.clock.reminded,
           }
         : null,
-    finalHands: over && g.finalHands ? structuredClone(g.finalHands) : null,
+    finalHands: over && g.finalHands ? clone(g.finalHands) : null,
     winners: [...g.winners],
   };
 }
@@ -833,7 +834,7 @@ function view(state: EncoreState, viewer: PlayerId | null): EncoreView {
     seats,
     me: seats.find((s) => s.id === viewer) ?? null,
     game: g ? gameView(state, g, viewer) : null,
-    log: state.log.map((e) => structuredClone(e)),
+    log: state.log.map((e) => clone(e)),
   };
 }
 
