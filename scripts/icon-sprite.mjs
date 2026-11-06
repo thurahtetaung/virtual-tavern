@@ -58,15 +58,34 @@ const lucideDir = dirname(
   createRequire(join(root, 'packages/ui/package.json')).resolve('lucide-static/package.json'),
 );
 
-/** The inner markup of one Lucide icon, whitespace collapsed. */
+/**
+ * The drawing elements a Lucide icon may hold, each self-closing with plain quoted geometry
+ * attributes only (no event handlers, links or styles).
+ */
+const ELEMENT =
+  /<(path|circle|rect|line|polyline|polygon|ellipse)((?:\s+(?:d|cx|cy|r|rx|ry|x|y|x1|x2|y1|y2|width|height|points)="[^"<>]*")*)\s*\/>/g;
+
+/**
+ * The inner markup of one Lucide icon, rebuilt from its drawing elements only. Anything else inside
+ * the <svg> (a comment, text, another element) stops the build rather than reaching the page.
+ */
 export function iconBody(name) {
-  const svg = readFileSync(join(lucideDir, 'icons', `${name}.svg`), 'utf8');
+  return drawingOf(readFileSync(join(lucideDir, 'icons', `${name}.svg`), 'utf8'), name);
+}
+
+/** `iconBody` for an SVG source given as text. */
+export function drawingOf(svg, name) {
   const inner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(svg)?.[1];
   if (inner === undefined) throw new Error(`lucide-static has no usable ${name}.svg`);
-  return inner
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\s*\n\s*/g, '')
-    .replace(/\s*\/>/g, '/>');
+  const elements = [];
+  const rest = inner.replace(ELEMENT, (_, tag, attrs) => {
+    elements.push(`<${tag}${attrs.replace(/\s+/g, ' ')}/>`);
+    return '';
+  });
+  if (rest.trim() !== '' || elements.length === 0) {
+    throw new Error(`lucide-static ${name}.svg holds more than drawing elements`);
+  }
+  return elements.join('');
 }
 
 export function render() {
