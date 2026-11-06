@@ -14,7 +14,17 @@ import {
   stepsOf,
   withoutSecrets,
 } from '@vt/game-sdk';
-import { Button, Modal, Peek as SharedPeek, ProtectedImage, cn } from '@vt/ui';
+import {
+  Button,
+  Chip as FilterChip,
+  Icon,
+  Modal,
+  Peek as SharedPeek,
+  ProtectedImage,
+  Tabs,
+  cn,
+  tabPanelProps,
+} from '@vt/ui';
 import {
   type CSSProperties,
   type ReactNode,
@@ -24,8 +34,23 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { ClientGame } from '../games/registry.ts';
+
+/** Tailwind's `lg`: wide enough for Learn's rail. */
+const DESKTOP = '(min-width: 1024px)';
+const desktop = () => typeof window !== 'undefined' && !!window.matchMedia?.(DESKTOP).matches;
+function onDesktopChange(change: () => void) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const q = window.matchMedia(DESKTOP);
+  q.addEventListener('change', change);
+  return () => {
+    q.removeEventListener('change', change);
+  };
+}
+/** Whether the screen is a desktop's width, kept up to date. */
+const useDesktop = () => useSyncExternalStore(onDesktopChange, desktop, () => false);
 
 /** Named guides already loaded this page, so a card or page mounted later shows them at once. */
 const namedGuides = new Map<string, GameGuide>();
@@ -85,6 +110,7 @@ export function GameGuideView({
   focus,
   start,
   done,
+  ready,
 }: {
   game: ClientGame;
   compact?: boolean;
@@ -93,6 +119,8 @@ export function GameGuideView({
   /** The tab to open on (Learn by default). */
   start?: GuideTab;
   done?: ReactNode;
+  /** "Ready to play?": under the guide, or in Learn's rail on a desktop. */
+  ready?: ReactNode;
 }) {
   const guide = useGameGuide(game);
   const context = guideContext(guide, room);
@@ -105,6 +133,7 @@ export function GameGuideView({
       {...(focus && { focus })}
       {...(start && { start })}
       done={done}
+      ready={ready}
     />
   );
 }
@@ -149,6 +178,7 @@ export function GuideView({
   focus,
   start = 'learn',
   done,
+  ready,
 }: {
   guide: GameGuide;
   compact?: boolean;
@@ -157,6 +187,7 @@ export function GuideView({
   focus?: GuideFocus;
   start?: Tab;
   done?: ReactNode;
+  ready?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>(start);
   const [sheet, setSheet] = useState<GuideTile | null>(null);
@@ -173,6 +204,8 @@ export function GuideView({
   const ctx = full && secret && !peeking ? withoutSecrets(full) : full;
   const tabsId = useId();
   const top = useRef<HTMLDivElement>(null);
+  // On a desktop, Learn has a rail beside it that holds "Ready to play?".
+  const rail = useDesktop() && !compact;
 
   // A game asked for a role ("What's my role?"): open its sheet on the browse tab.
   const [seenFocus, setSeenFocus] = useState<GuideFocus>();
@@ -207,35 +240,21 @@ export function GuideView({
         </p>
       )}
       <div
-        role="tablist"
-        aria-label="Guide"
         className={cn(
-          'sticky z-10 -mx-1 mb-4 flex gap-1 border-b border-line bg-page/95 px-1 py-1.5 backdrop-blur',
-          compact ? 'top-[52px] bg-stone-50 dark:bg-stone-900' : 'top-0',
+          'sticky z-10 mb-4',
+          compact ? 'top-[52px] bg-panel dark:bg-stone-900' : 'top-0 bg-page/95 backdrop-blur',
         )}
       >
-        {tabs.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            id={`${tabsId}-${key}`}
-            aria-selected={tab === key}
-            aria-controls={`${tabsId}-${key}-panel`}
-            onClick={() => setTab(key)}
-            className={cn(
-              'min-h-11 flex-1 rounded-xl px-1 text-sm leading-tight font-semibold transition-colors',
-              tab === key
-                ? 'bg-card text-ink shadow-sm ring-1 ring-accent-line'
-                : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        <Tabs
+          id={tabsId}
+          label="Guide"
+          tabs={tabs.map(([id, label]) => ({ id, label }))}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
-      <div role="tabpanel" id={`${tabsId}-${tab}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
+      <div {...tabPanelProps(tabsId, tab)}>
         {!context &&
           guide.presets &&
           guide.presets.length > 0 &&
@@ -255,6 +274,7 @@ export function GuideView({
             done={done}
             go={go}
             openTile={(t) => setSheet(t)}
+            ready={rail ? ready : undefined}
             {...(secret && {
               peek: { shown: peeking, open: peekOpen, setOpen: setPeekOpen, setHeld: setPeekHeld },
             })}
@@ -280,6 +300,7 @@ export function GuideView({
         {tab === 'rules' && <Rules guide={guide} ctx={ctx} inRoom={inRoom} />}
         {tab === 'ref' && <Reference guide={guide} />}
       </div>
+      {ready && !(rail && tab === 'learn') && <div className="mt-8">{ready}</div>}
 
       <Modal open={sheet !== null} onClose={() => setSheet(null)} title={sheet?.name ?? ''}>
         {sheet && (
@@ -352,23 +373,13 @@ function Chip({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(
-        'min-h-11 rounded-full px-3.5 text-sm font-semibold ring-1 transition-colors',
-        on
-          ? 'bg-accent text-accent-fg ring-accent'
-          : 'bg-card text-ink ring-line hover:ring-accent',
-      )}
-    >
+    <FilterChip pressed={on} onClick={onClick}>
       {children}
-    </button>
+    </FilterChip>
   );
 }
 
-const EYEBROW = 'text-xs font-bold tracking-wider text-accent-text uppercase';
+const EYEBROW = 'text-caption font-bold tracking-[0.08em] text-accent-text uppercase';
 
 /** Private art, or `fallback` (an emoji) when it can't load. */
 function Art({
@@ -464,6 +475,7 @@ function Learn({
   go,
   openTile,
   peek,
+  ready,
 }: {
   guide: GameGuide;
   compact: boolean;
@@ -471,6 +483,8 @@ function Learn({
   done: ReactNode;
   go: (t: Tab) => void;
   openTile: (t: GuideTile) => void;
+  /** Shown under the rail's jump cards (desktop only). */
+  ready?: ReactNode;
   /** The room's role is secret: the card shows only while peeking. */
   peek?: Peek;
 }) {
@@ -487,7 +501,7 @@ function Learn({
       className={cn(
         'grid gap-2',
         guide.catalog?.groups.length ? 'sm:grid-cols-2' : 'sm:grid-cols-3',
-        !compact && 'lg:grid-cols-1',
+        !compact && 'lg:grid-cols-1 lg:gap-2.5',
       )}
     >
       {tiles && tiles.items.length > 0 && (
@@ -546,35 +560,43 @@ function Learn({
     </section>
   );
   return (
-    <div className="space-y-3">
-      {peek ? <PeekGate peek={peek}>{card}</PeekGate> : card}
-      <div className="rounded-2xl bg-accent-soft/70 p-4 ring-1 ring-accent-line">
-        <p className={EYEBROW}>
-          <span aria-hidden>🎯 </span>The goal
-        </p>
-        <p className="mt-1 text-lg">{guide.goal}</p>
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
-          <span>👥 {guide.players}</span>
-          <span>⏳ {guide.duration}</span>
-        </p>
+    <div
+      className={cn(
+        'space-y-3',
+        !compact && 'lg:grid lg:grid-cols-[1fr_18.75rem] lg:items-start lg:gap-4 lg:space-y-0',
+      )}
+    >
+      <div className="space-y-3 lg:space-y-4">
+        {peek ? <PeekGate peek={peek}>{card}</PeekGate> : card}
+        <section
+          aria-label="The goal"
+          className="rounded-xl bg-accent-soft p-4 ring-1 ring-accent-line"
+        >
+          <p className={EYEBROW}>The goal</p>
+          <p className="mt-1 text-sub font-medium">{guide.goal}</p>
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-small text-ink-2">
+            <span className="flex items-center gap-1.5">
+              <Icon name="users" size={16} />
+              {guide.players}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Icon name="hourglass" size={16} />
+              {guide.duration}
+            </span>
+          </p>
+        </section>
+        <Stepper
+          guide={guide}
+          ctx={ctx}
+          done={done}
+          more={tiles?.items.length ? () => go('tiles') : undefined}
+          compact={compact}
+        />
+        {!tiles && guide.roles && guide.roles.length > 0 && <WhoIsWho guide={guide} />}
       </div>
-      <div
-        className={cn(
-          'space-y-3',
-          !compact && 'lg:grid lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-4 lg:space-y-0',
-        )}
-      >
-        <div className="space-y-3">
-          <Stepper
-            guide={guide}
-            ctx={ctx}
-            done={done}
-            more={tiles?.items.length ? () => go('tiles') : undefined}
-            compact={compact}
-          />
-          {!tiles && guide.roles && guide.roles.length > 0 && <WhoIsWho guide={guide} />}
-        </div>
+      <div className="space-y-3 lg:space-y-4">
         {more}
+        {ready}
       </div>
     </div>
   );
@@ -585,17 +607,24 @@ function MoreButton({ title, sub, onClick }: { title: string; sub: string; onCli
     <button
       type="button"
       onClick={onClick}
-      className="min-h-11 rounded-2xl bg-card px-3 py-2 text-left ring-1 ring-line hover:ring-accent"
+      className={cn(
+        'min-h-11 rounded-xl bg-card px-3.5 py-3 text-left text-ink ring-1 ring-line',
+        'transition-shadow duration-[180ms] hover:shadow-vt-1 hover:ring-line-strong',
+        'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus',
+      )}
     >
-      <span className="block font-bold">{title}</span>
-      <span className="block text-sm text-ink-muted">{sub}</span>
+      <span className="block text-sub leading-tight font-semibold">{title}</span>
+      <span className="mt-0.5 block text-caption text-ink-muted">{sub}</span>
     </button>
   );
 }
 
 function WhoIsWho({ guide }: { guide: GameGuide }) {
   return (
-    <section aria-label="Who's who" className="rounded-2xl bg-card p-4 ring-1 ring-line">
+    <section
+      aria-label="Who's who"
+      className="rounded-xl bg-card p-4 shadow-vt-1-edge ring-1 ring-line"
+    >
       <h3 className="mb-1 font-bold">Who’s who</h3>
       <dl className="space-y-2">
         {guide.roles!.map((r) => (
@@ -604,7 +633,7 @@ function WhoIsWho({ guide }: { guide: GameGuide }) {
               {r.icon && <span aria-hidden>{r.icon} </span>}
               {r.name}
             </dt>
-            <dd className="text-sm text-stone-700 dark:text-stone-300">{r.summary}</dd>
+            <dd className="text-sm text-ink-2">{r.summary}</dd>
           </div>
         ))}
       </dl>
@@ -656,15 +685,12 @@ export function Stepper({
   return (
     <section
       aria-label={title}
-      className="rounded-2xl bg-card p-4 shadow-sm ring-1 ring-line"
+      className="rounded-xl bg-card p-4 shadow-vt-1-edge ring-1 ring-line"
       data-testid="guide-stepper"
     >
-      <p className={cn(EYEBROW, 'flex justify-between gap-2')}>
-        <span>
-          <span aria-hidden>⚡ </span>
-          {title}
-        </span>
-        <span className="tracking-normal text-ink-muted normal-case">
+      <p className={cn(EYEBROW, 'flex justify-between gap-2 text-ink-2')}>
+        <span>{title}</span>
+        <span className="font-normal tracking-normal text-ink-muted normal-case">
           {step ? `${i + 1} of ${last}` : 'Done'}
         </span>
       </p>
@@ -673,9 +699,9 @@ export function Stepper({
           <div key={i} className="motion-safe:animate-[guide-in_.25s_ease]">
             <div
               className={cn(
-                'mb-3 flex items-center justify-center overflow-hidden rounded-xl',
+                'mb-3 flex items-center justify-center overflow-hidden rounded-lg',
                 // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
-                !step.art && 'bg-page',
+                !step.art && 'bg-sunk',
                 compact ? 'h-28' : 'h-32 sm:h-40',
               )}
             >
@@ -686,7 +712,7 @@ export function Stepper({
                   fallback={
                     <span
                       aria-hidden
-                      className="flex size-full items-center justify-center rounded-xl bg-page text-6xl"
+                      className="flex size-full items-center justify-center rounded-lg bg-sunk text-6xl"
                     >
                       {step.icon ?? '🎲'}
                     </span>
@@ -698,35 +724,36 @@ export function Stepper({
                 </span>
               )}
             </div>
-            <h3 className="text-lg font-bold">
-              {i + 1}. {step.title}
+            <h3 className="text-sub leading-snug font-semibold">
+              <span className="font-display text-heading text-accent-text">{i + 1}.</span>{' '}
+              {step.title}
             </h3>
-            {step.text && <p>{step.text}</p>}
+            {step.text && <p className="mt-1 text-ink-2">{step.text}</p>}
             {note && (
               <p className="mt-2 rounded-lg bg-accent-soft px-3 py-1.5 text-sm">👉 {note}</p>
             )}
           </div>
         ) : (
           <div className="motion-safe:animate-[guide-in_.25s_ease]">
-            <div className="mb-3 flex h-28 items-center justify-center rounded-xl bg-page">
+            <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-sunk">
               <span aria-hidden className="text-6xl">
                 🎉
               </span>
             </div>
-            <h3 className="text-lg font-bold">That’s the whole game</h3>
-            <p>
+            <h3 className="text-sub font-semibold">That’s the whole game</h3>
+            <p className="mt-1 text-ink-2">
               {guide.stepsDone ??
                 'You know enough to play. The app guides each step on screen; come back here any time.'}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {onFinish && (
-                <Button size="sm" className="min-h-11" onClick={onFinish}>
+                <Button size="sm" onClick={onFinish}>
                   Got it, let’s play
                 </Button>
               )}
               {done}
               {more && (
-                <Button variant="secondary" size="sm" className="min-h-11" onClick={more}>
+                <Button variant="secondary" size="sm" onClick={more}>
                   See the {guide.tiles?.label.toLowerCase() ?? 'roles'}
                 </Button>
               )}
@@ -734,15 +761,10 @@ export function Stepper({
           </div>
         )}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="min-h-11"
-          disabled={i === 0}
-          onClick={() => go(i - 1)}
-        >
-          ← Back
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}>
+          <Icon name="arrow-left" size={16} />
+          Back
         </Button>
         {/* One dot per step, as the "1 of 6" counts them; the closing slide fills them all. */}
         <span className="flex gap-1.5" aria-hidden data-testid="guide-dots">
@@ -750,22 +772,19 @@ export function Stepper({
             <i
               key={k}
               className={cn(
-                'h-2 rounded-full transition-all',
+                'h-1.5 rounded-full transition-all duration-[180ms]',
                 k === i
-                  ? 'w-5 bg-accent'
+                  ? 'w-[18px] bg-accent'
                   : i === last
-                    ? 'w-2 bg-accent'
-                    : 'w-2 bg-line dark:bg-stone-700',
+                    ? 'w-1.5 bg-accent'
+                    : 'w-1.5 bg-line-strong',
               )}
             />
           ))}
         </span>
-        <Button
-          size="sm"
-          className={cn('min-h-11', i === last && 'invisible')}
-          onClick={() => go(i + 1)}
-        >
-          Next →
+        <Button size="sm" className={cn(i === last && 'invisible')} onClick={() => go(i + 1)}>
+          Next
+          <Icon name="arrow-right" size={16} />
         </Button>
       </div>
     </section>
@@ -1299,13 +1318,13 @@ function Rules({
         if (!list.length) return null;
         return (
           <section key={level} aria-label={title} className="mb-4">
-            <h3 className="mb-1.5 text-sm font-bold tracking-wider text-accent-text uppercase">
+            <h3 className="mb-2 text-caption font-bold tracking-[0.08em] text-ink-2 uppercase">
               {title}{' '}
-              <small className="font-medium tracking-normal text-ink-muted normal-case">
-                {sub}
+              <small className="text-caption font-normal tracking-normal text-ink-muted normal-case">
+                · {sub}
               </small>
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {list.map((s) => (
                 <RuleSection
                   key={s.title}
@@ -1341,14 +1360,19 @@ function RuleSection({
   return (
     <details
       open={defaultOpen}
-      className={cn('group rounded-2xl bg-card ring-1 ring-line', off && 'opacity-60')}
+      className={cn('group rounded-xl bg-panel ring-1 ring-line', off && 'opacity-60')}
     >
-      <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+      <summary
+        className={cn(
+          'flex min-h-13 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-3.5 py-2 [&::-webkit-details-marker]:hidden',
+          'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus',
+        )}
+      >
         <span>
-          <span className="block font-bold">{s.title}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
+          <span className="block font-semibold">{s.title}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-caption text-ink-muted">
             {off ? (
-              <span className="rounded-full bg-page px-2 font-bold ring-1 ring-line">
+              <span className="rounded-full bg-sunk px-2 font-bold text-ink-2">
                 Not in this game
               </span>
             ) : (
@@ -1363,11 +1387,12 @@ function RuleSection({
             </span>
           </span>
         </span>
-        <span aria-hidden className="mt-1 text-ink-muted transition-transform group-open:rotate-90">
-          ▸
-        </span>
+        <Icon
+          name="chevron-down"
+          className="shrink-0 text-ink-faint transition-transform duration-[180ms] group-open:rotate-180"
+        />
       </summary>
-      <div className="px-4 pb-3">
+      <div className="border-t border-line px-3.5 pt-3 pb-3.5 text-ink-2">
         {s.paragraphs?.map((p) => (
           <p key={p} className="mb-2">
             {p}
@@ -1421,7 +1446,7 @@ function ListBlock({ list }: { list: GuideList }) {
 }
 
 function Reference({ guide }: { guide: GameGuide }) {
-  const card = 'rounded-2xl bg-card p-4 ring-1 ring-line';
+  const card = 'rounded-xl bg-card p-4 shadow-vt-1-edge ring-1 ring-line';
   return (
     <div className="space-y-3">
       {guide.reference?.map((t) => (
@@ -1464,7 +1489,7 @@ function Reference({ guide }: { guide: GameGuide }) {
             {guide.glossary.map((g) => (
               <div key={g.term} className="contents">
                 <dt className="font-semibold">{g.term}</dt>
-                <dd className="mb-2 text-stone-700 sm:mb-0 dark:text-stone-300">{g.meaning}</dd>
+                <dd className="mb-2 text-ink-2 sm:mb-0">{g.meaning}</dd>
               </div>
             ))}
           </dl>
@@ -1481,7 +1506,7 @@ function Reference({ guide }: { guide: GameGuide }) {
       {guide.footer && (
         <footer
           aria-label={guide.footer.title}
-          className="rounded-2xl bg-stone-100 p-4 text-sm text-stone-700 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-800"
+          className="rounded-xl bg-sunk p-4 text-sm text-ink-2 ring-1 ring-line"
         >
           <h3 className="mb-1 font-bold">{guide.footer.title}</h3>
           {guide.footer.paragraphs.map((p) => (
@@ -1497,7 +1522,7 @@ function Reference({ guide }: { guide: GameGuide }) {
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-semibold text-amber-700 underline dark:text-amber-400"
+                  className="font-semibold text-accent-text underline"
                 >
                   {l.label}
                 </a>

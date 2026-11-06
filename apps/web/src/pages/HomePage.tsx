@@ -1,14 +1,10 @@
-import { Button, Panel } from '@vt/ui';
-import type { GameSummary } from '@vt/protocol';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { Button, Card, Field, Icon, Input, buttonClass } from '@vt/ui';
+import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Layout, RoomOpening } from '../components/Layout.tsx';
-import { CategoryFilter, NoGamesMatch } from '../components/CategoryFilter.tsx';
-import { GameCard } from '../components/GameCard.tsx';
+import { CategoryChips, NoMatch, ShelfCard, useShelf } from '../components/Shelf.tsx';
 import { clientGames } from '../games/registry.ts';
 import { useBackroom } from '../lib/backroom.ts';
-import { chipsOf, shows, useCategoryFilter } from '../lib/categories.ts';
-import { fetchGames } from '../lib/games.ts';
 import { lastRoom, saveName, savedName } from '../lib/identity.ts';
 import { EXAMPLE_ROOM_CODE, parseRoomCode } from '../lib/room-code.ts';
 import { usePageTitle } from '../lib/title.ts';
@@ -29,22 +25,7 @@ export function HomePage() {
   const recent = last && (!isPrivate || backroom?.unlocked) ? last : null;
   usePageTitle();
   // The game cards come with the page; their categories from the server, when it answers.
-  const [offered, setOffered] = useState<GameSummary[]>([]);
-  useEffect(() => {
-    void fetchGames()
-      .then(setOffered)
-      .catch(() => {});
-  }, []);
-  const listed = useMemo(
-    () => offered.filter((s) => clientGames.some((g) => g.id === s.id)),
-    [offered],
-  );
-  const chips = useMemo(() => chipsOf(listed), [listed]);
-  const filter = useCategoryFilter('vt.categories.home', chips);
-  const games = clientGames.filter((g) => {
-    const summary = listed.find((s) => s.id === g.id);
-    return !summary?.off && shows(filter.chosen, summary?.categories ?? []);
-  });
+  const { chips, filter, shown: games } = useShelf(clientGames, 'vt.categories.home');
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),
@@ -66,30 +47,24 @@ export function HomePage() {
   return (
     <Layout>
       {creating && <RoomOpening />}
-      <section className="py-6 text-center sm:py-10">
-        <h1 className="text-4xl font-bold sm:text-5xl">Pull up a chair.</h1>
-        <p className="mx-auto mt-3 max-w-xl text-lg text-stone-600 dark:text-stone-400">
+      <section className="pt-4 pb-6 text-center sm:pt-10 sm:pb-8">
+        <h1 className="text-display font-semibold">Pull up a chair.</h1>
+        <p className="mx-auto mt-3 max-w-lg text-body text-ink-2 sm:text-sub">
           Start a room, send the link to your friends, and play together in the browser. No
           accounts, no downloads.
         </p>
         {recent && (
           <p className="mt-4">
-            <Link
-              to={`/r/${recent.id}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold text-amber-700 hover:bg-accent-soft dark:text-amber-400 dark:hover:bg-stone-800"
-            >
-              <span aria-hidden>↩</span> Rejoin your {recent.game} room
+            <Link to={`/r/${recent.id}`} className={buttonClass({ variant: 'quiet' })}>
+              <Icon name="door-open" /> Rejoin your {recent.game} room
             </Link>
           </p>
         )}
       </section>
 
-      <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
-        <Panel>
-          <label htmlFor="home-name" className="text-sm font-semibold">
-            1. What should we call you?
-          </label>
-          <input
+      <Card className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
+        <Field label="What should we call you?">
+          <Input
             id="home-name"
             value={name}
             maxLength={24}
@@ -97,43 +72,41 @@ export function HomePage() {
             onBlur={() => name.trim() && saveName(name)}
             placeholder="Your name"
             autoComplete="nickname"
-            className="mt-2 h-12 w-full rounded-lg bg-white px-4 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
           />
-        </Panel>
-        <Panel>
-          <form onSubmit={join}>
-            <label htmlFor="invite" className="text-sm font-semibold">
-              Got an invite link or room code?
-            </label>
-            <div className="mt-2 flex gap-2">
-              <input
-                id="invite"
-                value={invite}
-                onChange={(e) => setInvite(e.target.value)}
-                placeholder="Paste it here"
-                className="h-12 min-w-0 flex-1 rounded-lg bg-white px-4 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
-              />
-              <Button type="submit" size="lg" variant="secondary" disabled={!invite.trim()}>
-                Join
-              </Button>
-            </div>
-          </form>
-        </Panel>
-      </div>
+        </Field>
+        <p className="text-center text-small text-ink-muted md:pb-3">or, with an invite</p>
+        <form onSubmit={join} className="grid gap-1.5">
+          <label htmlFor="invite" className="text-small font-semibold text-ink">
+            Paste a room link or code
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id="invite"
+              value={invite}
+              onChange={(e) => setInvite(e.target.value)}
+              placeholder={EXAMPLE_ROOM_CODE}
+              autoComplete="off"
+              className="flex-1"
+            />
+            <Button type="submit" disabled={!invite.trim()} className="min-h-12">
+              Join
+            </Button>
+          </div>
+        </form>
+      </Card>
 
-      <h2 className="mt-10 mb-4 text-2xl font-bold">2. Pick a game</h2>
-      <div className="mb-4">
-        <CategoryFilter
-          chips={chips}
-          chosen={filter.chosen}
-          onToggle={filter.toggle}
-          onClear={filter.clear}
-        />
-      </div>
+      <h2 className="mt-10 mb-3 text-title font-semibold">Pick a game</h2>
+      <CategoryChips
+        chips={chips}
+        chosen={filter.chosen}
+        onToggle={filter.toggle}
+        onClear={filter.clear}
+        className="mb-4"
+      />
       <div className="grid gap-4 sm:grid-cols-2">
-        {games.length === 0 && <NoGamesMatch onClear={filter.clear} />}
+        {games.length === 0 && <NoMatch onClear={filter.clear} />}
         {games.map((game) => (
-          <GameCard
+          <ShelfCard
             key={game.id}
             game={game}
             creating={creating}
@@ -141,9 +114,9 @@ export function HomePage() {
           />
         ))}
         {filter.chosen.length === 0 && (
-          <Panel className="flex items-center justify-center border-2 border-dashed border-stone-300 bg-transparent text-ink-muted shadow-none ring-0 dark:border-stone-700">
+          <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-line-strong p-4 text-small text-ink-muted">
             More games coming soon
-          </Panel>
+          </div>
         )}
       </div>
 

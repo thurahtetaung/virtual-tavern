@@ -109,11 +109,11 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   const backRoomRules = host.getByRole('region', { name: 'The back room' });
   await expect(backRoomRules.getByRole('link', { name: /Reverie/ })).toBeVisible();
   await backRoomRules.getByRole('link', { name: /Reverie/ }).click();
-  await expect(host.getByRole('link', { name: '← Back room' })).toHaveAttribute(
+  await expect(host.getByRole('link', { name: 'Back room', exact: true })).toHaveAttribute(
     'href',
     '/backroom',
   );
-  await expect(host.getByRole('link', { name: '← All games' })).toHaveCount(0);
+  await expect(host.getByRole('link', { name: 'All games', exact: true })).toHaveCount(0);
   await stranger.goto('/rules');
   await expect(stranger.getByRole('heading', { name: 'How to play' })).toBeVisible();
   await expect(stranger.getByRole('heading', { name: /back room/i })).toHaveCount(0);

@@ -26,3 +26,4 @@ export * from './game-card.tsx';
 export * from './manifest.ts';
 export * from './drawing.tsx';
 export * from './icon.tsx';
+export * from './tabs.tsx';
