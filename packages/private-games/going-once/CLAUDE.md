@@ -4,6 +4,9 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Phone rig SVG passes through DOMPurify before insertion; wrapper groups and transforms are React elements.
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Going Once** (`packages/private-games/going-once`, id `going-once`) is a drawing and live auction game for 3 to 6: everyone draws two pictures from secret titles, then each goes up for a live auction; secret values, wish lists, hints, screws and loans; most money wins. Never write its host character or any of its text either.
   - **Content:** title groups, hint lines and host lines are content packs (`groups`, `lines`, `host`; schemas in `src/logic/content.ts`); the deal copies only the chosen groups into state, and hint and host lines go into the game at the start (`onDeadline` has no `ctx`). Without groups the lobby refuses to start. Host lines name a player only as `{player}`.
   - **Rules that surprise:** lot order is the original's (`lotOrder`); wish lists come from a backtracking search (`setup.ts`); bids carry the lot's `seq` (a stale press is refused), at most one per player per 300 ms and none within `BID_SETTLE_MS` of any bid (`too-soon`); the soft close (`TIMINGS` by pace) restarts on every bid; screws unlock at half-time, force current + $100 on anyone but the screwer (the top bidder included), and pause the clock while they play out, then a full fresh stretch starts (`pausedUntil`); the bank opens by itself once anyone has $1,000 or less; hints (`hints.ts`) are always true when informative. Players with no credit still answer the bank, so nobody learns who is out. Leavers keep seat, cash and art. If nobody sends a drawing, everyone redraws once; nobody again ends the game (`ended: 'no-drawings'`).

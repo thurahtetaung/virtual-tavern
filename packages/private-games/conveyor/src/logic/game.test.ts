@@ -635,3 +635,16 @@ describe('order of a turn and strict timers', () => {
     expect(h.state.log.find((e) => e.kind === 'spoon')).toMatchObject({ by: 'p2', auto: 'timer' });
   });
 });
+
+describe('seat map safety', () => {
+  it.each(['__proto__', 'constructor', 'prototype', 'toString'])(
+    'refuses a seat change for the inherited or reserved key %s',
+    (by) => {
+      const h = harness();
+      const before = JSON.stringify(h.state);
+      expect(h.refuse(by, { type: 'sit', playing: false })).toBe('not-seated');
+      expect(JSON.stringify(h.state)).toBe(before);
+      expect(Object.hasOwn(Object.prototype, 'waiting')).toBe(false);
+    },
+  );
+});

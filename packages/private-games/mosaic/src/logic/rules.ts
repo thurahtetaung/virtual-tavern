@@ -237,6 +237,7 @@ export function runWall(
   lid: Tile[],
   choose: ((row: number, spaces: number[]) => number | null) | null,
 ): number | null {
+  if (!Number.isInteger(from) || from < 0 || from > SIZE) return from;
   for (let row = from; row < SIZE; row++) {
     const line = board.lines[row]!;
     if (!isFull(line, row)) continue;
@@ -245,6 +246,7 @@ export function runWall(
     if (spaces.length > 1) {
       const c = choose?.(row, spaces) ?? null;
       if (c === null) return row;
+      if (!Number.isInteger(c) || !spaces.includes(c)) return row;
       col = c;
     }
     const tile = lineTile(line);

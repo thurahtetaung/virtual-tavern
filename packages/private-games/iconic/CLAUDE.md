@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Iconic** (`packages/private-games/iconic`, id `iconic`) is an icon-board word-guessing game for 3 to 12: clue givers describe a secret word only with markers and cubes on a board of 118 icons; everyone else types guesses. Never write the online version's site either.
   - **Ids:** icons are numbers `1`…`118` in the printed board's order with a group each (`src/logic/board.ts`); stats and recaps name icons as `{card:17}`. Every marker set shows its symbol and number, never colour alone.
   - **Words** (`usesWordLists`, lists per level, e.g. the built-in "Iconic: Easy/Hard/Challenging" packs; Iconic is a phrase game for word packs): the deal keeps a shuffled deck per level in state (secret). `ICONIC_TEST_WORD` is every card's first word.

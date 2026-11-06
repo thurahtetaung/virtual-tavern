@@ -4,6 +4,9 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Wall placement and removal accept only own player entries; wall indexes must be legal integers.
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Mosaic** (`packages/private-games/mosaic`, id `mosaic`) is a tile-drafting game for 2 to 4, with three host options (grey wall, jokers, special factories).
   - **Ids:** colours `blue`, `yellow`, `red`, `black` and `aqua` (the manifest may key it `white`), each with a symbol (`SYMBOL`) on every tile and wall space. The wall is a plain 5 × 5 grid (`rules.ts`); only `columnOf` is the coloured wall's.
   - **Rules that surprise (the owner's rulings in `game.test.ts`, `options.test.ts` and the guide):** taking the first-player marker with a full floor costs nothing; an empty bag takes the whole lid, and a round that would start with no tiles ends the game. A joker on a colour's space bars that colour from the row; jokers count for rows and columns, never a colour. Any choice of wall space runs the `wall` stage. There is no undo; the pick sheet has a confirm step.

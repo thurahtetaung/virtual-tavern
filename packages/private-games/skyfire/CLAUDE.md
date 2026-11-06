@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Skyfire** (`packages/private-games/skyfire`, id `skyfire`) is a cooperative fireworks card game for 2 to 5: you see everyone's cards but your own; clue, play or discard to build five fireworks. Never write its edition names either.
   - **Ids:** suits are colour ids (`red`…`multi`, `black`) with a symbol on every card so colour is never the only clue. Card ids are dealing positions (`c1`…), so an id says nothing about its card. Hands load only thumbs.
   - **Rules (the owner's rulings):** empty clues are allowed unless `zeroClues` is off; host options multicolour, black powder and the expert ending combine. The clue memory setting `memory` drops older clue log entries from `view()`.

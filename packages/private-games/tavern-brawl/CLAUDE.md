@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Tavern Brawl** (`packages/private-games/tavern-brawl`, id `tavern-brawl`) is a hero card brawler for 2 to 6: twelve heroes with 28-card decks, 10 hit points; draw 1, play 1, resolve its symbols in printed order. Never write its heroes' names either.
   - **Ids:** heroes are class words (`brute`, `mage`, `knight`, `thief`, `ranger`, `druid`, `dragon`, `owl`, `psychic`, `slime`, `eye`, `mimic`), cards `<hero>.<nn>` in `src/logic/cards.ts`. `private-assets/tools/tavern-brawl-manifest.py` builds the manifest and checks the card table against the art.
   - **Engine** (`src/logic/engine.ts`, mutating a `structuredClone` draft): card instances are random tokens with an `owner` (whose discard it goes to); a taken shield keeps its damage. Cards resolve as a stack of `frames` with a damage `queue`; a step needing an answer opens one `choice`, skipped when only one answer really differs. `debt` is the cards still owed, `played` the played-this-turn zone. Knockouts are checked once the whole outer card has resolved; nobody left is a tie. Choices asked of other players get a fixed 20 s with a fallback. With 5 or 6 players regular attacks reach only the nearest living neighbours, and knocked-out players stay as ghosts that attack for 1 once a turn, never for a knockout. The owner's rulings are in the guide's Table rulings.

@@ -419,6 +419,9 @@ function seatWaiting(s: SkyfireState) {
 }
 
 function sit(state: SkyfireState, playing: boolean, ctx: Ctx): ResultOf {
+  if (ctx.by === '__proto__' || ctx.by === 'constructor' || ctx.by === 'prototype')
+    return err('not-seated', 'You are not in this room.');
+  if (!Object.hasOwn(state.seats, ctx.by)) return err('not-seated', 'You are not in this room.');
   const seat = state.seats[ctx.by];
   if (!seat) return err('not-seated', 'You are not in this room.');
   if (state.phase === 'playing' && state.game?.hands[ctx.by])

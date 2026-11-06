@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Conveyor** (`packages/private-games/conveyor`, id `conveyor`) is a simultaneous card-drafting game of dishes for 2 to 8: pick a card at once, reveal together, pass the rest; 3 rounds, then desserts; a menu of 8 dish types out of 23. Never write its card or menu names either.
   - **Ids:** plain dish ids (`nigiri-egg`, `maki-2`, `chopsticks-1`…), menus our own ids (`PRESETS`). Phones load only thumbnails, warmed into Cache Storage (`preloadThumbs`).
   - **Rules:** a pick is secret and changeable until the last is in; then the turn resolves in a fixed order (`advance`); a spoon's request and the giver's options only reach the two of them. The owner's and designer's rulings are in `game.test.ts`.

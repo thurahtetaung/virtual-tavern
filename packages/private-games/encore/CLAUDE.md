@@ -4,6 +4,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
+- Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
+
 - **Encore** (`packages/private-games/encore`, id `encore`) is a shedding card game for 2 to 5 with a hand you can never rearrange: Show cards that beat the set on the table, Recruit an end card of it into your hand, or once a round Recruit & Show. The action's word comes from the manifest (`names.recruit`, `reword`); the code never uses the title's word.
   - **Ids:** cards are their two numbers, low first (`"3-8"`), a held card `{ id, up }`; faces are stored low number upright and turned 180° for the other end (`artUp`).
   - **Rules:** Recruit & Show is atomic (refused whole unless its Show beats what is left); a round ends when a hand empties or play comes back to an unbeaten Show's owner (checked as play reaches them); 2 players use reserve cards and own chips. Safe moves are the bot's (`encoreBot`, a one-ply search).

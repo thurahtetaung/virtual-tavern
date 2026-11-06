@@ -24,7 +24,7 @@ export class PatchError extends Error {}
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 /** A key `applyPatch` never writes (it would reach the prototype); objects holding one are replaced whole. */
-const unsafeKey = (k: string) => k === '__proto__';
+const unsafeKey = (k: string) => k === '__proto__' || k === 'constructor' || k === 'prototype';
 
 /** Whether two JSON values are equal. */
 export function jsonEqual(a: unknown, b: unknown): boolean {
@@ -166,7 +166,10 @@ export function applyPatch<T>(base: T, patch: Patch): T {
     let node = root as Obj | unknown[];
     for (let i = 0; i < depth; i++) {
       const k = keyOf(node, path[i]);
+      if (!Object.hasOwn(node, k)) throw new PatchError('no such path');
       const child = own((node as Obj)[k]);
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype')
+        throw new PatchError('bad key');
       (node as Obj)[k] = child;
       node = child;
     }
@@ -190,10 +193,17 @@ export function applyPatch<T>(base: T, patch: Patch): T {
     const last = path[path.length - 1];
     if (kind === 0) {
       if (Array.isArray(node)) node[keyOf(node, last) as number] = op[2];
-      else node[keyOf(node, last)] = op[2];
+      else {
+        const k = keyOf(node, last);
+        if (k === '__proto__' || k === 'constructor' || k === 'prototype')
+          throw new PatchError('bad key');
+        node[k] = op[2];
+      }
     } else if (kind === 1) {
       const k = keyOf(node, last);
       if (Array.isArray(node) || !Object.hasOwn(node, k)) throw new PatchError('bad delete');
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype')
+        throw new PatchError('bad key');
       delete node[k];
     } else throw new PatchError('bad operation');
   }

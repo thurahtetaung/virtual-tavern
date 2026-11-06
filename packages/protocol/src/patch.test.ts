@@ -93,6 +93,33 @@ describe('diff and applyPatch', () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
+  it.each(['__proto__', 'constructor', 'prototype'])(
+    'refuses traversal, writes and deletes through the reserved key %s',
+    (key) => {
+      const base = JSON.parse(`{"${key}":{"value":1},"safe":{}}`) as unknown;
+      const before = JSON.stringify(base);
+      const patches: Patch[] = [
+        [[0, [key], 2]],
+        [[1, [key]]],
+        [[0, [key, 'value'], 2]],
+        [[1, [key, 'value']]],
+        [[0, ['safe', key], 2]],
+      ];
+      for (const patch of patches) expect(() => applyPatch(base, patch)).toThrow(PatchError);
+      expect(JSON.stringify(base)).toBe(before);
+    },
+  );
+
+  it('does not traverse an inherited object', () => {
+    const base = Object.create({ inherited: { value: 1 } }) as { own: number };
+    base.own = 1;
+    expect(() => applyPatch(base, [[0, ['inherited', 'value'], 2]])).toThrow(PatchError);
+  });
+
+  it.each(['constructor', 'prototype'])('round trips JSON with an own %s key', (key) => {
+    roundTrip({ [key]: { value: 1 } }, { [key]: { value: 2 } });
+  });
+
   it('replaces an object holding __proto__ whole instead of patching through it', () => {
     const a = JSON.parse('{"o":{"__proto__":{"x":1},"y":1}}') as unknown;
     const b = JSON.parse('{"o":{"__proto__":{"x":2},"y":1}}') as unknown;

@@ -593,6 +593,9 @@ function updateSettings(
 }
 
 function sit(state: IconicState, playing: boolean, ctx: Ctx): Result {
+  if (ctx.by === '__proto__' || ctx.by === 'constructor' || ctx.by === 'prototype')
+    return err('not-seated', 'You are not in this room.');
+  if (!Object.hasOwn(state.seats, ctx.by)) return err('not-seated', 'You are not in this room.');
   const seat = state.seats[ctx.by];
   if (!seat) return err('not-seated', 'You are not in this room.');
   if (state.phase === 'playing' && state.game?.order.includes(ctx.by))

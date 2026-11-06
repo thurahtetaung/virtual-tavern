@@ -471,3 +471,16 @@ describe('strict timers', () => {
     expect(round(h).flips.map((f) => f.owner)).toEqual(['p2', 'p3', 'p3', 'p4']);
   });
 });
+
+describe('seat map safety', () => {
+  it.each(['__proto__', 'constructor', 'prototype', 'toString'])(
+    'refuses a seat change for the inherited or reserved key %s',
+    (by) => {
+      const h = harness();
+      const before = JSON.stringify(h.state);
+      expect(h.refuse(by, { type: 'sit', playing: false })).toBe('not-seated');
+      expect(JSON.stringify(h.state)).toBe(before);
+      expect(Object.hasOwn(Object.prototype, 'waiting')).toBe(false);
+    },
+  );
+});
