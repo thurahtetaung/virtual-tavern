@@ -101,12 +101,10 @@ export async function pickHero(p: Page, hero: string, byId = false) {
 /** The Play button under the hand. */
 export const dock = (p: Page) => p.getByRole('group', { name: 'Play a card' }).getByRole('button');
 
-const seq = async (p: Page) => (await p.locator('[data-seq]').getAttribute('data-seq')) ?? '';
-
-/** Waits until the table on `p` has moved on from `before`. */
-async function movedOn(p: Page, before: string) {
-  await expect.poll(() => seq(p), { timeout: 10_000, intervals: [50] }).not.toBe(before);
-}
+const seq = async (p: Page) => {
+  const table = p.locator('[data-seq]');
+  return (await table.count()) ? ((await table.getAttribute('data-seq')) ?? '') : '';
+};
 
 export const isOver = async (p: Page) => {
   const counts = await Promise.all([
@@ -119,6 +117,16 @@ export const isOver = async (p: Page) => {
   ]);
   return counts.some((n) => n > 0);
 };
+
+/** Waits until the table on `p` has moved on from `before`, or the brawl is over (on a phone the end screen keeps the table in a tab). */
+async function movedOn(p: Page, before: string) {
+  await expect
+    .poll(async () => (await isOver(p)) || (await seq(p)) !== before, {
+      timeout: 10_000,
+      intervals: [50],
+    })
+    .toBe(true);
+}
 
 type Ask = 'social' | 'choice' | 'card' | null;
 

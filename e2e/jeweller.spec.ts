@@ -27,7 +27,10 @@ test.afterEach(() => {
 const PHONE = { width: 390, height: 844 };
 
 /** Phones show the game in tabs: Table, Your table and Table talk. */
-const tab = (p: Page, name: string) => p.getByRole('tab', { name, exact: true }).click();
+async function tab(p: Page, name: 'Table' | 'Your table' | 'Table talk') {
+  if ((p.viewportSize()?.width ?? 1280) < 1024)
+    await p.getByRole('tab', { name, exact: true }).click();
+}
 
 test('a 2-player game on phones: gems, a purchase, a noble visit, the final round and the end', async ({
   browser,
@@ -230,10 +233,12 @@ test('Strongholds: a placement locks a card, and a Conquest buys it on top of th
 
   // L1-35 is hers (its fourth black card brings the noble too), with two strongholds back home.
   await expect(marketCard(ana, 'L1-35')).toHaveCount(0);
+  await tab(ana, 'Table talk');
   await expect(
     ana.getByRole('button', {
       name: /^Hana: 15 points, 1 piece, 0 reserved, 2 (blue|red|green|orange) strongholds in supply/,
     }),
   ).toBeVisible();
+  await tab(ana, 'Table');
   await expect(ana.locator('[data-hold]')).toHaveCount(1);
 });

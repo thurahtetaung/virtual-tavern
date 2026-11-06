@@ -47,6 +47,7 @@ import {
 import { type Art, artFor, useManifest } from './assets.ts';
 import { BoardView, ClueStrip, PAGE_BELOW, SetPicker, useRoomBelow } from './Board.tsx';
 import { type NameOf, andList, statusFor } from './status.ts';
+import { PhoneFill } from './fill.tsx';
 
 export type IconicUiProps = GameUiProps<IconicView, IconicAction>;
 type Act = IconicUiProps['act'];
@@ -940,7 +941,8 @@ function Clue({
       </div>
       <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}>
         {controls}
-        {boardView}
+        {/* Phones: the icons take what the screen has left and scroll inside it. */}
+        <PhoneFill>{boardView}</PhoneFill>
       </Panel>
       <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}>
         {guesses}

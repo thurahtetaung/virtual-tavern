@@ -36,6 +36,7 @@ import {
   prompt,
   waitingLine,
 } from './text.ts';
+import { PhoneFill } from './fill.tsx';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -1119,18 +1120,21 @@ export function Table({
     </div>
   );
 
+  // Phones: the opponents take what the screen has left and scroll inside it (six seats).
   const opponents = (
-    <ul
-      className={cn(
-        'grid grid-cols-1 gap-1.5',
-        order.length >= 3 ? 'lg:grid-cols-3' : order.length === 2 ? 'lg:grid-cols-2' : '',
-      )}
-      aria-label="Opponents"
-    >
-      {order.map((p) => (
-        <PlayerRow key={p.id} {...seat(p)} compact={order.length >= 3} near={near.get(p.id)} />
-      ))}
-    </ul>
+    <PhoneFill>
+      <ul
+        className={cn(
+          'grid grid-cols-1 gap-1.5',
+          order.length >= 3 ? 'lg:grid-cols-3' : order.length === 2 ? 'lg:grid-cols-2' : '',
+        )}
+        aria-label="Opponents"
+      >
+        {order.map((p) => (
+          <PlayerRow key={p.id} {...seat(p)} compact={order.length >= 3} near={near.get(p.id)} />
+        ))}
+      </ul>
+    </PhoneFill>
   );
 
   const mePanel = me && (

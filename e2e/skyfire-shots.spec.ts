@@ -62,6 +62,8 @@ for (const [label, viewport, colorScheme] of [
     await ana.getByTestId('sf-end-game').click();
     await ana.getByRole('dialog').getByRole('button', { name: 'End the show' }).click();
     await expect(ana.getByTestId('sf-end')).toBeVisible();
+    // Phones show the end in tabs; the replay has its own.
+    if (viewport.width < 1024) await ana.getByRole('tab', { name: /Replay/ }).click();
     await ana.getByTestId('sf-replay-next').click();
     await shot(ana, '07-end');
     await ana.screenshot({

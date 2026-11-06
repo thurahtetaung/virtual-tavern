@@ -978,7 +978,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   // Phones and tablets: the market, your own table and the table talk one at a time.
   const wide = useWideScreen();
   const [tab, setTab] = useState<PlayTab>('table');
-  const shown: PlayTab | null = wide ? null : tab;
+  const shown: PlayTab | null = wide || !playing ? null : tab;
   const panel = (t: PlayTab) => ({
     className: cn('flex flex-col gap-2', shown !== null && shown !== t && 'hidden'),
     ...(shown === t && tabPanelProps(PLAY_TABS_ID, t)),

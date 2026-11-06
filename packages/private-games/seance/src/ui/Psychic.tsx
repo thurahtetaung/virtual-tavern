@@ -10,6 +10,7 @@ import { useReadyNoteText } from './ready-note.ts';
 import { PastGuesses } from './PastGuesses.tsx';
 import type { CardRow } from './Compare.tsx';
 import { atTable, myPsychic, notReady, pastGuesses, roman, triedCards } from './status.ts';
+import { PhoneFill } from './fill.tsx';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -246,64 +247,67 @@ export function MineTab({
             </>
           )}
         </h3>
-        <ul
-          className={cn(
-            'grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-4',
-            candidates.length > 6 ? 'grid-cols-3' : 'grid-cols-2',
-          )}
-          aria-label="Candidates"
-        >
-          {candidates.map((c, i) => {
-            const triedIn = tried.get(c);
-            const notes = [
-              me.intuition === c && 'your guess',
-              triedIn !== undefined && `tried in hour ${roman(triedIn)}`,
-            ].filter(Boolean);
-            return (
-              <li key={c}>
-                <PickableCard
-                  kind={kind}
-                  n={c}
-                  content={content}
-                  note={notes.join(', ') || undefined}
-                  onLook={() =>
-                    look(
-                      cardsOf(
-                        kindOf(pillar, g.third),
-                        candidates,
-                        Object.fromEntries(
-                          [...tried].map(([card, h]) => [
-                            card,
-                            `✗ You tried it in hour ${roman(h)}`,
-                          ]),
+        {/* Phones: the candidates take what the screen has left and scroll inside it. */}
+        <PhoneFill className="-mx-1 px-1 py-1">
+          <ul
+            className={cn(
+              'grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-4',
+              candidates.length > 6 ? 'grid-cols-3' : 'grid-cols-2',
+            )}
+            aria-label="Candidates"
+          >
+            {candidates.map((c, i) => {
+              const triedIn = tried.get(c);
+              const notes = [
+                me.intuition === c && 'your guess',
+                triedIn !== undefined && `tried in hour ${roman(triedIn)}`,
+              ].filter(Boolean);
+              return (
+                <li key={c}>
+                  <PickableCard
+                    kind={kind}
+                    n={c}
+                    content={content}
+                    note={notes.join(', ') || undefined}
+                    onLook={() =>
+                      look(
+                        cardsOf(
+                          kindOf(pillar, g.third),
+                          candidates,
+                          Object.fromEntries(
+                            [...tried].map(([card, h]) => [
+                              card,
+                              `✗ You tried it in hour ${roman(h)}`,
+                            ]),
+                          ),
                         ),
-                      ),
-                      i,
-                      `${content.pillarPlural(pillar)} on the table`,
-                    )
-                  }
-                  pick={
-                    open
-                      ? {
-                          on: me.intuition === c,
-                          label: 'Guess',
-                          onLabel: '✓ Guess',
-                          onToggle: () =>
-                            void act(
-                              { type: 'intuition', card: me.intuition === c ? null : c },
-                              { anchor: 'seance-ready' },
-                            ),
-                        }
-                      : undefined
-                  }
-                >
-                  <Guessers g={g} card={c} pillar={pillar} content={content} />
-                  {triedIn !== undefined && <TriedStamp hour={triedIn} />}
-                </PickableCard>
-              </li>
-            );
-          })}
-        </ul>
+                        i,
+                        `${content.pillarPlural(pillar)} on the table`,
+                      )
+                    }
+                    pick={
+                      open
+                        ? {
+                            on: me.intuition === c,
+                            label: 'Guess',
+                            onLabel: '✓ Guess',
+                            onToggle: () =>
+                              void act(
+                                { type: 'intuition', card: me.intuition === c ? null : c },
+                                { anchor: 'seance-ready' },
+                              ),
+                          }
+                        : undefined
+                    }
+                  >
+                    <Guessers g={g} card={c} pillar={pillar} content={content} />
+                    {triedIn !== undefined && <TriedStamp hour={triedIn} />}
+                  </PickableCard>
+                </li>
+              );
+            })}
+          </ul>
+        </PhoneFill>
         {open && <ReadyBar view={view} room={room} act={act} content={content} sticky />}
       </Panel>
       {pastGuesses(g, me.color).length > 0 && (

@@ -69,7 +69,10 @@ for (const [label, viewport, colorScheme] of [
     await pickHero(ana, 'mage', true);
     await settle(hana);
     await shot(hana, '06-lobby');
-    await hana.locator('[data-powers="slime"]').click();
+    // Phones open the hero's sheet from its tile; wider screens have a powers button.
+    await hana
+      .locator(viewport.width < 640 ? '[data-hero="slime"]' : '[data-powers="slime"]')
+      .click();
     await expect(hana.getByTestId('tb-hero-sheet')).toBeVisible();
     await settle(hana);
     await shot(hana, '07-lobby-hero-sheet', false);

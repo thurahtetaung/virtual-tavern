@@ -24,6 +24,7 @@ import {
 import { type Art, cardLabel, cardUrl } from './assets.ts';
 import { CARD_ASPECT, Card, EmptySlot } from './Card.tsx';
 import type { NameOf } from './status.ts';
+import { PhoneFill } from './fill.tsx';
 
 type Act = (action: RedHerringAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -249,92 +250,95 @@ export function Table({
   const active = focus ?? r.turn;
   return (
     <section aria-label="The table" data-testid="rh-table">
-      <ul
-        className={cn(
-          'grid gap-1.5 sm:gap-2',
-          many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
-        )}
-      >
-        {r.order.map((id) => {
-          const mine = plays.filter((p) => p.by === id);
-          const marker = art.marker(color(id));
-          const mark = marks[id];
-          return (
-            <li
-              key={id}
-              data-testid={`rh-seat-${id}`}
-              className={cn(
-                'flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line',
-                active === id && 'ring-2 ring-accent',
-              )}
-            >
-              <div className="flex min-h-8 min-w-0 items-center gap-1 text-xs sm:text-sm">
-                {id === r.picker && (
-                  <span title="Word-picker" aria-label="word-picker">
-                    {art.pencil ? (
-                      <ProtectedImage src={art.pencil} alt="" className="size-4" />
-                    ) : (
-                      '✏️'
-                    )}
-                  </span>
-                )}
-                <PlayerTag
-                  name={name(id)}
-                  you={id === you}
-                  offline={offline(id)}
-                  className="min-w-0 flex-1"
-                />
-                {left.has(id) && <span className="text-[11px] text-ink-muted">away</span>}
-                {id !== you && id !== r.picker && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      cycle(id);
-                    }}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel"
-                    aria-label={`Your private mark on ${name(id)}: ${mark ?? 'none'}`}
-                    title="Your private mark (only you see it)"
-                  >
-                    {mark ? MARK_ICON[mark] : <span className="text-ink-muted">·</span>}
-                  </button>
-                )}
-              </div>
-              <div
+      {/* Phones: the laps take what the screen has left and scroll inside it. */}
+      <PhoneFill>
+        <ul
+          className={cn(
+            'grid gap-1.5 sm:gap-2',
+            many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
+          )}
+        >
+          {r.order.map((id) => {
+            const mine = plays.filter((p) => p.by === id);
+            const marker = art.marker(color(id));
+            const mark = marks[id];
+            return (
+              <li
+                key={id}
+                data-testid={`rh-seat-${id}`}
                 className={cn(
-                  'grid grid-cols-2 gap-1',
-                  many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
-                  'lg:max-w-[12rem]',
+                  'flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line',
+                  active === id && 'ring-2 ring-accent',
                 )}
               >
-                {([1, 2] as const).map((lap) => {
-                  const p = mine.find((x) => x.lap === lap);
-                  return p ? (
-                    <Card
-                      key={lap}
-                      card={p.card}
-                      art={art}
+                <div className="flex min-h-8 min-w-0 items-center gap-1 text-xs sm:text-sm">
+                  {id === r.picker && (
+                    <span title="Word-picker" aria-label="word-picker">
+                      {art.pencil ? (
+                        <ProtectedImage src={art.pencil} alt="" className="size-4" />
+                      ) : (
+                        '✏️'
+                      )}
+                    </span>
+                  )}
+                  <PlayerTag
+                    name={name(id)}
+                    you={id === you}
+                    offline={offline(id)}
+                    className="min-w-0 flex-1"
+                  />
+                  {left.has(id) && <span className="text-[11px] text-ink-muted">away</span>}
+                  {id !== you && id !== r.picker && (
+                    <button
+                      type="button"
                       onClick={() => {
-                        setOpen(plays.indexOf(p));
+                        cycle(id);
                       }}
-                      label={`${name(id)}’s card ${lap === 1 ? 'I' : 'II'}: ${cardLabel(p.card)}, open full screen`}
-                      className={cn(p.auto && 'opacity-90')}
-                    />
-                  ) : (
-                    <EmptySlot key={lap} lap={lap} art={art} />
-                  );
-                })}
-              </div>
-              {marker && (
-                <ProtectedImage
-                  src={marker}
-                  alt=""
-                  className="h-1.5 w-full rounded-full object-cover opacity-80"
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel"
+                      aria-label={`Your private mark on ${name(id)}: ${mark ?? 'none'}`}
+                      title="Your private mark (only you see it)"
+                    >
+                      {mark ? MARK_ICON[mark] : <span className="text-ink-muted">·</span>}
+                    </button>
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    'grid grid-cols-2 gap-1',
+                    many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
+                    'lg:max-w-[12rem]',
+                  )}
+                >
+                  {([1, 2] as const).map((lap) => {
+                    const p = mine.find((x) => x.lap === lap);
+                    return p ? (
+                      <Card
+                        key={lap}
+                        card={p.card}
+                        art={art}
+                        onClick={() => {
+                          setOpen(plays.indexOf(p));
+                        }}
+                        label={`${name(id)}’s card ${lap === 1 ? 'I' : 'II'}: ${cardLabel(p.card)}, open full screen`}
+                        className={cn(p.auto && 'opacity-90')}
+                      />
+                    ) : (
+                      <EmptySlot key={lap} lap={lap} art={art} />
+                    );
+                  })}
+                </div>
+                {marker && (
+                  <ProtectedImage
+                    src={marker}
+                    alt=""
+                    className="h-1.5 w-full rounded-full object-cover opacity-80"
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </PhoneFill>
       {open !== null && items.length > 0 && (
         <CardViewer
           items={items}

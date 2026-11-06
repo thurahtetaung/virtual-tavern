@@ -1,5 +1,14 @@
 import { type Locator, type Page, expect } from '@playwright/test';
-import { fillerTurn, order, pick, pickTime, readyAll, settle, table } from './conveyor-play.ts';
+import {
+  fillerTurn,
+  order,
+  pick,
+  pickTime,
+  readyAll,
+  settle,
+  showTab,
+  table,
+} from './conveyor-play.ts';
 import { test } from './fixtures.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
@@ -83,7 +92,10 @@ test('2 players on phones: a miso clash, a menu, a special order and three round
   // Turn 1: both pick a miso soup; Ben sees only that Ana has picked.
   await pickTime(ana, 1, 1);
   await pick(ana, 'miso');
+  // The other trays (with who has picked) are on the Table tab on phones.
+  await showTab(ben, 'Table');
   await expect(ben.getByLabel('picked', { exact: true })).toBeVisible();
+  await showTab(ben, 'Play');
   await pick(ben, 'miso');
   for (const p of pages) await expect(p.getByText(/clash!/).first()).toBeVisible();
 

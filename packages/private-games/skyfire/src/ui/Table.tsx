@@ -113,7 +113,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const discards = g.discards.length;
   // Phones and tablets: the table, the discards and the log one at a time, from the tab bar.
   const wide = useWideScreen();
-  const shown: Tab | null = wide ? null : tab;
+  const shown: Tab | null = wide || !playing ? null : tab;
   return (
     <div className="flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
       <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">

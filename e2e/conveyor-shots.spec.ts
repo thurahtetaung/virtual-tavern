@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { fillerTurn, localArt, pickTime, readyAll, table } from './conveyor-play.ts';
+import { fillerTurn, localArt, pickTime, readyAll, showTab, table } from './conveyor-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
@@ -41,9 +41,11 @@ for (const [label, viewport, colorScheme] of [
     await ben.locator('button[data-k]').nth(1).click();
     await ben.getByTestId('cv-lock').click();
     await shot(ben, '06-locked');
+    await showTab(ana, 'Table');
     await ana.getByRole('region', { name: 'Other players' }).getByRole('button').first().click();
     await shot(ana, '07-other-tray');
     await ana.keyboard.press('Escape');
+    await showTab(ana, 'Play');
     for (const p of [ana, pages[2]]) {
       await p.locator('button[data-k]').first().click();
       await p.getByTestId('cv-lock').click();

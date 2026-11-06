@@ -321,7 +321,10 @@ test('on a phone, a tap straight after swiping the card viewer closed registers'
   const card = list.locator('button[data-card]').nth(2);
   const id = await card.getAttribute('data-card');
   const pick = list.locator(`button[data-pick="${id}"]`);
-  await card.scrollIntoViewIfNeeded();
+  // Centred, so the Guess button sits clear of the bars pinned to the foot of the screen.
+  await card.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+  });
   const at = (await pick.boundingBox())!;
   await card.tap();
   const look = page.getByRole('dialog', { name: /on the table/ });
