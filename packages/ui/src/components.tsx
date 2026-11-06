@@ -66,7 +66,10 @@ VARIANTS.red = VARIANTS['team-a'];
 VARIANTS.blue = VARIANTS['team-b'];
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: 'min-h-11 min-w-11 px-3 text-small',
+  // 32 px at heart, held at 44 by its minimum. Where a screen lowers that minimum to fit, an
+  // invisible band centred on the button still makes it a 44 px target on touch screens; the band
+  // is never taller than 44 px or the button itself, so it doesn't reach over its neighbours.
+  sm: "h-8 min-h-11 min-w-11 px-3 text-small pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:top-1/2 pointer-coarse:after:h-[max(100%,2.75rem)] pointer-coarse:after:-translate-y-1/2 pointer-coarse:after:content-['']",
   md: 'min-h-11 min-w-11 px-4',
   lg: 'min-h-13 min-w-13 rounded-xl px-6 text-sub',
   icon: 'size-11 shrink-0 text-lg',
@@ -181,7 +184,9 @@ export function FoldSummary({ children, className }: { children: ReactNode; clas
       {children}
       <Icon
         name="chevron-down"
-        className="ml-auto text-ink-2 transition-transform duration-[180ms] group-open:rotate-180"
+        size={16}
+        // Small and tucked into the padding, so the summary keeps its width.
+        className="-mr-1 ml-auto text-ink-2 transition-transform duration-[180ms] group-open:rotate-180"
       />
     </summary>
   );
