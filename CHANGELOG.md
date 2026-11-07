@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.5...v0.100.6) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** clearer wording across the site and every game ([#566](https://github.com/thurahtetaung/virtual-tavern/issues/566)) ([80796ff](https://github.com/thurahtetaung/virtual-tavern/commit/80796ffe267a6a029622c13d98b35dbdace6f397))
+
 ## [0.100.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.4...v0.100.5) (2026-11-07)
 
 
