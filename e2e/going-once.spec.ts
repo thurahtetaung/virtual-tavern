@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   PHONE,
   TITLES,
@@ -62,6 +63,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await expect(ben.getByTestId('go-practice-setting')).toHaveAttribute('aria-checked', 'true');
   await hana.getByTestId('go-start').click();
 
+  // Drawing on a phone: the title, the sheet and its pens, with Send in the bar, on one screen.
+  await expect(hana.getByTestId('go-title')).toHaveText(TITLES[0]![0]);
+  await expectPhoneFit(hana, 'going-once draw');
   // Drawing: each player's titles, in seat order of the two families.
   for (const [seat, p] of all.entries()) {
     for (const [i, title] of TITLES[seat]!.entries()) {
@@ -89,6 +93,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     await expect(p.getByTestId('go-host')).toContainText('E2E host: the first lot!');
   await expect(hana.getByText('🎨 Your drawing')).toBeVisible();
   await expect(ben.getByText('🎨 Your drawing')).toHaveCount(0);
+  // A lot on a phone: the picture, the top bid and the clock, with the bids in the bar.
+  await expectPhoneFit(ben, 'going-once auction');
   // On a 390×844 phone the bid row stays pinned on screen under the drawing.
   await expect(ben.getByTestId('go-bid-400')).toBeInViewport({ ratio: 1 });
   await bid(ben, 400);
@@ -115,14 +121,16 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await expect(hana.getByTestId('go-cash')).toContainText('$1,700');
   // Lot 1 in everyone's Lots tab: title, artist, buyer, price and value.
   for (const p of all) {
-    await p.getByRole('tab', { name: '🧾 Lots' }).click();
+    await p.getByRole('tab', { name: 'Lots', exact: true }).click();
     const lot1 = p
-      .getByRole('region', { name: 'Bidding' })
+      .getByRole('tabpanel')
       .getByTestId('go-log')
       .getByRole('listitem')
       .filter({ hasText: 'Apple' });
     await expect(lot1).toContainText(p === hana ? 'by you' : 'by Hana');
     await expect(lot1).toContainText(p === ben ? 'You paid $600 · worth $3,500' : 'Ben paid $600');
+    // Back to the lot and its bidding.
+    await p.getByRole('tab', { name: 'Auction', exact: true }).click();
   }
 
   // Lots 2–4 go unsold; half-time follows. Lot 5 is Hana's "Top hat": Cleo screws Ben into bidding
@@ -132,11 +140,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   const picker = cleo.getByTestId('go-screw-picker');
   await picker.getByRole('button', { name: /Ben/ }).click();
   // The log keeps the screw (the banner over the lot only shows for a moment).
-  await hana.getByRole('tab', { name: '🧾 Lots' }).click();
+  await hana.getByRole('tab', { name: 'Lots', exact: true }).click();
   await expect(
-    hana
-      .getByRole('region', { name: 'Bidding' })
-      .getByText('🔩 Cleo screwed Ben into bidding $400.'),
+    hana.getByRole('tabpanel').getByText('🔩 Cleo screwed Ben into bidding $400.'),
   ).toBeVisible();
 
   // The rest go unsold (each opens with its 2 s intro), then the end: standings and the gallery on

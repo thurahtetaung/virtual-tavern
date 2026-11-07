@@ -48,7 +48,7 @@ export function HostStrip({
       aria-live="polite"
       data-testid="go-host"
       className={cn(
-        'flex items-start gap-2 rounded-xl bg-card px-3 py-2 ring-1 ring-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-stone-800/70 dark:ring-stone-700',
+        'flex items-start gap-2 rounded-xl bg-card px-3 py-2 ring-1 ring-line motion-safe:animate-[go-rise_0.25s_ease-out]',
         big
           ? cn('justify-center text-center font-extrabold', tv ? 'text-2xl' : 'text-xl')
           : cn('italic', tv ? 'text-base' : 'text-sm'),
@@ -214,9 +214,7 @@ export function PsstBubble({
       <div
         className={cn(
           'relative min-w-0 rounded-2xl rounded-tl-sm px-3 py-2 ring-1',
-          tip
-            ? 'bg-info-soft text-info-ink ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30'
-            : 'bg-panel text-ink-muted ring-line dark:bg-stone-800/70 dark:text-stone-400 dark:ring-stone-700',
+          tip ? 'bg-info-soft text-info-ink ring-info-line' : 'bg-panel text-ink-muted ring-line',
           big ? 'text-base' : 'text-sm',
         )}
       >
@@ -251,7 +249,7 @@ export function SenderIcon({
         src={src}
         alt={label}
         className={cn(
-          'shrink-0 rounded-full bg-card object-cover object-top ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600',
+          'shrink-0 rounded-full bg-card object-cover object-top ring-1 ring-line',
           size === 'sm' ? 'size-6' : 'size-9',
         )}
       />
@@ -312,7 +310,7 @@ export function HowTo({ view }: { view: GoingOnceView }) {
   return (
     <aside
       aria-label="How it works"
-      className="flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line"
     >
       <div className="flex items-center justify-between gap-2">
         <p className="font-semibold">
@@ -382,9 +380,7 @@ export function RackUp({
       <PlayerTag name={name(f.id)} you={f.id === you} />
       <span className="text-sm tabular-nums">
         {money(f.cash)} + {money(f.art)}
-        {withDebt && f.debt > 0 && (
-          <span className="text-danger-ink dark:text-rose-300"> − {money(f.debt)}</span>
-        )}
+        {withDebt && f.debt > 0 && <span className="text-danger-ink"> − {money(f.debt)}</span>}
       </span>
     </li>
   );
@@ -424,10 +420,10 @@ export function RackUp({
               className="mx-auto h-16 w-auto object-contain"
             />
           )}
-          <p className="text-sm text-ink-muted dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             {shown > buyers.length ? 'Cash + art − loans' : 'Cash + art'}
           </p>
-          <ul className="divide-y divide-line dark:divide-stone-700">
+          <ul className="divide-y divide-line">
             {final.map((f) => row(f, shown > buyers.length))}
           </ul>
         </div>
@@ -479,7 +475,7 @@ export function BidLadder({
   return (
     <div className="flex flex-col gap-1" data-testid="go-ladder">
       {duel && (
-        <span className="self-start rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+        <span className="self-start rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line">
           ⚔ {name(duel[0])} vs {name(duel[1])}
         </span>
       )}
@@ -558,9 +554,7 @@ export function Alerts({ view, you }: { view: GoingOnceView; you: string }) {
       data-testid="go-alert"
       className={cn(
         'pointer-events-none fixed inset-0 z-50 ring-8 ring-inset motion-safe:animate-pulse',
-        flash.tone === 'accent'
-          ? 'ring-accent/70 dark:ring-amber-500/70'
-          : 'ring-danger/70 dark:ring-rose-500/70',
+        flash.tone === 'accent' ? 'ring-accent/70' : 'ring-danger/70',
       )}
     />
   );
@@ -607,7 +601,7 @@ export function useScrewBanner({
     <p
       role="status"
       data-testid="go-screw-banner"
-      className="rounded-xl bg-danger-soft px-4 py-3 text-center text-base font-bold text-danger-ink ring-1 ring-danger-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+      className="rounded-xl bg-danger-soft px-4 py-3 text-center text-base font-bold text-danger-ink ring-1 ring-danger-line motion-safe:animate-[go-rise_0.25s_ease-out]"
     >
       🔩{' '}
       {last.outcome === 'forced' ? (

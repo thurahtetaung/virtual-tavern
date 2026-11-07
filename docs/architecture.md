@@ -6,7 +6,7 @@ The subsystems behind the rooms and games, in detail. `CLAUDE.md` keeps one line
 
 Code: `packages/game-sdk/src/drawing.ts`, `packages/ui/src/drawing.tsx`; `docs/adding-a-game.md` "Drawing".
 
-Vector strokes on an 800 × 1000 page, four named colour-blind-safe pens and an eraser (`ERASER`, a stroke that masks the ink before it), three widths, encoded compactly (`encodePoints`) and checked in `reduce` with `validateDrawing`. `DrawingPad` draws (undo, clear, a draft under `storageKey`, `sendBy` before a strict deadline, palm and second-finger handling); `DrawingView` shows a drawing read-only at any size. Drawings live in game state and `view()` sends only those a viewer needs.
+Vector strokes on an 800 × 1000 page, four named colour-blind-safe pens and an eraser (`ERASER`, a stroke that masks the ink before it), three widths, encoded compactly (`encodePoints`) and checked in `reduce` with `validateDrawing`. `DrawingPad` draws (undo, clear, a draft under `storageKey`, `sendBy` before a strict deadline, palm and second-finger handling); `DrawingView` shows a drawing read-only at any size. With `bar`, the pad's Send row (its `footer`, the pad's own problem and the game's `refusal` anchor) sits in the phone's sticky bar, so the sheet gets the rest of the screen. The paper (`PAPER`, #fbf8f1) is the same in both themes and is not the card surface: pads, replays and the eraser all paint with it. Drawings live in game state and `view()` sends only those a viewer needs.
 
 ## Sound panel
 

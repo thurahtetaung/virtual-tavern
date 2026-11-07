@@ -28,13 +28,18 @@ import {
 } from 'react';
 import { cn } from './cn.ts';
 import { Button } from './components.tsx';
+import { RefusalSlot } from './refusal.tsx';
+import { StickyBar } from './sticky-bar.tsx';
 import { useConfirm } from './confirm.tsx';
 
 // The drawing canvas: `DrawingPad` to draw (touch, pen or mouse) and `DrawingView` to show a
 // drawing read-only at any size. Strokes and their encoding live in `@vt/game-sdk` (`drawing.ts`),
 // so a game's logic checks exactly what the pad sends.
 
-/** The paper: the same in both themes, since it is part of the picture. */
+/**
+ * The paper: the same in both themes, since it is part of the picture. It is deliberately not the
+ * card surface (dark mode's card is brown): pads, replays and the eraser all paint with this one.
+ */
 export const PAPER = '#fbf8f1';
 
 /** An SVG path through the points, smoothed with midpoints (a dot for a single point). */
@@ -314,6 +319,16 @@ export interface DrawingPadProps {
   limits?: DrawingLimits;
   /** Shown beside the Send button (a timer). */
   footer?: ReactNode;
+  /**
+   * The `RefusalSlot` anchor of the game's draw action: the server's refusal shows with Send (in
+   * the bar on phones, when `bar` is set).
+   */
+  refusal?: string;
+  /**
+   * Phones: Send, the footer and any problem sit in the room's sticky bar at the foot of the
+   * screen (its height kept free on the page), so the sheet above gets the rest of the screen.
+   */
+  bar?: boolean;
   className?: string;
 }
 
@@ -331,6 +346,8 @@ export function DrawingPad({
   disabled = false,
   limits = DEFAULT_DRAWING_LIMITS,
   footer,
+  refusal,
+  bar = false,
   className,
 }: DrawingPadProps) {
   const [strokes, setStrokes] = useState<Stroke[]>(() => readDraft(draftKey));
@@ -536,12 +553,32 @@ export function DrawingPad({
     return () => clearTimeout(id);
   }, [sendBy, disabled, submit]);
 
+  // Send, with the footer beside it and the pad's own problem under them.
+  const send = (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">{footer}</div>
+        <Button
+          onClick={() => void submit()}
+          disabled={disabled || sending || !hasInk(strokes)}
+          data-testid="drawing-send"
+        >
+          {submitLabel} ▸
+        </Button>
+      </div>
+      {problem && (
+        <p role="alert" className="text-sm text-danger-ink">
+          {problem}
+        </p>
+      )}
+    </div>
+  );
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div
         ref={sheet}
         className={cn(
-          'relative mx-auto aspect-[4/5] w-full touch-none select-none overflow-hidden rounded-lg shadow-sm ring-1 ring-line [-webkit-touch-callout:none] [-webkit-user-select:none] dark:ring-stone-600',
+          'relative mx-auto aspect-[4/5] w-full touch-none select-none overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line-strong [-webkit-touch-callout:none] [-webkit-user-select:none]',
           disabled ? 'cursor-not-allowed opacity-70' : erasing ? 'cursor-none' : 'cursor-crosshair',
         )}
         onPointerDown={onPointerDown}
@@ -593,7 +630,7 @@ export function DrawingPad({
               title={c.name}
               onClick={() => setColor(i)}
               className={cn(
-                'size-9 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
+                'size-11 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
                 color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
               )}
               // The pens are made for the paper, so each swatch sits on a rim of it
@@ -608,7 +645,7 @@ export function DrawingPad({
             title="Eraser: rub out what you drew"
             onClick={() => setColor(ERASER)}
             className={cn(
-              'flex size-9 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
+              'flex size-11 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
               erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
             )}
             style={{ background: PAPER }}
@@ -629,7 +666,7 @@ export function DrawingPad({
               title={w.name}
               onClick={() => setWidth(i)}
               className={cn(
-                'flex size-9 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
+                'flex size-11 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
                 width === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong hover:ring-ink-muted',
               )}
               // The pen's colour on a chip of paper, as it will draw
@@ -651,7 +688,7 @@ export function DrawingPad({
         </div>
         <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
             aria-label="Undo"
             title="Undo (or tap with two fingers)"
@@ -661,7 +698,7 @@ export function DrawingPad({
             ↶
           </Button>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
             aria-label="Clear the page"
             title="Clear"
@@ -672,20 +709,15 @@ export function DrawingPad({
           </Button>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">{footer}</div>
-        <Button
-          onClick={() => void submit()}
-          disabled={disabled || sending || !hasInk(strokes)}
-          data-testid="drawing-send"
-        >
-          {submitLabel} ▸
-        </Button>
-      </div>
-      {problem && (
-        <p role="alert" className="text-sm text-danger-ink dark:text-rose-300">
-          {problem}
-        </p>
+      {bar ? (
+        <StickyBar fixed refusal={refusal}>
+          {send}
+        </StickyBar>
+      ) : (
+        <>
+          {send}
+          {refusal !== undefined && <RefusalSlot anchor={refusal} />}
+        </>
       )}
       {dialog}
     </div>

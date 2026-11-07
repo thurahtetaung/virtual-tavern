@@ -33,7 +33,7 @@ export function Picture({
     return (
       <div
         className={cn(
-          'relative flex aspect-[4/5] flex-col items-center justify-center gap-1 rounded-lg bg-stone-200 text-center text-sm text-stone-600 dark:bg-stone-800 dark:text-stone-300',
+          'relative flex aspect-[4/5] flex-col items-center justify-center gap-1 rounded-lg bg-sunk text-center text-sm text-ink-2',
           className,
         )}
         role="img"

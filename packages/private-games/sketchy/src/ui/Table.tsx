@@ -92,7 +92,7 @@ export function Table({
           return (
             <li
               key={s.id}
-              className="inline-flex items-center gap-1.5 rounded-full bg-panel px-2.5 py-1 text-sm ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
+              className="inline-flex items-center gap-1.5 rounded-full bg-panel px-2.5 py-1 text-sm ring-1 ring-line"
             >
               <PlayerTag
                 name={s.name}
@@ -155,7 +155,7 @@ export function Scores({ view, revealing }: { view: SketchyView; revealing: bool
               </span>
             )}
             {gained?.[s.id] ? (
-              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="text-xs font-semibold text-success-ink">
                 +{points(gained[s.id]!)}
               </span>
             ) : null}

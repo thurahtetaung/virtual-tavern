@@ -3,12 +3,18 @@ import { type GameRoomInfo, type GameUiProps, listNames, waitingForHost } from '
 import {
   Button,
   Countdown,
+  FitArea,
+  Fold,
   Hint,
   Panel,
   Standings,
+  StickyBar,
   Superlatives,
+  TabBar,
+  type TabBarItem,
   revealElement,
   cn,
+  tabPanelProps,
   useAbandonGame,
   useSecondsLeft,
   useSpectatorPrompt,
@@ -37,6 +43,14 @@ import { SketchyLobbySound, SketchySoundButton } from './Sound.tsx';
 import { useSketchyVolumes } from './useSound.ts';
 
 export type SketchyUiProps = GameUiProps<SketchyView, SketchyAction>;
+
+/** Phones in play: the game, or the scores and players, from the tab bar. */
+type PlayTab = 'play' | 'scores';
+const PLAY_TABS_ID = 'sketchy-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'play', label: 'Play', icon: 'gamepad-2' },
+  { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+];
 
 const CLOCK_LABEL = { draw: 'to draw', write: 'to write a title', vote: 'to pick' } as const;
 const AT_ZERO = {
@@ -180,13 +194,13 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         <Superlatives lines={room.superlatives} />
       ) : (
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
+          <div className="rounded-xl bg-danger-soft px-3 py-2">
             <dt className="font-semibold">🎭 Best liar</dt>
             <dd className="max-lg:line-clamp-2">
               {liar ? `${names(liar.ids)}: fooled ${liar.best}` : 'Nobody fooled anyone!'}
             </dd>
           </div>
-          <div className="rounded-xl bg-special-soft px-3 py-2 dark:bg-violet-500/10">
+          <div className="rounded-xl bg-special-soft px-3 py-2">
             <dt className="font-semibold">👍 Most liked</dt>
             <dd className="max-lg:line-clamp-2">
               {liked ? `${names(liked.ids)}: ${liked.best} likes` : 'No likes this game.'}
@@ -195,10 +209,11 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         </dl>
       )}
       {history.length > 0 && (
-        <details className="text-left text-sm">
-          <summary className="flex h-11 cursor-pointer items-center font-semibold">
-            🖼️ Every drawing ({history.length})
-          </summary>
+        <Fold
+          summary={<span className="font-semibold">🖼️ Every drawing ({history.length})</span>}
+          className="text-left text-sm"
+          bodyClassName="px-3 pb-3"
+        >
           <ul className="space-y-1" data-testid="sketchy-history">
             {history.map((h, i) => (
               <li key={i} className="flex justify-between gap-2">
@@ -211,22 +226,24 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
               </li>
             ))}
           </ul>
-        </details>
+        </Fold>
       )}
       {room.isHost ? (
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
-          <Button size="lg" className="max-lg:px-3" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="whitespace-nowrap max-lg:px-3"
-            onClick={() => void act({ type: 'back-to-lobby' })}
-          >
-            Change setup
-          </Button>
-        </div>
+        <StickyBar fixed>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
+            <Button size="lg" className="max-lg:px-3" onClick={() => void act({ type: 'start' })}>
+              Play again
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="whitespace-nowrap max-lg:px-3"
+              onClick={() => void act({ type: 'back-to-lobby' })}
+            >
+              Change setup
+            </Button>
+          </div>
+        </StickyBar>
       ) : (
         <p>{waitingForHost(room, 'start the next game')}</p>
       )}
@@ -294,7 +311,7 @@ function SketchyPlay({
   const revealing = reveal.progress !== null;
   const status = statusFor(view, room.isHost, blocker, room, revealing);
   // Phones show one screen at a time (the game, or the scores and players); desktop both.
-  const [tab, setTab] = useState<'play' | 'scores'>('play');
+  const [tab, setTab] = useState<PlayTab>('play');
   const skip = useSkip(view, room, online);
   const wide = useWideScreen();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
@@ -346,50 +363,32 @@ function SketchyPlay({
     );
   }
   const g = view.game;
-  const mine = view.scores.find((s) => s.id === view.me?.id);
   const drawingNow =
     view.phase === 'playing' && g?.stage === 'draw' && g.myPrompt !== null && !g.myDrawing;
+  // Phones: one section at a time from the tab bar; wider screens show both side by side.
+  const shown: PlayTab | null = wide ? null : tab;
   return (
     <div className="space-y-3">
       <div className="hidden justify-end lg:flex">{sound}</div>
-      <div className="flex items-center gap-1 lg:hidden">
-        <div
-          role="tablist"
-          aria-label="Show"
-          className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-card p-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
-        >
-          {(['play', 'scores'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              data-testid={`tab-${t}`}
-              onClick={() => setTab(t)}
-              className={cn(
-                'h-10 rounded-lg text-sm font-semibold',
-                tab === t ? 'bg-panel shadow-sm dark:bg-stone-900' : 'text-ink-muted',
-              )}
-            >
-              {t === 'play'
-                ? 'Play'
-                : `Scores${mine && !revealing ? ` · ⭐ ${points(mine.score)}` : ''}`}
-            </button>
-          ))}
-        </div>
-        {sound}
-      </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div
           className={cn(
             'min-w-0 space-y-3',
             skip && 'max-sm:space-y-2',
-            tab !== 'play' && 'hidden lg:block',
+            shown === 'scores' && 'hidden',
           )}
+          {...(shown === 'play' && tabPanelProps(PLAY_TABS_ID, 'play'))}
         >
           {view.phase === 'playing' && g && (
-            <Header view={view} clockOffset={room.clockOffset} quiet={!!skip && !wide} />
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <Header view={view} clockOffset={room.clockOffset} quiet={!!skip && !wide} />
+              </div>
+              {/* Phones: the sound sliders beside the round line. */}
+              <div className="lg:hidden">{sound}</div>
+            </div>
           )}
+          {view.phase === 'over' && <div className="flex justify-end lg:hidden">{sound}</div>}
           <div className="relative">
             {/* While drawing, the pad's own heading says it all: the room goes to the pad. */}
             {/* Phones: one line while the skip panel shows (who is missing is on its button). */}
@@ -404,7 +403,12 @@ function SketchyPlay({
             <GameOver view={view} room={room} act={act} />
           ) : (
             g && (
-              <>
+              // Phones: the stage takes the rest of the screen and scrolls inside when it must.
+              <FitArea
+                on={!wide && shown === 'play'}
+                resetKey={`${g.stage}-${g.round}-${g.turn?.number ?? 0}`}
+                className="space-y-3 max-sm:space-y-2"
+              >
                 <ContinueWithout skip={skip} act={act} />
                 {g.stage === 'draw' ? (
                   <Draw view={view} room={room} act={act} />
@@ -415,17 +419,30 @@ function SketchyPlay({
                     </Panel>
                   )
                 )}
-              </>
+              </FitArea>
             )
           )}
         </div>
-        <aside className={cn('space-y-3', tab !== 'scores' && 'hidden lg:block')}>
+        <aside
+          className={cn('space-y-3', shown === 'play' && 'hidden')}
+          {...(shown === 'scores' && tabPanelProps(PLAY_TABS_ID, 'scores'))}
+        >
           <Panel className="space-y-3">
             <Scores view={view} revealing={revealing} />
             <Table view={view} online={online} act={act} hostId={room.hostId} />
           </Panel>
         </aside>
       </div>
+      {shown && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label={title}
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
