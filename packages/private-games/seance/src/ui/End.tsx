@@ -110,7 +110,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                               onTap={() => open(i + 1)}
                             />
                             <p className="text-center text-[10px] leading-none text-ink-muted">
-                              {roman(v.hour)}
+                              hour {roman(v.hour)}
                             </p>
                           </div>
                         ))
@@ -131,7 +131,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                             onTap={() => open(1 + visions.length + i)}
                           />
                           <p className="text-center text-[10px] leading-none text-ink-muted">
-                            ✗ {roman(v.hour)}
+                            miss, hour {roman(v.hour)}
                           </p>
                         </div>
                       ))}

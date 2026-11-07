@@ -21,14 +21,16 @@ const people = (ids: string[]) => ({
 describe('status line', () => {
   it('guides the lobby', () => {
     const h = harness(2);
-    expect(statusFor(seance.view(h.state, HOST), true).text).toMatch(/3 players are needed/);
+    // The host's blocker sits under Begin the séance; guests read it in the status.
+    expect(statusFor(seance.view(h.state, HOST), true).text).toBe('');
+    expect(statusFor(seance.view(h.state, 'ana'), false).text).toMatch(/3 players are needed/);
     const ok = harness(4);
     expect(statusFor(seance.view(ok.state, HOST), true)).toEqual({
-      text: 'Everyone is in. Press Start when you’re ready!',
+      text: 'Start when ready.',
       yourMove: true,
     });
     expect(statusFor(seance.view(ok.state, 'ana'), false, people(['host', 'ana'])).text).toBe(
-      'All set. Waiting for Host (host) to start…',
+      'Waiting for Host (host) to start…',
     );
   });
 

@@ -360,7 +360,7 @@ function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo
     const all = g.sent.length + unsent.length;
     body = (
       <p>
-        Waiting for the ghost: {g.sent.length} of {all} vision{all === 1 ? '' : 's'} sent
+        Visions sent: {g.sent.length} of {all}
         {away.length > 0 && (
           <span className="font-normal text-ink-muted">
             {' '}

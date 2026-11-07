@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   NameDot,
   Panel,
@@ -122,7 +123,7 @@ export function Lobby({
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">
@@ -131,14 +132,11 @@ export function Lobby({
               ({seated.length}/{MAX_PLAYERS})
             </span>
           </h3>
-          <Button variant="ghost" size="sm" onClick={showGuide}>
-            📖 How to play
-          </Button>
         </div>
         <p className="text-sm text-ink-muted">
           {seated.length >= 3
             ? `${seated.length} players: one ghost and ${seated.length - 1} psychics.`
-            : `${room.gameName ?? 'Séance'} needs 3 to 7 players: one ghost and 2 to 6 psychics.`}
+            : 'One player is the ghost; everyone else is a psychic.'}
         </p>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (
@@ -227,12 +225,13 @@ export function Lobby({
             <p className="text-xs text-ink-muted">
               {me.color
                 ? `You’ll play ${content.psychicName(me.color)}.`
-                : 'Pick one, or you get a free one at the start.'}
+                : 'Pick one, or one is picked for you at the start.'}
             </p>
             <RefusalSlot anchor="seance-color" />
           </section>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? 'Séance'} onClick={showGuide} />
 
       <LobbySettings
         editable={host}
@@ -248,7 +247,6 @@ export function Lobby({
         ]}
         className="space-y-3"
       >
-        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the ghost?</h4>
           <div className="flex flex-wrap gap-2">
