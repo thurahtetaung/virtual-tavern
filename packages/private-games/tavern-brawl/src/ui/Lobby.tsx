@@ -174,7 +174,8 @@ export function Lobby({
   const phone = usePhone();
   const detailsTaker = details ? takenBy.get(details) : undefined;
 
-  // The shared lobby line once you have a hero; a host who can't start yet reads why under Start.
+  // The shared lobby line once you have a hero; a host who can't start yet reads why under Start
+  // (not before picking: the line above already says what to do, and the phone has no room for both).
   const lobbyLine = !me
     ? { text: 'Watching the table.', me: false }
     : !me.playing
@@ -448,7 +449,9 @@ export function Lobby({
           >
             Start the brawl
           </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
+          {blocker && !(me?.playing && !me.hero) && (
+            <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>
+          )}
           <RefusalSlot anchor="tb-start" />
         </StickyBar>
       )}
