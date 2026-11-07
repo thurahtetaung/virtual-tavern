@@ -23,7 +23,7 @@ describe('statusFor', () => {
     const v = echo.view(h.state, HOST);
     expect(statusFor(v, true, null)).toMatchObject({ yourMove: true });
     expect(statusFor(echo.view(h.state, 'p2'), false, null).text).toContain('Waiting for the host');
-    expect(statusFor(v, true, 'Not enough words.').text).toContain('Almost ready');
+    expect(statusFor(v, true, 'Not enough words.').text).toBe('');
     h.act({ type: 'sit', playing: false }, 'p2');
     expect(status(h, 'p2').text).toContain("You're watching");
     expect(status(h, 'p2').text).toContain('Take a seat');
@@ -96,7 +96,7 @@ describe('statusFor with the room', () => {
   it('names the host in the lobby', () => {
     const h = harness(FOUR);
     expect(statusFor(echo.view(h.state, 'p2'), false, null, people()).text).toBe(
-      'All set. Waiting for HOST (host) to start the game…',
+      'Waiting for HOST (host) to start…',
     );
   });
 

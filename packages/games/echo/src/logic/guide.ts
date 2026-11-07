@@ -72,7 +72,7 @@ const text: GameGuide = {
     {
       title: 'How did you do?',
       paragraphs: [
-        'Your score is the number of cards you got right. For a 13-card deck: 13 is Perfect, 12 Amazing, 10–11 Great, 7–9 Good, 4–6 A good start, and 0–3 Try again. Shorter and longer decks are rated in the same proportion.',
+        'Your score is the number of cards you got right. For a 13-card deck: 13 is Perfect, 12 Amazing, 10–11 Great, 7–9 Good, 4–6 A good start, and 0–3 Not this time. Shorter and longer decks are rated in the same proportion.',
       ],
     },
     {
@@ -141,7 +141,7 @@ export const guide: GameGuide = shapeGuide(text, {
         ['10–11', 'Great'],
         ['7–9', 'Good'],
         ['4–6', 'A good start'],
-        ['0–3', 'Try again'],
+        ['0–3', 'Not this time'],
       ],
     },
   ],

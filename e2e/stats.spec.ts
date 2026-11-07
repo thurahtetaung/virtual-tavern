@@ -285,7 +285,7 @@ test('a real Echo card shows up on the stats page', async ({ browser }) => {
   test.setTimeout(90_000);
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create an Echo room' }).click();
-  await expect(host.getByText('Almost ready: Echo needs at least 3 players')).toBeVisible();
+  await expect(host.getByText('3 players are needed (1 seated).')).toBeVisible();
   const url = host.url();
   const writers: Page[] = [];
   for (const name of ['Ana', 'Ben']) {
@@ -295,7 +295,7 @@ test('a real Echo card shows up on the stats page', async ({ browser }) => {
     ).toBeVisible();
   }
   const [ana, ben] = writers as [Page, Page];
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
   // Hana guesses first. Made-up clues can't give the secret word away.

@@ -43,7 +43,7 @@ test('four players play Echo: a hit with cancelled clues, a pass and a miss deci
   test.setTimeout(120_000);
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create an Echo room' }).click();
-  await expect(host.getByText('Almost ready: Echo needs at least 3 players')).toBeVisible();
+  await expect(host.getByText('3 players are needed (1 seated).')).toBeVisible();
   const url = host.url();
   // Seat order is the guessing order, so everyone joins one at a time.
   const joined: Page[] = [];
@@ -54,7 +54,7 @@ test('four players play Echo: a hit with cancelled clues, a pass and a miss deci
     ).toBeVisible();
   }
   const [ana, ben, cy] = joined as [Page, Page, Page];
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: '8 cards' }).click();
   await openSettings(ana);
   await expect(ana.getByText('8 cards', { exact: true })).toBeVisible();

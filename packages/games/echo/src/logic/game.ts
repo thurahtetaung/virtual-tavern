@@ -58,7 +58,7 @@ export function rating(score: number, deckSize: number): string {
   if (share >= 0.7) return 'Great';
   if (share >= 0.5) return 'Good';
   if (share >= 0.25) return 'A good start';
-  return 'Try again';
+  return 'Not this time';
 }
 
 // ---- Card flow ----

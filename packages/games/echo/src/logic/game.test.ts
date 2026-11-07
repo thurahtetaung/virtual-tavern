@@ -758,14 +758,14 @@ describe('actions and ratings', () => {
 
   it('rates a 13-card game as the guide says', () => {
     const bands = Array.from({ length: 14 }, (_, s) => rating(s, 13));
-    expect(bands.slice(0, 4).every((r) => r === 'Try again')).toBe(true);
+    expect(bands.slice(0, 4).every((r) => r === 'Not this time')).toBe(true);
     expect(bands.slice(4, 7).every((r) => r === 'A good start')).toBe(true);
     expect(bands.slice(7, 10).every((r) => r === 'Good')).toBe(true);
     expect(bands.slice(10, 12).every((r) => r === 'Great')).toBe(true);
     expect(bands[12]).toBe('Amazing');
     expect(bands[13]).toBe('Perfect');
     expect(rating(8, 8)).toBe('Perfect');
-    expect(rating(0, 20)).toBe('Try again');
+    expect(rating(0, 20)).toBe('Not this time');
   });
 });
 
