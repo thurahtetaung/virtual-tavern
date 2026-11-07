@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.98.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.1...v0.98.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** election and murder games on the shared tab bar, and readable night text ([#549](https://github.com/thurahtetaung/virtual-tavern/issues/549)) ([a2a35b9](https://github.com/thurahtetaung/virtual-tavern/commit/a2a35b993f7006d643cc9caa73494be15b6c5b00))
+
 ## [0.98.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.0...v0.98.1) (2026-11-07)
 
 
