@@ -9,7 +9,7 @@ const status = (h: { state: Parameters<typeof echo.view>[0] }, id: string | null
 describe('startBlocker', () => {
   it('needs three players and enough words for the deck', () => {
     const h = harness([HOST, 'p2']);
-    expect(startBlocker(echo.view(h.state, HOST), 500)).toContain('at least 3 players');
+    expect(startBlocker(echo.view(h.state, HOST), 500)).toContain('3 players are needed');
     const four = harness(FOUR);
     four.act({ type: 'update-settings', deckSize: 20 });
     expect(startBlocker(echo.view(four.state, HOST), 99)).toContain('needs at least 100 words');
