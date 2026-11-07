@@ -38,7 +38,7 @@ test('a 2-player game on phones: gems, a purchase, a noble visit, the final roun
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Hana's two-tap take: pick three piles, then Take. A pile tapped twice is two of a colour.
   await myTurn(hana);
@@ -91,7 +91,7 @@ test('over 10 pieces: a guided hand-back; reserved cards stay hidden from the ot
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'])) as [Page, Page];
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   const reserveFaceUp = async () => {
     await myTurn(ana);
@@ -126,7 +126,7 @@ test('over 10 pieces: a guided hand-back; reserved cards stay hidden from the ot
   await picker.getByRole('button', { name: 'Hand back 2 of 2' }).click();
   await tab(hana, 'Your table');
   await expect(
-    hana.getByRole('region', { name: 'Your table' }).getByLabel('10 of 10 pieces'),
+    hana.getByRole('region', { name: 'Your table' }).getByText('10 of 10 gems'),
   ).toBeVisible();
   await tab(hana, 'Table');
   await expect(ana.getByText(YOUR_TURN)).toBeVisible();
@@ -152,7 +152,7 @@ test('Cities: meeting one finishes the round, and only those who meet one can wi
   await options(hana, ['jw-cities']);
   // The target no longer applies.
   await expect(hana.getByTestId('jw-target')).toBeHidden();
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Cities instead of nobles.
   await expect(hana.getByRole('region', { name: 'Cities' }).locator('[data-city]')).toHaveCount(3);
@@ -193,7 +193,7 @@ test('Strongholds: a placement locks a card, and a Conquest buys it on top of th
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
   await options(hana, ['jw-strongholds']);
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Hana's two strongholds on L1-35: locked for Ana.
   await myTurn(hana);
