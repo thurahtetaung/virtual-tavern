@@ -1,4 +1,10 @@
-import { type PresencePlayer, listNames, namesWithPresence, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  listNames,
+  lobbyStatus,
+  namesWithPresence,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { type ShowdownScore, winReason, winnerFrom } from '../logic/outcome.ts';
 import {
   type EnigmaView,
@@ -77,7 +83,8 @@ function myTask(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): Stat
   if (view.stage === 'clue') {
     if (tx.role === 'encryptor' && !tx.clues) {
       return {
-        text: `You're the Encryptor! Write 3 clues for your code ${formatCode(tx.code)}.`,
+        // The code card below hides it from onlookers, so this line never spells it out.
+        text: `You're the Encryptor! Write 3 clues for your code (hold to see it).`,
         yourMove: true,
       };
     }
@@ -185,10 +192,12 @@ export function statusFor(
   if (view.phase === 'lobby') {
     if (!me?.team)
       return { text: 'Pick a team below. Each team needs at least 2 players.', yourMove: true };
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: room?.hostId ?? '', players: room?.players ?? [] },
+      blocker,
+    );
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     // The result panel names the winner; the hint says why, so the two never repeat each other.

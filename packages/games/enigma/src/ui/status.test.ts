@@ -29,12 +29,13 @@ describe('statusFor', () => {
     expect(statusFor(v, false, startBlocker(v, 40)).text).toContain('Pick a team');
   });
 
-  it('tells the Encryptor their code, and others who they are waiting for', () => {
+  it('never spells out the Encryptor’s covered code, and tells others who they are waiting for', () => {
     const h = startedGame();
     const enc = tx(h, 'red').encryptor;
     const code = tx(h, 'red').code.join('-');
     expect(statusFor(enigma.view(h.state, enc), false, null)).toMatchObject({ yourMove: true });
-    expect(statusFor(enigma.view(h.state, enc), false, null).text).toContain(code);
+    expect(statusFor(enigma.view(h.state, enc), false, null).text).not.toContain(code);
+    expect(statusFor(enigma.view(h.state, enc), false, null).text).toContain('hold to see it');
     sendClues(h, 'red');
     expect(statusFor(enigma.view(h.state, enc), false, null).text).toMatch(
       /Waiting for .* to write clues/,
@@ -80,7 +81,7 @@ describe('statusFor names people', () => {
     for (const id of RED) h.act({ type: 'join-team', team: 'red' }, id);
     for (const id of BLUE) h.act({ type: 'join-team', team: 'blue' }, id);
     expect(statusFor(enigma.view(h.state, 'r2'), false, null, room()).text).toBe(
-      'All set. Waiting for HOST (host) to start the game…',
+      'Waiting for HOST (host) to start…',
     );
   });
 });

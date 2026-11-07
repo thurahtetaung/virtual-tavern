@@ -103,7 +103,7 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         {side('blue')}
       </div>
       <p id="enigma-legend" hidden={!legend} className="text-center text-caption text-ink-muted">
-        🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses
+        🕵️ 2 intercepts win · 💥 2 miscommunications lose
       </p>
     </div>
   );
