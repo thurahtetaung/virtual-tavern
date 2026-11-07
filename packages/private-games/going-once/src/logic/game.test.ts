@@ -646,19 +646,7 @@ describe('the end', () => {
   });
 });
 
-describe('moderation and leaving', () => {
-  it('lets the host hide a drawing for everyone; it still sells', () => {
-    const h = auctioning(3, 3);
-    const item = lot(h);
-    expect(h.refuse('p2', { type: 'hide', item: item.id, hidden: true }).code).toBe('not-host');
-    h.act(HOST, { type: 'hide', item: item.id, hidden: true });
-    const pic = goingOnce.view(h.state, 'p2').game!.auction!.picture;
-    expect(pic).toEqual({ item: item.id, drawing: null, house: null, hidden: true });
-    bid(h, 'p2', 400);
-    hammer(h);
-    expect(lot(h).sale!.buyer).toBe('p2');
-  });
-
+describe('leaving', () => {
   it('keeps a leaver’s seat, cash and art, and welcomes them back', () => {
     const h = auctioning(3, 3);
     h.state = goingOnce.playerLeft(h.state, 'p3', h.now);

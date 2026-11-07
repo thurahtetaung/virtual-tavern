@@ -186,7 +186,7 @@ function lotView(view: GoingOnceView) {
     return {
       label: 'Practice',
       bid: p.bid,
-      picture: { item: 'practice', drawing: null, house: p.house, hidden: false },
+      picture: { item: 'practice', drawing: null, house: p.house },
     };
   }
   const a = g.auction;
@@ -387,7 +387,6 @@ function Plain({
             <Picture
               drawing={lot.picture.drawing}
               house={lot.picture.house}
-              hidden={lot.picture.hidden}
               art={art}
               label="The lot"
             />
@@ -476,11 +475,10 @@ function Room({
                 style={CANVAS}
                 data-testid="go-stage-picture"
               >
-                {(a.picture.drawing || a.picture.house || a.picture.hidden) && (
+                {(a.picture.drawing || a.picture.house) && (
                   <Picture
                     drawing={a.picture.drawing}
                     house={a.picture.house}
-                    hidden={a.picture.hidden}
                     art={art}
                     label="The lot"
                     className="h-full w-full rounded-none"
@@ -914,7 +912,6 @@ function EndScene({
                       <Picture
                         drawing={r.drawing}
                         house={r.house}
-                        hidden={r.hidden}
                         art={art}
                         label={r.title}
                         className="h-full w-full rounded-none"

@@ -184,7 +184,6 @@ const base: GameGuide = {
       bullets: [
         'Drawing time: 60, 90 (default) or 120 seconds for both drawings.',
         'Auction pace: Relaxed, Normal (the default) or Fast (the default at 3 players). Relaxed gives 12 seconds after each bid, like the original; Fast suits players who know the game.',
-        'The host can hide a drawing for everyone; it still sells, shown as hidden. Anyone can hide a drawing on their own screen.',
         'Between lots the host can tap Next to skip a wait.',
         'The how-to and the practice lot come in a room’s first game only; anyone can skip them, and the host can turn the practice lot off.',
       ],

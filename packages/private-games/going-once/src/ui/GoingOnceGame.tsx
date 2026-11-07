@@ -3,6 +3,8 @@ import {
   type Drawing,
   type GameRoomInfo,
   type GameUiProps,
+  lobbyStatus,
+  playersNeeded,
   waitingFor,
   waitingForHost,
 } from '@vt/game-sdk';
@@ -11,6 +13,7 @@ import {
   Countdown,
   EndTabs,
   FitArea,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -51,7 +54,6 @@ import {
   GO_TABS,
   GO_TABS_ID,
   type GoTab,
-  useLocalHidden,
   useSeenDrawings,
 } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
@@ -335,37 +337,27 @@ function Lobby({
   const voiceSetsPace = view.settings.voice && view.settings.sound !== 'off';
   const blocker =
     seated.length < MIN_PLAYERS
-      ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
+      ? playersNeeded(MIN_PLAYERS, seated.length)
       : seated.length > MAX_PLAYERS
         ? `At most ${MAX_PLAYERS} can play.`
         : noContent
           ? 'No title groups yet: an admin has to import them first.'
           : null;
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobby = lobbyStatus(room, blocker);
+  const status = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobby;
   return (
     <>
-      <div className="flex items-start gap-1">
-        <div className="min-w-0 flex-1">
-          <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-            {!me
-              ? 'Watching the table.'
-              : !me.playing
-                ? 'You’re watching. Take a seat to play.'
-                : blocker
-                  ? blocker
-                  : room.isHost
-                    ? 'Everyone’s here? Start the game.'
-                    : waitingForHost(room)}
-          </Hint>
-        </div>
-      </div>
+      {status && <Hint tone={status.me ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Bidders ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
@@ -405,9 +397,10 @@ function Lobby({
         )}
         <p className="text-sm text-ink-muted">
           Draw two quick pictures from secret titles, then bid on everyone’s art. Each artist’s two
-          drawings are worth $4,500 together. 4 to 6 players is best.
+          drawings are worth $4,500 together. Best with 4–6 players.
         </p>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Going Once'} onClick={showGuide} />
       <LobbySettings
         editable={room.isHost}
         summary={[
@@ -416,7 +409,7 @@ function Lobby({
           soundNow === 'off'
             ? 'sound off'
             : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
-          ...(view.gamesPlayed === 0 && view.settings.practice ? ['practice lot'] : []),
+          ...(view.gamesPlayed === 0 && view.settings.practice ? ['a practice lot first'] : []),
         ]}
         className="space-y-4"
       >
@@ -457,7 +450,7 @@ function Lobby({
         </div>
         <div className="flex flex-col gap-2" data-testid="go-sound-settings">
           <Segmented
-            label="Sound"
+            label="Where sound plays"
             values={SOUND_MODES.filter(
               (m) => m !== 'stage' || stagePresent || soundNow === 'stage',
             )}
@@ -474,7 +467,7 @@ function Lobby({
               on={view.settings.voice}
               editable={room.isHost && view.settings.sound !== 'off'}
               title="The auctioneer speaks and sets the pace"
-              help="A welcome, a short tutorial anyone can skip, every call, and players by their colour. His chants set the auction’s pace. Each player sets their own volume under Sound."
+              help="A welcome, a short tutorial anyone can skip, every call, and players called by their colour. His chants set the auction’s pace. Each player sets their own volume under Sound."
               onChange={(v) =>
                 void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
               }
@@ -509,8 +502,9 @@ function Lobby({
             onClick={() => void act({ type: 'start' }, { anchor: 'go-start' })}
             data-testid="go-start"
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
         </StickyBar>
       )}
     </>
@@ -829,7 +823,6 @@ function End({
   seen: ReadonlyMap<string, Drawing>;
 }) {
   const g = view.game!;
-  const [localHidden] = useLocalHidden();
   const final = g.final ?? [];
   // Phones show the scores, the awards or the gallery (a page of lots at a time), so the end fits
   // the screen; wider screens show them all.
@@ -929,8 +922,6 @@ function End({
               <Picture
                 drawing={r.drawing ?? seen.get(r.item) ?? null}
                 house={r.house}
-                hidden={r.hidden}
-                hiddenByMe={localHidden.has(r.item)}
                 art={art}
                 label={r.title}
                 className="w-full shadow-vt-1 ring-1 ring-line"
@@ -962,7 +953,7 @@ function End({
               </span>
               {(g.knew?.by[r.item]?.length ?? 0) > 0 && (
                 <span className="text-xs text-ink-muted" data-testid="go-knew">
-                  📜 Knew it:{' '}
+                  📜 Wished for it:{' '}
                   {g.knew!.by[r.item]!.map((id) => (id === room.you ? 'you' : name(id))).join(', ')}
                 </span>
               )}

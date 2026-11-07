@@ -242,8 +242,6 @@ describe('fuzz', () => {
           run(id, { type: 'screw-pick', target: pickOne(rng, view.mine!.targets)! });
         else if (roll < 0.04) run(id, { type: 'screw' });
         else if (roll < 0.06) run(id, { type: 'call-bank' });
-        else if (roll < 0.07)
-          run(HOST, { type: 'hide', item: a.picture.item, hidden: !a.picture.hidden });
         else run(id, { type: 'bid', amount: pickOne(rng, a.steps)!, seq: a.seq });
         continue;
       }
