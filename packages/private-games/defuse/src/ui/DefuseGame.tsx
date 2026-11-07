@@ -778,7 +778,7 @@ function SharedSettings({
       </div>
       {!mission && (
         <details data-testid="vetoes">
-          <summary className="cursor-pointer text-sm font-semibold">
+          <summary className="cursor-pointer py-3 text-sm font-semibold">
             Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
           </summary>
           <div className="mt-2 flex flex-wrap gap-1">
