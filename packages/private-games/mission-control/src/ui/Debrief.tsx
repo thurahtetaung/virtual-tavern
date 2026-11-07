@@ -228,7 +228,7 @@ export function Debrief({
           {replay ? 'Hide the replay' : '🔍 Replay: every hand, trick by trick'}
         </Button>
         {room.isHost && (
-          <Button variant="secondary" onClick={() => send({ type: 'lobby' })}>
+          <Button size="lg" variant="secondary" onClick={() => send({ type: 'lobby' })}>
             Change setup
           </Button>
         )}

@@ -183,7 +183,7 @@ test('Cities: meeting one finishes the round, and only those who meet one can wi
   await take(ana, ['white', 'blue', 'black']);
   await expect(hana.getByText('You win with 14 points!')).toBeVisible();
   await expect(ana.getByText('Hana wins with 14 points!')).toBeVisible();
-  await expect(ana.getByText('🏙 met a City').first()).toBeVisible();
+  await expect(ana.getByText('🏙 met a City').filter({ visible: true }).first()).toBeVisible();
 });
 
 test('Strongholds: a placement locks a card, and a Conquest buys it on top of the turn', async ({

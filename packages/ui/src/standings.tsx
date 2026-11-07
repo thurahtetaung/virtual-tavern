@@ -46,7 +46,8 @@ export function Standings({
   const order = [places[1], places[0], places[2]].filter((p): p is number => p !== undefined);
   // A big table on a phone: tighter rows and no podium (the table repeats it), so it fits.
   const dense = entries.length > 6;
-  const table = entries.length < 2 || ranked.some((r) => r.place > 3);
+  // A big table always shows on phones (no podium there); otherwise only someone off the podium needs it.
+  const table = entries.length < 2 || dense || ranked.some((r) => r.place > 3);
   const label = (r: Placed<StandingEntry>) =>
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
@@ -73,7 +74,7 @@ export function Standings({
                   {onPlace(place).map((r) => (
                     <li
                       key={r.entry.id}
-                      className="flex items-center justify-center gap-1 font-semibold"
+                      className="flex flex-wrap items-center justify-center gap-x-1 font-semibold"
                       aria-label={label(r)}
                     >
                       <span className="truncate">
@@ -81,6 +82,12 @@ export function Standings({
                         {r.entry.id === you && ' (you)'}
                       </span>
                       <NameDot name={r.entry.name} className="order-first" />
+                      {!table && r.entry.note && (
+                        // Without the table, the podium carries each player's note.
+                        <span className="block basis-full text-xs font-normal text-ink-muted">
+                          {r.entry.note}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

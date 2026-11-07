@@ -247,7 +247,12 @@ export function Lobby({
           </Button>
         )}
       </Panel>
-      <GuideLink title={room.gameName ?? 'Tavern Brawl'} onClick={showGuide} />
+      {/* Phones have the room bar's Rules button, and this lobby must fit the screen. */}
+      <GuideLink
+        title={room.gameName ?? 'Tavern Brawl'}
+        onClick={showGuide}
+        className="max-sm:hidden"
+      />
 
       <Panel className="flex flex-col gap-2" id="tb-heroes">
         <div className="flex flex-wrap items-center justify-between gap-2">

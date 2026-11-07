@@ -63,9 +63,9 @@ describe('player colours', () => {
         />
       </PlayerColors.Provider>,
     );
-    // Once on the podium and once in the full standings.
-    expect(page.match(/data-color="teal"/g)).toHaveLength(2);
-    expect(page.match(/data-color="red"/g)).toHaveLength(2);
+    // On the podium only: the table shows only when someone is off the podium.
+    expect(page.match(/data-color="teal"/g)).toHaveLength(1);
+    expect(page.match(/data-color="red"/g)).toHaveLength(1);
   });
 
   it('hides the dot from screen readers where the colour is said already', () => {

@@ -164,7 +164,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     await expect(await galleryLot(cleo, title)).toContainText('Unsold · worth');
   // Ben: $1,800 − $400 = $1,400 cash, two drawings worth $3,500 + $1,000, $1,500 debt.
   await ben.getByTestId('go-end-tab-scores').click();
-  await expect(ben.getByText('cash $1,400 + art $4,500 − debt $1,500')).toBeVisible();
+  await expect(
+    ben.getByText('cash $1,400 + art $4,500 − debt $1,500').filter({ visible: true }),
+  ).toBeVisible();
 });
 
 /** A lot in the end's gallery on a phone: its tab, paged to the lot (two lots a page). */

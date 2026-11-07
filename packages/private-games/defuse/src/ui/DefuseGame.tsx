@@ -1275,7 +1275,7 @@ function Result({
             >
               Next bomb
             </Button>
-            <Button variant="secondary" onClick={() => send({ type: 'lobby' })}>
+            <Button size="lg" variant="secondary" onClick={() => send({ type: 'lobby' })}>
               Change setup
             </Button>
           </div>

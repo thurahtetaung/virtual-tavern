@@ -188,8 +188,9 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         }))}
         you={view.me?.id}
         scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
-        // On a phone the podium alone: the full list is the Scores tab, a tap away.
-        className="text-left max-lg:[&>:not(:first-child)]:hidden"
+        // On a phone the podium alone (the full list is the Scores tab, a tap away); past 6 players
+        // Standings drops the podium there, so the table stays.
+        className={cn('text-left', ranked.length <= 6 && 'max-lg:[&>div]:hidden')}
       />
       {room.superlatives?.length ? (
         <Superlatives lines={room.superlatives} />
