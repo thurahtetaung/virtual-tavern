@@ -228,11 +228,11 @@ const rules: AwardRule[] = [
     copy: {
       cheeky: [
         '{who} marked one card and still scored {n}. Smug',
-        '{who} needed one cross for {n} points',
+        '{who} needed one mark for {n} points',
       ],
       wholesome: [
         '{who} chose one card, perfectly, for {n}',
-        'One cross, {n} points: {who} kept it simple',
+        'One mark, {n} points: {who} kept it simple',
       ],
     },
     compute: (g) => {
