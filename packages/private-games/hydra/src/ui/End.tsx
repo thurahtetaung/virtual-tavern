@@ -134,18 +134,16 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
                   return (
                     <li
                       key={`${cl.by}:${cl.kind}`}
-                      className={cn('rounded px-1', lied && 'bg-danger-soft dark:bg-rose-500/20')}
+                      className={cn('rounded px-1', lied && 'bg-danger-soft')}
                     >
                       <ClaimLine view={view} c={c} claim={cl} round={r} />{' '}
                       {lied === true && (
-                        <span className="rounded bg-danger dark:bg-rose-600 px-1 text-[0.6rem] font-black text-white">
+                        <span className="rounded bg-danger px-1 text-[0.6rem] font-black text-white">
                           LIE{part && ` (${part})`}
                         </span>
                       )}
                       {lied === false && (
-                        <span className="text-[0.65rem] font-bold text-emerald-700 dark:text-emerald-400">
-                          ✓ true
-                        </span>
+                        <span className="text-[0.65rem] font-bold text-success-ink">✓ true</span>
                       )}
                     </li>
                   );

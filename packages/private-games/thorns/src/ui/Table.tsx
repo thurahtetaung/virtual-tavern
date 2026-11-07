@@ -504,7 +504,7 @@ export function Table(props: TableProps) {
         {view.phase === 'playing' && away.length > 0 && (
           <section
             aria-label="Players who left"
-            className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+            className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line"
           >
             <p>
               {away.map((p) => p.name).join(', ')} left the room:{' '}

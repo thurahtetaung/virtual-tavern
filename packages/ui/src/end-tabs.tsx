@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useId, useState, useSyncExternalStore } from 'react';
+import { Fragment, type ReactNode, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useFitToScreen } from './fit-area.tsx';
 import { Tabs, tabPanelProps } from './tabs.tsx';
 
@@ -49,7 +49,13 @@ export function EndTabs({
   const id = useId();
   const [chosen, setChosen] = useState(parts[0]?.id ?? '');
   const current = parts.find((t) => t.id === chosen) ?? parts[0];
-  const { box, inner } = useFitToScreen(!isWide && parts.length > 1, current?.id ?? '');
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  useFitToScreen(box, {
+    on: !isWide && parts.length > 1,
+    resetKey: current?.id ?? '',
+    content: inner,
+  });
   if (isWide || parts.length < 2)
     return (
       <>

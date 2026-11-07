@@ -106,9 +106,7 @@ function PresetCard({
         onClick={() => roles && onPick(roles)}
         className={cn(
           'flex h-full w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left ring-1 transition',
-          on
-            ? 'bg-special-soft ring-2 ring-special dark:ring-indigo-500 dark:bg-indigo-500/10'
-            : 'bg-card ring-line-strong hover:bg-panel',
+          on ? 'bg-special-soft ring-2 ring-special' : 'bg-card ring-line-strong hover:bg-panel',
           !roles && 'opacity-60',
         )}
       >
@@ -118,9 +116,9 @@ function PresetCard({
             className={cn(
               'rounded-full px-1.5 text-xs font-semibold',
               preset.level === 'beginner'
-                ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
+                ? 'bg-success-soft text-success-ink'
                 : preset.level === 'chaos'
-                  ? 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200'
+                  ? 'bg-danger-soft text-danger-ink'
                   : 'bg-sunk text-ink',
             )}
           >
@@ -129,9 +127,7 @@ function PresetCard({
         </span>
         <span className="text-xs text-ink-muted">{preset.description}</span>
         {!roles && (
-          <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
-            Needs {minPlayers}+ players
-          </span>
+          <span className="text-xs font-semibold text-danger-ink">Needs {minPlayers}+ players</span>
         )}
       </button>
     </li>
@@ -164,9 +160,7 @@ function Segmented<T extends string | number>({
             onClick={() => onChange(o.id)}
             className={cn(
               'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
-              o.id === value
-                ? 'bg-special text-white ring-special dark:bg-indigo-600 dark:ring-indigo-500'
-                : 'bg-card hover:bg-panel',
+              o.id === value ? 'bg-special text-white ring-special' : 'bg-card hover:bg-panel',
               disabled && o.id !== value && 'opacity-50',
             )}
           >
@@ -199,9 +193,7 @@ function RoleTile({
       data-testid={`role-${role}`}
       className={cn(
         'flex w-[6.5rem] flex-col items-center gap-1 rounded-xl p-1.5 ring-1',
-        count > 0
-          ? 'bg-special-soft ring-special dark:bg-indigo-500/10 dark:ring-indigo-400/60'
-          : 'ring-line',
+        count > 0 ? 'bg-special-soft ring-special' : 'ring-line',
       )}
     >
       <button
@@ -469,9 +461,7 @@ export function Lobby({
             data-testid="card-count"
             className={cn(
               'text-sm font-semibold',
-              s.roles.length === need
-                ? 'text-emerald-700 dark:text-emerald-400'
-                : 'text-rose-700 dark:text-rose-400',
+              s.roles.length === need ? 'text-success-ink' : 'text-danger-ink',
             )}
           >
             {s.roles.length} of {need} cards
@@ -690,9 +680,7 @@ export function Lobby({
                     }
                     className={cn(
                       'rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
-                      on
-                        ? 'bg-special dark:bg-violet-600 text-white ring-special dark:ring-violet-600'
-                        : 'ring-line-strong',
+                      on ? 'bg-special text-white ring-special' : 'ring-line-strong',
                     )}
                   >
                     {deck.artifactName(a)}

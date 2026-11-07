@@ -361,7 +361,7 @@ export function PlayerNumber({
         <span
           role="img"
           aria-label={label}
-          className="inline-flex size-full items-center justify-center rounded-full bg-success text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-700"
+          className="inline-flex size-full items-center justify-center rounded-full bg-success text-xs font-bold text-white ring-1 ring-emerald-900/40"
         >
           {n}
         </span>
@@ -487,7 +487,7 @@ export function ArtifactChip({ id, deck }: { id: ArtifactId; deck: Deck }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full bg-special-soft px-2 py-0.5 text-sm font-semibold text-violet-900 ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/40"
+        className="inline-flex items-center gap-1 rounded-full bg-special-soft px-2 py-0.5 text-sm font-semibold text-special-ink ring-1 ring-special-line"
       >
         <Token src={deck.artifactArt(id)} emblem="🏺" label="" className="size-5" />
         {deck.artifactName(id)}
@@ -617,8 +617,8 @@ export function MarkChip({
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1',
         light
-          ? 'bg-white text-rose-950 ring-danger dark:ring-rose-500'
-          : 'bg-danger-soft text-rose-950 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
+          ? 'bg-white text-rose-950 ring-danger'
+          : 'bg-danger-soft text-danger-ink ring-danger-line',
         className,
       )}
     >

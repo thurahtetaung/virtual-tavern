@@ -71,7 +71,7 @@ export function TableScreen({
   return (
     <section
       aria-labelledby="table-screen-heading"
-      className="space-y-2 rounded-xl bg-stone-100 p-3 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700"
+      className="space-y-2 rounded-xl bg-sunk p-3 ring-1 ring-line"
     >
       {confirmDialog}
       <div className="flex items-center justify-between gap-2">
@@ -81,16 +81,13 @@ export function TableScreen({
         <span
           className={cn(
             'inline-flex items-center gap-1.5 text-sm font-medium',
-            present ? 'text-success-ink dark:text-emerald-300' : 'text-ink-muted',
+            present ? 'text-success-ink' : 'text-ink-muted',
           )}
           data-testid="stage-status"
         >
           <span
             aria-hidden
-            className={cn(
-              'size-2 rounded-full',
-              present ? 'bg-success dark:bg-emerald-400' : 'bg-stone-400',
-            )}
+            className={cn('size-2 rounded-full', present ? 'bg-success' : 'bg-ink-faint')}
           />
           {present ? 'Connected' : 'Not connected'}
         </span>
@@ -120,7 +117,7 @@ export function TableScreen({
         </p>
       )}
       {error && (
-        <p role="alert" className="text-sm font-medium text-danger-ink dark:text-rose-300">
+        <p role="alert" className="text-sm font-medium text-danger-ink">
           {error}
         </p>
       )}

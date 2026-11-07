@@ -1,59 +1,123 @@
-import { type ReactNode, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
 import { cn } from './cn.ts';
+import { usePhone } from './phone.ts';
 
 /** The least a part keeps when the page is short: it then scrolls inside. */
 const MIN_PART_PX = 120;
 
+export interface FitOptions {
+  /** Fit only while this is true (a game's own phone layout, the open tab). Defaults to true. */
+  on?: boolean;
+  /** Fit only on a phone-width screen; wider screens leave the part as it is. */
+  phone?: boolean;
+  /** The least height the part keeps, in px; past it the page scrolls instead. Defaults to 120. */
+  min?: number;
+  /** Measures again from scratch when it changes (a new tab or stage). */
+  resetKey?: string;
+  /** The part's content, watched for growth. Defaults to the part's own children. */
+  content?: RefObject<HTMLElement | null>;
+}
+
+/** Caps `el` at `max` px, scrolling inside, or (`null`) gives it back its own height. */
+function capPart(el: HTMLElement, max: number | null) {
+  el.style.maxHeight = max === null ? '' : `${max}px`;
+  el.style.overflowY = max === null ? '' : 'auto';
+  el.style.overscrollBehavior = max === null ? '' : 'contain';
+}
+
+/** Fits `el` to what the page has left (no less than `min`); a hidden part is left alone. */
+function fitPart(el: HTMLElement, min: number) {
+  capPart(el, null);
+  if (el.offsetParent === null) return;
+  const page = document.scrollingElement ?? document.documentElement;
+  const over = page.scrollHeight - page.clientHeight;
+  if (over <= 0) return;
+  // Fractional heights round up in the page's height, so a pixel more comes off.
+  capPart(el, Math.max(min, Math.floor(el.getBoundingClientRect().height - over - 1)));
+}
+
 /**
  * Keeps the page within the screen: when it is taller, the part gets the height that fits (no
- * less than `MIN_PART_PX`) and scrolls inside, so a long replay or log never pushes Play again
- * and the room's buttons away. Measured again whenever the part or the page changes size.
+ * less than `min`) and scrolls inside, so a long list, a big table or a replay never pushes the
+ * room's buttons away. A hidden part (a closed tab) is left alone. It measures again when the
+ * screen, the part's content, anything around it, or the bars at the foot change.
  */
-export function useFitToScreen(on: boolean, key: string) {
-  const box = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
+export function useFitToScreen(
+  part: RefObject<HTMLElement | null>,
+  { on = true, phone = false, min = MIN_PART_PX, content }: FitOptions = {},
+) {
+  const isPhone = usePhone();
+  const active = on && (!phone || isPhone);
   useLayoutEffect(() => {
-    const el = box.current;
-    if (!on || !el) return;
-    const fit = () => {
-      el.style.maxHeight = '';
-      const over = document.documentElement.scrollHeight - window.innerHeight;
-      // Fractional heights round up in the page's height, so a pixel more comes off.
-      const fits = Math.floor(el.getBoundingClientRect().height - over - 1);
-      if (over > 0) el.style.maxHeight = `${Math.max(MIN_PART_PX, fits)}px`;
+    const el = part.current;
+    if (!active || !el) return;
+    const fit = () => fitPart(el, min);
+    // Observers measure on the next frame, so a change they cause never loops back the same frame.
+    let frame = 0;
+    const later = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
     };
     fit();
-    window.addEventListener('resize', fit);
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
-    if (inner.current) observer?.observe(inner.current);
-    observer?.observe(document.body);
-    return () => {
-      window.removeEventListener('resize', fit);
-      observer?.disconnect();
-      el.style.maxHeight = '';
+    const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
+    const watchContent = () => {
+      for (const node of content?.current ? [content.current] : el.children) sizes?.observe(node);
     };
-  }, [on, key]);
-  return { box, inner };
+    watchContent();
+    // Every box around the part: whatever grows or shrinks on the screen resizes one of them.
+    for (let n = el.parentElement; n; n = n.parentElement) sizes?.observe(n);
+    const added = new MutationObserver(watchContent);
+    if (!content) added.observe(el, { childList: true });
+    // The bars at the foot publish their heights on the root's style.
+    const bars = new MutationObserver(later);
+    bars.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    window.addEventListener('resize', later);
+    return () => {
+      cancelAnimationFrame(frame);
+      sizes?.disconnect();
+      added.disconnect();
+      bars.disconnect();
+      window.removeEventListener('resize', later);
+      capPart(el, null);
+    };
+    // No dependencies: it measures afresh after every render, so a part that mounts later (a tab's
+    // panel), a new `resetKey` or new content is always fitted.
+  });
 }
 
 /**
  * A phone game's own area under its strip and status line: while `on`, when the page would be
  * taller than the screen, the area takes the height left and scrolls inside, never the page.
- * `resetKey` measures again from scratch (a new tab or stage).
+ * `resetKey` measures again from scratch (a new tab or stage). `plain` is one box with no inner
+ * padding that scrolls only once it is capped: a dense panel inside a game's own layout.
  */
 export function FitArea({
-  on,
+  on = true,
+  phone = false,
+  min,
   resetKey = '',
+  plain = false,
   className,
   children,
 }: {
-  on: boolean;
+  on?: boolean;
+  phone?: boolean;
+  min?: number;
   resetKey?: string;
+  plain?: boolean;
   /** Classes for the content. */
   className?: string;
   children: ReactNode;
 }) {
-  const { box, inner } = useFitToScreen(on, resetKey);
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  useFitToScreen(box, { on, phone, min, resetKey, content: plain ? undefined : inner });
+  if (plain)
+    return (
+      <div ref={box} className={className}>
+        {children}
+      </div>
+    );
   return (
     <div ref={box} className={cn('min-w-0', on && 'overflow-y-auto overscroll-contain')}>
       <div ref={inner} className={cn(on && 'p-px', className)}>

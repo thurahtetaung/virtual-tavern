@@ -366,7 +366,7 @@ export function NightPanel({
   );
   if (g.myRole !== 'murderer' || !me)
     return (
-      <Panel className="space-y-2 bg-stone-900 text-center text-stone-100 dark:bg-stone-950">
+      <Panel className="space-y-2 bg-stone-900 text-center text-stone-100 dark:bg-page">
         <p className="text-2xl">🌙</p>
         <p className="font-semibold">Night falls. The Murderer is choosing the crime…</p>
         <div className="flex justify-center">{clock(true)}</div>

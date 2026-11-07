@@ -195,10 +195,10 @@
   --vt-shadow-3: 0 16px 40px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
   --vt-edge: inset 0 1px 0 rgb(255 240 220 / 0.05);
   /*
-   * Older `dark:*-stone-*` classes (shell, `@vt/ui` and games) paint on the same charcoal: the stone
-   * scale follows the tokens' ramp step for step (950 page, 900 card, 800 line, 700 line-strong,
-   * 400 ink-muted, 300 ink-2, 100 ink), so those surfaces keep their layering and warmth until they
-   * move onto the tokens.
+   * UI code paints with the tokens. `stone` is left to surfaces that look the same in both themes
+   * (card frames and art, night scenes, full-screen viewers, the table screen's paper), and here it
+   * follows the tokens' ramp step for step (950 page, 900 card, 800 line, 700 line-strong,
+   * 400 ink-muted, 300 ink-2, 100 ink), so those keep the room's warmth in dark mode.
    */
   --color-stone-50: #faf6ef;
   --color-stone-100: #f1e9dc;

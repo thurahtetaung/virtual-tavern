@@ -1,4 +1,4 @@
-import { Button, Hint, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, RefusalSlot, StickyBar, cn, useFitToScreen } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
@@ -7,7 +7,6 @@ import type { Content } from './assets.ts';
 import { type BulletNo, bulletNumbers } from './bullets.ts';
 import { BulletIcon, Tile } from './Tile.tsx';
 import { useTip } from './tips.ts';
-import { useFitOnPhone } from './fit.ts';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -173,7 +172,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
   const pick = (p: Pending | null) => setPending({ key: stepKey, p });
   // Phones: the tiles and what follows them scroll inside, so the page itself never scrolls.
   const below = useRef<HTMLDivElement>(null);
-  useFitOnPhone(below);
+  useFitToScreen(below, { phone: true, min: 160 });
   const [tipOpen, dismissTip] = useTip('scene');
   const [fsTipOpen, dismissFsTip] = useTip('fs-picker');
   const [paceTipOpen, dismissPaceTip] = useTip('fs-pacing');

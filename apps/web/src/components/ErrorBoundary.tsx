@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
           🫗
         </p>
         <h1 className="text-2xl font-bold">Oops, something spilled.</h1>
-        <p className="text-stone-600 dark:text-stone-400">
+        <p className="text-ink-muted">
           Reloading usually fixes it. You will rejoin your room right where you were.
         </p>
         <Button size="lg" onClick={() => window.location.reload()}>

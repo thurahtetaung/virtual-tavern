@@ -295,7 +295,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   return (
     <section
       aria-label={`Step: ${step.title}`}
-      className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-line dark:bg-stone-900/70"
+      className="rounded-xl bg-card/70 px-3 py-2 ring-1 ring-line"
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0 text-xs font-semibold text-ink-muted">

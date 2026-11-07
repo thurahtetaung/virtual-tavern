@@ -2,13 +2,14 @@ import { type GameRoomInfo, type PlayerId, storageKey, waitingFor } from '@vt/ga
 import {
   Button,
   CardViewer,
+  FitArea,
   Input,
-  StickyBar,
   Panel,
   Peek,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  StickyBar,
   type ViewerItem,
   cn,
   useConfirm,
@@ -24,7 +25,6 @@ import {
 import { type Art, cardLabel, cardUrl } from './assets.ts';
 import { CARD_ASPECT, Card, EmptySlot } from './Card.tsx';
 import type { NameOf } from './status.ts';
-import { PhoneFill } from './fill.tsx';
 
 type Act = (action: RedHerringAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -251,7 +251,7 @@ export function Table({
   return (
     <section aria-label="The table" data-testid="rh-table">
       {/* Phones: the laps take what the screen has left and scroll inside it. */}
-      <PhoneFill>
+      <FitArea phone plain min={128}>
         <ul
           className={cn(
             'grid gap-1.5 sm:gap-2',
@@ -338,7 +338,7 @@ export function Table({
             );
           })}
         </ul>
-      </PhoneFill>
+      </FitArea>
       {open !== null && items.length > 0 && (
         <CardViewer
           items={items}

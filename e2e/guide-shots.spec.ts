@@ -112,8 +112,8 @@ async function unlock(page: Page) {
 
 async function tabs(page: Page, prefix: string, scope: Page | ReturnType<Page['locator']>) {
   const shoot = async (name: string) => {
-    // Lazy art loads once it scrolls into view.
-    await page.waitForLoadState('networkidle');
+    // The guide's heading, then a short beat for lazy art (back-room pages never go network-idle).
+    await expect(scope.getByRole('heading', { name: /^How to play/ }).first()).toBeVisible();
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${OUT}/${prefix}-${name}.png` });
   };

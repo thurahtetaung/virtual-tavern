@@ -153,7 +153,7 @@ export function Lineup({
                 aria-label={`Group ${i + 1}`}
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-stone-900 font-serif font-bold text-white dark:bg-stone-100 dark:text-stone-900">
+                  <span className="flex size-7 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
                   {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
@@ -161,9 +161,7 @@ export function Lineup({
                     {p ? `${p.name}’s cards` : ''}
                   </span>
                   {culprit && (
-                    <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
-                      👻 culprit
-                    </span>
+                    <span className="text-sm font-bold text-special-ink">👻 culprit</span>
                   )}
                   {votes !== null && (
                     <span className="text-xs text-ink-muted">

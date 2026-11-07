@@ -312,7 +312,7 @@ function Seats({
         </Button>
       )}
       {note && (
-        <p role="status" className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+        <p role="status" className="text-sm font-semibold text-success-ink">
           {note}
         </p>
       )}
@@ -585,9 +585,7 @@ function Play({
             />
             {turn.phase === 'reveal' && (
               <div className="text-center text-xs leading-snug">
-                {t.isStory && (
-                  <p className="font-bold text-emerald-700 dark:text-emerald-400">📖 Story card</p>
-                )}
+                {t.isStory && <p className="font-bold text-success-ink">📖 Story card</p>}
                 {t.owner && (
                   <p className="flex min-w-0 items-center justify-center gap-1 font-semibold">
                     <span className="min-w-0 truncate">{nameOf(view, t.owner)}</span>

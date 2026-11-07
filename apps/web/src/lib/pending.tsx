@@ -89,7 +89,7 @@ export function PendingIndicator({
         <p
           role="status"
           // In the gap under the site's title bar (56 px), above the room's own title row.
-          className="pointer-events-none fixed inset-x-0 top-[57px] z-50 mx-auto w-fit rounded-full bg-panel px-3 py-0.5 text-xs font-semibold text-ink shadow-md ring-1 ring-line dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-700"
+          className="pointer-events-none fixed inset-x-0 top-[57px] z-50 mx-auto w-fit rounded-full bg-panel px-3 py-0.5 text-xs font-semibold text-ink shadow-md ring-1 ring-line"
         >
           Still sending…
         </p>

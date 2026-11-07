@@ -120,7 +120,7 @@ function Pip({
         'inline-flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-black tabular-nums ring-1 sm:size-5 sm:text-xs',
         TOKEN_FILL[gem],
         covered && 'opacity-30',
-        short && 'ring-2 ring-offset-1 ring-offset-card dark:ring-offset-stone-900',
+        short && 'ring-2 ring-offset-1 ring-offset-card',
       )}
     >
       {covered ? '✓' : n}

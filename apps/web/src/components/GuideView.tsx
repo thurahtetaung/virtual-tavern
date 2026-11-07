@@ -242,7 +242,7 @@ export function GuideView({
       <div
         className={cn(
           'sticky z-10 mb-4',
-          compact ? 'top-[52px] bg-panel dark:bg-stone-900' : 'top-0 bg-page/95 backdrop-blur',
+          compact ? 'top-[52px] bg-panel' : 'top-0 bg-page/95 backdrop-blur',
         )}
       >
         <Tabs
@@ -792,10 +792,10 @@ export function Stepper({
 }
 
 const TONE: Record<GuideTone, string> = {
-  good: 'border-t-team-b dark:border-t-blue-500',
-  evil: 'border-t-team-a dark:border-t-red-500',
-  own: 'border-t-special dark:border-t-violet-500',
-  alien: 'border-t-success dark:border-t-emerald-500',
+  good: 'border-t-team-b',
+  evil: 'border-t-team-a',
+  own: 'border-t-special',
+  alien: 'border-t-success',
   neutral: 'border-t-line-strong',
 };
 

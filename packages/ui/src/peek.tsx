@@ -178,7 +178,7 @@ export function Peek({
       style={state.drag ? { transform: `translateY(-${Math.min(state.drag, 60)}px)` } : undefined}
       className={cn(
         'block w-full cursor-grab touch-none rounded-2xl text-left select-none [-webkit-touch-callout:none]',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         // While held, the button lies over the content (so the release still reaches it).
         shown && 'absolute inset-0 z-10 opacity-0',
       )}

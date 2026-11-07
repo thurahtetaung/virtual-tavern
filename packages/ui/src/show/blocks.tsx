@@ -488,10 +488,10 @@ export function LowEffectsNotice({
     return (
       <p role="status" className={'text-xs ' + (className ?? '')} data-testid="show-low-notice">
         <span aria-hidden>🔋 </span>
-        <span className="text-ink-muted dark:text-stone-400">Battery saver on · </span>
+        <span className="text-ink-muted">Battery saver on · </span>
         <button
           type="button"
-          className="font-semibold text-ink underline underline-offset-2 dark:text-stone-100"
+          className="font-semibold text-ink underline underline-offset-2"
           onClick={() => setLowEffects('off')}
         >
           Full show
@@ -502,7 +502,7 @@ export function LowEffectsNotice({
     <p
       role="status"
       className={
-        'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-panel px-3 py-1.5 text-sm text-ink-muted ring-1 ring-line dark:bg-stone-800/70 dark:text-stone-300 dark:ring-stone-700 ' +
+        'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-panel px-3 py-1.5 text-sm text-ink-muted ring-1 ring-line ' +
         (className ?? '')
       }
       data-testid="show-low-notice"
@@ -512,7 +512,7 @@ export function LowEffectsNotice({
       </span>
       <button
         type="button"
-        className="font-semibold text-ink underline underline-offset-2 dark:text-stone-100"
+        className="font-semibold text-ink underline underline-offset-2"
         onClick={() => setLowEffects('off')}
       >
         Full show

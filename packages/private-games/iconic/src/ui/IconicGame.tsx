@@ -9,6 +9,9 @@ import {
   Button,
   ChoicePicker,
   Countdown,
+  EndTabs,
+  FitArea,
+  Fold,
   Hint,
   Input,
   LobbySettings,
@@ -18,18 +21,15 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
-  TabBar,
   Superlatives,
   Switch,
+  TabBar,
   cn,
   tabPanelProps,
   useAbandonGame,
   useConfirm,
-  useSpectatorPrompt,
-  EndTabs,
-  FitArea,
-  Fold,
   usePhone,
+  useSpectatorPrompt,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -50,7 +50,6 @@ import {
 import { type Art, artFor, useManifest } from './assets.ts';
 import { BoardView, ClueStrip, PAGE_BELOW, SetPicker, useRoomBelow } from './Board.tsx';
 import { type NameOf, andList, statusFor } from './status.ts';
-import { PhoneFill } from './fill.tsx';
 
 export type IconicUiProps = GameUiProps<IconicView, IconicAction>;
 type Act = IconicUiProps['act'];
@@ -922,7 +921,9 @@ function Clue({
       >
         {controls}
         {/* Phones: the icons take what the screen has left and scroll inside it. */}
-        <PhoneFill>{boardView}</PhoneFill>
+        <FitArea phone plain min={128}>
+          {boardView}
+        </FitArea>
       </Panel>
       <Panel
         className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}

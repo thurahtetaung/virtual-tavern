@@ -6,14 +6,15 @@ import {
   Fold,
   Hint,
   NameDot,
-  cn,
-  useRefusalWording,
-  useSpectatorPrompt,
-  useConfirm,
-  useAbandonGame,
   TabBar,
   type TabBarItem,
+  cn,
   tabPanelProps,
+  useAbandonGame,
+  useConfirm,
+  useFitToScreen,
+  useRefusalWording,
+  useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,7 +38,6 @@ import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab, useRoleReveal } from './Me.tsx';
 import { Chaos, LeaderCheck, MomentView, useMoments } from './Moments.tsx';
-import { useFitOnPhone } from './fit.ts';
 import { phoneTabPanel, tabPanel, type Tab } from './panels.ts';
 import { type SeatPick, Seats, whyText } from './Seats.tsx';
 import {
@@ -308,7 +308,7 @@ function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
             key={i}
             className={cn(
               'h-1.5 rounded-full transition-all',
-              at === i ? 'w-4 bg-accent' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
+              at === i ? 'w-4 bg-accent' : 'w-1.5 bg-line-strong',
             )}
           />
         ))}
@@ -428,7 +428,7 @@ export function HydraGame({
   const wide = useWideScreen();
   const seatsRef = useRef<HTMLElement>(null);
   // Phones: a big table's seats scroll inside their panel rather than the page.
-  useFitOnPhone(seatsRef);
+  useFitToScreen(seatsRef, { phone: true, min: 160 });
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);

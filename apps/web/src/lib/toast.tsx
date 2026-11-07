@@ -80,9 +80,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onClick={() => dismiss(t.id)}
             className={
               'pointer-events-auto max-w-md cursor-pointer rounded-xl px-4 py-2 text-sm max-sm:px-3 max-sm:py-1.5 font-medium shadow-lg ' +
-              (t.tone === 'error'
-                ? 'bg-danger dark:bg-rose-600 text-white'
-                : 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900')
+              (t.tone === 'error' ? 'bg-danger text-white' : 'bg-ink text-card')
             }
           >
             <span className="max-sm:line-clamp-3 max-sm:text-xs max-sm:leading-[14px]">

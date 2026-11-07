@@ -3,22 +3,22 @@ import {
   Badge,
   Button,
   Countdown,
+  EndTabs,
   Hint,
   NameDot,
   Panel,
   Peek,
-  EndTabs,
   StickyBar,
   Superlatives,
   TabBar,
   type TabBarItem,
   cn,
   tabPanelProps,
+  useFitToScreen,
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
-import { useFitOnPhone } from './fit.ts';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -157,8 +157,8 @@ function Announcements({
             className={cn(
               'rounded-lg px-3 py-1.5 text-sm',
               light
-                ? 'bg-emerald-950/80 text-emerald-50 ring-1 ring-success/40 dark:ring-emerald-400/40'
-                : 'bg-success-soft text-emerald-950 ring-1 ring-success-line dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30',
+                ? 'bg-emerald-950/80 text-emerald-50 ring-1 ring-success/40'
+                : 'bg-success-soft text-success-ink ring-1 ring-success-line',
             )}
           >
             <span className="font-semibold">📣 {announcementTitle(a, deck)}: </span>
@@ -661,7 +661,7 @@ function PromptPanel({
                     'flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold ring-1 transition',
                     picked
                       ? 'bg-accent-line text-ink ring-accent'
-                      : 'bg-indigo-900/60 text-indigo-50 ring-special/40 dark:ring-indigo-400/40 hover:bg-indigo-800',
+                      : 'bg-indigo-900/60 text-indigo-50 ring-special/40 hover:bg-indigo-800',
                     !legal && 'opacity-35',
                   )}
                 >
@@ -755,7 +755,7 @@ function PromptPanel({
         {!prompt.mandatory && (
           <button
             type="button"
-            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-special-line/60 dark:ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-special-line/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
             {prompt.stage === 'point' ? 'Point at nobody' : 'Skip'}
@@ -941,7 +941,7 @@ export function Night({
         />
         {acting ? (
           // Its own surface rather than <Panel>: the night is dark in both themes.
-          <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-special/50 dark:ring-indigo-500/50">
+          <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-special/50">
             {dusk ? (
               <div className="flex flex-col items-center gap-2 text-center" data-testid="dusk">
                 <p className="text-lg font-bold">Everyone is awake: look at your Mark</p>
@@ -1010,7 +1010,7 @@ export function Night({
             )}
             {(acting.told || acting.ripple) && (
               <p
-                className="rounded-lg bg-indigo-950/80 px-3 py-2 text-sm ring-1 ring-special-line/40 dark:ring-indigo-300/40"
+                className="rounded-lg bg-indigo-950/80 px-3 py-2 text-sm ring-1 ring-special-line/40"
                 data-testid="told"
               >
                 <span className="font-semibold">The narrator says: </span>
@@ -1211,8 +1211,8 @@ function TableList({
                 className={cn(
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id || picked2 === p.id
-                    ? 'bg-danger dark:bg-rose-600 text-white ring-danger dark:ring-rose-600'
-                    : 'bg-card ring-line-strong hover:bg-danger-soft dark:hover:bg-rose-950',
+                    ? 'bg-danger text-white ring-danger'
+                    : 'bg-card ring-line-strong hover:bg-danger-soft',
                 )}
               >
                 {body}
@@ -1247,7 +1247,7 @@ function Nudge({ view, room }: { view: NightfallView; room: GameRoomInfo }) {
       aria-live="polite"
       data-testid="nudge"
       className={cn(
-        'rounded-lg bg-special-soft px-3 py-1.5 text-center text-sm font-medium text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200',
+        'rounded-lg bg-special-soft px-3 py-1.5 text-center text-sm font-medium text-special-ink',
         !text && 'hidden',
       )}
     >
@@ -1278,7 +1278,7 @@ export function Day({
   const wide = useWide();
   // Phones: a big table scrolls inside its panel rather than the page.
   const tablePanel = useRef<HTMLDivElement>(null);
-  useFitOnPhone(tablePanel);
+  useFitToScreen(tablePanel, { phone: true, min: 160 });
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
@@ -1604,12 +1604,7 @@ export function Reveal({
     <Panel className="space-y-1" data-testid="teams">
       {teamLines(result).map((t) => (
         <p key={t.team} className="text-sm" data-testid="team-line" data-won={t.won}>
-          <span
-            className={cn(
-              'font-bold',
-              t.won ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400',
-            )}
-          >
+          <span className={cn('font-bold', t.won ? 'text-success-ink' : 'text-danger-ink')}>
             {t.won ? '🏆' : '✗'}{' '}
             {t.sideWon && !t.won
               ? `${TEAM_LABEL[t.team]}: nobody on this side wins`

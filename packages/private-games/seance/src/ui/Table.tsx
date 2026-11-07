@@ -18,7 +18,7 @@ export function Clock({ g }: { g: GameView }) {
           className={cn(
             'flex h-7 min-w-7 flex-1 items-center justify-center rounded-md px-1 font-serif text-xs font-bold',
             h < g.hour
-              ? 'bg-stone-300 text-ink-muted dark:bg-stone-700'
+              ? 'bg-line-strong text-ink-muted'
               : h === g.hour
                 ? 'bg-special text-white ring-2 ring-special-line'
                 : 'bg-sunk text-ink-muted',
@@ -120,11 +120,11 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
   const max = Math.max(high + 3, ...g.psychics.map((p) => p.level + 1));
   return (
     <div aria-label="Clairvoyance track" className="space-y-1">
-      <div className="relative h-3 rounded-full bg-gradient-to-r from-stone-300 via-sky-300 to-violet-500 dark:from-stone-700 dark:via-sky-800 dark:to-violet-700">
+      <div className="relative h-3 rounded-full bg-gradient-to-r from-line-strong via-sky-300 to-violet-500 dark:via-sky-800 dark:to-violet-700">
         {[mid, high].map((t) => (
           <span
             key={t}
-            className="absolute top-[-3px] h-[18px] w-0.5 bg-stone-800 dark:bg-stone-100"
+            className="absolute top-[-3px] h-[18px] w-0.5 bg-ink"
             style={{ left: `${(t / max) * 100}%` }}
             title={`Level ${t}`}
           />
@@ -133,7 +133,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
           <span
             key={p.color}
             title={`${p.name}: ${p.level}`}
-            className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white dark:ring-stone-900"
+            className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card"
             style={{
               left: `${(Math.min(p.level, max) / max) * 100}%`,
               backgroundColor: content.swatch(p.color),

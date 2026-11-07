@@ -62,7 +62,7 @@ export function MazeTracer({ rules }: { rules: Rules }) {
             : 'No way through: check the cells.')}
       </p>
       <div
-        className="grid aspect-square w-full max-w-64 grid-cols-6 rounded-md bg-card p-1 dark:bg-stone-900"
+        className="grid aspect-square w-full max-w-64 grid-cols-6 rounded-md bg-card p-1"
         aria-label="Maze tracer"
       >
         {Array.from({ length: 36 }, (_, i) => {
@@ -79,7 +79,7 @@ export function MazeTracer({ rules }: { rules: Rules }) {
               aria-label={`column ${c[0] + 1}, row ${c[1] + 1}`}
               data-testid={`tracer-${c[0]}-${c[1]}`}
               className={cn(
-                'flex aspect-square items-center justify-center border-solid border-stone-800 text-sm dark:border-stone-200',
+                'flex aspect-square items-center justify-center border-solid border-ink text-sm',
                 on(c) && 'bg-success-soft',
               )}
               style={{

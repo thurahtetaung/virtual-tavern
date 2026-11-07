@@ -163,7 +163,7 @@ export function BallotBack({ c, className }: { c: Content; className?: string })
       {src ? (
         <Art src={src} alt="" />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-[8%] bg-success dark:bg-emerald-500 text-xs font-black text-emerald-950 shadow ring-2 ring-emerald-800">
+        <span className="flex h-full w-full items-center justify-center rounded-[8%] bg-success text-xs font-black text-emerald-950 shadow ring-2 ring-emerald-800">
           ✉
         </span>
       )}

@@ -91,7 +91,7 @@ export function Board({
               aria-hidden
               className={cn(
                 'absolute rounded-full bg-accent-line ring-2 ring-white',
-                g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-danger dark:bg-rose-500',
+                g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-danger',
               )}
               style={{
                 left: `${(x - lamps.size / 2) * 100}%`,
@@ -213,7 +213,7 @@ export function TrackerLamps({ tracker, className }: { tracker: number; classNam
             'size-2.5 rounded-full ring-1',
             i < tracker
               ? tracker === TRACKER_MAX - 1
-                ? 'hy-lamp bg-danger dark:bg-rose-500 ring-danger-line dark:ring-rose-300'
+                ? 'hy-lamp bg-danger ring-danger-line'
                 : 'bg-accent-line ring-accent-line'
               : 'bg-white/20 ring-white/50',
           )}

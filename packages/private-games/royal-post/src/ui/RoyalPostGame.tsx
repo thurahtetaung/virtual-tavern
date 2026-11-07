@@ -415,10 +415,7 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
       {Array.from({ length: Math.max(target, tokens) }, (_, i) => (
         <span
           key={i}
-          className={cn(
-            'size-2 rounded-full',
-            i < tokens ? 'bg-danger' : 'bg-stone-300 dark:bg-stone-700',
-          )}
+          className={cn('size-2 rounded-full', i < tokens ? 'bg-danger' : 'bg-line-strong')}
         />
       ))}
       <span aria-hidden className="ml-1 text-[0.65rem] font-semibold text-ink-muted tabular-nums">
@@ -1429,7 +1426,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
                   key={i}
                   className={cn(
                     'h-3 w-2 rounded-sm',
-                    i < c.unseen ? 'bg-danger' : 'bg-stone-300 dark:bg-stone-700',
+                    i < c.unseen ? 'bg-danger' : 'bg-line-strong',
                   )}
                 />
               ))}
