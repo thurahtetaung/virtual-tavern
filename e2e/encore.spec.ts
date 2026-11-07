@@ -66,7 +66,7 @@ test('a 3-player game: shows, recruits, a Recruit & Show, rounds ending unbeaten
   await recruit(ben, 0);
   await expect(ana.getByText('Cy wins with -9 points!')).toBeVisible();
   await expect(cy.getByText('You win with -9 points!')).toBeVisible();
-  await expect(ben.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+  await expect(ben.getByRole('region', { name: 'Final standings' })).toBeVisible();
   await expect(ben.getByRole('table', { name: 'Scores by round' })).toContainText('-21');
   await ana.getByRole('button', { name: 'Play again' }).click();
   await expect(ana.getByTestId('en-flip-kept')).toBeVisible();

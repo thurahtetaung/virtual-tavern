@@ -125,7 +125,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await friend.goto('/');
   await expect(friend.getByRole('link', { name: 'Rejoin your Reverie room' })).toBeVisible();
   await friend.goto(roomUrl);
-  await expect(friend.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
+  await expect(friend.getByRole('button', { name: 'Watch instead' })).toBeVisible();
 
   // Signing everyone out bounces players back to the door straight away, saying why.
   await admin.getByRole('button', { name: 'Sign everyone out' }).click();
@@ -152,10 +152,10 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   keeper.on('pageerror', (e) => pageErrors.push(e.message));
   await keeper.addInitScript(() => localStorage.setItem('vt.playerName', 'Keeper'));
   await keeper.goto(roomUrl);
-  await expect(keeper.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
+  await expect(keeper.getByRole('button', { name: 'Watch instead' })).toBeVisible();
   await admin.getByRole('button', { name: 'Sign out' }).click();
   await expect(admin.getByLabel('Admin password')).toBeVisible();
-  await host.getByRole('button', { name: 'Sit out (watch)' }).click();
+  await host.getByRole('button', { name: 'Watch instead' }).click();
   await expect(keeper).toHaveURL(/\/backroom\?next=/);
   await expect(
     keeper.getByText("You signed out of the tavern keeper's room. Enter the word to come back in."),

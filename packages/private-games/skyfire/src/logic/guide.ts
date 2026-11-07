@@ -105,8 +105,8 @@ function base(art: GuideArt): GameGuide {
     tagline:
       art.tagline ??
       'A cooperative fireworks show: see everyone’s cards but your own, and give careful clues.',
-    players: '2 to 5 (best at 3 or 4)',
-    duration: '20 minutes',
+    players: '2–5 players · best with 3–4',
+    duration: '20 min',
     goal: 'Together, build five fireworks, one per colour, each from 1 up to 5. You hold your cards facing away: you see everyone’s hand but your own, so the table has to tell you what you hold.',
     quickStart: [
       'You see every hand but your own: yours shows only the backs, with the clues you were given.',

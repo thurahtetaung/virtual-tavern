@@ -78,7 +78,7 @@ for (const [label, viewport, colorScheme] of [
     await show(cy, 8, /^Show 9-9-9-9/);
     await recruit(ana, 0);
     await recruit(ben, 0);
-    await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+    await expect(ana.getByRole('region', { name: 'Final standings' })).toBeVisible();
     await shot(ana, '10-end');
     await ana.screenshot({
       path: `test-results/encore-shots/${label}-10-end-full.png`,

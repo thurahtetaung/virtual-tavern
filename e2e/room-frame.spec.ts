@@ -444,9 +444,9 @@ test('with Night showing, a phone header has four icon buttons and room for the 
   whole(await fullPhoneHeader(host, 'Masquerade'));
   // The same crew moves on to Codenames, and Night comes along.
   await host.setViewportSize({ width: 1280, height: 800 });
-  await host.getByRole('button', { name: '🎲 Same crew, new game' }).first().click();
+  await host.getByRole('button', { name: '🎲 Same crew, another game' }).first().click();
   await host
-    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('dialog', { name: '🎲 Same crew, another game' })
     .getByRole('button', { name: 'Codenames' })
     .click();
   await expect(host.getByText('Pick a team below')).toBeVisible();

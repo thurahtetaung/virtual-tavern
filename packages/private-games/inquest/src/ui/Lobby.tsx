@@ -178,7 +178,7 @@ export function Lobby({
               size="sm"
               onClick={() => void act({ type: 'sit', playing: !me.playing })}
             >
-              {me.playing ? 'Stand up (watch)' : 'Take a seat'}
+              {me.playing ? 'Watch instead' : 'Take a seat'}
             </Button>
             {me.playing && (
               <Button

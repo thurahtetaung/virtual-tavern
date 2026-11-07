@@ -31,8 +31,8 @@ function fill<T>(value: T, names: Names): T {
 const text: GameGuide = {
   tagline:
     'Answer odd questions the way everyone else will. Match the herd to win {cows}; stand alone and you get the {pink}.',
-  players: '3 to 20 (best with 5 or more)',
-  duration: '20–30 minutes',
+  players: '3–20 players · best with 5+',
+  duration: '20–30 min',
   goal: 'Be the first to collect enough {cows} (8, unless the host chose 5 or 10) without holding the {pink}. You win a {cow} each time your answer is the one most people gave.',
   quickStart: [
     'Everyone sees the same question. There is no right answer.',
@@ -43,7 +43,7 @@ const text: GameGuide = {
     'First to the target with no {pink} wins.',
   ],
   setup: [
-    'Up to 20 players can play; anyone else in the room watches. Use “Sit out (watch)” to sit out, and “Take a seat” to play again.',
+    'Up to 20 players can play; anyone else in the room watches. Use “Watch instead” to sit out, and “Take a seat” to play again.',
     'The host picks the question decks, the target (5, 8 or 10 {cows}), an optional answer timer and the house rules.',
     'The host presses Start. You need at least 3 players.',
   ],

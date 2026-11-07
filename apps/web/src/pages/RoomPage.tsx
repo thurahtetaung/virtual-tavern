@@ -687,7 +687,7 @@ function Room({
           className="min-h-11 max-sm:px-2 max-sm:text-[13px]"
           onClick={() => setSameCrewOpen(true)}
         >
-          🎲 Same crew, new game
+          🎲 Same crew, another game
         </Button>
       )}
     </>

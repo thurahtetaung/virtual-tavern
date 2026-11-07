@@ -16,9 +16,9 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 const STEP = ['h-20', 'h-14', 'h-10'];
 
 /**
- * The shared end screen: a podium for the top three places and the full final standings below.
- * Players who tie share a place (and a step). The "X wins" line belongs to the game's status
- * line, so this never repeats it.
+ * The shared end screen: a podium for the top three places, and the full final standings below
+ * only when someone is off the podium (the scores are shown once). Players who tie share a place
+ * (and a step). The "X wins" line belongs to the game's banner, so this never repeats it.
  */
 export function Standings({
   entries,
@@ -43,6 +43,7 @@ export function Standings({
   const order = [places[1], places[0], places[2]].filter((p): p is number => p !== undefined);
   // A big table on a phone: tighter rows and no podium (the table repeats it), so it fits.
   const dense = entries.length > 6;
+  const table = entries.length < 2 || ranked.some((r) => r.place > 3);
   const label = (r: Placed<StandingEntry>) =>
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
@@ -91,6 +92,7 @@ export function Standings({
           })}
         </ol>
       )}
+      {table && (
       <div>
         <h3 className="mb-1 text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
           {title}
@@ -128,6 +130,7 @@ export function Standings({
           ))}
         </ol>
       </div>
+      )}
     </section>
   );
 }

@@ -124,9 +124,9 @@ test('“Same crew, new game” takes the campaign to the new room', async ({ br
   await expect(hana.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'success');
 
   // The host opens the next table with the same game; the crew follows.
-  await hana.getByRole('button', { name: '🎲 Same crew, new game' }).click();
+  await hana.getByRole('button', { name: '🎲 Same crew, another game' }).click();
   await hana
-    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('dialog', { name: '🎲 Same crew, another game' })
     .getByRole('button', { name: 'Mission Control' })
     .click();
   await expect(hana.getByTestId('logbook')).toBeVisible();

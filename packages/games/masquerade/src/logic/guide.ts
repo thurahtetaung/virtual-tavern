@@ -49,8 +49,8 @@ export function makeGuide(pack: string): GameGuide {
 function text(pack: string): GameGuide {
   return {
     tagline: 'Everyone knows where you are, except the spy. Talk, bluff, then vote the spy out.',
-    players: '3 to 12',
-    duration: '5 minutes a round',
+    players: '3–12 players',
+    duration: '5 min a round',
     goal: 'If you know the location, find the spy without giving the place away. If you’re the spy, blend in, escape the vote, or name the location if you’re caught.',
     quickStart: [
       'Everyone gets a card: the locals see the same location, the spy sees only “You’re the spy”.',

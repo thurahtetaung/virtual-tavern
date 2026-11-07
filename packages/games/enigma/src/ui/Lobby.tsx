@@ -124,7 +124,7 @@ export function TeamsPicker({
             variant="quiet"
             onClick={() => void act({ type: 'join-team', team: null })}
           >
-            Sit out (watch)
+            Watch instead
           </Button>
         )}
       </div>

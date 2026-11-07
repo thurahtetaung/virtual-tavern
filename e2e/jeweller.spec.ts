@@ -80,7 +80,7 @@ test('a 2-player game on phones: gems, a purchase, a noble visit, the final roun
   await take(ana, ['white', 'blue', 'black']);
   await expect(hana.getByText('You win with 15 points!')).toBeVisible();
   await expect(ana.getByText('Hana wins with 15 points!')).toBeVisible();
-  await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+  await expect(ana.getByRole('region', { name: 'Final standings' })).toBeVisible();
   await hana.getByRole('button', { name: 'Play again' }).click();
   await myTurn(hana);
 });

@@ -3,7 +3,9 @@ import {
   anyOffline,
   hostLabel,
   listNames,
+  lobbyStatus,
   namesWithPresence,
+  playersNeeded,
   waitingFor,
   waitingForHost,
 } from './people.ts';
@@ -65,5 +67,26 @@ describe('host helpers', () => {
   it('spots offline players', () => {
     expect(anyOffline(['a', 'c'], players)).toBe(false);
     expect(anyOffline(['a', 'b'], players)).toBe(true);
+  });
+});
+
+describe('lobbyStatus', () => {
+  const need = playersNeeded(3, 2);
+  it('gives the host who can start the action look', () => {
+    expect(lobbyStatus({ isHost: true, hostId: 'a', players }, null)).toEqual({
+      text: 'Start when ready.',
+      me: true,
+    });
+  });
+  it('says nothing to a host who cannot start yet: the reason sits under Start game', () => {
+    expect(lobbyStatus({ isHost: true, hostId: 'a', players }, need)).toBeNull();
+  });
+  it('tells a guest what is missing, else who starts', () => {
+    expect(need).toBe('3 players are needed (2 seated).');
+    expect(lobbyStatus({ isHost: false, hostId: 'a', players }, need)).toEqual({ text: need, me: false });
+    expect(lobbyStatus({ isHost: false, hostId: 'a', players }, null)).toEqual({
+      text: 'Waiting for Ana (host) to start…',
+      me: false,
+    });
   });
 });

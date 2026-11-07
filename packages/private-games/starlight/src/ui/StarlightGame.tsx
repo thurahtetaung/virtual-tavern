@@ -288,7 +288,7 @@ function Seats({
           variant={me.playing ? 'ghost' : 'primary'}
           onClick={() => void act({ type: 'sit', playing: !me.playing })}
         >
-          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
+          {me.playing ? 'Watch instead' : 'Take a seat'}
         </Button>
       )}
     </Panel>

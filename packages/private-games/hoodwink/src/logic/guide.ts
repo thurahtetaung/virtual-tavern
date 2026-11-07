@@ -2,8 +2,8 @@ import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
 const text: GameGuide = {
   tagline: 'Write fake answers to bizarre true questions, fool your friends, and find the truth.',
-  players: '3 to 10 (best with 4–8)',
-  duration: '15–30 minutes',
+  players: '3–10 players · best with 4–8',
+  duration: '15–30 min',
   goal: 'Score the most points. Each round everyone sees a strange but true fact with a word missing. Make up a believable fake answer to fool the others, then try to spot the real one among everybody’s lies.',
   quickStart: [
     'Everyone sees the same strange but true fact with one word or phrase missing.',
@@ -14,7 +14,7 @@ const text: GameGuide = {
     'The last round counts double. Most points at the end wins.',
   ],
   setup: [
-    'Up to 10 players can play; anyone else in the room just watches. Use “Sit out (watch)” to sit out, and “Take a seat” to play again.',
+    'Up to 10 players can play; anyone else in the room just watches. Use “Watch instead” to sit out, and “Take a seat” to play again.',
     'The host picks the question decks and the number of rounds: 5, 7 or 10.',
     'The host presses Start. You need at least 3 players.',
   ],

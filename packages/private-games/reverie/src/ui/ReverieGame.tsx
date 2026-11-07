@@ -308,7 +308,7 @@ function Seats({
           variant={me.playing ? 'ghost' : 'primary'}
           onClick={() => void sit(!me.playing)}
         >
-          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
+          {me.playing ? 'Watch instead' : 'Take a seat'}
         </Button>
       )}
       {note && (

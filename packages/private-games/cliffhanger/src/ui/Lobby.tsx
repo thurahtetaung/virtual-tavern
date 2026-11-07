@@ -314,7 +314,7 @@ export function Teams({
       <div className="flex flex-wrap gap-2">
         {mine && lobby && (
           <Button size="sm" variant="quiet" onClick={() => join(null)}>
-            Just watch
+            Watch instead
           </Button>
         )}
         {room.isHost && lobby && (

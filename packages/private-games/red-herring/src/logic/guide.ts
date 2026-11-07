@@ -77,8 +77,8 @@ function base(art: GuideArt): GameGuide {
   return {
     tagline:
       'Everyone gets the secret word but one: play pictures that fit it, explain them, and find who’s bluffing blind.',
-    players: '4 to 10',
-    duration: '30–60 minutes',
+    players: '4–10 players',
+    duration: '30–60 min',
     goal: 'Score the most points: as a Detective by finding the Conspirator, as the Conspirator by blending in, and as the word-picker by helping them get away.',
     quickStart: [
       'Each round one player is the word-picker: they play a picture card, then write a secret word.',

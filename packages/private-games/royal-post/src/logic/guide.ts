@@ -206,8 +206,8 @@ export function makeGuide(names: RoyalPostNames = {}): GameGuide {
 function base(): GameGuide {
   return {
     tagline: 'One card in hand, one letter to deliver: deduce, protect and outlast to win favour.',
-    players: '2 to 4 (Classic) or 2 to 6 (2019 edition)',
-    duration: '20 minutes',
+    players: '2–4 players (Classic) or 2–6 (2019 edition)',
+    duration: '20 min',
     goal: 'Win rounds to collect favour tokens. You win a round by being the last player standing, or by holding the highest card when the deck runs out. The first to the token target wins the game.',
     quickStart: [
       'You hold one secret card. On your turn, draw a second, then play one of the two face up.',
@@ -284,7 +284,7 @@ function base(): GameGuide {
         title: 'Coming and going',
         bullets: [
           'Players joining during a game watch it, and are dealt in when the host starts the next one, if the edition has a seat free. When the host picks an edition with more seats, whoever was waiting for one sits down.',
-          'Between games, in the lobby or on the final podium, anyone can tap Take a seat or Sit out (watch). Someone who chose to watch stays watching until they take a seat again.',
+          'Between games, in the lobby or on the final podium, anyone can tap Take a seat or Watch instead. Someone who chose to watch stays watching until they take a seat again.',
           'Someone who leaves mid-round is knocked out and their hand is shown. If they leave while choosing which card to keep after a Chancellor, the two cards they drew go back to the bottom of the deck unseen, and only the card they held before is shown. With fewer than two players left the game ends, and the most tokens wins.',
         ],
       },

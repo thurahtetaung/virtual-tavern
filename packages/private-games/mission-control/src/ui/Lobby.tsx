@@ -75,7 +75,7 @@ export function Lobby({
                 void act({ type: 'sit', playing: !view.me!.playing }, { anchor: ANCHOR })
               }
             >
-              {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
+              {view.me.playing ? 'Watch instead' : 'Take a seat'}
             </Button>
           )}
         </div>

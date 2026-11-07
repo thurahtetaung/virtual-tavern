@@ -91,7 +91,7 @@ export function Table({
                     (await confirm({
                       title: 'Sit out and just watch?',
                       body: 'You can join again later.',
-                      confirmLabel: 'Sit out',
+                      confirmLabel: 'Watch instead',
                     }))
                   ) {
                     void act({ type: 'sit', playing: false });
@@ -99,7 +99,7 @@ export function Table({
                 })()
               }
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           ) : (
             players.length < MAX_PLAYERS && (

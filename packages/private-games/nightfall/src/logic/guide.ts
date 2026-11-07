@@ -315,8 +315,8 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
   const art = (r: RoleId) => role(r)?.art;
   const text: GameGuide = {
     tagline: 'One night, hidden roles, one vote: find a werewolf before sunrise, or be one.',
-    players: '3 to 10',
-    duration: '10 minutes a game',
+    players: '3–10 players',
+    duration: '10 min a game',
     goal: 'Everyone gets a secret role. One night of sneaky moves, then one vote: the village wins if a Werewolf dies; the Werewolves win if none does. A few roles have goals of their own.',
     quickStart: [
       'Everyone gets one secret role card: look at it, then press Ready.',

@@ -3,8 +3,8 @@ import type { ReverieView } from './types.ts';
 
 const text: GameGuide = {
   tagline: 'Give a dreamy clue for one of your picture cards, and let some, but not all, find it.',
-  players: '3 to 8',
-  duration: '30 minutes',
+  players: '3–8 players',
+  duration: '30 min',
   goal: 'Be the first to the target score (15, 20 or 30 points, chosen by the host) by giving clues that are neither too obvious nor too obscure, and by spotting other players’ clues.',
   quickStart: [
     'Each turn one player is the storyteller: they pick a picture card from their hand and give a clue for it.',

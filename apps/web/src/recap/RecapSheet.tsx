@@ -313,7 +313,7 @@ function ActionBar({
       )}
       {onSameCrew && current && !empty && (
         <Button variant="secondary" className="min-h-11" onClick={onSameCrew}>
-          🎲 Same crew, new game
+          🎲 Same crew, another game
         </Button>
       )}
       {onWrap && current && !empty && recap.status === 'live' && !recap.running && (

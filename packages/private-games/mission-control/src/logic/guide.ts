@@ -14,8 +14,8 @@ import { DUMMY, EPILOGUE, type MissionControlView } from './types.ts';
 
 const base: GameGuide = {
   tagline: 'A cooperative trick-taking campaign: win the right tricks together, in near silence.',
-  players: '3 to 5 (2 with {dummy}, best with 3 to 5)',
-  duration: '5–20 minutes a mission',
+  players: '2–5 players (2 with {dummy}) · best with 3–5',
+  duration: '5–20 min a mission',
   goal: 'Complete every mission of the campaign as a crew. A mission is done when every task is met: each task says which tricks or cards its holder must (or must not) win. You can’t talk about your cards; one {token} each lets you show a single card.',
   quickStart: [
     'Read the mission briefing together, then the cards are dealt. Whoever holds the 4 {trump} is the {captain}.',
@@ -101,7 +101,7 @@ const base: GameGuide = {
       bullets: [
         'After a failure, press Retry same tasks or New tasks: the cards are dealt again and the tasks shared out again. Each attempt counts in the logbook.',
         'After a success, the logbook stamps the mission and the next one is briefed.',
-        'The campaign belongs to the room’s crew: any 3 to 5 of you can carry on, and “Same crew, new game” takes it to a new room. Missions out of order can be played as practice; practice doesn’t change the attempt counts.',
+        'The campaign belongs to the room’s crew: any 3 to 5 of you can carry on, and “Same crew, another game” takes it to a new room. Missions out of order can be played as practice; practice doesn’t change the attempt counts.',
         'After the last mission comes the endless epilogue: difficulty rises by one with each success.',
         'After every attempt, the replay shows every hand and every trick, with the failing trick marked.',
       ],

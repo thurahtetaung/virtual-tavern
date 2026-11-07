@@ -2,8 +2,8 @@ import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
 const text: GameGuide = {
   tagline: 'Everyone writes a one-word clue for the guesser, but matching clues cancel out.',
-  players: '3 to 7 (best with 5 or more)',
-  duration: '15–30 minutes',
+  players: '3–7 players · best with 5+',
+  duration: '15–30 min',
   goal: 'Work together to get as many secret words as you can across the deck. Each round one player guesses a word from the one-word clues everyone else writes, but any clue that someone else also wrote is cancelled before the guesser sees it.',
   quickStart: [
     'Each card, one player is the guesser and picks one of 5 hidden words by number.',
@@ -14,7 +14,7 @@ const text: GameGuide = {
     'The guesser moves round the table; score as many cards as you can together.',
   ],
   setup: [
-    'Up to 7 players can play; anyone else in the room watches until a seat frees up. Use “Sit out (watch)” to step out and “Take a seat” to come back.',
+    'Up to 7 players can play; anyone else in the room watches until a seat frees up. Use “Watch instead” to step out and “Take a seat” to come back.',
     'The host picks the word lists and the deck length: 8 cards (quick), 13 (standard) or 20 (long).',
     'The host presses Start. You need at least 3 players.',
   ],

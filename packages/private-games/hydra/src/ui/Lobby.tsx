@@ -115,7 +115,7 @@ export function Lobby({
                 size="sm"
                 onClick={() => void act({ type: 'sit', playing: false })}
               >
-                Just watch
+                Watch instead
               </Button>
             ) : (
               <Button

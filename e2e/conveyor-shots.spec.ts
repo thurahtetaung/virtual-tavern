@@ -58,7 +58,7 @@ for (const [label, viewport, colorScheme] of [
       for (let turn = 1; turn <= 10; turn++) await fillerTurn(pages, round, turn, 10);
       if (round < 3) await readyAll(pages);
     }
-    await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+    await expect(ana.getByRole('region', { name: 'Final standings' })).toBeVisible();
     await shot(ana, '09-end');
     await shot(ana, '10-end-full', true);
   });

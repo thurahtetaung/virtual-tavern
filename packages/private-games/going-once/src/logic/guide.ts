@@ -21,8 +21,8 @@ const PACE_LABEL = { relaxed: 'relaxed', normal: 'normal', fast: 'fast' } as con
 
 const base: GameGuide = {
   tagline: 'Draw two quick pictures, then bid on everyone’s art in live auctions. Most money wins.',
-  players: '3 to 6 (4 to 6 is best)',
-  duration: '15 minutes',
+  players: '3–6 players · best with 4–6',
+  duration: '15 min',
   goal: 'End with the most money: your cash, plus what the drawings you bought are worth, minus anything you owe {bank}.',
   quickStart: [
     'Everyone draws two pictures from secret titles. Titles in a game come in two families that look alike.',

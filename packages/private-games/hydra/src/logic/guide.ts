@@ -26,8 +26,8 @@ const teams = (n: number) => {
 
 const RAW: GameGuide = {
   tagline: 'Elect a government, pass laws in secret, and find {leader} before it’s too late.',
-  players: '5 to 10 players',
-  duration: '20–40 minutes',
+  players: '5–10 players',
+  duration: '20–40 min',
   goal: 'The {blues} win by passing 5 {bluePolicy} {policies} or by executing {leader}. The {reds} win with 6 {redPolicy} {policies}, or by getting {leader} elected {chancellor} once 3 {redPolicy} {policies} are on the board.',
   quickStart: [
     'Read your secret role. {reds} know each other; the {blues} know nothing.',

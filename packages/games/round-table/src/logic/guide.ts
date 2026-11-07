@@ -12,7 +12,7 @@ export const ROLE_GOAL: Record<string, string> = {
 const text: GameGuide = {
   tagline: 'Loyal knights against hidden traitors: pick teams, vote, and protect Merlin.',
   players: '5–10 players (more can watch)',
-  duration: '30–45 minutes',
+  duration: '30–45 min',
   goal: 'Good wins by completing three of five quests and keeping Merlin hidden. Evil wins by sinking three quests, by getting five teams rejected in a row, or by naming Merlin at the end.',
   quickStart: [
     'Read your secret role card: it says your side and who you know. Never show it to anyone.',

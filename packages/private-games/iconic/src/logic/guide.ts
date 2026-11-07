@@ -73,8 +73,8 @@ function base(icons: IconInfo, art: GuideArt): GameGuide {
   }));
   return {
     tagline: 'Make the table guess a word using only markers and cubes on a board of icons.',
-    players: '3 to 12',
-    duration: '30 to 45 minutes',
+    players: '3–12 players',
+    duration: '30–45 min',
     goal: 'Get your words guessed and guess the others’ words. Clue givers may not speak or type: they only put pieces on the board’s 118 icons.',
     quickStart: [
       'Each round one or two players are the clue givers. They pick a secret word from a card of nine.',

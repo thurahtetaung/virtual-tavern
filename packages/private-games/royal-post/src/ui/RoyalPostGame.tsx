@@ -195,7 +195,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           ) : playing.length < max ? (
             <Button size="sm" onClick={() => void act({ type: 'sit', playing: true })}>
@@ -212,7 +212,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           )}
         </div>

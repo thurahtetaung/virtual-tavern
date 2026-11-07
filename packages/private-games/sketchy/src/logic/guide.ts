@@ -27,8 +27,8 @@ export function footerOf(manifest: unknown): GuideFooter | undefined {
 const base: GameGuide = {
   tagline:
     'Draw a secret prompt, write fake titles for everyone’s drawings, and spot the real one.',
-  players: '3 to 8 (best with 4 to 8)',
-  duration: '15–25 minutes',
+  players: '3–8 players · best with 4–8',
+  duration: '15–25 min',
   goal: 'Score the most points: by finding the real titles of other people’s drawings, by fooling them with your fake titles, and by drawing clearly enough that they find yours.',
   quickStart: [
     'Everyone gets a secret prompt and draws it at the same time.',
@@ -39,7 +39,7 @@ const base: GameGuide = {
     'Two drawings each (one at a full table of 8). Most points wins.',
   ],
   setup: [
-    'Up to 8 players can play; anyone else in the room watches. Use “Sit out (watch)” to sit out, and “Take a seat” to play again.',
+    'Up to 8 players can play; anyone else in the room watches. Use “Watch instead” to sit out, and “Take a seat” to play again.',
     'The host picks the prompt packs, friend mode (prompts about the players themselves, off by default), whether adult prompts are dealt, the timers and the sound.',
     'The host presses Start. You need at least 3 players.',
   ],

@@ -283,8 +283,8 @@ function base(): GameGuide {
   return {
     tagline:
       'A murder, a room full of suspects, and one expert who knows the answer but can only point.',
-    players: '4 to 12',
-    duration: '20–30 minutes',
+    players: '4–12 players',
+    duration: '20–30 min',
     goal: 'The Investigators win by naming the Murderer’s exact Key Evidence (a Clue card) and Means of murder (a Means card). The Murderer, hiding among them, wins if nobody does by the end: after three rounds and, with our table rule on, one last round of final accusations.',
     quickStart: [
       'Everyone but the Forensic Scientist holds Clue and Means cards, face up for all to see. One of you is the secret Murderer.',

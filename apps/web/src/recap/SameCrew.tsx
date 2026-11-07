@@ -103,7 +103,7 @@ export function SameCrewPicker({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="🎲 Same crew, new game">
+    <Modal open={open} onClose={onClose} title="🎲 Same crew, another game">
       <p className="mb-3 text-sm text-ink-muted">
         Opens a new table for tonight. Everyone here gets a nudge to follow, and both tables share
         one night recap.

@@ -229,7 +229,7 @@ export function Lobby({
                     size="sm"
                     onClick={() => void act({ type: 'sit', playing: false })}
                   >
-                    Stand up
+                    Watch instead
                   </Button>
                 </>
               )}

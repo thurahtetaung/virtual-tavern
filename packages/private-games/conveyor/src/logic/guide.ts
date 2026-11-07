@@ -167,8 +167,8 @@ function base(art: GuideArt, n: Names): GameGuide {
   });
   return {
     tagline: art.tagline ?? TAGLINE,
-    players: '2 to 8 (best with 4 or 5)',
-    duration: '10 to 15 minutes',
+    players: '2–8 players · best with 4–5',
+    duration: '10–15 min',
     goal: 'Score the most points over three rounds by picking the right dishes, while watching what your neighbours need.',
     quickStart: [
       'Everyone picks one card from their hand at the same time, in secret.',
