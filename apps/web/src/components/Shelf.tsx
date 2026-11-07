@@ -85,21 +85,18 @@ export function ShelfCard({
   game,
   creating,
   onCreate,
-  brief = false,
 }: {
   game: ClientGame;
   creating: string | null;
   onCreate: (id: string) => void;
-  /** Only the pitch under the name (the games list's "Open a table", where the rows have the facts). */
-  brief?: boolean;
 }) {
   const guide = useGameGuide(game);
   return (
     <GameCard
       emblem={game.icon}
       name={game.name}
-      meta={brief ? guide.tagline : `${guide.players} · ${guide.duration}`}
-      tagline={brief ? undefined : guide.tagline}
+      meta={`${guide.players} · ${guide.duration}`}
+      tagline={guide.tagline}
       createAriaLabel={`Create ${article(game.name)} ${game.name} room`}
       creating={creating === game.id}
       disabled={creating !== null}

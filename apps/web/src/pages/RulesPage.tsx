@@ -1,9 +1,9 @@
 import { Button, Card, Field, Icon, Input, Notice, buttonClass } from '@vt/ui';
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router';
 import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
 import { Layout, PageLoading, RoomOpening } from '../components/Layout.tsx';
-import { CategoryChips, GuideRow, NoMatch, ShelfCard, useShelf } from '../components/Shelf.tsx';
+import { CategoryChips, GuideRow, NoMatch, useShelf } from '../components/Shelf.tsx';
 import {
   type ClientGame,
   clientGames,
@@ -78,24 +78,16 @@ function CreateRoom({ game }: { game: ClientGame }) {
 }
 
 /**
- * The games list: the chips, a row per shown game leading to its guide, then "Open a table" with
- * their cards; the back room's guides follow when unlocked. Without a saved name, "Create a room"
- * opens the game's guide, whose "Ready to play?" asks for one.
+ * The games list: the chips, then a row per shown game leading to its guide; the back room's guides
+ * follow when unlocked. Rooms are opened from the home page's shelf or a guide's "Ready to play?".
  */
 function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: ReadonlySet<string> }) {
-  const navigate = useNavigate();
   const { chips, filter, shown, categoriesOf } = useShelf(clientGames, 'vt.categories.rules');
-  const [name] = useState(savedName);
-  const pending = useRef<string | null>(null);
-  const { creating, create } = useCreateRoom(name, () => {
-    if (pending.current) void navigate(`/rules/${pending.current}`);
-  });
   const games = shown.filter((g) => !off.has(g.id));
   const backroomGames = backroom?.filter((g) => !off.has(g.id)) ?? [];
   const chosen = chips.filter((c) => filter.chosen.includes(c.id));
   return (
     <>
-      {creating && <RoomOpening />}
       <h1 className="text-title font-semibold">How to play</h1>
       <p className="mt-1 mb-4 text-ink-2">
         Every game here is played on phones, together in one room. Filter by what kind of night it
@@ -124,27 +116,6 @@ function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: Reado
           <GuideRow key={g.id} game={g} categories={categoriesOf(g.id)} />
         ))}
       </div>
-      {games.length > 0 && (
-        <section aria-labelledby="rules-open-a-table">
-          <h2 id="rules-open-a-table" className="mt-8 mb-3 text-heading font-semibold">
-            Open a table
-          </h2>
-          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
-            {games.map((g) => (
-              <ShelfCard
-                key={g.id}
-                game={g}
-                brief
-                creating={creating}
-                onCreate={(id) => {
-                  pending.current = id;
-                  void create(id);
-                }}
-              />
-            ))}
-          </div>
-        </section>
-      )}
       {backroomGames.length > 0 && (
         <section aria-labelledby="rules-back-room">
           <h2 id="rules-back-room" className="mt-10 mb-3 text-heading font-semibold">
