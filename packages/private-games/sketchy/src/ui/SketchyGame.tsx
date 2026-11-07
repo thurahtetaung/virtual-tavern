@@ -363,8 +363,6 @@ function SketchyPlay({
     );
   }
   const g = view.game;
-  const drawingNow =
-    view.phase === 'playing' && g?.stage === 'draw' && g.myPrompt !== null && !g.myDrawing;
   // Phones: one section at a time from the tab bar; wider screens show both side by side.
   const shown: PlayTab | null = wide ? null : tab;
   return (
@@ -390,13 +388,10 @@ function SketchyPlay({
           )}
           {view.phase === 'over' && <div className="flex justify-end lg:hidden">{sound}</div>}
           <div className="relative">
-            {/* While drawing, the pad's own heading says it all: the room goes to the pad. */}
             {/* Phones: one line while the skip panel shows (who is missing is on its button). */}
-            {!drawingNow && (
-              <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
-                <span className={cn(skip && !wide && 'line-clamp-1')}>{status.text}</span>
-              </Hint>
-            )}
+            <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
+              <span className={cn(skip && !wide && 'line-clamp-1')}>{status.text}</span>
+            </Hint>
             <Toast />
           </div>
           {view.phase === 'over' ? (
