@@ -134,3 +134,22 @@ test('on a small phone the refusal shows in view, and the drawer says "offline" 
   await expect(row).toContainText('offline');
   await expect(row).not.toContainText('away');
 });
+
+test("on a phone the Players drawer holds the theme switch the room's header leaves out", async ({
+  browser,
+}) => {
+  const hana = await player(browser, 'Hana', '/', true);
+  await hana.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(hana).toHaveURL(/\/r\//);
+  await expect(hana.getByRole('button', { name: /^Theme: / })).toHaveCount(0);
+  await openPlayers(hana);
+  const html = hana.locator('html');
+  const before = await html.getAttribute('data-theme');
+  await drawerOf(hana)
+    .getByRole('button', { name: /^Theme: / })
+    .click();
+  await expect(html).not.toHaveAttribute('data-theme', before!);
+  if (process.env.SCREENSHOTS)
+    await hana.screenshot({ path: test.info().outputPath('players-theme--phone.png') });
+  await hana.context().close();
+});
