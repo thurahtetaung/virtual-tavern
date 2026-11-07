@@ -126,8 +126,8 @@ test('a rules page names the tab and ends with a way to start playing', async ({
   await expect(page).toHaveTitle('How to play Echo · Virtual Tavern');
   // No name yet: the button asks for one first, then opens the room.
   await page.getByRole('button', { name: 'Create an Echo room' }).click();
-  await expect(page.getByLabel('Your name')).toBeFocused();
-  await page.getByLabel('Your name').fill('Hana');
+  await expect(page.getByLabel('What should we call you?')).toBeFocused();
+  await page.getByLabel('What should we call you?').fill('Hana');
   await page.getByRole('button', { name: 'Create an Echo room' }).click();
   await expect(page).toHaveURL(/\/r\//);
   await expect(page).toHaveTitle('Echo · Virtual Tavern');
@@ -215,7 +215,7 @@ test('on a phone the header buttons are labelled, and an away host is announced'
     await ana.screenshot({ path: 'test-results/shots/phone-host-away.png' });
 
   // Sitting out shows the shared "You're watching" banner, whose button takes the seat again.
-  await ben.getByRole('button', { name: 'Sit out (watch)' }).click();
+  await ben.getByRole('button', { name: 'Watch instead' }).click();
   const watching = ben.getByRole('status', { name: "You're watching" });
   await expect(watching).toBeVisible();
   await watching.getByRole('button', { name: 'Take a seat' }).click();

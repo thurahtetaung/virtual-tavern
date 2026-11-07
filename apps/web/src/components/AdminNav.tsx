@@ -45,12 +45,11 @@ export function AdminNav({
   current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
-  const items: { id: string; to: string; label: string; short?: string; icon: IconName }[] = [
+  const items: { id: string; to: string; label: string; icon: IconName }[] = [
     {
       id: 'lists',
       to: '/tavern-keeper',
-      label: 'Lists & back room',
-      short: 'Lists',
+      label: 'Content & back room',
       icon: 'list-ordered',
     },
     { id: 'games', to: '/tavern-keeper/games', label: 'Games', icon: 'gamepad-2' },
@@ -71,15 +70,15 @@ export function AdminNav({
           to={item.to}
           aria-current={current === item.id ? 'page' : undefined}
           className={cn(
-            'flex min-h-11 min-w-11 flex-1 items-center justify-center gap-3 border-b-2 px-3 text-small font-semibold whitespace-nowrap focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus lg:justify-start lg:rounded-lg lg:border-0',
+            'flex min-h-11 min-w-11 flex-1 items-center justify-center gap-3 border-b-2 px-3 text-center text-small leading-tight font-semibold focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus lg:justify-start lg:rounded-lg lg:border-0',
             current === item.id
               ? 'border-accent text-accent-text lg:bg-sunk lg:text-ink'
               : 'border-transparent text-ink-2 hover:bg-panel',
           )}
         >
           <Icon name={item.icon} className="hidden lg:block" />
-          <span className="lg:hidden">{item.short ?? item.label}</span>
-          <span className="hidden lg:inline">{item.label}</span>
+          {/* Wraps to two lines on a phone rather than pushing the strip off the screen. */}
+          <span className="lg:whitespace-nowrap">{item.label}</span>
         </Link>
       ))}
     </nav>

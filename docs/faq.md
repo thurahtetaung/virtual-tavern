@@ -37,7 +37,7 @@ No. Some games are made for talking out loud, so if you're apart, start a voice 
 Yes. Everything is designed for phones first, and works on desktops too.
 
 **Where are the rules?**
-Under **How to play** at the top of the page, and in every room through the ❓ button.
+Under **How to play** at the top of the page, and in every room through the **Rules** button.
 
 **What if I close the tab or my phone dies?**
 Open the same link again on the same device and you'll be put back in your seat. The front page also offers to take you back to your last room.

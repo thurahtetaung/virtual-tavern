@@ -256,7 +256,7 @@ export function StatTile({
           : '•';
   return (
     <Card className={cn('flex min-w-0 flex-col gap-1 p-3 sm:p-4', className)}>
-      <span className="truncate text-xs font-medium text-ink-2 ">{label}</span>
+      <span className="text-xs leading-snug font-medium text-ink-2">{label}</span>
       {loading ? (
         <Skeleton height={32} className="w-16" />
       ) : (

@@ -113,7 +113,7 @@ describe('formatting', () => {
     expect(delta(5, 10)).toEqual({ direction: 'down', text: '−50%' });
     expect(delta(3, 0)).toEqual({ direction: 'new', text: 'new' });
     expect(delta(0, 0)).toEqual({ direction: 'flat', text: '±0%' });
-    expect(pointsDelta(0.82, 0.78)).toEqual({ direction: 'up', text: '+4 pts' });
+    expect(pointsDelta(0.82, 0.78)).toEqual({ direction: 'up', text: '+4 points of %' });
   });
 
   it('formats durations and ages', () => {
