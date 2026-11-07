@@ -44,10 +44,10 @@ export function ClueForm({ act, max }: Props) {
   // row, the numbers under them, and the labels for screen readers only (the status line and the
   // placeholder say what to do).
   return (
-    <StickyBar fixed refusal={CLUE_ANCHOR}>
+    <StickyBar fixed refusal={CLUE_ANCHOR} className="max-sm:pt-2">
       <form
         onSubmit={(e) => void submit(e)}
-        className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row sm:items-end sm:gap-3"
+        className="grid grid-cols-[minmax(0,1fr)_auto] gap-1 sm:flex sm:flex-row sm:items-end sm:gap-3"
       >
         <label className="min-w-0 sm:flex-1">
           <span className="text-small font-semibold max-sm:sr-only">Your clue (one word)</span>
