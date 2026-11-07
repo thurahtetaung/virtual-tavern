@@ -48,15 +48,23 @@ function measure(page: Page) {
  * sits under the sticky bar or the tab bar. Records the numbers as a `fit` annotation, then puts
  * the page back to its own size.
  */
-export async function expectPhoneFit(page: Page, label: string) {
+export async function expectPhoneFit(
+  page: Page,
+  label: string,
+  /** A screen that lasts only seconds (a four-second window) waits less for the page to settle. */
+  { timeout }: { timeout?: number } = {},
+) {
   const size = page.viewportSize();
   if (size?.width !== PHONE.width || size.height !== PHONE.height)
     await page.setViewportSize(PHONE);
   await expect
-    .poll(async () => {
-      const m = await measure(page);
-      return m.scroll - m.client;
-    }, `${label}: the page fits the phone's height`)
+    .poll(
+      async () => {
+        const m = await measure(page);
+        return m.scroll - m.client;
+      },
+      { message: `${label}: the page fits the phone's height`, ...(timeout && { timeout }) },
+    )
     .toBeLessThanOrEqual(1);
   const m = await measure(page);
   test.info().annotations.push({

@@ -147,13 +147,11 @@ test('a Cliffhanger face-off and a describer’s turn fit one phone screen', asy
   await ana.getByTestId('start').click();
   await expect(ana.getByTestId('said-it')).toBeVisible({ timeout: 15_000 });
   await expect(ana.getByRole('tablist', { name: 'Cliffhanger' })).toBeVisible();
-  await expectPhoneFit(ana, [ana.getByTestId('said-it')]);
+  await expectPhoneFit(ana, 'Cliffhanger face-off');
   await faceOff(all, ana);
   await lockIn(ana);
   const describer = await whoSees(all, 'got-it');
-  await expectPhoneFit(describer, [
-    describer.getByTestId('now-title'),
-    describer.getByTestId('got-it'),
-    describer.getByTestId('pass'),
-  ]);
+  await expect(describer.getByTestId('now-title')).toBeVisible();
+  await expect(describer.getByTestId('pass')).toBeVisible();
+  await expectPhoneFit(describer, 'Cliffhanger describer');
 });

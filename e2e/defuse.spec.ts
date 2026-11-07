@@ -74,8 +74,9 @@ test('an expert reads the manual on one phone screen, a long page scrolling in i
   await flat([ana, ben]);
   await ana.getByTestId('start').click();
   await expect(ben.getByTestId('status')).toContainText('Ana is defusing bomb 1');
-  await expectPhoneFit(ben, [ben.getByTestId('manual-search'), ben.getByTestId('index-password')]);
+  await expectPhoneFit(ben, 'Defuse manual index');
   await ben.getByTestId('index-password').click();
   await expect(ben.getByTestId('page-password')).toBeVisible();
-  await expectPhoneFit(ben, [ben.getByTestId('page-body')]);
+  await expect(ben.getByTestId('page-body')).toBeVisible();
+  await expectPhoneFit(ben, 'Defuse manual page');
 });

@@ -108,9 +108,7 @@ test('a Stampede question and its answer form fit one phone screen', async ({ br
   await hana!.getByRole('button', { name: 'Start game' }).click();
   await expect(hana!.getByTestId('answer-input')).toBeVisible();
   await expect(hana!.getByRole('tablist', { name: 'Stampede' })).toBeVisible();
-  await expectPhoneFit(hana!, [
-    hana!.getByTestId('answer-input'),
-    hana!.getByTestId('answer-send'),
-    hana!.getByTestId('tips'),
-  ]);
+  await expect(hana!.getByTestId('answer-send')).toBeVisible();
+  await expect(hana!.getByTestId('tips')).toBeVisible();
+  await expectPhoneFit(hana!, 'Stampede answer form');
 });
