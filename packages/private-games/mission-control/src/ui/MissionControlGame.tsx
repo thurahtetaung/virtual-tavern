@@ -23,7 +23,7 @@ import {
 } from '../logic/types.ts';
 import { ArtContext, artFor, useArt, useManifest } from './assets.tsx';
 import { Briefing, RuleBox } from './Briefing.tsx';
-import { CardChip, Rich } from './Card.tsx';
+import { CardChip, CardFace, Rich } from './Card.tsx';
 import { AnnouncePanel, HandOverPanel, PickPanel, TokensPanel } from './Steps.tsx';
 import { Debrief } from './Debrief.tsx';
 import { Draft } from './Draft.tsx';
@@ -309,7 +309,7 @@ function HandPreview({ view }: { view: MissionControlView }) {
       <p className="text-xs font-semibold">Your hand</p>
       <div className="flex flex-wrap gap-1">
         {a.hand.map((c) => (
-          <CardChip key={c} card={c} className="text-base" />
+          <CardFace key={c} card={c} size="sm" />
         ))}
       </div>
     </Panel>

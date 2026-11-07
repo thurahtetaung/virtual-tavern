@@ -90,7 +90,7 @@ export function Tiling({
   return (
     <section
       aria-label={`Round ${s.round} wall-tiling`}
-      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
+      className="flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-tiling"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

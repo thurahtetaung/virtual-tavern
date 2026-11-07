@@ -31,7 +31,7 @@ export function useMatch(query: string) {
 }
 
 /** Board sizes: one cell's width in px. */
-export const CELL = { lg: 34, md: 28, sm: 18, xs: 9 } as const;
+export const CELL = { xl: 44, lg: 34, md: 28, sm: 18, xs: 9 } as const;
 export type Size = keyof typeof CELL;
 
 /** One tile: its face from the manifest, or a plain colour, always with its symbol. */
@@ -167,6 +167,8 @@ export function BoardView({
   className?: string;
 }) {
   const cell = CELL[size];
+  const wallCell = spaces ? Math.max(44, cell) : cell;
+  const patternCell = spaces ? Math.min(18, cell) : cell;
   const gap = size === 'xs' ? 1 : size === 'sm' ? 2 : 3;
   // During the tiling: the lines that are still to tile show full, their wall tiles not yet there.
   const pending = frame ? frame.score.placed.slice(frame.shown) : [];
@@ -219,13 +221,17 @@ export function BoardView({
             const body = Array.from({ length: SIZE }, (_, i) => {
               const slot = SIZE - 1 - i;
               if (slot >= capacity(row))
-                return <span key={i} style={{ width: cell, height: cell }} />;
+                return <span key={i} style={{ width: patternCell, height: patternCell }} />;
               const tile: TileKind | null =
                 slot >= l.count ? null : slot < l.count - jokers ? l.colour : 'joker';
               return tile ? (
-                <Tile key={i} colour={tile} art={art} size={cell} />
+                <Tile key={i} colour={tile} art={art} size={patternCell} />
               ) : (
-                <span key={i} className="mo-slot" style={{ width: cell, height: cell }} />
+                <span
+                  key={i}
+                  className="mo-slot"
+                  style={{ width: patternCell, height: patternCell }}
+                />
               );
             });
             const label = `Line ${row + 1}: ${l.count} of ${capacity(row)}${l.colour ? ` ${COLOUR_NAME[l.colour]}` : ''}${jokers ? ` with ${jokers} ${jokers === 1 ? 'joker' : 'jokers'}` : ''}`;
@@ -263,7 +269,7 @@ export function BoardView({
         </div>
         <div
           className="grid"
-          style={{ gridTemplateColumns: `repeat(${SIZE}, ${cell}px)`, gap }}
+          style={{ gridTemplateColumns: `repeat(${SIZE}, ${wallCell}px)`, gap }}
           role="group"
           aria-label="Wall"
           data-wall
@@ -275,22 +281,25 @@ export function BoardView({
               const isNew = latest && latest.row === r && latest.col === c;
               const open = spaces?.row === r && spaces.cols.includes(c);
               const empty = grey ? (
-                <span className="mo-slot mo-grey-slot" style={{ width: cell, height: cell }} />
+                <span
+                  className="mo-slot mo-grey-slot"
+                  style={{ width: wallCell, height: wallCell }}
+                />
               ) : (
-                <Tile colour={colourAt(r, c)} art={art} size={cell} ghost />
+                <Tile colour={colourAt(r, c)} art={art} size={wallCell} ghost />
               );
               return (
                 <span
                   key={key}
                   className={cn('relative', glow.has(key) && 'mo-glow')}
-                  style={{ width: cell, height: cell }}
+                  style={{ width: wallCell, height: wallCell }}
                   data-cell={key}
                 >
                   {show ? (
                     <Tile
                       colour={t}
                       art={art}
-                      size={cell}
+                      size={wallCell}
                       className={cn(isNew && 'mo-pop')}
                       label={`${COLOUR_NAME[t]}, row ${r + 1}`}
                     />
@@ -301,7 +310,7 @@ export function BoardView({
                         'mo-space rounded-[18%] focus-visible:outline-2 focus-visible:outline-accent',
                         spaces.chosen === c && 'mo-chosen',
                       )}
-                      style={{ width: cell, height: cell }}
+                      style={{ width: wallCell, height: wallCell }}
                       onClick={() => spaces.onPick!(c)}
                       aria-label={`Row ${r + 1}, column ${c + 1}${grey ? '' : ` (the ${COLOUR_NAME[colourAt(r, c)]} space)`}`}
                       aria-pressed={spaces.chosen === c}

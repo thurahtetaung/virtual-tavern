@@ -80,6 +80,17 @@ test('2 players on phones: recruiting costs a chip and keeps the turn, and no ch
   const pages = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];
   const [ana, ben] = pages;
   await ana.getByRole('button', { name: 'Start game' }).click();
+  // The flip choice fits the phone's width: no sideways scroll, both buttons whole.
+  await expect(ana.getByTestId('en-flip-turned')).toBeVisible();
+  await expect
+    .poll(() => ana.evaluate(() => document.documentElement.scrollWidth))
+    .toBe(PHONE.width);
+  for (const id of ['en-flip-kept', 'en-flip-turned']) {
+    const box = await ana.getByTestId(id).getByRole('button').boundingBox();
+    expect(box && box.x >= 0 && box.x + box.width <= PHONE.width, `${id}: the button fits`).toBe(
+      true,
+    );
+  }
   await keepAll(pages, 1, 2);
   await expect(ana.getByText('22 cards waiting for round 2')).toBeVisible();
   await show(ana, 0, /^Show 1 · the table is empty$/);

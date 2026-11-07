@@ -83,7 +83,7 @@ export function RoleCard({
               className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900"
             />
             <RoleBack c={c} className="relative" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[0.65rem] font-bold text-white drop-shadow">
+            <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs font-bold text-white drop-shadow">
               ⬆ Slide up or hold
             </span>
           </span>

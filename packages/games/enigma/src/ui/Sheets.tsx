@@ -146,7 +146,7 @@ const NoteList = memo(function NoteList({
             title="Remove"
             disabled={disabled}
             onClick={() => onRemove(n.id)}
-            className="-my-0.5 shrink-0 rounded px-1.5 text-ink-muted hover:bg-danger-soft hover:text-danger-ink disabled:text-ink-faint disabled:hover:bg-transparent"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded px-1.5 text-ink-muted hover:bg-danger-soft hover:text-danger-ink disabled:text-ink-faint disabled:hover:bg-transparent"
           >
             ✕
           </button>

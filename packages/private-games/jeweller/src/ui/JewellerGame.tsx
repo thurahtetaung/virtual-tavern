@@ -77,7 +77,15 @@ export function JewellerGame({
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const wide = useWideScreen();
   const table = (
-    <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={name}
+      showGuide={showGuide}
+      tips={wide && view.phase === 'playing' && inGame ? <Tips /> : null}
+    />
   );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -93,14 +101,14 @@ export function JewellerGame({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       <JewellerStyles />
       {view.phase === 'lobby' || !view.game ? (
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && inGame && <Tips />}
+          {!wide && view.phase === 'playing' && inGame && <Tips />}
           {view.phase === 'over' && (
             <End view={view} room={room} act={act} art={art} table={wide ? null : table} />
           )}

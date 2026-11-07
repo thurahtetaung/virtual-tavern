@@ -19,6 +19,7 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
+  Tabs,
   Superlatives,
   Switch,
   cn,
@@ -777,7 +778,7 @@ function SharedSettings({
       </div>
       {!mission && (
         <details data-testid="vetoes">
-          <summary className="cursor-pointer text-sm font-semibold">
+          <summary className="cursor-pointer py-3 text-sm font-semibold">
             Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
           </summary>
           <div className="mt-2 flex flex-wrap gap-1">
@@ -1175,34 +1176,20 @@ function Result({
           {!defused && ` · ${clockText(b.total - end.left)} used`}
         </p>
       </Panel>
-      <div
-        role="tablist"
-        aria-label="Result"
-        className={cn('grid gap-1 lg:hidden', tonight ? 'grid-cols-3' : 'grid-cols-2')}
-      >
-        {(
-          [
-            ['bomb', 'The bomb'],
-            ['next', 'Next bomb'],
-            ...(tonight ? [['tonight', 'Tonight']] : []),
-          ] as [typeof tab, string][]
-        ).map(([t, label]) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1',
-              tab === t ? 'bg-accent text-accent-fg ring-accent' : 'bg-card ring-line',
-            )}
-            data-testid={`result-tab-${t}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Phones: the shared underline tabs, so the parts never look like the Next bomb button. */}
+      <Tabs
+        id="defuse-result"
+        label="Result"
+        testId="result-tab"
+        className="lg:hidden"
+        tabs={[
+          { id: 'bomb', label: 'The bomb' },
+          { id: 'next', label: 'Next up' },
+          ...(tonight ? [{ id: 'tonight' as const, label: 'Tonight' }] : []),
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
       <div className={cn('space-y-3', part('bomb'))}>
         <Panel className="space-y-2">
           <h3 className="font-semibold">The bomb</h3>

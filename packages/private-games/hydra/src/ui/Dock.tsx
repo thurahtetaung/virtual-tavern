@@ -120,15 +120,21 @@ export function Dock({
             aria-label={`Vote ${c.ballotName(b)}`}
             onClick={() => void act({ type: 'vote', ballot: b }, { anchor: 'dock' })}
             className={cn(
-              'flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
+              'relative flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
               g.myVote === b
                 ? 'bg-accent-soft ring-4 ring-accent'
-                : g.myVote
-                  ? 'opacity-55 ring-line-strong'
-                  : 'bg-card ring-line-strong hover:scale-[1.02]',
+                : 'bg-card ring-line-strong hover:scale-[1.02]',
             )}
           >
             <BallotFace ballot={b} c={c} className="h-10 sm:h-14" />
+            {g.myVote === b && (
+              <span
+                aria-hidden
+                className="absolute -top-2 -right-2 grid size-6 place-items-center rounded-full bg-accent text-sm font-bold text-accent-fg shadow"
+              >
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -38,7 +38,10 @@ export function GameCard({
   meta?: ReactNode;
   tagline?: ReactNode;
   cover?: GameCover | null;
-  /** Always show the 16:9 art strip, with the emblem in it while there is no cover. */
+  /**
+   * Always show the art strip, with the emblem in it while there is no cover. On phones it is a
+   * shallower 21:9 (cropped), so a long list shows more than one game a screen.
+   */
   strip?: boolean;
   createLabel?: string;
   createAriaLabel?: string;
@@ -64,7 +67,12 @@ export function GameCard({
       {(art || strip) && (
         <div className="bg-sunk p-2.5">
           {art ? (
-            <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
+            <div
+              className={cn(
+                'aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line',
+                strip && 'max-sm:aspect-[21/9]',
+              )}
+            >
               <ProtectedImage
                 src={art.src}
                 alt=""
@@ -77,7 +85,7 @@ export function GameCard({
             <div
               aria-hidden
               data-ui="game-card-emblem-strip"
-              className="grid aspect-video place-items-center rounded-lg text-5xl leading-none"
+              className="grid aspect-video place-items-center rounded-lg text-5xl leading-none max-sm:aspect-[21/9]"
             >
               {emblem}
             </div>

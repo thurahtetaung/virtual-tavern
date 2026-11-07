@@ -11,6 +11,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** your own marks only; others' as locked flags, then counts, and who marked a card only once it is shown; unshown marks are never revealed.
   - **Phones:** Table and Stars on the shared `TabBar`; Lock / Unlock and the slate's refusal sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
+- **UI:** The desktop card grid is bounded by viewport height so Lock stays visible. Marked cards share one position-and-mark corner badge; retain the explicit Zoom action for keyboard and touch access.
+
 ## Assets
 
 Starlight shows the same cards from Reverie's folder and needs no upload of its own; its printed words go in as a word list in `/tavern-keeper` tagged only for Starlight, one card per entry, `Top / Bottom` for a card with a second word printed upside down (each side is played as a word of its own).

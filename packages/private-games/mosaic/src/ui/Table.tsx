@@ -1,6 +1,7 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   Countdown,
   Modal,
   PlayerTag,
@@ -10,7 +11,7 @@ import {
   cn,
   tabPanelProps,
 } from '@vt/ui';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { closeTo, countOf } from '../logic/rules.ts';
 import { SPECIAL_CHIP, SPECIAL_SHORT, SPECIAL_TEXT } from '../logic/specials.ts';
 import { COLOUR_NAME, SYMBOL } from '../logic/tiles.ts';
@@ -41,6 +42,7 @@ export interface TableProps {
   art: Art;
   name: NameOf;
   showGuide: (id?: string) => void;
+  tips?: ReactNode;
 }
 
 type Tab = 'play' | 'boards' | 'scores';
@@ -528,7 +530,7 @@ function Log({ view, name, open }: { view: MosaicView; name: NameOf; open: boole
   );
 }
 
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, tips }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you && !p.removed);
   const playing = view.phase === 'playing';
@@ -541,6 +543,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const away = g.players.filter((p) => p.left && !p.removed && p.id !== room.you);
   useFlights(view, art);
   const wide = useWide();
+  const tall = useMatch('(min-height: 800px)');
   // A pick that no longer stands (the turn moved on) closes.
   const open =
     pick &&
@@ -708,7 +711,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       <BoardView
         board={me}
         art={art}
-        size={wide ? 'lg' : 'md'}
+        size={wide ? (tall ? 'xl' : 'lg') : 'md'}
         owner={me.id}
         grey={!!view.settings.grey}
       />
@@ -717,17 +720,12 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
-        <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
-          {others
-            .filter((_, i) => i % 2 === 0)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
-        </aside>
-
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start lg:gap-3">
         <div
-          className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}
+          className={cn(
+            'flex min-w-0 flex-col gap-2 lg:max-w-[min(66.5rem,calc((100dvh-30rem)*2.5))]',
+            tab !== 'play' && 'hidden lg:flex',
+          )}
           {...(!wide && tabPanelProps(TABS_ID, 'play'))}
         >
           {/* The wall-tiling shows every board itself; on phones it stands in for these. */}
@@ -758,15 +756,18 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </div>
 
         <aside className="hidden flex-col gap-2 lg:flex" aria-label="More players and scores">
-          {others
-            .filter((_, i) => i % 2 === 1)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
-          <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
-            <Scores view={view} room={room} art={art} />
-          </div>
-          <Log view={view} name={name} open />
+          <FitArea on={wide} plain min={128}>
+            <div className="space-y-2">
+              {tips}
+              {others.map((p) => (
+                <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
+              ))}
+              <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
+                <Scores view={view} room={room} art={art} />
+              </div>
+              <Log view={view} name={name} open />
+            </div>
+          </FitArea>
         </aside>
 
         {tab === 'boards' && (

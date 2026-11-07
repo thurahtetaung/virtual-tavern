@@ -48,7 +48,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
             </span>
             <span
               className={cn(
-                'text-[0.65rem] font-bold',
+                'text-xs font-bold',
                 TEAM_TEXT[role === 'blue' ? 'blue' : 'red'],
                 i >= up && 'invisible',
               )}
@@ -138,12 +138,12 @@ export function TruthLog({ view, c }: { view: HydraView; c: Content }) {
                     >
                       <ClaimLine view={view} c={c} claim={cl} round={r} />{' '}
                       {lied === true && (
-                        <span className="rounded bg-danger px-1 text-[0.6rem] font-black text-white">
+                        <span className="rounded bg-danger px-1 text-xs font-black text-white">
                           LIE{part && ` (${part})`}
                         </span>
                       )}
                       {lied === false && (
-                        <span className="text-[0.65rem] font-bold text-success-ink">✓ true</span>
+                        <span className="text-xs font-bold text-success-ink">✓ true</span>
                       )}
                     </li>
                   );
