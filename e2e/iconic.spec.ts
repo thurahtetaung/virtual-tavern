@@ -231,6 +231,11 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await shoot(giver, 'placing', true);
 
   await guess(first, 'lamp');
+  // The clue giver's move (judging) waits on the Guesses tab: closed, it carries the count.
+  const waiting = giver.getByTestId('iconic-clue-badge-guesses');
+  await expect(giver.getByRole('tab', { name: /Board/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(waiting).toHaveText('1');
+  await expect(giver.getByRole('tab', { name: /Guesses/ })).toHaveAccessibleName(/1 unread/);
   await phoneTab(giver, 'Guesses');
   const lamp = giver.getByTestId('ic-guesses').getByRole('listitem').filter({ hasText: 'lamp' });
   await lamp.getByRole('button', { name: 'Close' }).click();
