@@ -57,7 +57,7 @@ export const bluesPips = (blues: number, n: number) =>
   ]);
 
 /** What the viewer should do (or what's happening), role-neutral so a glance gives nothing away. */
-export function statusFor(view: HydraView, c: Content): Status {
+export function statusFor(view: HydraView, c: Content, wide = false): Status {
   const g = view.game;
   const me = view.me?.id;
   if (view.phase === 'lobby' || !g) return { text: '', yourMove: false };
@@ -85,7 +85,7 @@ export function statusFor(view: HydraView, c: Content): Status {
   switch (view.stage) {
     case 'reveal':
       return inGame && !g.ready.includes(me!)
-        ? say('status.reveal.you', true)
+        ? say(wide ? 'status.reveal.you.wide' : 'status.reveal.you', true)
         : say('status.reveal.waiting', false);
     case 'nominate':
       return g.president === me

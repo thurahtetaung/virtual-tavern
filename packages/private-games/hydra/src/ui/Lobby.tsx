@@ -1,8 +1,9 @@
 import { volumeShare } from '@vt/ui/sound';
 import { GAME as SOUND_GAME, HydraLobbySound } from './Sound.tsx';
-import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   Panel,
   PlayerTag,
@@ -42,7 +43,7 @@ export function Lobby({
   c: Content;
   act: Act;
   showGuide: () => void;
-  /** The edition's display font switched off ("Plain headings"), for this viewer only. */
+  /** The edition's display font switched off ("Themed lettering" off), for this viewer only. */
   plain: boolean;
   setPlain: (on: boolean) => void;
 }) {
@@ -51,7 +52,18 @@ export function Lobby({
   const playing = view.seats.filter((x) => x.playing);
   const watching = view.seats.filter((x) => !x.playing);
   const n = playing.length;
-  const ok = n >= MIN_PLAYERS && n <= MAX_SEATS;
+  const blocker =
+    n < MIN_PLAYERS
+      ? playersNeeded(MIN_PLAYERS, n)
+      : n > MAX_SEATS
+        ? `At most ${MAX_SEATS} can play.`
+        : null;
+  const ok = !blocker;
+  const lobbyLine = !view.me
+    ? { text: 'Watching the table.', me: false }
+    : !view.me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   const reds = RED_COUNT[n];
   const setup = ok ? setupFor(n, s.rebalance) : null;
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -73,35 +85,22 @@ export function Lobby({
                 '{blues} against {reds}. Elect governments, pass laws in secret, and find {leader} before it’s too late.',
               )}
             </p>
-            <button
-              type="button"
-              className="mt-1 text-sm font-semibold text-amber-300 underline"
-              onClick={showGuide}
-            >
-              How to play →
-            </button>
             {c.font && (
               <button
                 type="button"
                 role="switch"
-                aria-checked={plain}
+                aria-checked={!plain}
                 onClick={() => setPlain(!plain)}
-                className="mt-1 ml-3 text-xs font-semibold text-white/70 underline"
+                className="mt-1 text-xs font-semibold text-white/70 underline"
               >
-                Plain headings: {plain ? 'on' : 'off'}
+                Themed lettering: {plain ? 'off' : 'on'}
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <Hint tone={host && ok ? 'action' : 'neutral'}>
-        {n < MIN_PLAYERS
-          ? `It takes ${MIN_PLAYERS} to ${MAX_SEATS} players: ${n} seated so far. Share the link!`
-          : host
-            ? 'Everyone’s here? Pick your options and start.'
-            : waitingForHost(room, 'start')}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
 
       <Panel className="space-y-3">
         <div className="flex items-center justify-between gap-2">
@@ -186,10 +185,11 @@ export function Lobby({
           </div>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? c.names.title} onClick={showGuide} />
 
       <LobbySettings
         editable={host}
-        title="Options"
+        title="Settings"
         summary={[
           s.rebalance && 'rebalanced',
           s.quick && 'quick mode',
@@ -205,7 +205,6 @@ export function Lobby({
         ]}
         className="space-y-3"
       >
-        {host && <h3 className="font-bold">Options</h3>}
         <Switch
           on={s.rebalance}
           tagTone="special"
@@ -230,7 +229,7 @@ export function Lobby({
           on={s.flags}
           editable={host}
           title="Flag claims that don’t add up"
-          help="The claim log marks claims that what everyone saw shows can’t all be true. It never uses secret information."
+          help="The claim log marks claims that can’t all be true, judged only from what everyone saw. It never uses secret information."
           onChange={(v) => set({ flags: v })}
         />
         <label className="block">

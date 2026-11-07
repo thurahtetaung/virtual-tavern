@@ -12,6 +12,9 @@ export const COPY = {
     'You’ve been executed: you can watch, but you can’t talk, vote or give anything away.',
   'status.reveal.you':
     'Read your secret role (slide the card up, or hold it), then tap Ready. Keep it hidden from your neighbours.',
+  // The same step on a wide screen, where a mouse can't slide the cover.
+  'status.reveal.you.wide':
+    'Read your secret role (hold the card, or press Show), then tap Ready. Keep it hidden from your neighbours.',
   'status.reveal.waiting': 'Waiting for everyone to read their role ({ready} of {total}).',
   'status.nominate.you':
     'You’re the {candidate}: nominate a {chancellor}. Greyed seats can’t be picked (tap one to see why).',
@@ -133,6 +136,8 @@ export const COPY = {
   'end.reason.leader-executed': '{Leader} was executed.',
   'end.reason.leader-elected': '{Leader} was elected {chancellor} in the danger zone.',
   'end.leaderWas': '{Leader} was **{player}**.',
+  // After a reason that already names {Leader}: who it was, without naming the role again.
+  'end.leaderWasThem': 'It was **{player}**.',
   'end.won': 'Your team won. 🎉',
   'end.lost': 'Your team lost this one.',
   'end.playAgain': 'Play again keeps the seats and settings, with a new first {president}.',

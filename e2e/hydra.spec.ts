@@ -134,6 +134,7 @@ test('five players: peek, mandatory claims, a skipped claim and an execution to 
   }
   // The end shows every role and the truth beside the claims.
   if (target === leader) {
+    await host.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Truth' }).click();
     await expect(host.getByRole('region', { name: 'The truth' })).toContainText('LIE');
     await expect(host.getByLabel('Everyone’s role').getByText('Usurper').first()).toBeVisible();
   }

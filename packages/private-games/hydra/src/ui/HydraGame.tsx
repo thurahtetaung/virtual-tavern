@@ -30,7 +30,7 @@ import { type Content, GAME_ID, contentFor, useManifest } from './assets.ts';
 import { Board, DeckChip, MiniTracks, ScoreLegend } from './Boards.tsx';
 import { PolicyBack } from './Cards.tsx';
 import { Dock, TaskSheet, secretTask } from './Dock.tsx';
-import { End } from './End.tsx';
+import { End, TruthLog } from './End.tsx';
 import { playSfx, prefersReducedMotion, useBuzz } from './fx.ts';
 import { type VolumeShare, useHostVolumes, volumeShare } from '@vt/ui/sound';
 import { GAME as SOUND_GAME, HydraSoundButton, useHydraSound } from './Sound.tsx';
@@ -433,7 +433,7 @@ export function HydraGame({
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
   const g = view.game;
-  const status = statusFor(view, c);
+  const status = statusFor(view, c, wide);
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -632,7 +632,7 @@ export function HydraGame({
             act={act}
             timeline={!wide && <Timeline view={view} c={c} />}
           />
-          {wide && <Timeline view={view} c={c} />}
+          {wide && <Timeline view={view} c={c} truth={<TruthLog view={view} c={c} />} />}
         </div>
         <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
       </ThemeRoot>

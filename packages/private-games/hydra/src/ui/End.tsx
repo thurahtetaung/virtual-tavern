@@ -90,7 +90,7 @@ function SessionTruth({ t, c }: { t: Truth; c: Content }) {
 }
 
 /** The truth, round by round: what each government really drew, next to what they claimed. */
-function TruthLog({ view, c }: { view: HydraView; c: Content }) {
+export function TruthLog({ view, c }: { view: HydraView; c: Content }) {
   const g = view.game!;
   const end = g.end!;
   const rounds = g.rounds.filter((r) => r.session || r.power || r.claims.length);
@@ -188,7 +188,16 @@ export function End({
         </p>
         <p className="mt-1 text-sm">
           {c.copy(`end.reason.${end.reason}`)}{' '}
-          {leader && <Rich text={c.copy('end.leaderWas', { player: nameOf(view, leader) })} />}
+          {leader && (
+            <Rich
+              text={c.copy(
+                end.reason.startsWith('leader-') ? 'end.leaderWasThem' : 'end.leaderWas',
+                {
+                  player: nameOf(view, leader),
+                },
+              )}
+            />
+          )}
         </p>
         {won !== null && (
           <p className="mt-1 text-sm font-semibold">{c.copy(won ? 'end.won' : 'end.lost')}</p>
@@ -229,7 +238,6 @@ export function End({
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
       <p className="text-center text-xs text-ink-muted">{c.copy('end.playAgain')}</p>
-      {!timeline && <TruthLog view={view} c={c} />}
       {!timeline && <CreditBlock c={c} />}
     </div>
   );
