@@ -194,8 +194,8 @@ export interface Game {
   /** Index into `order`. */
   at: number;
   turn: Turn | null;
-  /** Drawings the host has hidden: they still play, shown as hidden. */
-  hidden: PlayerId[];
+  /** An older release's host hide (since removed): ignored, kept so its saved rooms still load. */
+  hidden?: PlayerId[];
   /** In a row, drawings on which each player found the truth. */
   streaks: Record<PlayerId, number>;
   history: PastTurn[];
@@ -270,8 +270,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('skip-reveal') }),
   /** Host: stop waiting for the players still missing; the stage ends as a strict timeout would. */
   z.object({ type: z.literal('continue-without') }),
-  /** Host: hide (or show again) the drawing on the table for everyone; it still plays. */
-  z.object({ type: z.literal('hide'), hidden: z.boolean() }),
 ]);
 
 export type SketchyAction = z.infer<typeof actionSchema>;
@@ -304,9 +302,7 @@ export interface TurnView {
   artist: PlayerId | null;
   /** The real title: to its artist all along, to everyone at the reveal. */
   prompt: string | null;
-  /** Null when the host has hidden it. */
   drawing: Drawing | null;
-  hidden: boolean;
   /** How many write a lie and vote (who they are stays hidden until the reveal). */
   writerCount: number;
   /** The viewer writes and votes on this drawing. */

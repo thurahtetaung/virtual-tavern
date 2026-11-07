@@ -103,7 +103,6 @@ const base: GameGuide = {
         'Players who join during a game watch until the next round’s drawing starts.',
         'If a player leaves, a drawing they sent still comes up and still scores for them. A fake title still being written is dropped; once picking has started it stays on the board.',
         'If the game is stuck waiting for someone, the host can press “Continue without…”, which ends the stage as a strict timer would.',
-        'The host can hide a drawing for everyone: it still plays, shown as hidden. Anyone can hide a drawing on their own screen.',
         'If fewer than 3 players are left, the game ends with the scores so far.',
       ],
     },

@@ -57,15 +57,13 @@ function turnView(
     house: revealed ? o.house : null,
     likes: revealed ? likeCount(i) : null,
   }));
-  const hidden = g.hidden.includes(turn.artist);
   return {
     number: g.at + 1,
     of: g.order.length,
     mine,
     artist: revealed ? turn.artist : null,
     prompt: revealed || mine ? g.sketches[turn.artist]!.prompt.text : null,
-    drawing: hidden ? null : (g.sketches[turn.artist]?.drawing ?? null),
-    hidden,
+    drawing: g.sketches[turn.artist]?.drawing ?? null,
     writerCount: group.length,
     writing,
     missing: g.stage === 'write' || g.stage === 'vote' ? named : null,

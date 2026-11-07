@@ -137,7 +137,7 @@ const rules: AwardRule[] = [
     family: 'drawing',
     minPlayers: 3,
     copy: {
-      cheeky: ['{who}’s drawings got {n} right guesses', 'Even liars got {who}’s art ({n} hits)'],
+      cheeky: ['{who}’s drawings got {n} right guesses', '{who}’s art was spotted {n|time} through the fakes'],
       wholesome: ['{who} drew so well {n} players got it', '{who}’s drawings spoke clearly ({n})'],
     },
     compute: (g) =>

@@ -55,7 +55,6 @@ function revealEvents(g: Game, turn: Turn): InsightEvent[] {
         voters: turn.voters.length,
         lies: lies.length,
         house: turn.options.filter((o) => o.house).length,
-        hidden: g.hidden.includes(turn.artist),
         points: turn.points[turn.artist] ?? 0,
       },
     },

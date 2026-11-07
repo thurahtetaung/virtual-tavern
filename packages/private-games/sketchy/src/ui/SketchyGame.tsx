@@ -94,7 +94,8 @@ function Header({
           </span>
         )}
       </div>
-      {stage && (
+      {/* While drawing, the drawing bar has the clock: it shows once. */}
+      {stage && stage !== 'draw' && (
         <Countdown
           deadline={g.deadline}
           clockOffset={clockOffset}
@@ -186,7 +187,7 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
           score: s.score,
         }))}
         you={view.me?.id}
-        scoreLabel={(n) => `${points(n)} pts`}
+        scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
         // On a phone the podium alone: the full list is the Scores tab, a tap away.
         className="text-left max-lg:[&>:not(:first-child)]:hidden"
       />
@@ -304,7 +305,7 @@ function SketchyPlay({
 }) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const title = room.gameName ?? 'Sketchy';
-  const blocker = startBlocker(view, title);
+  const blocker = startBlocker(view);
   const turn =
     view.phase === 'playing' && view.game?.stage === 'reveal' ? (view.game.turn ?? null) : null;
   const reveal = useReveal(turn, room.clockOffset);
@@ -392,7 +393,8 @@ function SketchyPlay({
             <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
               <span className={cn(skip && !wide && 'line-clamp-1')}>{status.text}</span>
             </Hint>
-            <Toast />
+            {/* The last round's banner never stays on the end screen: the status line says who won. */}
+            {view.phase !== 'over' && <Toast />}
           </div>
           {view.phase === 'over' ? (
             <GameOver view={view} room={room} act={act} />

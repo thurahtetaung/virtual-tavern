@@ -4,6 +4,7 @@ import {
   Button,
   type Choice,
   ChoicePicker,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -169,16 +170,16 @@ export function Lobby({
   const others = s.packIds.filter((id) => !friends.some((p) => p.id === id));
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
+      <GuideLink title={room.gameName ?? 'Sketchy'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={settingsSummary(view, stagePresent, manifest)}
         className="space-y-4"
       >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <ChoicePicker
           selectedIds={others}
           editable={editable}
@@ -295,9 +296,6 @@ export function Lobby({
           </div>
         </StickyBar>
       )}
-      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to {room.gameName ?? 'Sketchy'}? Read the guide
-      </Button>
     </div>
   );
 }
@@ -322,7 +320,7 @@ function SoundSettingsPanel({
   const modes = SOUND_MODES.filter((m) => m !== 'stage' || stagePresent || soundNow === 'stage');
   return (
     <fieldset className="space-y-2" data-testid="sketchy-sound-settings">
-      <legend className="text-sm font-semibold">Sound</legend>
+      <legend className="text-sm font-semibold">Where sound plays</legend>
       {editable ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {modes.map((m) => (

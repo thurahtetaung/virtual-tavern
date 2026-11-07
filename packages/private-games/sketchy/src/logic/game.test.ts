@@ -337,13 +337,6 @@ describe('flow', () => {
     expect(h.state.endReason).toBe('too-few');
   });
 
-  it('lets the host hide the drawing on the table', () => {
-    const h = writing(4);
-    expect(h.refuse('p2', { type: 'hide', hidden: true }).code).toBe('not-host');
-    h.act(HOST, { type: 'hide', hidden: true });
-    expect(game(h).hidden).toEqual([turn(h).artist]);
-  });
-
   it('newcomers watch until the next round', () => {
     const h = writing(4);
     h.state = sketchy.playerJoined(h.state, { id: 'p9', name: 'P9' });
