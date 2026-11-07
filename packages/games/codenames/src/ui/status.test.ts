@@ -53,7 +53,7 @@ describe('statusFor names people', () => {
     const h = startedGame();
     const lobby = { ...codenames.view(h.state, OP.red), phase: 'lobby' as const };
     expect(statusFor(lobby, false, null, room()).text).toBe(
-      'All set. Waiting for HOST (host) to start the game…',
+      'Waiting for HOST (host) to start…',
     );
   });
 

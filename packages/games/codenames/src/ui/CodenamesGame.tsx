@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   EndTabs,
+  GuideLink,
   Fold,
   Hint,
   Icon,
@@ -99,8 +100,9 @@ export function CodenamesGame({
   if (view.phase === 'lobby') {
     return (
       <div className="space-y-4">
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Teams view={view} online={online} act={act} hostId={room.hostId} />
+        <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />
         <p className="text-center text-small">
           <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
           this game and has 9 agents to find; the other team has 8.
@@ -113,7 +115,6 @@ export function CodenamesGame({
           ]}
           className="space-y-4"
         >
-          {room.isHost && <h3 className="text-sub font-bold">Game settings</h3>}
           <Settings
             settings={view.settings}
             wordLists={room.wordLists}
@@ -121,12 +122,6 @@ export function CodenamesGame({
             act={act}
           />
         </LobbySettings>
-        <p className="text-center text-small text-ink-muted">
-          First time playing?{' '}
-          <Button variant="quiet" size="sm" onClick={showGuide}>
-            Read the 2-minute guide
-          </Button>
-        </p>
         {room.isHost && (
           <StickyBar>
             <div className="space-y-1.5">

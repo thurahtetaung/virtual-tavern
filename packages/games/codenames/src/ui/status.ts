@@ -1,4 +1,4 @@
-import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, lobbyStatus, waitingForHost } from '@vt/game-sdk';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
@@ -162,13 +162,12 @@ export function statusFor(
         yourMove: true,
       };
     }
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? {
-          text: 'Everyone is seated. Press Start game when your friends are ready!',
-          yourMove: true,
-        }
-      : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: room?.hostId ?? '', players: room?.players ?? [] },
+      blocker,
+    );
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
 
   if (view.phase === 'over') {

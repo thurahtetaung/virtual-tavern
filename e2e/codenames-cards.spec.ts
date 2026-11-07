@@ -222,7 +222,7 @@ async function startedGame(browser: Browser) {
     .getByRole('button', { name: 'Be the Spymaster' })
     .click();
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
-  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(board(host).getByRole('button')).toHaveCount(25);
   const labels = await board(host)

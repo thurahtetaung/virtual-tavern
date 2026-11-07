@@ -58,7 +58,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
     .click();
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
 
-  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await expect(ana!.getByText('Waiting for Hana (host) to start the game')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(cards(host)).toHaveCount(25);
@@ -141,7 +141,7 @@ test('the table is told when the Spymaster drops out, and the host can skip the 
     .getByRole('button', { name: 'Be the Spymaster' })
     .click();
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
-  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(cards(host)).toHaveCount(25);
 
@@ -179,7 +179,7 @@ test('a newcomer opening a link is asked for their name first', async ({ browser
   await guest.getByRole('button', { name: 'Join' }).click();
   await expect(host.getByText('Newbie').first()).toBeVisible();
 
-  await guest.getByRole('button', { name: 'Read the 2-minute guide' }).click();
+  await guest.getByRole('button', { name: 'Read the guide' }).click();
   const guide = guest.getByRole('dialog');
   await expect(guide.getByRole('region', { name: 'How a game goes' })).toBeVisible();
   await guide.getByRole('tab', { name: 'Rules' }).click();
@@ -330,7 +330,7 @@ test('a team that loses its Spymaster is told why its turns are skipped, and can
     .getByRole('button', { name: 'Be the Spymaster' })
     .click();
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
-  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(cards(cy!)).toHaveCount(25);
   await expect(cy!.getByTestId('no-spymaster')).toHaveCount(0);
