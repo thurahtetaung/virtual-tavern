@@ -177,6 +177,20 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
+    if (name !== 'Live') {
+      // The chosen range chip is fully inside its strip, never under the Group by dropdown.
+      const range = page.getByRole('group', { name: 'Time range' });
+      const chip = range.getByRole('button', { pressed: true });
+      await expect(chip).toHaveText('30 days');
+      const bounds = () =>
+        Promise.all([range, chip, page.getByLabel('Group by')].map((l) => l.boundingBox()));
+      await expect
+        .poll(async () => {
+          const [r, c, select] = await bounds();
+          return c!.x >= r!.x && c!.x + c!.width <= r!.x + r!.width && c!.x + c!.width <= select!.x;
+        }, `${name}: the 30 days chip is in view`)
+        .toBe(true);
+    }
   }
   // The wide calendar scrolls sideways, and keyboard users can reach it to scroll it.
   await tab(page, 'Overview').click();

@@ -9,7 +9,7 @@ import { useToast } from '../lib/toast.tsx';
  * The thin bar every seat tab of an admin playtest shows under the room header: which seat this
  * tab plays, after its player colour's dot, the bots' pause and speed switches, and (for the host
  * seat) a way to end the playtest. On phones it is one 44 px line, and its controls open in a
- * sheet from its "Bots" button, so the game below still fits the screen.
+ * sheet from its "Bots" button ("Playtest" when the game has no bots), so the game below still fits the screen.
  */
 export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: RoomSnapshot }) {
   const toast = useToast();
@@ -24,6 +24,8 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
   const isHost = snapshot.hostId === snapshot.you;
   const playtest = snapshot.meta?.playtest;
   const bots = !!playtest && playtest.bots > 0;
+  // Without bots the sheet holds only End playtest, so it is named for the playtest.
+  const sheetTitle = bots ? 'Bots' : 'Playtest';
 
   const end = async () => {
     setSheet(false);
@@ -63,7 +65,7 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
   return (
     <section
       aria-label="Playtest"
-      className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-sunk px-3 text-small text-ink ring-1 ring-line ring-inset"
+      className="mb-1.5 flex flex-wrap items-center sm:mb-3 justify-between gap-x-3 gap-y-1 rounded-lg bg-sunk px-3 text-small text-ink ring-1 ring-line ring-inset"
     >
       <p className="flex min-h-11 min-w-0 flex-1 items-center gap-1">
         <Icon name="dice-5" size={16} className="text-ink-2" />
@@ -76,7 +78,7 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
       </p>
       {(bots || isHost) && (
         <Button variant="secondary" size="sm" className="sm:hidden" onClick={() => setSheet(true)}>
-          Bots
+          {sheetTitle}
         </Button>
       )}
       {playtest?.stuck && (
@@ -85,7 +87,7 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
         </p>
       )}
       <div className="hidden flex-wrap items-center gap-2 py-1 sm:flex">{controls}</div>
-      <Modal open={sheet} onClose={() => setSheet(false)} title="Bots" size="sm">
+      <Modal open={sheet} onClose={() => setSheet(false)} title={sheetTitle} size="sm">
         <div className="flex flex-wrap items-center gap-2">{controls}</div>
       </Modal>
       {dialog}

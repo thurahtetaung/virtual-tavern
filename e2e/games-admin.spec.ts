@@ -147,3 +147,30 @@ test('admins make categories and players filter the game list by them', async ({
     await cleanUp(admin);
   }
 });
+
+test('the games admin fits a phone with a long row of categories', async ({ browser }) => {
+  const admin = await signedInAdmin(browser);
+  try {
+    // Enough categories that a card's chip row is far wider than the phone; it scrolls inside its card.
+    for (let i = 1; i <= 10; i++) {
+      const res = await admin.request.post('/api/admin/games/categories', {
+        data: { name: `E2E Wide category ${i}`, emoji: '📣' },
+      });
+      expect(res.ok()).toBe(true);
+    }
+    await admin.setViewportSize({ width: 390, height: 844 });
+    for (const colorScheme of ['dark', 'light'] as const) {
+      await admin.emulateMedia({ colorScheme });
+      await admin.goto('/tavern-keeper/games');
+      const strip = admin.getByRole('group', { name: 'Codenames', exact: true });
+      await expect(strip.getByRole('button', { name: 'E2E Wide category 10' })).toBeAttached();
+      await expect
+        .poll(() => admin.evaluate(() => document.documentElement.scrollWidth))
+        .toBeLessThanOrEqual(390);
+      const box = (await admin.getByTestId('game-card-codenames').boundingBox())!;
+      expect(box.x + box.width, `${colorScheme} card`).toBeLessThanOrEqual(390 - 16);
+    }
+  } finally {
+    await cleanUp(admin);
+  }
+});

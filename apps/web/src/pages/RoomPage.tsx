@@ -699,14 +699,17 @@ function Room({
   const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
 
   return (
-    <Layout wide room>
+    <Layout wide room playtest={playtest}>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
           icon over a one-word label; on a phone with four, the icon alone). A long name takes a
           smaller size and up to two lines, breaking only between words (`RoomTitle`). */}
       <div
         ref={roomHeader}
         data-ui="room-header"
-        className="mb-3 flex items-center justify-between gap-2 sm:mb-4"
+        className={cn(
+          'flex items-center justify-between gap-2 sm:mb-4',
+          playtest ? 'mb-1.5' : 'mb-3',
+        )}
       >
         <h1
           className={cn(

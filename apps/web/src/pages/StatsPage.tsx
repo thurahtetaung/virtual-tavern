@@ -14,7 +14,7 @@ import {
   Select,
   tabPanelProps,
 } from '@vt/ui';
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { AdminFrame, AdminTitle } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
@@ -205,9 +205,25 @@ function RangePicker() {
   const { params, setParams } = useStats();
   const buckets = bucketsFor(params.range, params.from, params.to);
   const today = todayUtc();
+  // On phones the strip scrolls; bring the chosen range fully into view (never under Group by).
+  // Only the strip scrolls: `scrollIntoView` would move the page too.
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = row.current?.querySelector<HTMLElement>('[role="group"]');
+    const chip = strip?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!strip || !chip) return;
+    // The chip's place in the strip's scrolled content, with room for the focus ring.
+    const pad = 6;
+    const at = chip.getBoundingClientRect();
+    const left = at.left - strip.getBoundingClientRect().left + strip.scrollLeft - pad;
+    const right = left + at.width + 2 * pad;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (right > strip.scrollLeft + strip.clientWidth)
+      strip.scrollLeft = right - strip.clientWidth;
+  }, [params.range]);
   return (
     <div className="sticky top-0 z-20 space-y-2 border-b border-line bg-panel p-2 backdrop-blur ">
-      <div className="flex items-center gap-2">
+      <div ref={row} className="flex items-center gap-2">
         <Chips label="Time range" className="min-w-0 flex-1">
           {STATS_RANGES.map((range: StatsRange) => (
             <Chip

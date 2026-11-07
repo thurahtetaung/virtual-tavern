@@ -67,7 +67,7 @@ export function GamesAdmin() {
             no new rooms; rooms already open finish their game, and you can still playtest it.
           </p>
         </div>
-        <ul className="grid gap-3">
+        <ul className="grid grid-cols-1 gap-3">
           {games.map((g) => (
             <GameSettingsCard
               key={g.gameId}

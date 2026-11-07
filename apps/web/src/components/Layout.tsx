@@ -15,6 +15,7 @@ export function Layout({
   wide = false,
   room = false,
   admin = false,
+  playtest = false,
 }: {
   children: ReactNode;
   wide?: boolean;
@@ -25,6 +26,11 @@ export function Layout({
   room?: boolean;
   /** The tavern keeper's pages: a wider column for the side navigation and charts. */
   admin?: boolean;
+  /**
+   * An admin playtest room: on phones the frame's spacing is tighter, so the playtest bar's 44 px
+   * come out of the gaps rather than the table.
+   */
+  playtest?: boolean;
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -54,7 +60,7 @@ export function Layout({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-4 ${room ? 'vt-room-main pt-4 sm:pt-6' : 'py-6'} ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'} sm:pt-6` : 'py-6'} ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
       >
         {children}
       </main>
