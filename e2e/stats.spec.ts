@@ -178,7 +178,7 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
     if (name !== 'Live') {
-      // The chosen range chip is fully inside its strip, never under the Group by dropdown.
+      // The chosen range chip is fully inside its strip, and Group by sits below the strip.
       const range = page.getByRole('group', { name: 'Time range' });
       const chip = range.getByRole('button', { pressed: true });
       await expect(chip).toHaveText('30 days');
@@ -187,7 +187,9 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
       await expect
         .poll(async () => {
           const [r, c, select] = await bounds();
-          return c!.x >= r!.x && c!.x + c!.width <= r!.x + r!.width && c!.x + c!.width <= select!.x;
+          return (
+            c!.x >= r!.x && c!.x + c!.width <= r!.x + r!.width && select!.y >= r!.y + r!.height
+          );
         }, `${name}: the 30 days chip is in view`)
         .toBe(true);
     }

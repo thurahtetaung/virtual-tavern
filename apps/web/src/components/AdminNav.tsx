@@ -70,14 +70,14 @@ export function AdminNav({
           to={item.to}
           aria-current={current === item.id ? 'page' : undefined}
           className={cn(
-            'flex min-h-11 min-w-11 flex-1 items-center justify-center gap-3 border-b-2 px-3 text-center text-small leading-tight font-semibold focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus lg:justify-start lg:rounded-lg lg:border-0',
+            'flex min-h-11 min-w-11 flex-auto items-center justify-center gap-3 border-b-2 px-3 text-center text-small leading-tight font-semibold focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus lg:justify-start lg:rounded-lg lg:border-0',
             current === item.id
               ? 'border-accent text-accent-text lg:bg-sunk lg:text-ink'
               : 'border-transparent text-ink-2 hover:bg-panel',
           )}
         >
           <Icon name={item.icon} className="hidden lg:block" />
-          {/* Wraps to two lines on a phone rather than pushing the strip off the screen. */}
+          {/* Tabs size to their labels, so the long one wraps to two lines on a phone, not three. */}
           <span className="lg:whitespace-nowrap">{item.label}</span>
         </Link>
       ))}

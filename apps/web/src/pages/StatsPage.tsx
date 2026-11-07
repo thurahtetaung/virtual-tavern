@@ -206,7 +206,7 @@ function RangePicker() {
   const { params, setParams } = useStats();
   const buckets = bucketsFor(params.range, params.from, params.to);
   const today = todayUtc();
-  // On phones the strip scrolls; bring the chosen range fully into view (never under Group by).
+  // On phones the strip scrolls; bring the chosen range fully into view.
   // Only the strip scrolls: `scrollIntoView` would move the page too.
   const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -224,8 +224,9 @@ function RangePicker() {
   }, [params.range]);
   return (
     <div className="sticky top-0 z-20 space-y-2 border-b border-line bg-panel p-2 backdrop-blur ">
-      <div ref={row} className="flex items-center gap-2">
-        <Chips label="Time range" className="min-w-0 flex-1">
+      {/* Phones put Group by under the strip, so it never covers the last chips. */}
+      <div ref={row} className="flex flex-wrap items-center gap-2">
+        <Chips label="Time range" className="min-w-0 flex-1 max-sm:basis-full">
           {STATS_RANGES.map((range: StatsRange) => (
             <Chip
               key={range}
