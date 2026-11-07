@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.98.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.0...v0.98.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** room header keeps game names whole on phones ([#547](https://github.com/thurahtetaung/virtual-tavern/issues/547)) ([0136cb8](https://github.com/thurahtetaung/virtual-tavern/commit/0136cb8828a3d53cba18771f9602667054080970))
+
 ## [0.98.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.97.0...v0.98.0) (2026-11-07)
 
 
