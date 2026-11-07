@@ -48,7 +48,7 @@ export function AlliesPanel({
     <Panel
       role="region"
       aria-label="Allies Phase"
-      className="space-y-2 bg-stone-900 text-center text-stone-100 dark:bg-stone-950"
+      className="space-y-2 bg-stone-900 text-center text-stone-100 dark:bg-page"
     >
       <p className="text-2xl" aria-hidden>
         🕵️

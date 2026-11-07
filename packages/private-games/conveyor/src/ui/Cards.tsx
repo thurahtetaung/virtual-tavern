@@ -93,7 +93,7 @@ export const CardFace = memo(function CardFace({
           className="h-full w-full object-cover"
         />
       ) : flipped ? (
-        <span className="flex h-full flex-col items-center justify-center gap-0.5 bg-stone-300 text-ink-2 dark:bg-stone-700">
+        <span className="flex h-full flex-col items-center justify-center gap-0.5 bg-line-strong text-ink-2">
           <span aria-hidden className={size === 'mini' ? 'text-xs' : 'text-lg'}>
             🥡
           </span>

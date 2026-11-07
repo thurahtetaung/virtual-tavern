@@ -25,23 +25,23 @@ export function Superlatives({
     <section
       aria-label="Superlatives"
       className={cn(
-        'rounded-xl bg-accent-soft px-3 py-2 text-left ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30',
+        'rounded-xl bg-accent-soft px-3 py-2 text-left ring-1 ring-accent-line',
         className,
       )}
     >
       {note && (
-        <p className="pt-1 text-xs font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-300/80">
+        <p className="pt-1 text-xs font-semibold tracking-wide text-accent-text uppercase">
           {note}
         </p>
       )}
-      <dl className="divide-y divide-amber-200/70 dark:divide-amber-500/20">
+      <dl className="divide-y divide-accent-line">
         {lines.map((line) => (
           <div key={`${line.title}:${line.text}`} className="py-1.5">
-            <dt className="text-sm font-bold text-amber-900 dark:text-amber-300">
+            <dt className="text-sm font-bold text-accent-text">
               <span aria-hidden>{line.emoji} </span>
               {line.title}
             </dt>
-            <dd className="text-sm text-stone-700 dark:text-stone-300">{line.text}</dd>
+            <dd className="text-sm text-ink-2">{line.text}</dd>
           </div>
         ))}
       </dl>

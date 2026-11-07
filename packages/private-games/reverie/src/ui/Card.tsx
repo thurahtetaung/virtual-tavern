@@ -37,7 +37,7 @@ export function Card({ card, label, selected, dimmed, onClick, className, big, e
         <span
           aria-hidden={!failed}
           className={cn(
-            'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-amber-950 dark:from-amber-900 dark:to-orange-950 dark:text-amber-100',
+            'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-accent-text dark:from-amber-900 dark:to-orange-950',
             big ? 'text-6xl' : 'text-2xl',
           )}
         >

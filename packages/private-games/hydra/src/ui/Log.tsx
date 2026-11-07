@@ -136,7 +136,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                 <span className="text-xs font-bold text-ink-muted">#{r.n}</span>
                 <b>{nameOf(view, r.president)}</b>
                 {r.special && (
-                  <span className="rounded bg-special dark:bg-violet-600 px-1 text-[0.6rem] font-bold text-white">
+                  <span className="rounded bg-special px-1 text-[0.6rem] font-bold text-white">
                     SPECIAL
                   </span>
                 )}
@@ -154,16 +154,14 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   <span
                     className={cn(
                       'rounded px-1.5 text-[0.65rem] font-black tracking-wide',
-                      r.elected
-                        ? 'bg-success dark:bg-emerald-700 text-white'
-                        : 'bg-stone-700 text-white',
+                      r.elected ? 'bg-success text-white' : 'bg-stone-700 text-white',
                     )}
                   >
                     {r.elected ? 'ELECTED' : 'REJECTED'} {yes}–{no}
                   </span>
                 )}
                 {r.cleared && (
-                  <span className="rounded bg-success-soft dark:bg-emerald-100 px-1 text-[0.65rem] font-bold text-emerald-900">
+                  <span className="rounded bg-success-soft px-1 text-[0.65rem] font-bold text-success-ink">
                     {c.copy('moment.cleared.stamp')}
                   </span>
                 )}

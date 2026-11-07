@@ -425,7 +425,7 @@ export function CardViewer({
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="size-11 shrink-0 rounded-full text-lg hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+          className="size-11 shrink-0 rounded-full text-lg hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-accent"
         >
           ✕
         </button>

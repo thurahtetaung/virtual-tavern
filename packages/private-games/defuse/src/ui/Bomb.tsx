@@ -547,9 +547,7 @@ export function BombScreen({
                   onClick={() => setView(v)}
                   className={cn(
                     'min-h-11 flex-1 rounded-lg px-2 text-sm font-semibold ring-1',
-                    view === v
-                      ? 'bg-accent text-accent-fg ring-accent dark:bg-amber-500 dark:text-stone-950'
-                      : 'bg-card ring-line dark:bg-stone-800 dark:ring-stone-700',
+                    view === v ? 'bg-accent text-accent-fg ring-accent' : 'bg-card ring-line',
                   )}
                   data-testid={`view-${v}`}
                 >
@@ -638,7 +636,7 @@ export function BombScreen({
                 onClose={() => setOpen(null)}
               />
             ) : (
-              <p className="rounded-xl bg-card p-6 text-center text-ink-muted ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800">
+              <p className="rounded-xl bg-card p-6 text-center text-ink-muted ring-1 ring-line">
                 Click a module to open it.
               </p>
             )}

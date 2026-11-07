@@ -56,7 +56,7 @@ export function Card({
           <span
             aria-hidden
             data-testid="card-loading"
-            className="absolute inset-0 animate-pulse bg-stone-300 motion-reduce:animate-none dark:bg-stone-700"
+            className="absolute inset-0 animate-pulse bg-line-strong motion-reduce:animate-none"
           />
         )
       )}

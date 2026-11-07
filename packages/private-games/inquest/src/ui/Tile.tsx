@@ -145,7 +145,7 @@ export function Tile({
   );
   // One ring at a time: utilities of the same kind don't override each other by class order.
   const cls = cn(
-    'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow dark:bg-stone-950',
+    'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow dark:bg-page',
     selected ? 'ring-4 ring-info' : fresh || isNew ? 'ring-2 ring-accent' : 'ring-1 ring-stone-700',
     dim && 'opacity-50',
     className,

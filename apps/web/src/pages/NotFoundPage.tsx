@@ -27,10 +27,10 @@ export function NotFoundPage({
           {icon}
         </p>
         <h1 className="mt-4 text-3xl font-bold">{heading}</h1>
-        <p className="mt-2 text-stone-600 dark:text-stone-400">{message}</p>
+        <p className="mt-2 text-ink-muted">{message}</p>
         <Link
           to={backTo}
-          className="mt-6 inline-flex min-h-11 items-center font-semibold text-amber-700 underline dark:text-amber-400"
+          className="mt-6 inline-flex min-h-11 items-center font-semibold text-accent-text underline"
         >
           {backLabel}
         </Link>

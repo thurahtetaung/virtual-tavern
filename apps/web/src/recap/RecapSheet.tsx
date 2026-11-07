@@ -37,7 +37,7 @@ function Rich({
     <>
       {resolveSegments(text, names, labels).map((s, i) =>
         s.name ? (
-          <b key={i} className="text-amber-800 dark:text-amber-300">
+          <b key={i} className="text-accent-text">
             {s.text}
           </b>
         ) : (
@@ -164,7 +164,7 @@ export function RecapSheet({
         <div
           role="tablist"
           aria-label="Recap"
-          className="inline-flex self-start rounded-lg bg-stone-200 p-0.5 dark:bg-stone-800"
+          className="inline-flex self-start rounded-lg bg-sunk p-0.5"
         >
           {(
             [
@@ -183,9 +183,7 @@ export function RecapSheet({
               }}
               className={cn(
                 'min-h-9 rounded-md px-3 text-sm font-semibold',
-                tab === id
-                  ? 'bg-white text-stone-900 shadow-sm dark:bg-stone-600 dark:text-stone-50'
-                  : 'text-stone-600 dark:text-stone-300',
+                tab === id ? 'bg-card text-ink shadow-sm' : 'text-ink-muted',
               )}
             >
               {label}
@@ -297,7 +295,7 @@ function ActionBar({
 
   if (empty && !onSameCrew) return null;
   return (
-    <div className="sticky bottom-0 -mx-4 mt-auto -mb-4 flex flex-wrap gap-2 border-t border-stone-200 bg-stone-50/95 px-4 py-3 dark:border-stone-800 dark:bg-stone-900/95">
+    <div className="sticky bottom-0 -mx-4 mt-auto -mb-4 flex flex-wrap gap-2 border-t border-line bg-panel/95 px-4 py-3">
       {!empty && (
         <Button className="min-h-11 flex-1" onClick={() => void copy()}>
           📋 Copy for chat
@@ -346,7 +344,7 @@ export function NightCard({
   return (
     <>
       <header className="space-y-2">
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {empty ? (
             'No finished games yet tonight.'
           ) : (
@@ -372,7 +370,7 @@ export function NightCard({
           {recap.moment && (
             <section aria-label="Moment of the night">
               <h3 className={SECTION}>🎬 Moment of the night</h3>
-              <p className="rounded-xl border-l-4 border-accent dark:border-amber-400 bg-accent-soft px-4 py-3 font-medium text-amber-950 dark:bg-stone-800 dark:text-stone-100">
+              <p className="rounded-xl border-l-4 border-accent bg-accent-soft px-4 py-3 font-medium text-ink">
                 <span aria-hidden>{recap.moment.emoji} </span>
                 {rich(recap.moment.text)}
               </p>
@@ -386,7 +384,7 @@ export function NightCard({
           {recap.awards.length > 0 && (
             <section aria-label="Awards">
               <h3 className={SECTION}>Awards</h3>
-              <ul className="divide-y divide-stone-200 rounded-xl bg-white ring-1 ring-stone-200 dark:divide-stone-800 dark:bg-stone-900 dark:ring-stone-800">
+              <ul className="divide-y divide-line rounded-xl bg-card ring-1 ring-line">
                 {awards.map((a) => (
                   <li key={`${a.awardId}:${a.players.join()}`}>
                     <AwardRow line={a} rich={rich} />
@@ -410,10 +408,7 @@ export function NightCard({
               <h3 className={SECTION}>By the numbers</h3>
               <ul className="flex flex-wrap gap-2">
                 {recap.nuggets.map((n) => (
-                  <li
-                    key={n.text}
-                    className="rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-700 dark:bg-stone-800 dark:text-stone-300"
-                  >
+                  <li key={n.text} className="rounded-full bg-sunk px-3 py-1 text-sm text-ink-2">
                     <span aria-hidden>{n.emoji} </span>
                     {rich(n.text)}
                     {n.record && <RecordBadge />}
@@ -451,13 +446,12 @@ export function NightCard({
 }
 
 const RecordBadge = () => (
-  <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-xs font-bold text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
+  <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-xs font-bold text-accent-text">
     🆕 Room record
   </span>
 );
 
-const SECTION =
-  'mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase dark:text-stone-400';
+const SECTION = 'mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase';
 
 function ToneSwitch({ tone, onTone }: { tone: RecapTone; onTone: (t: RecapTone) => void }) {
   const options: { id: RecapTone; label: string }[] = [
@@ -465,11 +459,7 @@ function ToneSwitch({ tone, onTone }: { tone: RecapTone; onTone: (t: RecapTone) 
     { id: 'wholesome', label: '🤗 Wholesome' },
   ];
   return (
-    <div
-      role="radiogroup"
-      aria-label="Recap tone"
-      className="inline-flex rounded-lg bg-stone-200 p-0.5 dark:bg-stone-800"
-    >
+    <div role="radiogroup" aria-label="Recap tone" className="inline-flex rounded-lg bg-sunk p-0.5">
       {options.map((o) => (
         <button
           key={o.id}
@@ -479,9 +469,7 @@ function ToneSwitch({ tone, onTone }: { tone: RecapTone; onTone: (t: RecapTone) 
           onClick={() => tone !== o.id && onTone(o.id)}
           className={cn(
             'min-h-9 rounded-md px-3 text-sm font-semibold',
-            tone === o.id
-              ? 'bg-white text-stone-900 shadow-sm dark:bg-stone-600 dark:text-stone-50'
-              : 'text-stone-600 dark:text-stone-300',
+            tone === o.id ? 'bg-card text-ink shadow-sm' : 'text-ink-muted',
           )}
         >
           {o.label}
@@ -502,17 +490,13 @@ function AwardRow({
 }) {
   return (
     <div
-      className={cn(
-        'px-3 py-2',
-        highlight &&
-          'rounded-xl bg-accent-soft ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30',
-      )}
+      className={cn('px-3 py-2', highlight && 'rounded-xl bg-accent-soft ring-1 ring-accent-line')}
     >
       <p className="text-sm font-bold">
         <span aria-hidden>{line.emoji} </span>
         {rich(line.title)}
       </p>
-      <p className="text-sm text-stone-700 dark:text-stone-300">{rich(line.text)}</p>
+      <p className="text-sm text-ink-2">{rich(line.text)}</p>
     </div>
   );
 }
@@ -536,10 +520,7 @@ function PastGames({
           const info = ctx.gameInfo(g.gameId);
           return (
             <li key={`${g.gameId}:${g.gameNo}:${g.startedAt}`}>
-              <details
-                open={i === 0}
-                className="rounded-xl bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
-              >
+              <details open={i === 0} className="rounded-xl bg-card ring-1 ring-line">
                 <summary className="cursor-pointer px-3 py-2 text-sm">
                   <b>
                     {info.icon} Game {games.length - i}
@@ -550,16 +531,16 @@ function PastGames({
                     : 'No winners'}
                 </summary>
                 {(g.lines.length > 0 || g.history.length > 0) && (
-                  <div className="space-y-2 border-t border-stone-200 px-3 py-2 text-sm dark:border-stone-800">
+                  <div className="space-y-2 border-t border-line px-3 py-2 text-sm">
                     {g.history.length > 0 && (
-                      <ol className="space-y-0.5 text-stone-700 dark:text-stone-300">
+                      <ol className="space-y-0.5 text-ink-2">
                         {g.history.map((h, n) => (
                           <li key={n}>{rich(h)}</li>
                         ))}
                       </ol>
                     )}
                     {g.lines.length > 0 && (
-                      <ul className="space-y-0.5 text-stone-600 dark:text-stone-400">
+                      <ul className="space-y-0.5 text-ink-muted">
                         {g.lines.map((l) => (
                           <li key={l.awardId}>
                             <span aria-hidden>{l.emoji} </span>
@@ -610,7 +591,7 @@ function HallView({
   const text = (t: string) => resolveText(t, ctx.names, ctx.labels);
   return (
     <section aria-label="Hall of fame" className="space-y-4">
-      <p className="rounded-xl bg-accent-soft px-4 py-3 text-center font-semibold text-amber-950 dark:bg-stone-800 dark:text-stone-100">
+      <p className="rounded-xl bg-accent-soft px-4 py-3 text-center font-semibold text-ink">
         🍻 Nights together: {data.nights}
       </p>
       {data.mvps.length > 0 && (
@@ -620,10 +601,9 @@ function HallView({
             {data.mvps.map((m) => (
               <li
                 key={m.playerId}
-                className="rounded-full bg-white px-3 py-1 text-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
+                className="rounded-full bg-card px-3 py-1 text-sm ring-1 ring-line"
               >
-                <b className="text-amber-800 dark:text-amber-300">{name(m.playerId, m.name)}</b> ×
-                {m.count}
+                <b className="text-accent-text">{name(m.playerId, m.name)}</b> ×{m.count}
               </li>
             ))}
           </ol>
@@ -632,10 +612,10 @@ function HallView({
       {data.favourites.length > 0 && (
         <div>
           <h3 className={SECTION}>🏅 Signature awards</h3>
-          <ul className="divide-y divide-stone-200 rounded-xl bg-white text-sm ring-1 ring-stone-200 dark:divide-stone-800 dark:bg-stone-900 dark:ring-stone-800">
+          <ul className="divide-y divide-line rounded-xl bg-card text-sm ring-1 ring-line">
             {data.favourites.map((f) => (
               <li key={f.playerId} className="px-3 py-2">
-                <b className="text-amber-800 dark:text-amber-300">{name(f.playerId, f.name)}</b>:{' '}
+                <b className="text-accent-text">{name(f.playerId, f.name)}</b>:{' '}
                 <span aria-hidden>{f.emoji} </span>
                 {text(f.title)} ×{f.count} nights
               </li>
@@ -668,13 +648,11 @@ function HallView({
                 <button
                   type="button"
                   onClick={() => void onOpen(n.nightKey)}
-                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-left text-sm ring-1 ring-stone-200 hover:bg-stone-100 dark:bg-stone-900 dark:ring-stone-800 dark:hover:bg-stone-800"
+                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-card px-3 py-2 text-left text-sm ring-1 ring-line hover:bg-sunk"
                 >
                   <span>
                     <b>{nightLabel(n, ctx.gameInfo)}</b>
-                    {n.mvp && (
-                      <span className="text-stone-600 dark:text-stone-400"> · 👑 {n.mvp}</span>
-                    )}
+                    {n.mvp && <span className="text-ink-muted"> · 👑 {n.mvp}</span>}
                   </span>
                   <span aria-hidden>›</span>
                 </button>

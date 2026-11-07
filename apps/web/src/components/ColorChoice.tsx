@@ -51,11 +51,7 @@ export function ColorChoice({
         onPick={(c) => void pick(c)}
       />
       {error && (
-        <p
-          ref={alertRef}
-          role="alert"
-          className="scroll-mb-20 text-sm font-medium text-danger-ink dark:text-rose-300"
-        >
+        <p ref={alertRef} role="alert" className="scroll-mb-20 text-sm font-medium text-danger-ink">
           {error}
         </p>
       )}

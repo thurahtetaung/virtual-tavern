@@ -308,7 +308,7 @@ function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
             key={i}
             className={cn(
               'h-1.5 rounded-full transition-all',
-              at === i ? 'w-4 bg-accent' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
+              at === i ? 'w-4 bg-accent' : 'w-1.5 bg-line-strong',
             )}
           />
         ))}

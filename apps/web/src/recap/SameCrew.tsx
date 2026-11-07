@@ -104,7 +104,7 @@ export function SameCrewPicker({
 
   return (
     <Modal open={open} onClose={onClose} title="🎲 Same crew, new game">
-      <p className="mb-3 text-sm text-stone-600 dark:text-stone-400">
+      <p className="mb-3 text-sm text-ink-muted">
         Opens a new table for tonight. Everyone here gets a nudge to follow, and both tables share
         one night recap.
       </p>
@@ -159,7 +159,7 @@ export function NextTableBanner({
   return (
     <div
       role="status"
-      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent-soft px-4 py-2 text-sm text-amber-950 ring-1 ring-accent-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent-soft px-4 py-2 text-sm text-accent-text ring-1 ring-accent-line"
     >
       <span>
         🎲 <b>{who}</b> opened a new table
@@ -173,7 +173,7 @@ export function NextTableBanner({
       <span className="flex gap-2">
         <Link
           to={`/r/${next.roomId}`}
-          className="inline-flex min-h-9 items-center rounded-lg bg-accent px-3 font-semibold text-white hover:bg-accent-hover dark:hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
+          className="inline-flex min-h-9 items-center rounded-lg bg-accent px-3 font-semibold text-accent-fg hover:bg-accent-hover"
         >
           Join them
         </Link>

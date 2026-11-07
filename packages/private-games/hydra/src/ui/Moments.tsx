@@ -140,8 +140,8 @@ function Stamp({
       className={cn(
         'hy-stamp inline-block rounded-lg border-4 px-4 py-1 text-3xl font-black tracking-widest uppercase sm:text-5xl',
         DISPLAY,
-        tone === 'good' && 'border-success dark:border-emerald-400 text-emerald-300',
-        tone === 'bad' && 'border-danger dark:border-rose-400 text-rose-300',
+        tone === 'good' && 'border-success text-emerald-300',
+        tone === 'bad' && 'border-danger text-rose-300',
         tone === 'gold' && 'border-accent-line text-amber-200',
       )}
       style={{ ['--d' as string]: `${delay}ms` }}

@@ -186,7 +186,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
             🫗
           </p>
           <h1 className="text-2xl font-bold">Couldn't open the room</h1>
-          <p className="text-stone-600 dark:text-stone-400">{lookup.message}</p>
+          <p className="text-ink-muted">{lookup.message}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button
               size="lg"
@@ -199,7 +199,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
             </Button>
             <Link
               to="/"
-              className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-amber-700 hover:bg-accent-soft dark:text-amber-400 dark:hover:bg-stone-800"
+              className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-accent-text hover:bg-accent-soft"
             >
               Back to the tavern
             </Link>
@@ -224,9 +224,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
           <h1 className="text-2xl font-bold">
             You're invited{game ? ` to play ${game.name}` : ''}!
           </h1>
-          <p className="text-stone-600 dark:text-stone-400">
-            Pick a name so your friends know who you are.
-          </p>
+          <p className="text-ink-muted">Pick a name so your friends know who you are.</p>
           <NameForm
             submitLabel="Join"
             onSubmit={(n) => {
@@ -767,7 +765,7 @@ function Room({
       {(status === 'reconnecting' || (catchingUp && status === 'joined')) && (
         <p
           role="status"
-          className="mb-3 rounded-xl bg-accent-soft dark:bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950"
+          className="mb-3 rounded-xl bg-accent-soft px-4 py-2 text-center text-sm font-semibold text-accent-text"
         >
           {snapshot ? 'Connection lost. Reconnecting…' : "Can't reach the tavern. Retrying…"}
         </p>
@@ -881,7 +879,7 @@ function Room({
         <Link
           to={`/rules/${game.id}`}
           target="_blank"
-          className="mt-6 block text-sm text-amber-700 underline dark:text-amber-400"
+          className="mt-6 block text-sm text-accent-text underline"
         >
           Open the rules in a new tab
         </Link>
@@ -1104,7 +1102,7 @@ function HostAway({ snapshot, clockOffset }: { snapshot: RoomSnapshot; clockOffs
   return (
     <p
       role="status"
-      className="mb-3 rounded-xl bg-stone-100 px-4 py-2 text-center text-sm text-stone-700 ring-1 ring-stone-200 dark:bg-stone-800/70 dark:text-stone-200 dark:ring-stone-700"
+      className="mb-3 rounded-xl bg-sunk px-4 py-2 text-center text-sm text-ink-2 ring-1 ring-line"
     >
       <span aria-hidden>💤 </span>
       <b>{host.name}</b> (host) is away.{' '}
@@ -1125,7 +1123,7 @@ function SpectatorBanner({ prompt }: { prompt: SpectatorPrompt }) {
     <div
       role="status"
       aria-label="You're watching"
-      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-info-soft px-4 py-2 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-info-soft px-4 py-2 text-sm text-info-ink ring-1 ring-info-line"
     >
       <p>
         <span aria-hidden>👀 </span>
@@ -1159,10 +1157,8 @@ function RoomCode({ roomId }: { roomId: string }) {
     }
   };
   return (
-    <div className="rounded-xl bg-stone-100 p-3 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase dark:text-stone-400">
-        Room code
-      </p>
+    <div className="rounded-xl bg-sunk p-3 ring-1 ring-line">
+      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Room code</p>
       <div className="mt-1 flex items-center justify-between gap-2">
         {/* Wraps after a hyphen when it must, never inside a word. */}
         <code className="font-mono font-bold break-words sm:text-lg">{roomId}</code>
@@ -1251,7 +1247,7 @@ function People({
     <div className="space-y-6">
       {confirmDialog}
       {!playtest && <RoomCode roomId={roomId} />}
-      <ul className="divide-y divide-stone-200 dark:divide-stone-800">
+      <ul className="divide-y divide-line">
         {snapshot.players.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
             <span className={cn('flex items-center gap-2', !p.connected && 'opacity-50')}>
@@ -1280,7 +1276,7 @@ function People({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="min-h-11 text-danger-ink hover:bg-danger-soft dark:text-rose-300 dark:hover:bg-rose-500/15"
+                  className="min-h-11 text-danger-ink hover:bg-danger-soft"
                   onClick={() => void remove(p)}
                 >
                   Remove
@@ -1333,13 +1329,13 @@ function People({
               />
             )}
             {renameError && (
-              <p role="alert" className="text-sm font-medium text-rose-700 dark:text-rose-300">
+              <p role="alert" className="text-sm font-medium text-danger-ink">
                 {renameError}
               </p>
             )}
             <ColorChoice snapshot={snapshot} recolor={recolor} />
             {/* Sticky, so Done stays reachable under a refusal on a small phone. */}
-            <div className="sticky bottom-0 -mx-4 border-t border-stone-200 bg-stone-50 px-4 py-2 dark:border-stone-800 dark:bg-stone-900">
+            <div className="sticky bottom-0 -mx-4 border-t border-line bg-panel px-4 py-2">
               <Button
                 variant="ghost"
                 size="sm"

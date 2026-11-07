@@ -648,8 +648,7 @@ function MyTray({
           <span className="tabular-nums">{me.score} points</span>
         ) : (
           <span className="tabular-nums">
-            {me.score} <span className="text-accent-ink dark:text-amber-300">{signed(live)}</span>{' '}
-            this round
+            {me.score} <span className="text-accent-text">{signed(live)}</span> this round
           </span>
         )}
       </h2>

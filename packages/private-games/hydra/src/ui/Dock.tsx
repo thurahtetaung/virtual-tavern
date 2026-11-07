@@ -309,7 +309,7 @@ export function TaskSheet({
         }
       >
         {g.vetoRefused && (
-          <p className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-center text-sm font-semibold text-rose-900 ring-1 ring-danger-line dark:ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100">
+          <p className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-center text-sm font-semibold text-danger-ink ring-1 ring-danger-line">
             {c.copy('sheet.chancellor.refused', vars)}
           </p>
         )}

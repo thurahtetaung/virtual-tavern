@@ -44,7 +44,7 @@ export function MarkBadge({ mark, className }: { mark: Mark | undefined; classNa
     <span
       aria-label={mark === 'star' ? 'marked suspicious' : 'marked ruled out'}
       className={cn(
-        'flex size-6 items-center justify-center rounded-full text-sm font-black shadow ring-2 ring-white dark:ring-stone-900',
+        'flex size-6 items-center justify-center rounded-full text-sm font-black shadow ring-2 ring-card',
         mark === 'star' ? 'bg-accent-line text-accent-text' : 'bg-stone-700 text-white',
         className,
       )}
@@ -163,7 +163,7 @@ export function ArtCard({
     ruledOut && 'opacity-55 grayscale',
     mark === 'cross' && !ruledOut && 'opacity-60',
     selected
-      ? 'ring-4 ring-accent ring-offset-2 ring-offset-white dark:ring-offset-stone-900'
+      ? 'ring-4 ring-accent ring-offset-2 ring-offset-card'
       : key_
         ? 'ring-2 ring-danger'
         : 'ring-1 ring-black/20',

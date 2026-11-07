@@ -95,14 +95,14 @@ export function MazeGrid({ i, rules }: { i: number; rules: Rules }) {
   const z = rules.mazes[i]!;
   return (
     <div
-      className="grid aspect-square w-full max-w-48 grid-cols-6 bg-card p-1 dark:bg-stone-900"
+      className="grid aspect-square w-full max-w-48 grid-cols-6 bg-card p-1"
       aria-label={`maze ${i + 1}`}
     >
       {z.walls.flatMap((row, y) =>
         [...row].map((h, x) => {
           const v = parseInt(h, 16);
           const circle = z.circles.some((c) => c[0] === x && c[1] === y);
-          const edge = 'border-stone-800 dark:border-stone-200';
+          const edge = 'border-ink';
           return (
             <span
               key={`${x},${y}`}

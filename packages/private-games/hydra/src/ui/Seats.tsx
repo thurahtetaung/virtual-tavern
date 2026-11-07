@@ -174,12 +174,10 @@ export function Seats({
                     {c.ballotName(vote)}
                   </span>
                 )}
-                {ballotDone && (
-                  <span className="text-emerald-700 dark:text-emerald-400">✓ voted</span>
-                )}
+                {ballotDone && <span className="text-success-ink">✓ voted</span>}
                 {cleared && !p.dead && (
                   <span
-                    className="rounded bg-success dark:bg-emerald-700 px-1 text-white"
+                    className="rounded bg-success px-1 text-white"
                     title={c.t('Confirmed: not {leader}')}
                   >
                     {c.copy('moment.cleared.stamp')}
