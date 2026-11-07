@@ -75,7 +75,22 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   await expect(host.getByText('Round 1')).toBeVisible();
   // A turn on a phone: the table, and the hand in the bar, on one screen.
   const first = await whoseTurn(players, host);
-  if (first !== 'over') await expectPhoneFit(first, 'royal-post turn');
+  if (first !== 'over') {
+    await expectPhoneFit(first, 'royal-post turn');
+    // The tab bar marks the tab on screen: History, then back to the Table.
+    const size = first.viewportSize()!;
+    await first.setViewportSize({ width: 390, height: 844 });
+    const bar = first.getByRole('tablist', { name: 'Game sections' });
+    const tab = (name: string) => bar.getByRole('tab', { name });
+    await tab('History').click();
+    await expect(tab('History')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('Table')).toHaveAttribute('aria-selected', 'false');
+    await expect(first.getByRole('tabpanel', { name: 'History' })).toBeVisible();
+    await tab('Table').click();
+    await expect(tab('Table')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab('History')).toHaveAttribute('aria-selected', 'false');
+    await first.setViewportSize(size);
+  }
 
   const done: Exercised = { guard: false, priest: false, handmaid: false, chancellor: false };
   // Classic: play rounds until a Guard guess, a Priest peek and a Handmaid have all happened.

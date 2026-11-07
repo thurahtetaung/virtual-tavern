@@ -812,7 +812,7 @@ function NightClock({
       aria-label={`${left} seconds left ${label}, ${atZero}`}
       title={atZero}
       // vt-contrast: the night screen is dark in both themes
-      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-ink-faint ring-1 ring-white/10"
+      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-indigo-200 ring-1 ring-white/10"
     >
       <span className="font-mono text-lg font-bold tabular-nums">
         ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}

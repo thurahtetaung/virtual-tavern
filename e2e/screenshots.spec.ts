@@ -1448,10 +1448,7 @@ for (const [label, viewport, colorScheme] of [
       });
     const tab = async (p: Page, name: string) => {
       if (label === 'phone')
-        await p
-          .getByRole('navigation', { name: 'Game sections' })
-          .getByRole('button', { name })
-          .click();
+        await p.getByRole('tablist', { name: 'Game sections' }).getByRole('tab', { name }).click();
     };
     await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
     const players = await inquestTable(
@@ -1797,10 +1794,7 @@ for (const [label, viewport, colorScheme] of [
       });
     const tab = async (p: Page, name: string) => {
       if (label === 'phone')
-        await p
-          .getByRole('navigation', { name: 'Game sections' })
-          .getByRole('button', { name })
-          .click();
+        await p.getByRole('tablist', { name: 'Game sections' }).getByRole('tab', { name }).click();
     };
     await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
     const names = [
@@ -2033,10 +2027,7 @@ for (const [label, viewport] of [
       p.screenshot({ path: `test-results/shots/hydra-${label}-${name}.png`, fullPage: !phone });
     const tab = async (p: Page, name: string) => {
       if (phone)
-        await p
-          .getByRole('navigation', { name: 'Game sections' })
-          .getByRole('button', { name })
-          .click();
+        await p.getByRole('tablist', { name: 'Game sections' }).getByRole('tab', { name }).click();
     };
     await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
     const players = await hy.hydraTable(

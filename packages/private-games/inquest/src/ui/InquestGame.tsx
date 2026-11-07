@@ -12,10 +12,12 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
-  useReservedHeight,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { EventKind } from '../logic/content.ts';
 import { lastRoundText } from '../logic/names.ts';
 import type { InquestAction, InquestView } from '../logic/types.ts';
@@ -52,58 +54,12 @@ function useTurnBuzz(key: string | null) {
   }, [key]);
 }
 
-function TabBar({
-  tab,
-  onChange,
-  alert,
-}: {
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  alert: Tab | null;
-}) {
-  const bar = useRef<HTMLElement>(null);
-  const wide = useWideScreen();
-  useReservedHeight('--vt-tabbar-h', bar, !wide);
-  const items: { id: Tab; icon: string; label: string }[] = [
-    { id: 'scene', icon: '🧩', label: 'Scene' },
-    { id: 'suspects', icon: '🗂️', label: 'Suspects' },
-    { id: 'me', icon: '🪪', label: 'Me' },
-  ];
-  return (
-    <nav
-      ref={bar}
-      aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
-    >
-      {items.map((it) => {
-        const on = tab === it.id;
-        return (
-          <button
-            key={it.id}
-            type="button"
-            aria-current={on ? 'page' : undefined}
-            onClick={() => onChange(it.id)}
-            className={cn(
-              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
-              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
-              on
-                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
-                : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            <span className="flex items-center gap-1 text-xl leading-none">
-              {it.icon}
-              {alert === it.id && !on && (
-                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
-              )}
-            </span>
-            {it.label}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
+const TABS_ID = 'inquest-sections';
+const TABS: readonly Omit<TabBarItem<Tab>, 'badge'>[] = [
+  { id: 'scene', icon: 'map-pin', label: 'Scene' },
+  { id: 'suspects', icon: 'users', label: 'Suspects' },
+  { id: 'me', icon: 'hand', label: 'Me' },
+];
 
 /** Speaker, clock, Done, Skip and Solve, always in reach during presentations. */
 function PresentBar({
@@ -480,6 +436,7 @@ export function InquestGame({
     n: view.game?.events.length ?? 0,
   });
   const [tableScreen, setTableScreen] = useState(false);
+  const wide = useWideScreen();
 
   // The tab: each new step opens where it's needed, but the player's own choice sticks within it.
   const stepKey = `${view.gameNo}-${g?.stage}-${g?.round}-${g?.step?.kind}-${g?.event?.kind}`;
@@ -619,10 +576,10 @@ export function InquestGame({
       {solvePanel}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="min-w-0 space-y-3">
-          <div className={onTab('scene')}>
+          <div className={onTab('scene')} {...(!wide && tabPanelProps(TABS_ID, 'scene'))}>
             <Scene view={view} content={content} act={act} />
           </div>
-          <div className={onTab('me')}>
+          <div className={onTab('me')} {...(!wide && tabPanelProps(TABS_ID, 'me'))}>
             <MeTab
               view={view}
               content={content}
@@ -631,7 +588,10 @@ export function InquestGame({
             />
           </div>
         </div>
-        <div className={cn('min-w-0 space-y-2', onTab('suspects'))}>
+        <div
+          className={cn('min-w-0 space-y-2', onTab('suspects'))}
+          {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
+        >
           {!fs && g.solution && <CrimePeek onShownChange={setCrimeShown} />}
           <div className="lg:hidden">
             <Suspects {...common} />
@@ -641,7 +601,16 @@ export function InquestGame({
           </div>
         </div>
       </div>
-      <TabBar tab={tab} onChange={setTab} alert={alert} />
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Game sections"
+          value={tab}
+          onChange={setTab}
+          // The "needs you" dot: on the tab holding your move, while another tab is open.
+          items={TABS.map((t) => ({ ...t, badge: alert === t.id && tab !== t.id ? 'dot' : 0 }))}
+        />
+      )}
       <CardView
         open={open}
         view={view}

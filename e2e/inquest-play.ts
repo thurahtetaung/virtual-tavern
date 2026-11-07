@@ -263,8 +263,8 @@ export async function solve(p: Page, suspect: string, clue: number, means: numbe
 /** The first player whose (revealed) role card names `role`; the card is hidden again after. */
 export async function withRole(players: Player[], role: string): Promise<Player> {
   for (const p of players) {
-    const nav = p.page.getByRole('navigation', { name: 'Game sections' });
-    if (await nav.isVisible()) await nav.getByRole('button', { name: 'Me' }).click();
+    const nav = p.page.getByRole('tablist', { name: 'Game sections' });
+    if (await nav.isVisible()) await nav.getByRole('tab', { name: 'Me' }).click();
     // The Forensic Scientist's card lies face up; the hidden roles are shown with Show.
     const card = p.page.getByRole('button', { name: '👁️ Show your role' });
     const faceUp = p.page.getByRole('img', { name: /^Your role card: / });
