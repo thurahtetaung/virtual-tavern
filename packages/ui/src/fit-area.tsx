@@ -44,7 +44,7 @@ function fitPart(el: HTMLElement, min: number) {
  */
 export function useFitToScreen(
   part: RefObject<HTMLElement | null>,
-  { on = true, phone = false, min = MIN_PART_PX, resetKey = '', content }: FitOptions = {},
+  { on = true, phone = false, min = MIN_PART_PX, content }: FitOptions = {},
 ) {
   const isPhone = usePhone();
   const active = on && (!phone || isPhone);
@@ -80,7 +80,9 @@ export function useFitToScreen(
       window.removeEventListener('resize', later);
       capPart(el, null);
     };
-  }, [part, active, min, resetKey, content]);
+    // No dependencies: it measures afresh after every render, so a part that mounts later (a tab's
+    // panel), a new `resetKey` or new content is always fitted.
+  });
 }
 
 /**
