@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.99.0...v0.100.0) (2026-11-07)
+
+
+### Features
+
+* **ui:** drawing games on the new design ([#553](https://github.com/thurahtetaung/virtual-tavern/issues/553)) ([3345c60](https://github.com/thurahtetaung/virtual-tavern/commit/3345c602234561903040fc3769e963652b5d1356))
+
 ## [0.99.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.3...v0.99.0) (2026-11-07)
 
 
