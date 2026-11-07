@@ -230,7 +230,7 @@ export function MeTab({
             className="text-sm font-semibold text-accent-text underline"
             onClick={showGuide}
           >
-            Full rules →
+            Rules →
           </button>
           <button
             type="button"
