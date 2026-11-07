@@ -151,7 +151,15 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
   const panel = (t: PlayTab) => shown === t && tabPanelProps(PLAY_TABS_ID, t);
   const trays = (
     <div className={cn('flex flex-col gap-3', hide('table'))} {...panel('table')}>
-      <Others g={g} room={room} art={art} name={name} live={live} zoom={zoom.open} />
+      <Others
+        g={g}
+        room={room}
+        art={art}
+        name={name}
+        live={live}
+        zoom={zoom.open}
+        over={view.phase === 'over'}
+      />
       {me && (
         <MyTray
           g={g}
@@ -173,7 +181,15 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
           <MenuStrip g={g} art={art} showGuide={showGuide} />
           <Moments view={view} you={room.you} art={art} name={name} />
           {shown === null && (
-            <Others g={g} room={room} art={art} name={name} live={live} zoom={zoom.open} />
+            <Others
+        g={g}
+        room={room}
+        art={art}
+        name={name}
+        live={live}
+        zoom={zoom.open}
+        over={view.phase === 'over'}
+      />
           )}
           {shown === null && me && (
             <MyTray
@@ -194,7 +210,7 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', hide('scores'))} {...panel('scores')}>
-        <Totals g={g} name={name} live={live} you={room.you} />
+        {view.phase !== 'over' && <Totals g={g} name={name} live={live} you={room.you} />}
         <Log view={view} name={logName} art={art} />
       </aside>
       {zoom.viewer}
@@ -344,6 +360,7 @@ function Others({
   name,
   live,
   zoom,
+  over = false,
 }: {
   g: GameView;
   room: GameRoomInfo;
@@ -351,6 +368,8 @@ function Others({
   name: NameOf;
   live: Record<string, number>;
   zoom: (cards: readonly { k: string; flipped?: boolean }[], start: number, title: string) => void;
+  /** The game is over: the scores show once, in the standings, not on each tray. */
+  over?: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const n = g.order.length;
@@ -388,10 +407,12 @@ function Others({
           {p.done && compact ? <span aria-label="picked">✓</span> : p.done ? '✓ picked' : '…'}
         </span>
       )}
-      <span className="text-xs font-bold tabular-nums">
-        {p.score}
-        <span className="font-normal text-ink-muted"> {signed(live[id] ?? 0)}</span>
-      </span>
+      {!over && (
+        <span className="text-xs font-bold tabular-nums">
+          {p.score}
+          <span className="font-normal text-ink-muted"> {signed(live[id] ?? 0)}</span>
+        </span>
+      )}
     </>
   );
   return (
@@ -1050,10 +1071,11 @@ function Play({
               }
               onClick={send}
             >
+              {/* The status line says what to do; with nothing picked the button just waits. */}
               {!chosen
                 ? picking
-                  ? 'Tap a card to pick it'
-                  : 'Tap a card'
+                  ? 'Lock in'
+                  : 'Play'
                 : locked
                   ? `Locked in: ${art.names.card(chosen.k)}`
                   : needsTarget && !s.target
@@ -1221,14 +1243,16 @@ export function ScoreRows({
         >
           <p className="flex justify-between font-semibold">
             <span>{name(r.id)}</span>
-            <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>{r.points}</span>
+            <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>
+              {r.points} {Math.abs(r.points) === 1 ? 'point' : 'points'}
+            </span>
           </p>
           <ul className="text-sm">
             {r.parts.map((p, j) => (
               <li key={j} className="flex justify-between gap-2">
                 <span className="text-ink-muted">{partLine(p as never, art.names)}</span>
                 <span className="tabular-nums">
-                  {p.points > 0 ? `+${p.points}` : p.points < 0 ? `−${-p.points}` : '0'}
+                  {p.points > 0 ? `+${p.points}` : p.points < 0 ? `−${-p.points}` : 'no points'}
                 </span>
               </li>
             ))}

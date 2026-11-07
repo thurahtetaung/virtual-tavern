@@ -1,6 +1,14 @@
-import { type GameRoomInfo, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import {
+  type GameRoomInfo,
+  type GameUiProps,
+  lobbyStatus,
+  playersNeeded,
+  waitingForHost,
+} from '@vt/game-sdk';
 import {
   Button,
+  EndTabs,
+  GuideLink,
   Hint,
   LobbySettings,
   Modal,
@@ -17,7 +25,6 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
-  EndTabs,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -157,7 +164,7 @@ function Tips({ art }: { art: Art }) {
         </Button>
       </aside>
       <aside className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden">
-        <span className="min-w-0 flex-1 truncate">New here? Tap a card, then Lock in.</span>
+        <span className="min-w-0 flex-1 truncate">New here? Three things to know.</span>
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
           Tips
         </Button>
@@ -212,33 +219,26 @@ function Lobby({
         : null;
   const blocker =
     n < MIN_PLAYERS
-      ? `${MIN_PLAYERS} players are needed (${n} seated).`
+      ? playersNeeded(MIN_PLAYERS, n)
       : n > MAX_PLAYERS
         ? `At most ${MAX_PLAYERS} can play.`
         : problem;
   const timers = { clueSeconds: st.seconds, guessSeconds: null, timerMode: st.timerMode };
   const box = art.box();
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-      <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : room.isHost
-                ? 'Everyone’s here? Pick a menu and start.'
-                : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({n}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         <div className="flex gap-3">
           {box && (
@@ -289,6 +289,7 @@ function Lobby({
           best with 4 or 5.
         </p>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Conveyor'} onClick={showGuide} />
       <LobbySettings
         editable={room.isHost}
         summary={[
@@ -355,8 +356,9 @@ function Lobby({
             disabled={!!blocker}
             onClick={() => void act({ type: 'start' }, { anchor: 'cv-start' })}
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="cv-start" />
         </StickyBar>
       )}
@@ -644,7 +646,7 @@ function End({
             size="lg"
             onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
           >
-            Change the menu
+            Change setup
           </Button>
         </div>
       ) : (

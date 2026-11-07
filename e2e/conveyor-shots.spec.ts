@@ -29,7 +29,7 @@ for (const [label, viewport, colorScheme] of [
     await ana.locator('[data-menu="custom"]').click();
     await shot(ana, '02-own-menu', true);
     await ana.locator('[data-menu="sampler"]').click();
-    await ana.getByRole('button', { name: 'Start the game' }).click();
+    await ana.getByRole('button', { name: 'Start game' }).click();
     await pickTime(ana, 1, 1);
     await shot(ana, '03-first-turn');
     await ana.locator('button[data-k]').first().click();

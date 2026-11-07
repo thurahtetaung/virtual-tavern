@@ -385,7 +385,7 @@ export const PRESETS: MenuPreset[] = [
   {
     id: 'classic',
     name: 'Old favourites',
-    blurb: 'The original small box’s dishes.',
+    blurb: 'The classic mix: rolls, fried and raw fish, dumplings, and a dessert saved for the end.',
     types: ['maki', 'tempura', 'sashimi', 'dumpling', 'chopsticks', 'wasabi', 'pudding'],
   },
   {

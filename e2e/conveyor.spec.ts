@@ -54,7 +54,7 @@ for (const [players, turns] of [
     const pages = await table(browser, names, { viewport: PHONE });
     const ana = pages[0]!;
     await ana.locator('[data-menu="first"]').click();
-    await ana.getByRole('button', { name: 'Start the game' }).click();
+    await ana.getByRole('button', { name: 'Start game' }).click();
     for (let turn = 1; turn <= 3; turn++) {
       await pickTime(ana, 1, turn);
       await ana.evaluate(() => {
@@ -87,7 +87,7 @@ test('2 players on phones: a miso clash, a menu, a special order and three round
   // The menu for two: uramaki, onigiri, tofu, miso, menu, special order, fruit.
   await ana.locator('[data-menu="two"]').click();
   await expect(ben.getByText(/Table for two/).first()).toBeVisible();
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
 
   // Turn 1: both pick a miso soup; Ben sees only that Ana has picked.
   await pickTime(ana, 1, 1);
