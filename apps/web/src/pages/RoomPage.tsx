@@ -701,8 +701,8 @@ function Room({
   return (
     <Layout wide room>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
-          icon over a one-word label). A long name takes a smaller size and up to two lines,
-          breaking only between words (`RoomTitle`). */}
+          icon over a one-word label; on a phone with four, the icon alone). A long name takes a
+          smaller size and up to two lines, breaking only between words (`RoomTitle`). */}
       <div
         ref={roomHeader}
         data-ui="room-header"
@@ -724,7 +724,10 @@ function Room({
           </span>
           <RoomTitle key={game.name} name={game.name} />
         </h1>
-        <div className="flex shrink-0 gap-1.5 sm:gap-2">
+        <div
+          data-four={headerButtons > 3 || undefined}
+          className="group/header flex shrink-0 gap-1.5 sm:gap-2"
+        >
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
           {!playtest && <InviteButton />}
           <HeaderButton
@@ -992,12 +995,12 @@ const TITLE_SIZES = [undefined, 17, 16, 15] as const;
 function RoomTitle({ name }: { name: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   // The width the steps were measured at: a new width starts again from the first size.
-  const [{ step }, setFit] = useState({ step: 0, width: 0 });
+  const [{ step, width }, setFit] = useState({ step: 0, width: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (el && step < TITLE_SIZES.length && el.scrollWidth > el.clientWidth)
       setFit((f) => ({ ...f, step: f.step + 1 }));
-  });
+  }, [step, width]);
   // Fit again when the header's width changes (a turned phone, a header button coming or going).
   useEffect(() => {
     const el = ref.current?.parentElement;
@@ -1026,10 +1029,12 @@ function RoomTitle({ name }: { name: string }) {
 
 /**
  * Room header buttons: 52 px, a 24 px icon over a one-word label, on every screen, so nobody has to
- * guess what an icon does.
+ * guess what an icon does. On a phone with four of them (Night showing) the labels go (still read
+ * out, as the buttons' names are unchanged) and the buttons are 44 px, to leave the name room.
  */
-const HEADER_BUTTON = 'min-h-13 min-w-13 flex-col gap-0.5 px-2 py-1 leading-none';
-const HEADER_LABEL = 'text-caption font-semibold';
+const HEADER_BUTTON =
+  'min-h-13 min-w-13 flex-col gap-0.5 px-2 py-1 leading-none max-sm:group-data-four/header:min-h-11 max-sm:group-data-four/header:min-w-11';
+const HEADER_LABEL = 'text-caption font-semibold max-sm:group-data-four/header:sr-only';
 
 function HeaderButton({
   icon,
