@@ -1,4 +1,4 @@
-import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, lobbyStatus } from '@vt/game-sdk';
 import { startProblem } from '../logic/setup.ts';
 import {
   type GameView,
@@ -111,13 +111,12 @@ export function statusFor(
   if (view.phase === 'lobby' || !g) {
     if (!me?.playing)
       return { text: 'You’re watching. Take a seat to play in the next game.', yourMove: false };
-    const problem = startProblem(view.settings, view.seats);
-    if (problem) return { text: `Almost ready: ${problem}`, yourMove: false };
-    if (isHost) return { text: 'Everyone is in. Press Start when you’re ready!', yourMove: true };
-    return {
-      text: `All set. ${people ? waitingForHost(people, 'start') : 'Waiting for the host to start…'}`,
-      yourMove: false,
-    };
+    // The host's problem shows under Start, so their line is empty then.
+    const line = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      startProblem(view.settings, view.seats),
+    );
+    return line ? { text: line.text, yourMove: line.me } : { text: '', yourMove: false };
   }
   if (view.phase === 'over') return { text: resultLine(view), yourMove: false };
   const role = g.myRole;
@@ -131,7 +130,8 @@ export function statusFor(
     case 'night':
       return role === 'murderer'
         ? { text: 'Murderer: pick 1 Clue + 1 Means from your own cards.', yourMove: true }
-        : { text: withLead('Night falls: the Murderer is choosing the crime…'), yourMove: false };
+        : // The night panel says the Murderer is choosing: the status keeps only the role's lead.
+          { text: role === null ? 'Night falls.' : lead, yourMove: false };
     case 'allies': {
       const step = g.allies?.step;
       if (step === 'lab' && role === 'lab-technician')

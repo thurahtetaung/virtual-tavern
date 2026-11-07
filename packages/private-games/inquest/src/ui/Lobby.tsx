@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   NameDot,
   Panel,
@@ -126,7 +127,7 @@ export function Lobby({
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">
@@ -135,13 +136,9 @@ export function Lobby({
               ({seated.length}/{max})
             </span>
           </h3>
-          <Button variant="ghost" size="sm" onClick={showGuide}>
-            📖 How to play
-          </Button>
         </div>
         <p className="text-sm text-ink-muted">
-          {rolesSummary(seated.length, view, content) ||
-            `${room.gameName ?? 'Inquest'} needs 4 to ${max} players.`}
+          {rolesSummary(seated.length, view, content) || `4 to ${max} can play.`}
         </p>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (
@@ -193,13 +190,13 @@ export function Lobby({
           </div>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? 'Inquest'} onClick={showGuide} />
 
       <LobbySettings
         editable={host}
         summary={settingsSummary(s, content.roleName)}
         className="space-y-3"
       >
-        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the Forensic Scientist?</h4>
           <div className="flex flex-wrap gap-2">
