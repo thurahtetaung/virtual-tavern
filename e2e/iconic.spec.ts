@@ -200,6 +200,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await expect(first.getByTestId('ic-card')).toHaveCount(0);
   await expect(first.getByText(`${nameOf(giver)} is picking a word`)).toBeVisible();
   await shoot(giver, 'choosing');
+  await expectPhoneFit(giver, 'iconic choose');
   await chooseTestWord(giver);
 
   // Placing: the ? marker first, then cubes (a second tap stacks), right-click takes one off.
@@ -230,6 +231,11 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await shoot(giver, 'placing', true);
 
   await guess(first, 'lamp');
+  // The clue giver's move (judging) waits on the Guesses tab: closed, it carries the count.
+  const waiting = giver.getByTestId('iconic-clue-badge-guesses');
+  await expect(giver.getByRole('tab', { name: /Board/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(waiting).toHaveText('1');
+  await expect(giver.getByRole('tab', { name: /Guesses/ })).toHaveAccessibleName(/1 unread/);
   await phoneTab(giver, 'Guesses');
   const lamp = giver.getByTestId('ic-guesses').getByRole('listitem').filter({ hasText: 'lamp' });
   await lamp.getByRole('button', { name: 'Close' }).click();

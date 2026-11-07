@@ -240,6 +240,9 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
     hasTouch: true,
   });
   await players[0]!.page.getByRole('button', { name: 'Start with 5 players' }).click();
+  // The envelope: the role card, the quick reference and its switches, clear of both bars.
+  await expect(players[0]!.page.getByRole('region', { name: 'Your role card' })).toBeVisible();
+  await expectPhoneFit(players[0]!.page, 'hydra role envelope');
   await readRoles(players);
   // With 5 players the red player and the Leader know each other.
   const red = players.find((p) => p.role === 'red')!;

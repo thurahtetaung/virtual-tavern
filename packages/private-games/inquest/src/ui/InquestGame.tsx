@@ -2,6 +2,7 @@ import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game
 import {
   Button,
   Countdown,
+  FitArea,
   Hint,
   NameDot,
   Panel,
@@ -573,34 +574,38 @@ export function InquestGame({
       {(g.myRole === 'forensic' || g.myRole === 'former-forensic') && (
         <SolutionPin view={view} content={content} />
       )}
-      {solvePanel}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="min-w-0 space-y-3">
-          <div className={onTab('scene')} {...(!wide && tabPanelProps(TABS_ID, 'scene'))}>
-            <Scene view={view} content={content} act={act} />
+      {/* Phones: what is left of the screen holds the panels and the open tab, and scrolls inside
+          when a panel (the Murderer's crime choice) leaves the tab too little room. */}
+      <FitArea on={!wide} resetKey={`${stepKey}-${tab}`} className="space-y-2">
+        {solvePanel}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div className="min-w-0 space-y-3">
+            <div className={onTab('scene')} {...(!wide && tabPanelProps(TABS_ID, 'scene'))}>
+              <Scene view={view} content={content} act={act} />
+            </div>
+            <div className={onTab('me')} {...(!wide && tabPanelProps(TABS_ID, 'me'))}>
+              <MeTab
+                view={view}
+                content={content}
+                showGuide={showGuide}
+                onSolve={() => setSolving(true)}
+              />
+            </div>
           </div>
-          <div className={onTab('me')} {...(!wide && tabPanelProps(TABS_ID, 'me'))}>
-            <MeTab
-              view={view}
-              content={content}
-              showGuide={showGuide}
-              onSolve={() => setSolving(true)}
-            />
+          <div
+            className={cn('min-w-0 space-y-2', onTab('suspects'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
+          >
+            {!fs && g.solution && <CrimePeek onShownChange={setCrimeShown} />}
+            <div className="lg:hidden">
+              <Suspects {...common} />
+            </div>
+            <div className="hidden lg:block">
+              <AllSuspects {...common} />
+            </div>
           </div>
         </div>
-        <div
-          className={cn('min-w-0 space-y-2', onTab('suspects'))}
-          {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
-        >
-          {!fs && g.solution && <CrimePeek onShownChange={setCrimeShown} />}
-          <div className="lg:hidden">
-            <Suspects {...common} />
-          </div>
-          <div className="hidden lg:block">
-            <AllSuspects {...common} />
-          </div>
-        </div>
-      </div>
+      </FitArea>
       {!wide && (
         <TabBar
           id={TABS_ID}

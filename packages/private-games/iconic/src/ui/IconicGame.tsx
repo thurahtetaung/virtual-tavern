@@ -27,6 +27,7 @@ import {
   useConfirm,
   useSpectatorPrompt,
   EndTabs,
+  FitArea,
   Fold,
   usePhone,
 } from '@vt/ui';
@@ -546,8 +547,7 @@ function Play({
   const g = view.game!;
   const r = g.round;
   const target = view.settings.length === 'twelve' ? ` of ${WORDS_TO_END}` : '';
-  // While clues are given the scores sit beside the board (wide) or in their own tab (phones).
-  const scoresBeside = r.stage === 'clue';
+  const phone = usePhone();
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-ink-muted">
@@ -568,14 +568,16 @@ function Play({
           )}
         </span>
       </div>
-      {r.stage === 'choose' && <Choose view={view} room={room} act={act} name={name} />}
-      {r.stage === 'clue' && <Clue view={view} room={room} act={act} art={art} name={name} />}
-      {r.stage === 'reveal' && <Reveal view={view} room={room} art={art} name={name} />}
-      {!scoresBeside && (
-        <>
+      {r.stage === 'clue' ? (
+        <Clue view={view} room={room} act={act} art={art} name={name} />
+      ) : (
+        // Phones: the stage takes the rest of the screen and scrolls inside when it must.
+        <FitArea on={phone} resetKey={`${r.no}-${r.stage}`} className="flex flex-col gap-3">
+          {r.stage === 'choose' && <Choose view={view} room={room} act={act} name={name} />}
+          {r.stage === 'reveal' && <Reveal view={view} room={room} art={art} name={name} />}
           <Scores view={view} room={room} />
           {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
-        </>
+        </FitArea>
       )}
     </>
   );

@@ -72,7 +72,9 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await ben.getByRole('button', { name: '🎲 New prompt' }).click();
   await ben.getByRole('button', { name: 'New prompt', exact: true }).click();
   await expect(ben.getByTestId('sketchy-prompt')).toHaveText('happy cloud');
-  // Drawing on a phone: the prompt, the sheet and its pens, with Send in the bar, on one screen.
+  // Drawing on a phone: the status line, the prompt, the sheet and its pens, with Send in the bar,
+  // on one screen.
+  await expect(ben.getByText('Draw your prompt! Nobody else sees it.')).toBeVisible();
   await expectPhoneFit(ben, 'sketchy draw');
   await expect(ben.getByRole('button', { name: '🎲 New prompt' })).toHaveCount(0);
   for (const p of all) await drawAndSend(p);

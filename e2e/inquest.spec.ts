@@ -54,6 +54,19 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   ).toBeVisible();
   await setUp(host.page, 'Hana', ['Event tiles'], ['Presentations']);
 
+  // On a phone, the Murderer's Suspects tab while the crime is chosen: the crime panel above takes
+  // most of the screen, so the suspects' cards scroll inside and nothing runs under the tab bar.
+  {
+    const m = await whoShows(players, 'Murderer: pick 1 Clue + 1 Means from your own cards.');
+    const size = m.page.viewportSize()!;
+    await m.page.setViewportSize({ width: 390, height: 844 });
+    await m.page
+      .getByRole('tablist', { name: 'Game sections' })
+      .getByRole('tab', { name: /^Suspects/ })
+      .click();
+    await expectPhoneFit(m.page, 'inquest crime suspects');
+    await m.page.setViewportSize(size);
+  }
   const murderer = await commitCrime(players);
   await expect(host.page.getByText('Pick the Location tile for this crime.')).toBeVisible();
   const rest = players.filter((p) => p !== host && p !== murderer);

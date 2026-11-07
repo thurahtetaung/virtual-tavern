@@ -2,6 +2,7 @@ import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game
 import {
   Button,
   Countdown,
+  FitArea,
   Fold,
   Hint,
   NameDot,
@@ -682,21 +683,21 @@ export function HydraGame({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1.3fr)]">
         <div className="min-w-0 space-y-2">
           {view.stage === 'reveal' && inGame ? (
-            <div
-              className={cn('space-y-3', onTab('me'))}
-              {...(!wide && tabPanelProps(TABS_ID, 'me'))}
-            >
-              <MeTab
-                view={view}
-                c={c}
-                reveal={reveal}
-                showGuide={showGuide}
-                big
-                moments={momentsOn}
-                setMoments={setMomentsOn}
-                plain={plain}
-                setPlain={setPlain}
-              />
+            <div className={onTab('me')} {...(!wide && tabPanelProps(TABS_ID, 'me'))}>
+              {/* Phones: the big card and the quick reference scroll inside, clear of the bars. */}
+              <FitArea on={!wide} resetKey={stageKey}>
+                <MeTab
+                  view={view}
+                  c={c}
+                  reveal={reveal}
+                  showGuide={showGuide}
+                  big
+                  moments={momentsOn}
+                  setMoments={setMomentsOn}
+                  plain={plain}
+                  setPlain={setPlain}
+                />
+              </FitArea>
             </div>
           ) : (
             <>
