@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.2...v0.100.3) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** one shared phone-fit helper, design tokens everywhere and readable light-mode charts ([19f9d15](https://github.com/thurahtetaung/virtual-tavern/commit/19f9d15301b03eded87418803c652cafc2308fcf))
+
 ## [0.100.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.1...v0.100.2) (2026-11-07)
 
 
