@@ -156,7 +156,7 @@ export function End({
         </p>
       )}
       <p className="text-center text-caption text-ink-muted">
-        Play again keeps the same roles and options. The full history is on the History tab.
+        Play again keeps the same roles and settings. The full history is under History.
       </p>
     </Panel>
   );

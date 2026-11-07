@@ -1,4 +1,4 @@
-import { type PresencePlayer, listNames, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, listNames, lobbyStatus, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { MAX_REJECTIONS, type EndReason, type RoundTableView } from '../logic/types.ts';
 
 export interface Status {
@@ -77,19 +77,20 @@ export function statusFor(view: RoundTableView, isHost: boolean, people?: People
         text: 'The table is full: you’re watching, and you’ll get a seat when one frees up.',
         yourMove: false,
       };
-    const blocker = view.setup.errors[0];
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? { text: 'Everyone is in. Check the roles, then press Start game!', yourMove: true }
-      : { text: `All set. ${host('start')}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      view.setup.errors[0] ?? null,
+    );
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   const g = view.game!;
   const role = view.role;
   if (view.phase === 'over') {
     const end = g.end!;
-    const mine = role ? (role.loyalty === end.winner ? 'You win! ' : 'You lose. ') : '';
+    // The banner below says who won and how; this line says only what it means for you.
     return {
-      text: `${mine}${end.winner === 'good' ? 'Good' : 'Evil'} wins: ${END_LINE[end.reason]}`,
+      text: role ? (role.loyalty === end.winner ? 'You win!' : 'You lose.') : 'Game over.',
       yourMove: false,
     };
   }

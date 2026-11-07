@@ -1,4 +1,4 @@
-import { Button, Card, Icon, Modal, NameDot, Peek, cn } from '@vt/ui';
+import { Button, Card, Icon, Modal, NameDot, Peek, cn, usePhone } from '@vt/ui';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
 import type { Known, RoleId, RoundTableView } from '../logic/types.ts';
@@ -161,6 +161,8 @@ export function RoleReveal({
   view: RoundTableView;
   showGuide: (topic?: unknown) => void;
 }) {
+  // A mouse can't slide the cover, so wider screens name the hold and the Show button.
+  const phone = usePhone();
   return (
     <section aria-label="Your role card">
       {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
@@ -171,10 +173,16 @@ export function RoleReveal({
         cover={
           // vt-palette: the face-down card back, dark in both themes
           <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl bg-[#2A2420] text-[#F1E9DC] shadow-vt-2">
-            <span aria-hidden className="text-3xl">
-              ⬆️
+            {phone && (
+              <span aria-hidden className="text-3xl">
+                ⬆️
+              </span>
+            )}
+            <span className="font-semibold">
+              {phone
+                ? 'Slide up, or hold, to see your role'
+                : 'Hold the card (or press Show) to see your role'}
             </span>
-            <span className="font-semibold">Slide up, or hold, to see your role</span>
             {/* vt-contrast: on the dark cover in both themes */}
             <span className="text-caption opacity-85">Keep it hidden from the others</span>
           </span>

@@ -1,4 +1,4 @@
-import type { PlayerId, Rng } from '@vt/game-sdk';
+import { type PlayerId, type Rng, playersNeeded } from '@vt/game-sdk';
 import { ROLES, loyaltyOf, seesOf, sortDeck } from './roles.ts';
 import type { Game, Known, Loyalty, PresetId, Quest, RoleId, Settings } from './types.ts';
 import { MAX_SEATS, MIN_PLAYERS } from './types.ts';
@@ -137,7 +137,7 @@ export function validateSetup(
 ): SetupCheck {
   const errors: string[] = [];
   const notes: string[] = [];
-  if (n < MIN_PLAYERS) errors.push(`${MIN_PLAYERS} players are needed (${n} so far).`);
+  if (n < MIN_PLAYERS) errors.push(playersNeeded(MIN_PLAYERS, n));
   if (n > MAX_SEATS) errors.push(`At most ${MAX_SEATS} can play.`);
   const has = (r: RoleId) => roles.includes(r);
   const size = clampSize(n);

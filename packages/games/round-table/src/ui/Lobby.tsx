@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Fold,
+  GuideLink,
   Hint,
   Icon,
   Notice,
@@ -55,7 +56,6 @@ export function Players({
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center gap-1.5">
-            <span aria-hidden>⚔️</span>
             <PlayerTag
               name={s.name}
               host={s.id === hostId}
@@ -184,6 +184,10 @@ export function Lobby({
   const good = view.deck.filter((r) => ROLES[r].loyalty === 'good').length;
   const evil = view.deck.length - good;
   const balanced = good === goodCount(size) && evil === evilCount(size);
+  // The tick only once the table really has that many players.
+  const ticked = balanced && seated === size;
+  // The first error is said once, under Start game (or in a guest's status line).
+  const panelErrors = view.setup.errors.slice(1);
   const toggle = (r: RoleId) => {
     const next = view.deck.includes(r) ? view.deck.filter((x) => x !== r) : [...view.deck, r];
     void act({ type: 'update-settings', roles: next });
@@ -191,10 +195,11 @@ export function Lobby({
   const blocker = view.setup.errors[0] ?? null;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
+      <GuideLink title={room.gameName ?? 'Round Table'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         title="Roles"
@@ -204,7 +209,6 @@ export function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-sub font-bold">Roles</h3>}
         <fieldset>
           <legend className="text-small font-semibold">Ready-made line-ups</legend>
           <div className="mt-1 grid gap-2 sm:grid-cols-3">
@@ -231,25 +235,29 @@ export function Lobby({
         <div
           className={cn(
             'rounded-lg px-3 py-1.5 text-center text-small font-semibold ring-1 ring-inset',
-            balanced
+            ticked
               ? 'bg-success-soft text-success-ink ring-success-line'
-              : 'bg-danger-soft text-danger-ink ring-danger-line',
+              : balanced
+                ? 'bg-panel text-ink-2 ring-line'
+                : 'bg-danger-soft text-danger-ink ring-danger-line',
           )}
           data-testid="balance"
         >
           <span className={SIDE_TEXT.good}>{good} Good</span> vs{' '}
           <span className={SIDE_TEXT.evil}>{evil} Evil</span>
-          {balanced
+          {ticked
             ? ` ✓ right for ${size} players`
+            : balanced
+              ? ` · right for ${size} players`
             : ` · ${size} players need ${goodCount(size)} vs ${evilCount(size)}`}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <RoleColumn side="good" view={view} editable={editable} onToggle={toggle} size={size} />
           <RoleColumn side="evil" view={view} editable={editable} onToggle={toggle} size={size} />
         </div>
-        {(view.setup.errors.length > 0 || view.setup.notes.length > 0) && (
+        {(panelErrors.length > 0 || view.setup.notes.length > 0) && (
           <ul className="space-y-1.5" aria-label="Setup notes">
-            {view.setup.errors.map((e) => (
+            {panelErrors.map((e) => (
               <li key={e}>
                 <Notice tone="danger" className="font-semibold">
                   ⚠️ {e}
@@ -266,7 +274,7 @@ export function Lobby({
       </LobbySettings>
       <LobbySettings
         editable={editable}
-        title="Options"
+        title="Settings"
         summary={[
           s.lady && 'Lady of the Lake',
           s.targeting && 'Targeting',
@@ -277,7 +285,6 @@ export function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-sub font-bold">Options</h3>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Switch
             on={s.lady}
@@ -325,12 +332,6 @@ export function Lobby({
           />
         </Fold>
       </LobbySettings>
-      <p className="text-center text-small text-ink-muted">
-        New to Round Table?{' '}
-        <Button variant="quiet" size="sm" onClick={showGuide}>
-          Read the guide
-        </Button>
-      </p>
       {editable && (
         <StickyBar>
           <div className="space-y-1.5">
