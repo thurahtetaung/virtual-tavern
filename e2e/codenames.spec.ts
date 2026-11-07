@@ -59,7 +59,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
 
   await expect(host.getByText('Start when ready.')).toBeVisible();
-  await expect(ana!.getByText('Waiting for Hana (host) to start the game')).toBeVisible();
+  await expect(ana!.getByText('Waiting for Hana (host) to start…')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(cards(host)).toHaveCount(25);
   // Everyone sees their own team and role, and which score is theirs.

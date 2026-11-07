@@ -26,6 +26,7 @@ export function Standings({
   scoreLabel = (n) => `${n} ${n === 1 ? 'point' : 'points'}`,
   lowerIsBetter = false,
   title = 'Final standings',
+  phoneTable = false,
   className,
 }: {
   entries: readonly StandingEntry[];
@@ -34,6 +35,8 @@ export function Standings({
   scoreLabel?: (score: number) => string;
   lowerIsBetter?: boolean;
   title?: string;
+  /** Phones show the table in place of the podium (a game whose end screen is tight). */
+  phoneTable?: boolean;
   className?: string;
 }) {
   const ranked = rankStandings(entries, (e) => e.score, { lowerIsBetter });
@@ -48,10 +51,16 @@ export function Standings({
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
     <section aria-label={title} className={cn('space-y-3', className)}>
+      <h3 className="text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
+        {title}
+      </h3>
       {entries.length > 1 && (
         <ol
           aria-label="Podium"
-          className={cn('flex items-end justify-center gap-2', dense && 'max-lg:hidden')}
+          className={cn(
+            'flex items-end justify-center gap-2',
+            (dense || phoneTable) && 'max-lg:hidden',
+          )}
         >
           {order.map((place) => {
             const step = places.indexOf(place);
@@ -92,11 +101,8 @@ export function Standings({
           })}
         </ol>
       )}
-      {table && (
-        <div>
-          <h3 className="mb-1 text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
-            {title}
-          </h3>
+      {(table || phoneTable) && (
+        <div className={cn(!table && 'lg:hidden')}>
           <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
             {ranked.map((r) => (
               <li

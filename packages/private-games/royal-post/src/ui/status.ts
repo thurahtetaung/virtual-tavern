@@ -45,7 +45,13 @@ export function statusFor(view: RoyalPostView, room: Room): Status {
     }
     // The shared lobby line; a host who can't start yet reads why under Start game.
     const s = lobbyStatus(room, startBlocker(view));
-    return { text: s?.text ?? '', yourMove: s?.me ?? false };
+    // Never let the host think everyone is seated while friends are left watching.
+    const watching = view.seats.filter((x) => !x.playing).map((x) => x.name);
+    const also =
+      s?.me && watching.length
+        ? ` ${listNames(watching)} ${watching.length === 1 ? 'is' : 'are'} watching.`
+        : '';
+    return { text: s ? `${s.text}${also}` : '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));

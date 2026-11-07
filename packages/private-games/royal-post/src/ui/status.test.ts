@@ -52,9 +52,9 @@ describe('statusFor at the table', () => {
     return statusFor(view, roomOf(view, isHost));
   };
 
-  it('tells the host they can start, and a friend left over that the table is full', () => {
+  it('never tells the host everyone is seated while friends are left watching', () => {
     const h = harness(['host', 'a', 'b', 'c', 'd']);
-    expect(status(h.state, HOST, true).text).toBe('Start when ready.');
+    expect(status(h.state, HOST, true).text).toBe('Start when ready. D is watching.');
     expect(status(h.state, 'd').text).toContain('The table is full');
     h.act({ type: 'update-settings', edition: '2019' });
     expect(status(h.state, HOST, true).text).toBe('Start when ready.');

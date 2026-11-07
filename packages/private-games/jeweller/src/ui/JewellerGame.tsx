@@ -402,7 +402,7 @@ function End({
                   you={room.you}
                   scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
                   // Phones: the table alone (the podium repeats it), so the end fits the screen.
-                  className="max-lg:[&>ol:first-child]:hidden"
+                  phoneTable
                 />
               </>
             ),

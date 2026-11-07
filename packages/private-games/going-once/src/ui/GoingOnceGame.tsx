@@ -867,7 +867,7 @@ function End({
             you={room.you}
             scoreLabel={(n) => money(n)}
             // Phones: the table alone (the podium repeats it), so the end fits the screen.
-            className="max-lg:[&>ol:first-child]:hidden"
+            phoneTable
           />
         </RackUp>
       )}

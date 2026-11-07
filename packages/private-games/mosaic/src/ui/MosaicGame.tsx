@@ -418,7 +418,7 @@ function End({
                     `${Math.ceil(n / 100)} ${Math.ceil(n / 100) === 1 ? 'point' : 'points'}`
                   }
                   // Phones: the table alone (the podium repeats it), so the end fits the screen.
-                  className="max-lg:[&>ol:first-child]:hidden"
+                  phoneTable
                 />
               ),
             },
