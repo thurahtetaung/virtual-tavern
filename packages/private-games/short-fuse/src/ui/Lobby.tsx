@@ -109,6 +109,52 @@ export function Lobby({
   const preset = PRESETS.find((p) => p.id === view.preset);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      {host ? (
+        !ok && (
+          <Hint dense>
+            Needs {MIN_PLAYERS} to {MAX_SEATS} seated players.
+          </Hint>
+        )
+      ) : (
+        <Hint dense>{waitingForHost(room)}</Hint>
+      )}
+      <Panel className="space-y-2">
+        <h3 className="font-bold text-ink">
+          Players ({n}/{MAX_SEATS})
+        </h3>
+        <ul className="flex flex-wrap gap-1.5">
+          {playing.map((p) => (
+            <li key={p.id} className="rounded-full bg-card px-3 py-1 text-sm ring-1 ring-line">
+              <PlayerTag
+                name={p.name}
+                host={p.id === room.hostId}
+                you={p.id === view.me?.id}
+                offline={!online(p.id)}
+              />
+            </li>
+          ))}
+        </ul>
+        {watching.length > 0 && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+            <span>Watching:</span>
+            {watching.map((w) => (
+              <PlayerTag key={w.id} name={w.name} />
+            ))}
+          </p>
+        )}
+        {view.me && (
+          <Button
+            id="sf-seat"
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              void act({ type: 'sit', playing: !view.me!.playing }, { anchor: 'seat' })
+            }
+          >
+            {view.me.playing ? 'Watch instead' : 'Take a seat'}
+          </Button>
+        )}
+      </Panel>
       <div className="relative overflow-hidden rounded-3xl bg-panel p-5 shadow-sm ring-1 ring-line">
         <div className="flex items-center gap-4">
           <div className="flex shrink-0 -space-x-8">
@@ -254,44 +300,6 @@ export function Lobby({
       </LobbySettings>
       <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
 
-      <Panel className="space-y-2">
-        <h3 className="font-bold text-ink">
-          Players ({n}/{MAX_SEATS})
-        </h3>
-        <ul className="flex flex-wrap gap-1.5">
-          {playing.map((p) => (
-            <li key={p.id} className="rounded-full bg-card px-3 py-1 text-sm ring-1 ring-line">
-              <PlayerTag
-                name={p.name}
-                host={p.id === room.hostId}
-                you={p.id === view.me?.id}
-                offline={!online(p.id)}
-              />
-            </li>
-          ))}
-        </ul>
-        {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-            <span>Watching:</span>
-            {watching.map((w) => (
-              <PlayerTag key={w.id} name={w.name} />
-            ))}
-          </p>
-        )}
-        {view.me && (
-          <Button
-            id="sf-seat"
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              void act({ type: 'sit', playing: !view.me!.playing }, { anchor: 'seat' })
-            }
-          >
-            {view.me.playing ? 'Watch instead' : 'Take a seat'}
-          </Button>
-        )}
-      </Panel>
-
       <details className="rounded-2xl bg-panel p-4 ring-1 ring-line">
         <summary className="cursor-pointer font-bold text-ink">Timing and house rules</summary>
         <div className="mt-3 space-y-3">
@@ -371,28 +379,19 @@ export function Lobby({
 
       {view.rigAllowed && host && <RigPanel act={act} rigged={view.rigged} />}
 
-      <StickyBar>
-        {host ? (
-          <div className="space-y-1">
-            <Button
-              size="lg"
-              className="w-full"
-              disabled={!ok}
-              onClick={() => void act({ type: 'start' }, { anchor: 'start' })}
-              data-testid="start"
-            >
-              Start the game
-            </Button>
-            {!ok && (
-              <p className="text-center text-xs text-ink-muted">
-                Needs {MIN_PLAYERS} to {MAX_SEATS} seated players.
-              </p>
-            )}
-          </div>
-        ) : (
-          <Hint>{waitingForHost(room)}</Hint>
-        )}
-      </StickyBar>
+      {host && (
+        <StickyBar>
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!ok}
+            onClick={() => void act({ type: 'start' }, { anchor: 'start' })}
+            data-testid="start"
+          >
+            Start the game
+          </Button>
+        </StickyBar>
+      )}
     </div>
   );
 }

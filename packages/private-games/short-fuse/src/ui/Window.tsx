@@ -1,4 +1,4 @@
-import { Button, RefusalSlot, cn } from '@vt/ui';
+import { Button, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { ShortFuseAction, ShortFuseView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -28,10 +28,13 @@ export function NopePanel({
   c,
   clockOffset,
   act,
+  bar = false,
 }: {
   view: ShortFuseView;
   c: Content;
   clockOffset: number;
+  /** Put the Nope / Foresight buttons in the phone's sticky bar (when no other dock holds it). */
+  bar?: boolean;
   act: (a: ShortFuseAction, o?: { anchor?: string }) => Promise<boolean>;
 }) {
   const g = view.game!;
@@ -58,45 +61,8 @@ export function NopePanel({
   // What the latest link was: a Nope, a Nope of a Nope, or (a Second Life's window) a Foresight.
   const links = revive ? (seer?.chain.length ?? 0) : n;
   const stampKind = revive && links === 0 ? 'seer' : links % 2 === 1 ? 'nope' : 'yup';
-  return (
-    <section
-      aria-label={`${nope} countdown`}
-      aria-live="polite"
-      className="relative overflow-hidden rounded-2xl bg-warn-soft p-3 ring-1 ring-warn-line"
-      data-testid="nope-panel"
-    >
-      <div className="flex items-center gap-3">
-        <span className="flex shrink-0 -space-x-6">
-          {p.cards.slice(0, 3).map((card) => (
-            <CardFace key={card.id} card={card} art={g.art} c={c} size="sm" label={false} />
-          ))}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm leading-snug font-semibold text-warn-ink">
-            {pendingLine(view, c, p)}
-          </p>
-          <p className="mt-0.5 text-xs text-warn-ink" data-testid="nope-state">
-            {revive
-              ? w.seers.length
-                ? `${c.name('seer')}: ${w.seers
-                    .map((x) => `${who(view, x.by, false)}${x.cancelled ? ` (${nope}d)` : ''}`)
-                    .join(', ')} · hiding in ${Math.ceil(left / 1000)}…`
-                : `Can’t be ${nope}d. Hiding in ${Math.ceil(left / 1000)}…`
-              : n === 0
-                ? `Going ahead in ${Math.ceil(left / 1000)}…`
-                : `${nope} ×${n}: ${w.cancelled ? 'cancelled' : 'going ahead'} (${Math.ceil(left / 1000)}…)`}
-          </p>
-        </div>
-      </div>
-      <div
-        className="mt-2 h-2 overflow-hidden rounded-full bg-card ring-1 ring-warn-line"
-        aria-hidden
-      >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-warn to-danger transition-[width] duration-100 ease-linear"
-          style={{ width: `${Math.min(100, (left / total) * 100)}%` }}
-        />
-      </div>
+  const actions = (g.canSeer || g.canNope) && (
+    <>
       {g.canSeer && (
         <>
           <Button
@@ -161,27 +127,80 @@ export function NopePanel({
           <RefusalSlot anchor="nope" />
         </>
       )}
-      {stamp && (
-        <span
-          key={stamp.at}
+    </>
+  );
+  return (
+    <>
+      <section
+        aria-label={`${nope} countdown`}
+        aria-live="polite"
+        className="relative overflow-hidden rounded-2xl bg-warn-soft p-3 ring-1 ring-warn-line"
+        data-testid="nope-panel"
+      >
+        <div className="flex items-center gap-3">
+          {/* Phones: the status line and the table's last move already say what was played. */}
+          <span className="flex shrink-0 -space-x-6 max-sm:hidden">
+            {p.cards.slice(0, 3).map((card) => (
+              <CardFace key={card.id} card={card} art={g.art} c={c} size="sm" label={false} />
+            ))}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm leading-snug font-semibold text-warn-ink max-sm:hidden">
+              {pendingLine(view, c, p)}
+            </p>
+            <p
+              className="mt-0.5 text-xs text-warn-ink max-sm:mt-0 max-sm:text-sm max-sm:font-semibold"
+              data-testid="nope-state"
+            >
+              {revive
+                ? w.seers.length
+                  ? `${c.name('seer')}: ${w.seers
+                      .map((x) => `${who(view, x.by, false)}${x.cancelled ? ` (${nope}d)` : ''}`)
+                      .join(', ')} · hiding in ${Math.ceil(left / 1000)}…`
+                  : `Can’t be ${nope}d. Hiding in ${Math.ceil(left / 1000)}…`
+                : n === 0
+                  ? `Going ahead in ${Math.ceil(left / 1000)}…`
+                  : `${nope} ×${n}: ${w.cancelled ? 'cancelled' : 'going ahead'} (${Math.ceil(left / 1000)}…)`}
+            </p>
+          </div>
+        </div>
+        <div
+          className="mt-2 h-2 overflow-hidden rounded-full bg-card ring-1 ring-warn-line"
           aria-hidden
-          className={cn(
-            'sf-stamp pointer-events-none absolute inset-0 m-auto flex h-14 w-44 items-center justify-center rounded-xl border-4 text-3xl font-black tracking-widest',
-            stampKind === 'nope'
-              ? 'border-danger text-danger'
-              : stampKind === 'yup'
-                ? 'border-success text-success'
-                : 'border-special text-special-ink',
-          )}
         >
-          {stampKind === 'nope' ? `${nope.toUpperCase()}!` : stampKind === 'yup' ? 'YUP!' : '🔮'}
-        </span>
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-warn to-danger transition-[width] duration-100 ease-linear"
+            style={{ width: `${Math.min(100, (left / total) * 100)}%` }}
+          />
+        </div>
+        {!bar && actions}
+        {stamp && (
+          <span
+            key={stamp.at}
+            aria-hidden
+            className={cn(
+              'sf-stamp pointer-events-none absolute inset-0 m-auto flex h-14 w-44 items-center justify-center rounded-xl border-4 text-3xl font-black tracking-widest',
+              stampKind === 'nope'
+                ? 'border-danger text-danger'
+                : stampKind === 'yup'
+                  ? 'border-success text-success'
+                  : 'border-special text-special-ink',
+            )}
+          >
+            {stampKind === 'nope' ? `${nope.toUpperCase()}!` : stampKind === 'yup' ? 'YUP!' : '🔮'}
+          </span>
+        )}
+        {n > 0 && (
+          <p className="sr-only">
+            {cap(who(view, w.chain.at(-1)))} played {nope}.
+          </p>
+        )}
+      </section>
+      {bar && actions && (
+        <StickyBar fixed className="[&>button:first-child]:mt-0">
+          {actions}
+        </StickyBar>
       )}
-      {n > 0 && (
-        <p className="sr-only">
-          {cap(who(view, w.chain.at(-1)))} played {nope}.
-        </p>
-      )}
-    </section>
+    </>
   );
 }

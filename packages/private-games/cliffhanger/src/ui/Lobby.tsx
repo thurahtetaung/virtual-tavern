@@ -98,8 +98,8 @@ function Pills<T extends string | number>({
             className={cn(
               'min-h-11 rounded-lg px-2 py-1 text-left text-sm ring-1 transition',
               value === o.id
-                ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                : 'ring-line hover:bg-card disabled:opacity-50 dark:ring-stone-700 dark:hover:bg-stone-800',
+                ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                : 'ring-line hover:bg-card disabled:opacity-50',
               !editable && 'cursor-default',
             )}
           >
@@ -156,8 +156,8 @@ function GenrePicker({
               className={cn(
                 'min-h-9 rounded-full px-3 text-xs ring-1',
                 preset === id
-                  ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                  : 'ring-line hover:bg-card dark:ring-stone-700 dark:hover:bg-stone-800',
+                  ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                  : 'ring-line hover:bg-card',
               )}
             >
               {PRESET_LABELS[id]}
@@ -185,9 +185,9 @@ function GenrePicker({
                 className={cn(
                   'flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-sm ring-1 transition',
                   on
-                    ? 'bg-card font-semibold ring-2 ring-ink/30 dark:bg-stone-800 dark:ring-stone-400'
-                    : 'text-ink-muted ring-line hover:bg-card dark:ring-stone-700 dark:hover:bg-stone-800',
-                  low && 'ring-warn-line dark:ring-amber-500',
+                    ? 'bg-card font-semibold ring-2 ring-ink/30'
+                    : 'text-ink-muted ring-line hover:bg-card',
+                  low && 'ring-warn-line',
                   !editable && 'cursor-default',
                 )}
               >
@@ -198,7 +198,7 @@ function GenrePicker({
                 />
                 <span>{genreName(g.id)}</span>
                 {low && (
-                  <span className="rounded bg-warn-soft px-1 text-[11px] font-bold text-warn-ink dark:bg-amber-500/20 dark:text-amber-100">
+                  <span className="rounded bg-warn-soft px-1 text-xs font-bold text-warn-ink">
                     ⚠ {counts?.[g.id] ?? 0}
                   </span>
                 )}
@@ -227,7 +227,7 @@ function GenrePicker({
         <p
           role="status"
           data-testid="genre-short"
-          className="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40"
+          className="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line"
         >
           Too few {nounOf(s.deck, true)} in {shortOn.map(genreName).join(', ')}: each genre needs{' '}
           {need} in the chosen packs. Add packs or turn {shortOn.length > 1 ? 'those genres' : 'it'}{' '}
@@ -313,7 +313,7 @@ export function Teams({
       )}
       <div className="flex flex-wrap gap-2">
         {mine && lobby && (
-          <Button size="sm" variant="ghost" onClick={() => join(null)}>
+          <Button size="sm" variant="quiet" onClick={() => join(null)}>
             Just watch
           </Button>
         )}
@@ -459,8 +459,8 @@ export function Lobby({
                   className={cn(
                     'min-h-11 rounded-lg px-3 text-sm ring-1',
                     s.mixStyles.includes(id)
-                      ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                      : 'ring-line dark:ring-stone-700',
+                      ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                      : 'ring-line',
                   )}
                 >
                   {STYLES[id].emoji} {names.styles[id]}

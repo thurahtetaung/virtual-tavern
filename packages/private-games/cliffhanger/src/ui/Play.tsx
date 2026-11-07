@@ -1,5 +1,5 @@
 import { type GameRoomInfo, storageKey } from '@vt/game-sdk';
-import { Button, ProtectedImage, RefusalSlot, cn, useSecondsLeft } from '@vt/ui';
+import { Button, ProtectedImage, RefusalSlot, StickyBar, cn, useSecondsLeft } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import type { Card } from '../logic/content.ts';
 import { STYLES, genreInfo, missing, nounOf } from '../logic/genres.ts';
@@ -83,12 +83,7 @@ export function CategoryCard({
     );
   }
   return (
-    <div
-      className={cn(
-        'rounded-2xl bg-panel px-4 py-5 text-center ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
-        className,
-      )}
-    >
+    <div className={cn('rounded-2xl bg-panel px-4 py-5 text-center ring-1 ring-line', className)}>
       <p
         className={cn(
           'font-bold tracking-wide text-ink-muted uppercase',
@@ -113,7 +108,7 @@ function SaidIt({ onPress, disabled }: { onPress: () => void; disabled?: boolean
       disabled={disabled}
       onClick={onPress}
       className={cn(
-        'mx-auto grid aspect-square w-full max-w-72 place-items-center rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
+        'mx-auto grid aspect-square w-full max-w-72 place-items-center max-sm:max-w-[13.75rem] rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
         // vt-palette: the buzzer's own pink
         !src && 'bg-pink-600 text-4xl shadow-[0_10px_0_#9d174d] active:shadow-[0_4px_0_#9d174d]',
       )}
@@ -198,7 +193,7 @@ function FaceOff({ view, room, act }: PlayProps) {
       <div className="flex flex-wrap justify-center gap-2">
         {inPair && fo.answers === 0 && (
           <Button
-            variant="ghost"
+            variant="quiet"
             size="sm"
             onClick={() => void act({ type: 'new-category' }, { anchor: 'cl-fo' })}
           >
@@ -287,14 +282,14 @@ function KeepSheet({ view, room, act }: PlayProps) {
               <button
                 type="button"
                 onClick={() => id && save(slots.map((x, j) => (j === i ? null : x)))}
-                className="flex w-full flex-col items-center gap-1 rounded-xl bg-page p-1.5 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
+                className="flex w-full flex-col items-center gap-1 rounded-xl bg-page p-1.5 ring-1 ring-line"
                 aria-label={`${STYLES[squares[i]?.plays ?? style].name}: ${card ? card.title : 'empty'}`}
               >
-                <StyleName style={squares[i]?.plays ?? style} className="truncate text-[11px]" />
+                <StyleName style={squares[i]?.plays ?? style} className="truncate text-xs" />
                 {card ? (
                   <Tape card={card} deck={deck} className="w-full" />
                 ) : (
-                  <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-600">
+                  <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted">
                     empty
                   </span>
                 )}
@@ -326,7 +321,7 @@ function KeepSheet({ view, room, act }: PlayProps) {
               >
                 <Tape card={c} deck={deck} className="h-[4.5rem]" />
                 {c.tier === 'easy' && (
-                  <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
+                  <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                     easy
                   </span>
                 )}
@@ -375,7 +370,7 @@ export function Bays({
         const tappable = onTap && s.card && !s.got;
         const inner = (
           <>
-            <StyleName style={s.plays} className="truncate text-[11px]" />
+            <StyleName style={s.plays} className="truncate text-xs" />
             <Tape
               card={s.card}
               deck={deck}
@@ -384,7 +379,7 @@ export function Bays({
               label={`${STYLES[s.plays].name}: hidden`}
             />
             {s.got && s.got !== team && (
-              <span className="text-[11px] font-bold text-danger">stolen</span>
+              <span className="text-xs font-bold text-danger-ink">stolen</span>
             )}
           </>
         );
@@ -393,9 +388,7 @@ export function Bays({
             key={i}
             className={cn(
               'flex min-w-0 flex-col items-center gap-1 rounded-xl p-1.5',
-              focus &&
-                s.card?.id === focus &&
-                'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
+              focus && s.card?.id === focus && 'bg-accent-soft ring-2 ring-accent',
             )}
           >
             {tappable ? (
@@ -496,38 +489,40 @@ function Describer({ view, room, act, cue }: PlayProps) {
         <p className="py-6 text-center text-lg font-semibold">Every card is got! 🎉</p>
       )}
       {now?.card && (
-        <div className="flex gap-2">
-          <Button
-            size="lg"
-            className="h-16 min-w-0 flex-[2] text-2xl"
-            data-testid="got-it"
-            onClick={() => {
-              buzz(30);
-              void act({ type: 'got', card: now.card!.id }, { anchor: 'cl-turn' });
-            }}
-          >
-            ✓ Got it
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="h-16 min-w-0 flex-1 flex-col gap-0 text-xl leading-tight"
-            data-testid="pass"
-            disabled={!next}
-            onClick={() => {
-              if (!next) return;
-              dismissTip();
-              switchTo(next.card!);
-            }}
-          >
-            ⏭ Pass
-            {!next && <span className="text-[11px] font-normal">Last card</span>}
-          </Button>
-        </div>
+        <StickyBar fixed refusal="cl-turn">
+          <div className="flex gap-2">
+            <Button
+              size="lg"
+              className="h-16 min-w-0 flex-[2] text-2xl"
+              data-testid="got-it"
+              onClick={() => {
+                buzz(30);
+                void act({ type: 'got', card: now.card!.id }, { anchor: 'cl-turn' });
+              }}
+            >
+              ✓ Got it
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="h-16 min-w-0 flex-1 flex-col gap-0 text-xl leading-tight"
+              data-testid="pass"
+              disabled={!next}
+              onClick={() => {
+                if (!next) return;
+                dismissTip();
+                switchTo(next.card!);
+              }}
+            >
+              ⏭ Pass
+              {!next && <span className="text-xs font-normal">Last card</span>}
+            </Button>
+          </div>
+        </StickyBar>
       )}
       {tip && now?.card && next && (
         <p
-          className="flex items-center gap-2 rounded-lg bg-info-soft px-3 py-1.5 text-xs text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+          className="flex items-center gap-2 rounded-lg bg-info-soft px-3 py-1.5 text-xs text-info-ink ring-1 ring-info-line"
           data-testid="pass-tip"
         >
           <span className="flex-1">
@@ -562,7 +557,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
                   data-testid="switch"
                   onClick={() => switchTo(s.card!)}
                 >
-                  <StyleName style={s.plays} className="text-[11px]" /> {s.card!.title}
+                  <StyleName style={s.plays} className="text-xs" /> {s.card!.title}
                 </Button>
               ))}
           </div>
@@ -574,7 +569,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
       {!turn.stealOpen && mine.length > 0 && (r.board[other(team)] ?? []).some((s) => !s.got) && (
         <p className="text-xs text-ink-muted">Get all three of yours to steal theirs.</p>
       )}
-      <RefusalSlot anchor="cl-turn" />
+      {!now?.card && <RefusalSlot anchor="cl-turn" />}
     </div>
   );
 }
@@ -592,7 +587,7 @@ function UndoButton({ card, title, act }: { card: string; title: string; act: Ac
   if (gone) return null;
   return (
     <Button
-      variant="ghost"
+      variant="quiet"
       size="sm"
       onClick={() => void act({ type: 'undo', card }, { anchor: 'cl-turn' })}
     >
@@ -650,7 +645,7 @@ function Turn(props: PlayProps) {
           <Bays view={view} team={turn.team} />
           {turn.stealOpen && (
             <>
-              <p className="text-center text-sm font-semibold text-danger">
+              <p className="text-center text-sm font-semibold text-danger-ink">
                 They’re stealing yours now!
               </p>
               <Bays view={view} team={other(turn.team)} size="w-3/4" />
@@ -683,13 +678,13 @@ function Recap({ view }: PlayProps) {
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
             <Tape card={g.card} deck={deck} className="h-20" got={result.team} />
-            {g.steal && <span className="text-[11px] font-bold text-danger">stolen</span>}
+            {g.steal && <span className="text-xs font-bold text-danger-ink">stolen</span>}
           </li>
         ))}
         {result.missed.map((c) => (
           <li key={c.id} className="flex flex-col items-center gap-1 opacity-60">
             <Tape card={c} deck={deck} className="h-20" />
-            <span className="text-[11px] text-ink-muted">missed</span>
+            <span className="text-xs text-ink-muted">missed</span>
           </li>
         ))}
       </ul>
@@ -764,7 +759,7 @@ function Steal({ view, room, act }: PlayProps) {
                 >
                   <Tape card={c} deck={deck} className="h-20" />
                   {need.includes(c.genre) && (
-                    <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
+                    <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                       needed
                     </span>
                   )}
@@ -772,16 +767,19 @@ function Steal({ view, room, act }: PlayProps) {
               </li>
             ))}
           </ul>
-          <Button
-            variant="ghost"
-            onClick={() => void act({ type: 'pass' }, { anchor: 'cl-steal' })}
-          >
-            No trade
-          </Button>
+          <StickyBar fixed refusal="cl-steal">
+            <Button
+              variant="secondary"
+              className="max-sm:w-full"
+              onClick={() => void act({ type: 'pass' }, { anchor: 'cl-steal' })}
+            >
+              No trade
+            </Button>
+          </StickyBar>
         </>
       )}
       {room.isHost && <SkipWhenDue deadline={s.deadline} room={room} act={act} />}
-      <RefusalSlot anchor="cl-steal" />
+      {!mineToo && <RefusalSlot anchor="cl-steal" />}
     </div>
   );
 }
@@ -791,7 +789,7 @@ function SkipWhenDue({ deadline, room, act }: { deadline: number; room: GameRoom
   const left = useSecondsLeft(deadline, room.clockOffset);
   if (left !== 0) return null;
   return (
-    <Button variant="ghost" size="sm" onClick={() => void act({ type: 'skip' })}>
+    <Button variant="quiet" size="sm" onClick={() => void act({ type: 'skip' })}>
       Host: move on
     </Button>
   );

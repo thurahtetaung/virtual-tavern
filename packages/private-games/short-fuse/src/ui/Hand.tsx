@@ -99,7 +99,7 @@ export const Hand = memo(function Hand({
           </li>
         ))}
       </ul>
-      <p className="mt-0.5 text-[0.7rem] text-ink-muted">
+      <p className="mt-0.5 text-xs text-ink-muted">
         Tap to pick cards · press and hold (or right-click) for what a card does
       </p>
     </section>

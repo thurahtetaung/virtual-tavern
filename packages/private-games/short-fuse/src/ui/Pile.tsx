@@ -85,7 +85,7 @@ export const Pile = memo(function Pile({
           <span
             className={cn(
               'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line-strong',
-              size === 'sm' ? 'w-14' : 'w-[4.75rem] sm:w-24',
+              size === 'sm' ? 'w-14' : 'w-16 sm:w-24',
             )}
           />
         ) : voidOnTop && !shuffling && onInspect ? (
@@ -104,7 +104,7 @@ export const Pile = memo(function Pile({
           <CardBack c={c} size={size} />
         )}
         {pile.count > 1 && (
-          <span className={cn('-mt-1 block', size === 'sm' ? 'w-14' : 'w-[4.75rem] sm:w-24')}>
+          <span className={cn('-mt-1 block', size === 'sm' ? 'w-14' : 'w-16 sm:w-24')}>
             <StackSide edges={sideEdges} voidEdge={stripe} shuffling={shuffling} />
           </span>
         )}

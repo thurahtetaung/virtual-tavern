@@ -1,4 +1,4 @@
-import { PlayerTag, ProtectedImage, cn, useSecondsLeft } from '@vt/ui';
+import { Countdown, PlayerTag, ProtectedImage, cn, useSecondsLeft } from '@vt/ui';
 import { type CSSProperties, type ReactNode, useState } from 'react';
 import type { Card } from '../logic/content.ts';
 import { type DeckKind, STYLES, type StyleId, genreInfo, progress } from '../logic/genres.ts';
@@ -38,8 +38,8 @@ export const TEAM_EMOJI: Record<TeamId, string> = { a: '🍿', b: '🌮' };
 
 /** A team's chip colours (the shared team tokens). */
 export const TEAM_TONE: Record<TeamId, string> = {
-  a: 'bg-team-a-soft text-team-a-ink ring-team-a-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40',
-  b: 'bg-team-b-soft text-team-b-ink ring-team-b-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
+  a: 'bg-team-a-soft text-team-a-ink ring-team-a-line',
+  b: 'bg-team-b-soft text-team-b-ink ring-team-b-line',
 };
 
 export function TeamChip({ team, className }: { team: TeamId; className?: string }) {
@@ -111,7 +111,7 @@ export function RuleNote({
   return (
     <span
       className={cn(
-        'inline-block rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40',
+        'inline-block rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line',
         className,
       )}
       data-testid={testId}
@@ -246,7 +246,7 @@ export function Tape({
       {got && (
         <span
           aria-hidden
-          className="cl-pop absolute right-1 bottom-1 grid h-[22%] max-h-10 min-h-5 place-items-center rounded-full bg-success px-1.5 text-[min(4cqh,1.5rem)] font-black text-white shadow dark:bg-emerald-700"
+          className="cl-pop absolute right-1 bottom-1 grid h-[22%] max-h-10 min-h-5 place-items-center rounded-full bg-success px-1.5 text-[min(4cqh,1.5rem)] font-black text-white shadow"
           style={{ aspectRatio: '1' }}
         >
           ✓
@@ -288,7 +288,7 @@ export function GenreRace({
         <TeamChip team={team} />
         <span className="font-bold tabular-nums" aria-label={`${p.have} of ${p.need}`}>
           {atPoint && view.phase === 'playing' && (
-            <span className="mr-1 rounded bg-warn-soft px-1 text-xs text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+            <span className="mr-1 rounded bg-warn-soft px-1 text-xs text-warn-ink ring-1 ring-warn-line">
               match point
             </span>
           )}
@@ -309,7 +309,7 @@ export function GenreRace({
                 'flex items-center gap-0.5 rounded-md px-1 py-0.5 text-sm ring-1',
                 n >= goal.each
                   ? 'text-white ring-black/10'
-                  : 'bg-page text-ink-muted opacity-60 ring-line dark:bg-stone-800 dark:ring-stone-700',
+                  : 'bg-page text-ink-muted opacity-60 ring-line',
                 compact && 'text-xs',
               )}
               style={n >= goal.each ? { backgroundColor: info.colour } : undefined}
@@ -389,21 +389,24 @@ export function ClockBar({
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="min-w-0 truncate text-sm font-semibold">{label}</span>
-        <span
-          role="timer"
-          aria-label={`${seconds} seconds left${frozen ? ', paused' : ''}`}
-          className={cn(
-            'font-mono font-black tabular-nums',
-            big ? 'text-3xl' : 'text-xl',
-            urgent && 'text-danger dark:text-rose-400',
-          )}
-        >
-          {frozen && '⏸ '}0:{String(seconds).padStart(2, '0')}
-        </span>
+        {frozen || deadline === null ? (
+          <span
+            role="timer"
+            aria-label={`${seconds} seconds left${frozen ? ', paused' : ''}`}
+            className={cn(
+              'inline-flex min-w-16 items-center justify-center rounded-lg border border-line bg-card px-2.5 py-1 leading-none font-semibold text-ink tabular-nums',
+              big ? 'text-num' : 'text-body',
+            )}
+          >
+            {frozen && '⏸ '}0:{String(seconds).padStart(2, '0')}
+          </span>
+        ) : (
+          <Countdown deadline={deadline} clockOffset={clockOffset} />
+        )}
       </div>
       <div
         className={cn(
-          'overflow-hidden rounded-full bg-stone-300 dark:bg-stone-700',
+          'overflow-hidden rounded-full bg-sunk ring-1 ring-line',
           big ? 'h-4' : 'h-2.5',
         )}
       >
@@ -413,7 +416,7 @@ export function ClockBar({
           total={total}
           clockOffset={clockOffset}
           left={paused ?? 0}
-          className={urgent ? 'bg-danger dark:bg-rose-500' : 'bg-accent dark:bg-amber-500'}
+          className={urgent ? 'bg-danger' : 'bg-accent'}
         />
       </div>
     </div>

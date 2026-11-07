@@ -75,8 +75,8 @@ export function MomentOverlay({
             className={cn(
               'rounded-3xl px-6 py-3 font-black tracking-tight shadow-2xl ring-1 ring-black/10',
               moment.kind === 'times-up'
-                ? 'bg-danger text-white dark:bg-rose-600' // vt-palette
-                : 'bg-card text-ink dark:bg-stone-900 dark:text-stone-50',
+                ? 'bg-danger text-on-fill' // vt-palette
+                : 'bg-card text-ink',
               big ? 'text-[140px]' : moment.kind === 'count' ? 'text-8xl' : 'text-5xl',
             )}
           >
@@ -86,7 +86,7 @@ export function MomentOverlay({
         {moment.kind === 'sweep' && (
           <span
             className={cn(
-              'rounded-full bg-card px-3 py-1 font-semibold shadow dark:bg-stone-900',
+              'rounded-full bg-card px-3 py-1 font-semibold shadow',
               big ? 'px-6 text-[32px]' : 'text-sm',
             )}
           >

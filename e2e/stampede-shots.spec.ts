@@ -55,9 +55,9 @@ for (const [label, viewport, colorScheme] of [
       await shot(cy, 'reveal-pink');
       await shot(hana, 'reveal-host');
       if (viewport.width < 500) {
-        await ana.getByTestId('tab-scores').click();
+        await ana.getByRole('tab', { name: 'Herd' }).click();
         await shot(ana, 'scores-tab');
-        await ana.getByTestId('tab-play').click();
+        await ana.getByRole('tab', { name: 'Play' }).click();
       }
 
       // On to the end: Hana and Ana herd up until Hana leads at 5.

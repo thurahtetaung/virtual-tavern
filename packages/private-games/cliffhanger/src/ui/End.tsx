@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, EndTabs, RefusalSlot, Superlatives, cn } from '@vt/ui';
+import { Button, EndTabs, StickyBar, Superlatives, cn } from '@vt/ui';
 import { progress } from '../logic/genres.ts';
 import { genreName } from '../logic/manifest.ts';
 import {
@@ -104,23 +104,24 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
         ]}
       />
       {room.isHost ? (
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button
-            size="lg"
-            data-testid="play-again"
-            onClick={() => void act({ type: 'start' }, { anchor: 'cl-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            size="lg"
-            variant="secondary"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cl-end' })}
-          >
-            Change teams or settings
-          </Button>
-          <RefusalSlot anchor="cl-end" />
-        </div>
+        <StickyBar refusal="cl-end">
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              size="lg"
+              data-testid="play-again"
+              onClick={() => void act({ type: 'start' }, { anchor: 'cl-end' })}
+            >
+              Play again
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cl-end' })}
+            >
+              Change teams or settings
+            </Button>
+          </div>
+        </StickyBar>
       ) : (
         <p className="text-center text-sm text-ink-muted">The host can start another game.</p>
       )}

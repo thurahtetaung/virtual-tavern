@@ -115,8 +115,8 @@ export function Lobby({
                   className={cn(
                     'h-11 rounded-lg font-semibold ring-1 transition',
                     s.target === n
-                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                      : 'ring-line hover:bg-card dark:ring-stone-700 dark:hover:bg-stone-800',
+                      ? 'bg-accent-soft ring-2 ring-accent'
+                      : 'ring-line hover:bg-card',
                   )}
                 >
                   🐄 {n}

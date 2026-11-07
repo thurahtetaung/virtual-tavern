@@ -190,7 +190,7 @@ export function WiresLookup({ rules }: { rules: Rules }) {
         ))}
         <Button
           size="sm"
-          variant="ghost"
+          variant="quiet"
           disabled={wires.length <= 3}
           onClick={() => setWires(wires.slice(0, -1))}
           aria-label="One wire fewer"
@@ -199,7 +199,7 @@ export function WiresLookup({ rules }: { rules: Rules }) {
         </Button>
         <Button
           size="sm"
-          variant="ghost"
+          variant="quiet"
           disabled={wires.length >= 6}
           onClick={() => setWires([...wires, 'red'])}
           aria-label="One wire more"

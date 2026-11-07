@@ -35,19 +35,17 @@ export function Scoreboard({ view, names }: { view: StampedeView; names: Names }
             </span>
             <span className="flex items-center gap-1.5 text-sm">
               {gained.has(s.id) && (
-                <span className="sp-fly text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                  +1
-                </span>
+                <span className="sp-fly text-xs font-semibold text-success-ink">+1</span>
               )}
               <CowCount n={s.cows} names={names} />
             </span>
             {/* A bar towards the target, so the race reads at a glance. */}
             <span
               aria-hidden
-              className="col-span-2 h-1.5 overflow-hidden rounded-full bg-card ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+              className="col-span-2 h-1.5 overflow-hidden rounded-full bg-card ring-1 ring-line"
             >
               <span
-                className="block h-full rounded-full bg-accent dark:bg-amber-500"
+                className="block h-full rounded-full bg-accent"
                 style={{ width: `${Math.min(100, (s.cows / top) * 100)}%` }}
               />
             </span>
@@ -79,10 +77,7 @@ export function RoundLog({ view, names }: { view: StampedeView; names: Names }) 
       </summary>
       <ol className="space-y-2">
         {[...view.history].reverse().map((h) => (
-          <li
-            key={h.number}
-            className="rounded-lg bg-card px-3 py-2 ring-1 ring-line dark:bg-stone-800/60 dark:ring-0"
-          >
+          <li key={h.number} className="rounded-lg bg-card px-3 py-2 ring-1 ring-line">
             <p className="text-ink-muted">
               {h.number}. {h.prompt}
             </p>
@@ -175,7 +170,7 @@ export function Table({
             <li
               key={s.id}
               data-testid={`seat-${s.id}`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+              className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line"
             >
               <PlayerTag
                 name={s.name}

@@ -7,7 +7,9 @@ import {
   importPacks,
   lockIn,
   table,
+  whoSees,
 } from './cliffhanger-play.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { pageErrors } from './tavern-brawl-play.ts';
 
 // A whole Cliffhanger game on phones, on the rigged deal (`cliffhanger-play.ts`): Ana wins the
@@ -104,7 +106,10 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
     'Pretend horror 1',
     'Pretend family 1',
   ]);
+  // The race is on the phone's Board tab.
+  await dev.getByRole('tab', { name: 'Board' }).click();
   await expect(dev.getByTestId('race-a').first().getByText('6/8')).toBeVisible({ timeout: 15_000 });
+  await dev.getByRole('tab', { name: 'Play' }).click();
 
   // Round 2: Cleo against Dev (Ben and Dev's team is behind and picks the category).
   await faceOff(all, cleo);
@@ -132,4 +137,21 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
   await expect(ana.getByTestId('winner')).toContainText('Your team wins!');
   await expect(ben.getByTestId('winner')).toContainText('Popcorn win!');
   await expect(ana.getByTestId('play-again')).toBeVisible();
+});
+
+test('a Cliffhanger face-off and a describer’s turn fit one phone screen', async ({ browser }) => {
+  test.setTimeout(120_000);
+  cleanup.push(await importPacks(browser));
+  const all = await table(browser, ['Ana', 'Ben', 'Cleo', 'Dev'], PHONE);
+  const ana = all[0]!;
+  await ana.getByTestId('start').click();
+  await expect(ana.getByTestId('said-it')).toBeVisible({ timeout: 15_000 });
+  await expect(ana.getByRole('tablist', { name: 'Cliffhanger' })).toBeVisible();
+  await expectPhoneFit(ana, 'Cliffhanger face-off');
+  await faceOff(all, ana);
+  await lockIn(ana);
+  const describer = await whoSees(all, 'got-it');
+  await expect(describer.getByTestId('now-title')).toBeVisible();
+  await expect(describer.getByTestId('pass')).toBeVisible();
+  await expectPhoneFit(describer, 'Cliffhanger describer');
 });
