@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.4...v0.100.5) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** Short Fuse and Nightfall fit the phone with a tip or the role card open ([#564](https://github.com/thurahtetaung/virtual-tavern/issues/564)) ([b622cd4](https://github.com/thurahtetaung/virtual-tavern/commit/b622cd42b45170c11189535f62840abeb18c04a9))
+
 ## [0.100.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.3...v0.100.4) (2026-11-07)
 
 
