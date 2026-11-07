@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.6...v0.100.7) (2026-11-07)
+
+
+### Bug Fixes
+
+* **tavern-brawl:** fit the host's phone lobby before a hero is picked ([#568](https://github.com/thurahtetaung/virtual-tavern/issues/568)) ([2e62c9f](https://github.com/thurahtetaung/virtual-tavern/commit/2e62c9f4afc793a63ada710a443cbe91e36e851e))
+
 ## [0.100.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.5...v0.100.6) (2026-11-07)
 
 
