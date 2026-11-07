@@ -3,22 +3,22 @@ import {
   Badge,
   Button,
   Countdown,
+  EndTabs,
   Hint,
   NameDot,
   Panel,
   Peek,
-  EndTabs,
   StickyBar,
   Superlatives,
   TabBar,
   type TabBarItem,
   cn,
   tabPanelProps,
+  useFitToScreen,
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
-import { useFitOnPhone } from './fit.ts';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -1278,7 +1278,7 @@ export function Day({
   const wide = useWide();
   // Phones: a big table scrolls inside its panel rather than the page.
   const tablePanel = useRef<HTMLDivElement>(null);
-  useFitOnPhone(tablePanel);
+  useFitToScreen(tablePanel, { phone: true, min: 160 });
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;

@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Countdown, FitArea, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { PILLARS, type Pillar, isPillarCard, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -10,7 +10,6 @@ import { useReadyNoteText } from './ready-note.ts';
 import { PastGuesses } from './PastGuesses.tsx';
 import type { CardRow } from './Compare.tsx';
 import { atTable, myPsychic, notReady, pastGuesses, roman, triedCards } from './status.ts';
-import { PhoneFill } from './fill.tsx';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -215,7 +214,7 @@ export function MineTab({
           )}
         </div>
         {/* Phones: your vision and the cards on the table take what the screen has left and scroll inside it. */}
-        <PhoneFill className="-mx-1 space-y-2 px-1 py-1">
+        <FitArea phone plain min={128} className="-mx-1 space-y-2 px-1 py-1">
           <VisionStrip
             p={me}
             g={g}
@@ -307,7 +306,7 @@ export function MineTab({
               );
             })}
           </ul>
-        </PhoneFill>
+        </FitArea>
         {open && <ReadyBar view={view} room={room} act={act} content={content} sticky />}
       </Panel>
       {pastGuesses(g, me.color).length > 0 && (

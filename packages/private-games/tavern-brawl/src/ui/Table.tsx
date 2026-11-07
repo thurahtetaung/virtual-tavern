@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  FitArea,
   Hint,
   NameDot,
   PlayerTag,
@@ -36,7 +37,6 @@ import {
   prompt,
   waitingLine,
 } from './text.ts';
-import { PhoneFill } from './fill.tsx';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -1122,7 +1122,7 @@ export function Table({
 
   // Phones: the opponents take what the screen has left and scroll inside it (six seats).
   const opponents = (
-    <PhoneFill>
+    <FitArea phone plain min={128}>
       <ul
         className={cn(
           'grid grid-cols-1 gap-1.5',
@@ -1134,7 +1134,7 @@ export function Table({
           <PlayerRow key={p.id} {...seat(p)} compact={order.length >= 3} near={near.get(p.id)} />
         ))}
       </ul>
-    </PhoneFill>
+    </FitArea>
   );
 
   const mePanel = me && (
