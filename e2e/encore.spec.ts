@@ -22,7 +22,7 @@ test('a 3-player game: shows, recruits, a Recruit & Show, rounds ending unbeaten
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = (await table(browser, ['Ana', 'Ben', 'Cy'])) as [Page, Page, Page];
   const [ana, ben, cy] = pages;
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
 
   // Round 1: both versions of the hand are offered, and the choice stays secret.
   await expect(ana.getByTestId('en-flip-turned')).toBeVisible();
@@ -79,7 +79,7 @@ test('2 players on phones: recruiting costs a chip and keeps the turn, and no ch
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];
   const [ana, ben] = pages;
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
   await keepAll(pages, 1, 2);
   await expect(ana.getByText('22 cards waiting for round 2')).toBeVisible();
   await show(ana, 0, /^Show 1 · the table is empty$/);
