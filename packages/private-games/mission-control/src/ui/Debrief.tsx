@@ -229,7 +229,7 @@ export function Debrief({
         </Button>
         {room.isHost && (
           <Button variant="secondary" onClick={() => send({ type: 'lobby' })}>
-            📘 Logbook and settings
+            Change setup
           </Button>
         )}
       </div>

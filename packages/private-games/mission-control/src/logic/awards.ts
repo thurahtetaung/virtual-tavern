@@ -119,8 +119,11 @@ const rules: AwardRule[] = [
     kind: 'team',
     family: 'result',
     copy: {
-      cheeky: ['{who} cracked it on try {n}. Stubborn crew', 'Try {n}, and {who} finally made it'],
-      wholesome: ['{who} kept at it and won on try {n}', '{who} got there on attempt {n}'],
+      cheeky: [
+        '{who} cracked it on attempt {n}. Stubborn crew',
+        'Attempt {n}, and {who} finally made it',
+      ],
+      wholesome: ['{who} kept at it and won on attempt {n}', '{who} got there on attempt {n}'],
     },
     compute: (g) => {
       const n = num(outcome(g), 'attempt') ?? 0;

@@ -1,8 +1,8 @@
-import { type GameRoomInfo, listNames, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, listNames, lobbyStatus, waitingFor } from '@vt/game-sdk';
 import { suitOf } from '../logic/cards.ts';
 import { type Names, fillNames } from '../logic/manifest.ts';
 import { type AttemptView, DUMMY, EPILOGUE, type MissionControlView } from '../logic/types.ts';
-import { SUIT_LOOK, plainText } from './Card.tsx';
+import { SUIT_LOOK } from './Card.tsx';
 
 export interface Status {
   text: string;
@@ -47,13 +47,12 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
       { you: me },
     ) || 'Waiting…';
   if (view.phase === 'lobby' || !a) {
-    const blocker = startBlocker(view);
-    if (room.isHost)
-      return {
-        text: blocker ?? 'Pick the mission in the logbook, then press Start.',
-        yourMove: !blocker,
-      };
-    return { text: waitingForHost(room, 'start the mission'), yourMove: false };
+    // The host's blocker shows beside Start, so their line is empty then.
+    const line = lobbyStatus(room, startBlocker(view));
+    if (!line) return { text: '', yourMove: false };
+    return line.me
+      ? { text: 'Pick the mission in the logbook, then press Start.', yourMove: true }
+      : { text: line.text, yourMove: false };
   }
   const crew = a.crew.map((c) => c.id);
   const inCrew = crew.includes(me);
@@ -272,13 +271,8 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
       return { text: `🤫 ${name(a.turn)} is playing…`, yourMove: false };
     }
     case 'done': {
-      const r = a.result!;
-      if (r.success)
-        return { text: `${missionLabel(a.mission.n, a.mission.label)} complete!`, yourMove: false };
-      return {
-        text: `Lost: ${plainText(r.why ?? 'a task could not be met.', name, names)}`,
-        yourMove: false,
-      };
+      // The debrief below says how it went; the status line doesn't repeat it.
+      return { text: '', yourMove: false };
     }
   }
 }
