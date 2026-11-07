@@ -144,7 +144,7 @@ function DrawnBoard({
         team === 'red' && g.enacted.red >= LEADER_ZONE && 'hy-glow',
       )}
     >
-      <figcaption className="mb-1 flex items-center justify-between px-1 text-[0.65rem] font-black tracking-widest text-white/90 uppercase">
+      <figcaption className="mb-1 flex items-center justify-between px-1 text-xs font-black tracking-wider text-white/90 uppercase">
         <span>{c.teamName(team)}</span>
         {team === 'blue' && <TrackerLamps tracker={g.tracker} />}
       </figcaption>
