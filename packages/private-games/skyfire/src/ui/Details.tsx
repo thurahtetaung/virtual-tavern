@@ -213,7 +213,7 @@ export function DetailSheet({
           unseen (in the deck or your own hand).
         </p>
         {last && (
-          <p className="self-stretch rounded-lg bg-warn-soft px-2 py-1 font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
+          <p className="self-stretch rounded-lg bg-warn-soft px-2 py-1 font-semibold text-warn-ink ring-1 ring-warn-line">
             ! The last copy still needed: don’t let it go.
           </p>
         )}

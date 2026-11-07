@@ -1,5 +1,15 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, Modal, PlayerTag, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Modal,
+  PlayerTag,
+  ProtectedImage,
+  RefusalSlot,
+  TabBar,
+  cn,
+  tabPanelProps,
+} from '@vt/ui';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { closeTo, countOf } from '../logic/rules.ts';
 import { SPECIAL_CHIP, SPECIAL_SHORT, SPECIAL_TEXT } from '../logic/specials.ts';
@@ -34,6 +44,7 @@ export interface TableProps {
 }
 
 type Tab = 'play' | 'boards' | 'scores';
+const TABS_ID = 'mosaic-view';
 
 /** Whether the desktop layout is showing (Tailwind's `lg`). */
 const useWide = () => useMatch('(min-width: 1024px)');
@@ -140,7 +151,7 @@ function Ouch({ view, name, you }: { view: MosaicView; name: NameOf; you: string
   return (
     <p
       role="status"
-      className="mo-rise rounded-xl bg-danger-soft px-3 py-1.5 text-center text-sm font-bold text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+      className="mo-rise rounded-xl bg-danger-soft px-3 py-1.5 text-center text-sm font-bold text-danger-ink ring-1 ring-danger-line"
       data-testid="mo-ouch"
     >
       😬 Ouch: {take.by === you ? 'you' : name(take.by)} ate {take.penalty}!
@@ -183,7 +194,7 @@ function Factory({
   if (special?.holder)
     return (
       <div
-        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-[10px] leading-tight text-ink-muted ring-1 ring-line ring-dashed dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700"
+        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-[10px] leading-tight text-ink-muted ring-1 ring-line ring-dashed"
         role="group"
         aria-label={`Factory ${index + 1}: ${name(special.holder)}’s floor shield this round`}
         data-factory={index}
@@ -197,7 +208,7 @@ function Factory({
     <div
       className={cn(
         'relative flex aspect-square items-center justify-center rounded-full',
-        !bg && 'bg-panel ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+        !bg && 'bg-panel ring-1 ring-line',
         special && 'mo-gold',
       )}
       role="group"
@@ -309,12 +320,12 @@ function Market({
         </Modal>
       )}
       <div
-        className="flex min-h-12 flex-wrap items-center gap-2 rounded-2xl bg-panel/80 px-2.5 py-1.5 ring-1 ring-line dark:bg-stone-900/70 dark:ring-stone-800"
+        className="flex min-h-12 flex-wrap items-center gap-2 rounded-2xl bg-panel/80 px-2.5 py-1.5 ring-1 ring-line"
         role="group"
         aria-label="Centre"
         data-testid="mo-centre"
       >
-        <span className="text-xs font-semibold text-ink-muted dark:text-stone-400">Centre</span>
+        <span className="text-xs font-semibold text-ink-muted">Centre</span>
         {g.marker === 'centre' && <Marker art={art} size={26} />}
         {centre.length === 0 && <span className="text-xs text-ink-muted">empty</span>}
         {centre.map((c) => {
@@ -332,7 +343,7 @@ function Market({
               key={c}
               type="button"
               onClick={() => onPick({ source: 'centre', colour: c })}
-              className="flex items-center rounded-lg px-1 py-0.5 hover:bg-card focus-visible:outline-2 focus-visible:outline-accent dark:hover:bg-stone-800"
+              className="flex items-center rounded-lg px-1 py-0.5 hover:bg-card focus-visible:outline-2 focus-visible:outline-accent"
               aria-label={`${n} ${COLOUR_NAME[c]} from the centre`}
               data-src={`centre:${c}`}
             >
@@ -368,8 +379,8 @@ function PlayerChip({
       type="button"
       onClick={onOpen}
       className={cn(
-        'flex shrink-0 items-center gap-2 rounded-2xl bg-card px-2.5 py-1.5 text-sm shadow-sm ring-1 ring-line focus-visible:outline-2 focus-visible:outline-accent dark:bg-stone-900 dark:ring-stone-700',
-        current && 'ring-2 ring-accent dark:ring-amber-500',
+        'flex shrink-0 items-center gap-2 rounded-2xl bg-card px-2.5 py-1.5 text-sm shadow-sm ring-1 ring-line focus-visible:outline-2 focus-visible:outline-accent',
+        current && 'ring-2 ring-accent',
         (p.left || p.removed) && 'opacity-60',
       )}
       aria-label={`${p.name}: ${p.score} points, ${p.floor.length} on the floor${current ? ', playing now' : ''}`}
@@ -377,7 +388,7 @@ function PlayerChip({
     >
       <span className="flex flex-col items-start leading-tight">
         <PlayerTag name={p.name} you={p.id === room.you} className="max-w-24 font-semibold" />
-        <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
+        <span className="text-xs text-ink-muted tabular-nums">
           {p.score} pts{p.floor.length ? ` · floor ${p.floor.length}` : ''}
           {g.marker === p.id ? ' · 1st' : ''}
         </span>
@@ -407,8 +418,8 @@ function PlayerBoard({
     <section
       aria-label={p.id === room.you ? 'Your board' : `${p.name}’s board`}
       className={cn(
-        'flex flex-col items-center gap-1 rounded-2xl bg-card/85 p-2 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        current && 'ring-2 ring-accent dark:ring-amber-500',
+        'flex flex-col items-center gap-1 rounded-2xl bg-card/85 p-2 shadow-sm ring-1 ring-line',
+        current && 'ring-2 ring-accent',
         (p.left || p.removed) && 'opacity-70',
       )}
       data-panel={p.id}
@@ -417,7 +428,7 @@ function PlayerBoard({
         <PlayerTag name={p.name} you={p.id === room.you} className="font-semibold" />
         <span className="flex items-center gap-1.5">
           {(p.left || p.removed) && (
-            <span className="rounded-full bg-warn-soft px-1.5 text-[11px] text-warn-ink dark:bg-amber-500/15 dark:text-amber-100">
+            <span className="rounded-full bg-warn-soft px-1.5 text-[11px] text-warn-ink">
               {p.removed ? 'removed' : 'away'}
             </span>
           )}
@@ -439,7 +450,7 @@ function Scores({ view, room, art }: { view: MosaicView; room: GameRoomInfo; art
   return (
     <section aria-label="Scores" className="flex flex-col gap-3 text-sm" data-testid="mo-scores">
       <table className="w-full text-left tabular-nums">
-        <thead className="text-xs text-ink-muted dark:text-stone-400">
+        <thead className="text-xs text-ink-muted">
           <tr>
             <th className="font-medium">Player</th>
             <th className="font-medium">Points</th>
@@ -465,12 +476,12 @@ function Scores({ view, room, art }: { view: MosaicView; room: GameRoomInfo; art
           })}
         </tbody>
       </table>
-      <p className="text-xs text-ink-muted dark:text-stone-400">
+      <p className="text-xs text-ink-muted">
         Bonuses at the end: +2 a full row, +7 a full column, +10 all 5 of a colour. “4/5” means one
         to go.
       </p>
       <table className="w-full text-center tabular-nums" aria-label="Tiles left">
-        <thead className="text-xs text-ink-muted dark:text-stone-400">
+        <thead className="text-xs text-ink-muted">
           <tr>
             <th />
             {kinds.map((c) => (
@@ -506,15 +517,9 @@ function Log({ view, name, open }: { view: MosaicView; name: NameOf; open: boole
     .slice(-14)
     .reverse();
   return (
-    <details
-      className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
-      open={open}
-    >
+    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
       <summary className="cursor-pointer font-semibold">What happened</summary>
-      <ol
-        className="mt-1 flex flex-col gap-0.5 text-ink-muted dark:text-stone-400"
-        aria-label="Log"
-      >
+      <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>
         ))}
@@ -567,41 +572,24 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     if (await act({ type: 'take', ...move }, { anchor: PLAY_ANCHOR })) setPick(null);
   };
 
-  const tabs = (
-    <div
-      role="tablist"
-      aria-label="View"
-      className="flex gap-1 rounded-xl bg-panel p-1 ring-1 ring-line lg:hidden dark:bg-stone-900 dark:ring-stone-800"
-    >
-      {(
-        [
-          ['play', 'Play'],
-          ['boards', 'Boards'],
-          ['scores', 'Scores'],
-        ] as const
-      ).map(([id, label]) => (
-        <button
-          key={id}
-          role="tab"
-          type="button"
-          aria-selected={tab === id}
-          onClick={() => setTab(id)}
-          className={cn(
-            'min-h-9 flex-1 rounded-lg text-sm font-semibold',
-            tab === id
-              ? 'bg-card shadow-sm dark:bg-stone-700'
-              : 'text-ink-muted dark:text-stone-400',
-          )}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+  // Phones and tablets: the views on the shared bottom tab bar; wide screens show them all.
+  const tabs = !wide && (
+    <TabBar
+      id={TABS_ID}
+      label="View"
+      value={tab}
+      onChange={setTab}
+      items={[
+        { id: 'play', label: 'Play', icon: 'gamepad-2' },
+        { id: 'boards', label: 'Boards', icon: 'layout-grid' },
+        { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+      ]}
+    />
   );
 
   const clockLine = (drafting || choosing.length > 0) && clock && (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span className="text-ink-muted dark:text-stone-400">
+      <span className="text-ink-muted">
         {waitingFor(drafting ? [clock.who] : choosing, room.players, { you: room.you })}
       </span>
       {clock.deadline && (
@@ -628,7 +616,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       {playing && away.length > 0 && (
         <section
           aria-label="Players who left"
-          className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+          className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line"
         >
           <p>
             {away.map((p) => p.name).join(', ')} left the room: the table plays their turns for
@@ -698,8 +686,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     <section
       aria-label="Your board"
       className={cn(
-        'flex flex-col items-center gap-1 rounded-2xl bg-card/85 p-2 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        (mine || myRow !== null) && 'ring-2 ring-accent dark:ring-amber-500',
+        'flex flex-col items-center gap-1 rounded-2xl bg-card/85 p-2 shadow-sm ring-1 ring-line',
+        (mine || myRow !== null) && 'ring-2 ring-accent',
         myRow !== null && 'hidden',
       )}
       data-panel={me.id}
@@ -725,7 +713,6 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {tabs}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
         <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
           {others
@@ -735,7 +722,10 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             ))}
         </aside>
 
-        <div className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}>
+        <div
+          className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}
+          {...(!wide && tabPanelProps(TABS_ID, 'play'))}
+        >
           {/* The wall-tiling shows every board itself; on phones it stands in for these. */}
           {!(tiling && !wide) && (
             <div className="flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden" aria-label="Players">
@@ -769,22 +759,22 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             .map((p) => (
               <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
             ))}
-          <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
+          <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
             <Scores view={view} room={room} art={art} />
           </div>
           <Log view={view} name={name} open />
         </aside>
 
         {tab === 'boards' && (
-          <div className="flex flex-col gap-2 lg:hidden">
+          <div className="flex flex-col gap-2 lg:hidden" {...tabPanelProps(TABS_ID, 'boards')}>
             {g.players.map((p) => (
               <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="md" />
             ))}
           </div>
         )}
         {tab === 'scores' && (
-          <div className="flex flex-col gap-2 lg:hidden">
-            <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
+          <div className="flex flex-col gap-2 lg:hidden" {...tabPanelProps(TABS_ID, 'scores')}>
+            <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
               <Scores view={view} room={room} art={art} />
             </div>
             <Log view={view} name={name} open />
@@ -792,6 +782,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         )}
       </div>
 
+      {tabs}
       {open && me && (
         <PickSheet
           key={`${open.source}:${open.colour}`}

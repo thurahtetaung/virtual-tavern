@@ -145,7 +145,7 @@ export function Compare({
           tabIndex={0}
           role="group"
           aria-label={pinnedLabel ?? 'Pinned cards'}
-          className="flex size-full snap-x snap-mandatory overflow-x-auto overscroll-contain [scrollbar-width:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+          className="flex size-full snap-x snap-mandatory overflow-x-auto overscroll-contain [scrollbar-width:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
         >
           {pinned.cards.map((n, i) => (
             <div
@@ -171,12 +171,12 @@ export function Compare({
                     preview={false}
                     onTap={() => look(pinnedCards, i, pinnedLabel ?? title)}
                     className={cn(
-                      pinned.target === n && 'ring-4 ring-accent-line dark:ring-amber-400',
+                      pinned.target === n && 'ring-4 ring-accent-line',
                       pinned.target !== undefined && pinned.target !== n && 'opacity-50',
                     )}
                   >
                     {pinned.target === n && (
-                      <span className="absolute top-2 left-2 rounded-md bg-accent-line px-2 py-0.5 text-sm font-black tracking-wide text-stone-950 uppercase shadow dark:bg-amber-400">
+                      <span className="absolute top-2 left-2 rounded-md bg-accent-line px-2 py-0.5 text-sm font-black tracking-wide text-ink uppercase shadow">
                         🎯 Target
                       </span>
                     )}
@@ -191,7 +191,7 @@ export function Compare({
               {pinned.captions && (
                 // Two lines kept for every card, so the picture doesn't change size on a swipe.
                 // vt-contrast: the compare view is dark in both themes
-                <p className="line-clamp-2 h-8 w-full shrink-0 text-center text-xs leading-4 text-stone-400">
+                <p className="line-clamp-2 h-8 w-full shrink-0 text-center text-xs leading-4 text-ink-faint">
                   {pinned.captions[n]}
                 </p>
               )}
@@ -231,14 +231,14 @@ export function Compare({
         >
           {stripLabel && (
             // vt-contrast: the compare view is dark in both themes
-            <p className="px-3 pt-1.5 text-xs font-semibold tracking-wide text-stone-400 uppercase">
+            <p className="px-3 pt-1.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
               {stripLabel}
             </p>
           )}
           <ul
             tabIndex={0}
             aria-label={stripLabel ?? 'Choose'}
-            className="flex min-h-0 flex-1 snap-x gap-2 overflow-x-auto overscroll-contain px-3 py-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+            className="flex min-h-0 flex-1 snap-x gap-2 overflow-x-auto overscroll-contain px-3 py-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
           >
             {strip.cards.map((n, i) => (
               <li
@@ -261,7 +261,7 @@ export function Compare({
                 />
                 {strip.captions?.[n] && (
                   // vt-contrast: the compare view is dark in both themes
-                  <p className="truncate text-center text-[11px] text-stone-400">
+                  <p className="truncate text-center text-[11px] text-ink-faint">
                     {strip.captions[n]}
                   </p>
                 )}
@@ -336,7 +336,7 @@ export function SendPreview({
           className="flex min-h-0 shrink-0 basis-[38%] flex-col items-center gap-1 lg:basis-auto"
         >
           {/* vt-contrast: the preview is dark in both themes */}
-          <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">
             {name}’s target
           </p>
           <div
@@ -358,7 +358,7 @@ export function SendPreview({
           className="flex min-h-0 flex-1 flex-col items-center gap-1 lg:flex-none"
         >
           {/* vt-contrast: the preview is dark in both themes */}
-          <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-ink-faint uppercase">
             {n === 1 ? 'Your vision' : `Your ${n} visions`}
           </p>
           <ul className="flex min-h-0 w-full flex-1 justify-center gap-2 overflow-x-auto lg:h-[26rem] lg:flex-none">

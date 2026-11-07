@@ -372,9 +372,7 @@ function FloorLine({
             <span className="mo-slot mo-floor-slot" style={{ width: cell, height: cell }} />
           )}
           {cell >= 14 && (
-            <span className="text-[10px] leading-tight tabular-nums text-ink-muted dark:text-stone-400">
-              {n}
-            </span>
+            <span className="text-[10px] leading-tight tabular-nums text-ink-muted">{n}</span>
           )}
         </span>
       ))}
@@ -391,16 +389,14 @@ function FloorLine({
           ) : (
             <span className="mo-slot mo-shield-slot" style={{ width: cell, height: cell }} />
           )}
-          {cell >= 14 && (
-            <span className="text-[10px] leading-tight text-ink-muted dark:text-stone-400">🛡</span>
-          )}
+          {cell >= 14 && <span className="text-[10px] leading-tight text-ink-muted">🛡</span>}
         </span>
       )}
       <span
         className={cn(
           'ml-1 self-center font-bold tabular-nums',
           cell < 14 ? 'text-xs' : 'text-sm',
-          cost ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted',
+          cost ? 'text-danger-ink' : 'text-ink-muted',
           cracked && cost !== 0 && 'mo-pop',
         )}
       >

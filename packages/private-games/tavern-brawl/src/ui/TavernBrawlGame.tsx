@@ -116,7 +116,7 @@ function End({
         <div className="min-w-0">
           <h2 className="text-xl font-black">{status.text}</h2>
           {hero && (
-            <p className="text-sm text-ink-muted dark:text-stone-400">
+            <p className="text-sm text-ink-muted">
               {art.hero(hero)} is the last one standing after {g.turn.number} turns.
             </p>
           )}
@@ -153,7 +153,7 @@ function End({
                 {g.players.map((p) => (
                   <li
                     key={p.id}
-                    className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+                    className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:ring-0"
                   >
                     <HpDial hp={p.hp} size={30} out={p.out} />
                     <span className="inline-flex items-center gap-1 text-sm">

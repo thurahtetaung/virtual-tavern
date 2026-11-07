@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Words** (`usesWordLists`, lists per level, e.g. the built-in "Iconic: Easy/Hard/Challenging" packs; Iconic is a phrase game for word packs): the deal keeps a shuffled deck per level in state (secret). `ICONIC_TEST_WORD` is every card's first word.
   - **Judging (the owner's rulings):** the clue givers mark guesses; a `wordKey` match is flagged "looks right" for them only, never awarded by itself; ✓ can be undone for 5 s.
   - **`view()`:** the card only to the clue givers while choosing, the word to them and a helper, the pair's proposal and vetoes only to the pair, the pending award and "looks right" flags only to the clue team; guesses and marks are public. No bot.
+  - **Phones:** while clues are given, Board, Guesses and Scores sit on the shared `TabBar` (Guesses carries a count of the guesses waiting for the clue givers' judgement); the guess box sits in the fixed `StickyBar` (`ic-guess`) under every view, and the choose step's actions too (`ic-choose`); the icon groups use the shared `Tabs`. First-time tips are a closed fold on phones.
 
 ## Assets
 

@@ -26,10 +26,7 @@ export function PowerLines({
       {powersOf(hero).map((c) => (
         <li key={c.id} className="text-sm leading-snug">
           <span className="font-semibold">✦ {art.card(c.id)}</span>
-          <span className="text-ink-muted dark:text-stone-400">
-            {' '}
-            {full ? cardText(c) : POWER_TEXT[c.effect!]}
-          </span>
+          <span className="text-ink-muted"> {full ? cardText(c) : POWER_TEXT[c.effect!]}</span>
         </li>
       ))}
     </ul>
@@ -69,7 +66,7 @@ export function HeroSheet({
           <div className="flex items-center gap-3">
             <Portrait hero={hero} art={art} size={56} />
             <div className="min-w-0">
-              <p className="text-xs text-ink-muted dark:text-stone-400">
+              <p className="text-xs text-ink-muted">
                 {[box, set, who && `played by ${midSentence(who)}`].filter(Boolean).join(' · ')}
               </p>
               <p className="text-sm">{HEROES[hero].style}</p>
@@ -77,9 +74,9 @@ export function HeroSheet({
           </div>
           <section
             aria-label="Mighty powers"
-            className="rounded-xl bg-accent-soft/60 p-3 ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30"
+            className="rounded-xl bg-accent-soft/60 p-3 ring-1 ring-accent-line"
           >
-            <h3 className="text-xs font-bold tracking-wider text-accent-text uppercase dark:text-amber-300">
+            <h3 className="text-xs font-bold tracking-wider text-accent-text uppercase">
               Mighty powers
             </h3>
             <ul className="mt-1.5 flex flex-col gap-2">
@@ -95,10 +92,7 @@ export function HeroSheet({
                     <span className="min-w-0">
                       <span className="block font-bold">
                         {art.card(c.id)}
-                        <span className="font-semibold text-ink-muted dark:text-stone-400">
-                          {' '}
-                          ×{c.count}
-                        </span>
+                        <span className="font-semibold text-ink-muted"> ×{c.count}</span>
                       </span>
                       <span className="block text-sm">{cardText(c)}</span>
                     </span>
@@ -107,7 +101,7 @@ export function HeroSheet({
               ))}
             </ul>
           </section>
-          <details className="group rounded-xl ring-1 ring-line dark:ring-stone-700">
+          <details className="group rounded-xl ring-1 ring-line">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 font-semibold [&::-webkit-details-marker]:hidden">
               The whole deck ({deckSize(hero)} cards)
               <span
@@ -123,7 +117,7 @@ export function HeroSheet({
                   <button
                     type="button"
                     onClick={() => setZoom(c.id)}
-                    className="flex w-full items-center gap-2 rounded-lg p-1 text-left hover:bg-panel dark:hover:bg-stone-800"
+                    className="flex w-full items-center gap-2 rounded-lg p-1 text-left hover:bg-panel"
                     aria-label={`${art.card(c.id)} ×${c.count}: ${cardText(c)}`}
                   >
                     <Card card={c.id} art={art} width={36} />
@@ -132,7 +126,7 @@ export function HeroSheet({
                         {c.effect && '✦ '}
                         {art.card(c.id)} ×{c.count}
                       </span>{' '}
-                      <span className="text-ink-muted dark:text-stone-400">{cardText(c)}</span>
+                      <span className="text-ink-muted">{cardText(c)}</span>
                     </span>
                   </button>
                 </li>
@@ -163,14 +157,14 @@ export const PowersPanel = memo(function PowersPanel({
           key={`${hero}-${who}`}
           aria-label={`${who}: ${art.hero(hero)}`}
           style={heroVars(hero)}
-          className="rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800"
+          className="rounded-xl bg-card p-2 ring-1 ring-line"
         >
           <div className="mb-1 flex items-center gap-2">
             <Portrait hero={hero} art={art} size={32} className={out ? 'opacity-60' : ''} />
             <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
               <span className="min-w-0 truncate">
                 <span className="font-semibold">{who}</span>
-                <span className="text-ink-muted dark:text-stone-400"> · {art.hero(hero)}</span>
+                <span className="text-ink-muted"> · {art.hero(hero)}</span>
               </span>
               {player && <NameDot name={player} className="order-first" />}
             </p>

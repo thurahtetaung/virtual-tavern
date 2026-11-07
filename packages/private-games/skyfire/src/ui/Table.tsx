@@ -6,6 +6,9 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  TabBar,
+  tabPanelProps,
+  useWideScreen,
   cn,
   useConfirm,
 } from '@vt/ui';
@@ -75,6 +78,7 @@ export interface TableProps {
 }
 
 type Tab = 'table' | 'discards' | 'log';
+const PLAY_TABS_ID = 'skyfire-play';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -107,37 +111,21 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const [clueFor, setClueFor] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const discards = g.discards.length;
+  // Phones and tablets: the table, the discards and the log one at a time, from the tab bar.
+  const wide = useWideScreen();
+  const shown: Tab | null = wide || !playing ? null : tab;
   return (
     <div className="flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
       <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">
         <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
         <Fireworks g={g} art={art} onDetail={setDetail} />
-        <div role="tablist" aria-label="Table views" className="grid grid-cols-3 gap-1 lg:hidden">
-          {(
-            [
-              ['table', 'Table'],
-              ['discards', `Discards ${discards ? `(${discards})` : ''}`],
-              ['log', 'Log'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={cn(
-                'rounded-lg px-2 py-1 text-sm font-semibold lg:py-1.5 ring-1 ring-line dark:ring-stone-700',
-                tab === id
-                  ? 'bg-accent text-accent-fg dark:bg-amber-500 dark:text-stone-950'
-                  : 'bg-card dark:bg-stone-900',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className={cn('flex flex-col gap-1.5 lg:gap-2', tab !== 'table' && 'hidden lg:flex')}>
+        <div
+          className={cn(
+            'flex flex-col gap-1.5 lg:gap-2',
+            shown !== null && shown !== 'table' && 'hidden',
+          )}
+          {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+        >
           {playing && g.lastTurns && <LastRound g={g} name={name} />}
           <Teammates
             view={view}
@@ -172,15 +160,39 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           )}
         </div>
       </div>
-      <aside className={cn('flex min-w-0 flex-col gap-3', tab === 'table' && 'hidden lg:flex')}>
-        <div className={cn(tab === 'log' && 'hidden lg:block')}>
+      <aside className={cn('flex min-w-0 flex-col gap-3', shown === 'table' && 'hidden')}>
+        <div
+          className={cn(shown === 'log' && 'hidden')}
+          {...(shown === 'discards' && tabPanelProps(PLAY_TABS_ID, 'discards'))}
+        >
           <Discards view={view} art={art} onDetail={setDetail} />
         </div>
-        <div className={cn('flex flex-col gap-2', tab === 'discards' && 'hidden lg:flex')}>
+        <div
+          className={cn('flex flex-col gap-2', shown === 'discards' && 'hidden')}
+          {...(shown === 'log' && tabPanelProps(PLAY_TABS_ID, 'log'))}
+        >
           <Log view={view} you={room.you} name={name} />
           {playing && <EndShow room={room} act={act} />}
         </div>
       </aside>
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Skyfire"
+          items={[
+            { id: 'table', label: 'Table', icon: 'layout-grid' },
+            {
+              id: 'discards',
+              label: `Discards ${discards ? `(${discards})` : ''}`.trim(),
+              icon: 'flame',
+            },
+            { id: 'log', label: 'Log', icon: 'scroll-text' },
+          ]}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
       {detail && (
         <DetailSheet
           detail={detail}
@@ -230,7 +242,7 @@ function TopStrip({
   const g = view.game!;
   const score = scoreOf(g.fireworks);
   return (
-    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl bg-panel px-3 py-1.5 text-sm sm:gap-x-3 sm:py-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl bg-panel px-3 py-1.5 text-sm sm:gap-x-3 sm:py-2 ring-1 ring-line">
       <button
         type="button"
         onClick={() => onDetail({ kind: 'clues' })}
@@ -250,9 +262,7 @@ function TopStrip({
               key={i}
               className={cn(
                 'size-2.5 rounded-full ring-1',
-                i < g.clues
-                  ? 'bg-info-ink ring-info-ink dark:bg-sky-300 dark:ring-sky-300'
-                  : 'bg-transparent ring-line-strong dark:ring-stone-600',
+                i < g.clues ? 'bg-info-ink ring-info-ink' : 'bg-transparent ring-line-strong',
               )}
             />
           ))}
@@ -290,7 +300,7 @@ function TopStrip({
       </button>
       <span className="ml-auto font-semibold tabular-nums" data-testid="sf-score">
         {score}{' '}
-        <span className="font-normal text-ink-muted dark:text-stone-400">
+        <span className="font-normal text-ink-muted">
           / {g.max}
           <span className="hidden sm:inline"> · {ratingOf(score, g.max)}</span>
         </span>
@@ -356,7 +366,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                   card={{ suit, rank: top }}
                   art={art}
                   size="stack"
-                  className={cn(h === 5 && 'ring-2 ring-warn-line dark:ring-amber-300')}
+                  className={cn(h === 5 && 'ring-2 ring-warn-line')}
                 />
               ) : (
                 <span
@@ -378,7 +388,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                   </span>
                 </span>
               )}
-              <span className="hidden text-xs tabular-nums text-ink-muted sm:inline dark:text-stone-400">
+              <span className="hidden text-xs tabular-nums text-ink-muted sm:inline">
                 {SUIT_SYMBOL[suit]} {h}/5
               </span>
             </button>
@@ -398,7 +408,7 @@ function LastRound({ g, name }: { g: GameView; name: NameOf }) {
     names.length > 1 ? `${names.slice(0, -1).join(', ')}, then ${names.at(-1)}` : names[0];
   return (
     <p
-      className="hidden rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn-ink lg:block ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30"
+      className="hidden rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn-ink lg:block ring-1 ring-warn-line"
       data-testid="sf-last-round"
     >
       ⏳ Last round: {list} {turns.length === 1 ? 'has the final turn' : 'have one turn each'}.
@@ -442,15 +452,15 @@ function Teammates({
           <li
             key={id}
             className={cn(
-              'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-0.5 ring-1 sm:py-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)] dark:bg-stone-900 dark:ring-stone-700',
-              current && 'ring-2 ring-accent dark:ring-amber-500',
+              'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-0.5 ring-1 sm:py-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)]',
+              current && 'ring-2 ring-accent',
             )}
             data-testid={`sf-hand-${id}`}
           >
             <button
               type="button"
               onClick={() => onClue(id)}
-              className="flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm dark:hover:bg-stone-800"
+              className="flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm"
               aria-label={`${p.name}${current ? ', on turn' : ''}. ${mine && g.clues > 0 ? 'Give them a clue.' : 'See what they know.'}`}
               data-testid="sf-clue-open"
             >
@@ -463,7 +473,7 @@ function Teammates({
                   className="min-w-0"
                 />
               </span>
-              <span className="text-[10px] text-ink-muted dark:text-stone-400">
+              <span className="text-[10px] text-ink-muted">
                 {mine && g.clues > 0 ? '💡 clue' : 'what they know'}
               </span>
             </button>
@@ -491,7 +501,7 @@ function Teammates({
                         card={s.card}
                         art={art}
                         size="row"
-                        className={cn(lit && 'sf-lit ring-[3px] ring-accent dark:ring-amber-400')}
+                        className={cn(lit && 'sf-lit ring-[3px] ring-accent')}
                       />
                     )}
                     <Marks know={s.know} compact />
@@ -585,7 +595,7 @@ function ClueSheet({
                   art={art}
                   size="row"
                   className={cn(
-                    touched?.has(s.id) && 'ring-[3px] ring-accent dark:ring-amber-400',
+                    touched?.has(s.id) && 'ring-[3px] ring-accent',
                     touched && !touched.has(s.id) && 'opacity-45',
                   )}
                 />
@@ -595,13 +605,11 @@ function ClueSheet({
           ))}
         </div>
         {!view.settings.memory || view.settings.memory !== 'memory' ? (
-          <p className="text-xs text-ink-muted dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             Under each card: what {who} has been told about it (✕ is what it isn’t).
           </p>
         ) : (
-          <p className="text-xs text-ink-muted dark:text-stone-400">
-            The table plays from memory: no marks.
-          </p>
+          <p className="text-xs text-ink-muted">The table plays from memory: no marks.</p>
         )}
         {canClue ? (
           <>
@@ -622,7 +630,7 @@ function ClueSheet({
                       onClick={() => setPick(c)}
                       className={cn(
                         'flex min-w-16 flex-col items-center rounded-lg px-2 py-1 text-sm font-bold ring-1 ring-black/20 disabled:opacity-35',
-                        on && 'ring-[3px] ring-accent dark:ring-amber-400',
+                        on && 'ring-[3px] ring-accent',
                       )}
                       style={{
                         background: st.bg,
@@ -654,8 +662,8 @@ function ClueSheet({
                       aria-pressed={on}
                       onClick={() => setPick(c)}
                       className={cn(
-                        'flex flex-col items-center rounded-lg bg-card px-2 py-1 font-black tabular-nums ring-1 ring-line disabled:opacity-35 dark:bg-stone-800 dark:ring-stone-600',
-                        on && 'ring-[3px] ring-accent dark:ring-amber-400',
+                        'flex flex-col items-center rounded-lg bg-card px-2 py-1 font-black tabular-nums ring-1 ring-line disabled:opacity-35',
+                        on && 'ring-[3px] ring-accent',
                       )}
                       data-testid={`sf-clue-${c.rank}`}
                     >
@@ -668,23 +676,23 @@ function ClueSheet({
                 })}
             </div>
             {view.settings.multi === 'wild' && (
-              <p className="text-xs text-ink-muted dark:text-stone-400">
+              <p className="text-xs text-ink-muted">
                 Multicolour is wild: every colour clue touches it too, and it can’t be named.
               </p>
             )}
             {view.settings.black && (
-              <p className="text-xs text-ink-muted dark:text-stone-400">
+              <p className="text-xs text-ink-muted">
                 Black cards are colourless: only number clues touch them.
               </p>
             )}
             {pick && touched!.size === 0 && (
-              <p className="text-xs text-warn-ink dark:text-amber-300">
+              <p className="text-xs text-warn-ink">
                 This clue touches no card: it tells {who} they have none.
               </p>
             )}
           </>
         ) : (
-          <p className="text-sm text-ink-muted dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             {view.phase !== 'playing'
               ? 'The show is over.'
               : !mine
@@ -814,16 +822,16 @@ function MyHand({
     <section
       aria-label="Your hand"
       className={cn(
-        'flex flex-col gap-1.5 rounded-2xl bg-panel p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
+        'flex flex-col gap-1.5 rounded-2xl bg-panel p-2 ring-1 ring-line',
         // Pinned to the bottom of a phone screen during play, so your hand is always in reach.
-        view.phase === 'playing' && 'sticky bottom-1 z-10 shadow-lg lg:static lg:shadow-none',
-        mine && 'ring-2 ring-accent dark:ring-amber-500',
+        // (above the tab bar, whose height the room keeps free).
+        view.phase === 'playing' &&
+          'sticky bottom-[calc(var(--vt-tabbar-h,0px)+0.25rem)] z-10 shadow-vt-2 lg:static lg:shadow-none',
+        mine && 'ring-2 ring-accent',
       )}
     >
-      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted dark:text-stone-400">
-        <span className="hidden font-semibold text-ink sm:inline dark:text-stone-200">
-          Your hand
-        </span>
+      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
+        <span className="hidden font-semibold text-ink sm:inline">Your hand</span>
         {reactions}
       </div>
       <div
@@ -880,7 +888,7 @@ function MyHand({
                   suit={memory ? null : kn.suit}
                   rank={memory ? null : kn.rank}
                   size="hand"
-                  className={cn(isLit && 'sf-lit ring-[3px] ring-accent dark:ring-amber-400')}
+                  className={cn(isLit && 'sf-lit ring-[3px] ring-accent')}
                 />
               )}
               {!memory && <Marks know={kn.k} poss={kn.poss} />}
@@ -888,7 +896,7 @@ function MyHand({
           );
         })}
       </div>
-      <p className="hidden text-xs text-ink-muted sm:block dark:text-stone-400">
+      <p className="hidden text-xs text-ink-muted sm:block">
         {mine
           ? 'Tap a card to play or discard it · drag to reorder'
           : 'Drag to reorder · new cards arrive on the left'}
@@ -999,12 +1007,10 @@ function CardSheet({
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-ink-muted dark:text-stone-400">
-              You can play or discard it on your turn.
-            </p>
+            <p className="text-sm text-ink-muted">You can play or discard it on your turn.</p>
           )}
           {mine && !canDiscard && (
-            <p className="text-xs text-ink-muted dark:text-stone-400">
+            <p className="text-xs text-ink-muted">
               All 8 clue tokens are back: you can’t discard now.
             </p>
           )}
@@ -1051,7 +1057,7 @@ function CardSheet({
             </p>
           )}
           {mine && (
-            <p className="text-ink-muted dark:text-stone-400">
+            <p className="text-ink-muted">
               Playing it is final: if it isn’t the next number of its colour, a fuse burns.{' '}
               <button type="button" className="underline" onClick={() => showGuide()}>
                 Rules
@@ -1094,13 +1100,11 @@ function Since({
     <button
       type="button"
       onClick={onMore}
-      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:pointer-events-none dark:bg-stone-900 dark:ring-stone-700"
+      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:pointer-events-none"
       aria-label="Since your last turn (open the log)"
       data-testid="sf-since"
     >
-      <span className="hidden font-semibold text-ink-muted lg:inline dark:text-stone-400">
-        Since your last turn
-      </span>
+      <span className="hidden font-semibold text-ink-muted lg:inline">Since your last turn</span>
       {recent.map((e, i) => (
         <span key={e.id} className={cn(i < recent.length - 2 && 'hidden lg:inline')}>
           {logLine(e, name, you)}
@@ -1140,8 +1144,8 @@ function Reactions({
             aria-label={`React ${emoji}`}
             onClick={() => void act({ type: 'react', emoji }, { anchor: 'sf-react' })}
             className={cn(
-              'shrink-0 rounded-full bg-card px-1.5 py-0.5 text-base leading-tight ring-1 ring-line transition hover:scale-110 dark:bg-stone-900 dark:ring-stone-700',
-              mineNow === emoji && 'ring-2 ring-accent dark:ring-amber-400',
+              'shrink-0 rounded-full bg-card px-1.5 py-0.5 text-base leading-tight ring-1 ring-line transition hover:scale-110',
+              mineNow === emoji && 'ring-2 ring-accent',
             )}
           >
             {emoji}
@@ -1149,7 +1153,7 @@ function Reactions({
         ))}
       {here.length > 0 && (
         <span
-          className="min-w-0 truncate text-xs text-ink-muted dark:text-stone-400"
+          className="min-w-0 truncate text-xs text-ink-muted"
           title={here.map((r) => `${name(r.by)} ${r.emoji}`).join(' · ')}
           data-testid="sf-reactions"
         >
@@ -1244,19 +1248,17 @@ export function Discards({
     g.discards.filter((d) => d.card.suit === suit && d.card.rank === rank).length;
   return (
     <section
-      className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+      className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line"
       aria-label="Discards"
       data-testid="sf-discards"
     >
       <h3 className="flex items-baseline justify-between text-sm font-semibold">
         <span>Discards ({g.discards.length})</span>
-        <span className="text-xs font-normal text-ink-muted dark:text-stone-400">
-          ! last copy left · ✕ all gone
-        </span>
+        <span className="text-xs font-normal text-ink-muted">! last copy left · ✕ all gone</span>
       </h3>
       <table className="w-full text-center text-xs">
         <thead>
-          <tr className="text-ink-muted dark:text-stone-400">
+          <tr className="text-ink-muted">
             <th className="w-8" />
             {RANKS.map((r) => (
               <th key={r} className="font-semibold">
@@ -1291,10 +1293,8 @@ export function Discards({
                       onClick={() => onDetail({ kind: 'card', card, where: 'discards' })}
                       className={cn(
                         'flex h-7 w-full items-center justify-center gap-0.5 rounded tabular-nums',
-                        lost &&
-                          'bg-danger-soft font-bold text-danger-ink dark:bg-red-500/15 dark:text-red-300',
-                        last &&
-                          'bg-warn-soft font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30',
+                        lost && 'bg-danger-soft font-bold text-danger-ink',
+                        last && 'bg-warn-soft font-bold text-warn-ink ring-1 ring-warn-line',
                         !lost && !last && onFirework && 'text-ink-muted opacity-60',
                       )}
                       title={`${SUIT_NAME[suit]} ${rank}: ${gone} of ${total} discarded`}
@@ -1320,21 +1320,18 @@ function Log({ view, you, name }: { view: SkyfireView; you: string; name: NameOf
   const entries = [...view.log].reverse();
   return (
     <section
-      className="flex flex-col gap-1 rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+      className="flex flex-col gap-1 rounded-2xl bg-panel p-3 ring-1 ring-line"
       aria-label="Log"
     >
       <h3 className="text-sm font-semibold">Log</h3>
       {view.settings.memory === 'memory' && view.phase === 'playing' && (
-        <p className="text-xs text-ink-muted dark:text-stone-400">
+        <p className="text-xs text-ink-muted">
           Playing from memory: clues drop out of your log after your next turn.
         </p>
       )}
       <ol className="flex max-h-[28rem] flex-col gap-1 overflow-y-auto text-xs">
         {entries.map((e) => (
-          <li
-            key={e.id}
-            className={cn(e.kind === 'play' && !e.ok && 'text-danger-ink dark:text-red-300')}
-          >
+          <li key={e.id} className={cn(e.kind === 'play' && !e.ok && 'text-danger-ink')}>
             {logLine(e, name, you)}
           </li>
         ))}

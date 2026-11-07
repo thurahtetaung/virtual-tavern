@@ -8,7 +8,11 @@ import {
   clock,
   cn,
   useSecondsLeft,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   useSpectatorPrompt,
+  useWideScreen,
   useConfirm,
   useAbandonGame,
   NameDot,
@@ -49,6 +53,7 @@ import { ReadyNoteContext, useReadyNote } from './ready-note.ts';
 export type SeanceUiProps = GameUiProps<SeanceView, SeanceAction>;
 type Act = SeanceUiProps['act'];
 type Tab = 'main' | 'others' | 'table';
+const TABS_ID = 'seance-sections';
 
 /** Buzzes once each time it becomes the viewer's move (a new key). */
 function useTurnBuzz(key: string | null) {
@@ -56,47 +61,6 @@ function useTurnBuzz(key: string | null) {
     if (key === null) return;
     if ('vibrate' in navigator) navigator.vibrate([150, 80, 150]);
   }, [key]);
-}
-
-function TabBar({
-  tabs,
-  tab,
-  onChange,
-  alert,
-}: {
-  tabs: { id: Tab; icon: string; label: string }[];
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  alert: Tab | null;
-}) {
-  return (
-    <nav
-      aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-20 grid border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-    >
-      {tabs.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          aria-current={tab === it.id ? 'page' : undefined}
-          onClick={() => onChange(it.id)}
-          className={cn(
-            'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-ink-muted',
-          )}
-        >
-          <span className="flex items-center gap-1 text-lg leading-none">
-            {it.icon}
-            {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
-            )}
-          </span>
-          {it.label}
-        </button>
-      ))}
-    </nav>
-  );
 }
 
 /** How long a psychic is away before the host is offered what to do about the seat. */
@@ -182,7 +146,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       {playing && (g.ghost === null || ghostAway) && (
         <div
           role="alert"
-          className="space-y-1.5 rounded-xl bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent dark:ring-amber-400 dark:bg-amber-500/15"
+          className="space-y-1.5 rounded-xl bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent"
         >
           <p>
             ⏸{' '}
@@ -229,7 +193,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         </div>
       )}
       {playing && !inGame && view.me && gone.length > 0 && g.myRole !== 'former-ghost' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/30">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line">
           <span className="flex-1">A psychic’s seat is free.</span>
           {gone.map((p) => (
             <Button
@@ -248,7 +212,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         (g.stage === 'visions' || g.stage === 'reveal') && (
           <div
             role="alert"
-            className="space-y-1 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30"
+            className="space-y-1 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line"
           >
             {stuck.map((p) => (
               <p key={p.color} className="font-semibold">
@@ -264,7 +228,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         )}
       {canRetire && gone.length > 0 && (
-        <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30">
+        <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line">
           <p>
             An empty seat isn’t sent visions or judged, so the line-up can’t start while it waits
             for someone to take it over. If nobody will, retire it: its cards go back on the table.
@@ -296,7 +260,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         </div>
       )}
       {latest && current && latest.id > seen && g.stage !== 'done' && !lockNotice && (
-        <p className="flex items-center gap-2 rounded-xl bg-stone-100 px-3 py-1 text-sm dark:bg-stone-800">
+        <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
           <span className="flex-1">📣 {latest.text}</span>
           <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
             OK
@@ -331,7 +295,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   return (
     <section
       aria-label={`Step: ${step.title}`}
-      className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
+      className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-line dark:bg-stone-900/70"
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0 text-xs font-semibold text-ink-muted">
@@ -344,9 +308,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
               aria-current={s.id === step.id ? 'step' : undefined}
               className={cn(
                 'rounded-full px-2 py-0.5',
-                s.id === step.id
-                  ? 'bg-special dark:bg-violet-700 text-white'
-                  : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
+                s.id === step.id ? 'bg-special text-white' : 'bg-sunk text-ink-muted',
               )}
             >
               {i + 1}. {s.title}
@@ -356,12 +318,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       </div>
       {silent ? null : brief ? (
         <div className="mt-1 flex items-start gap-1">
-          <p
-            className={cn(
-              'min-w-0 flex-1 text-xs text-stone-600 dark:text-stone-400',
-              !more && 'truncate',
-            )}
-          >
+          <p className={cn('min-w-0 flex-1 text-xs text-ink-muted', !more && 'truncate')}>
             {step.text}
           </p>
           <button
@@ -369,17 +326,17 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             aria-expanded={more}
             aria-label={more ? 'Show less' : 'What happens in this step?'}
             onClick={() => setMore(!more)}
-            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800"
+            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel"
           >
             {more ? '▴' : '?'}
           </button>
         </div>
       ) : (
-        <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">{step.text}</p>
+        <p className="mt-1 text-xs text-ink-muted">{step.text}</p>
       )}
       {(g.stage === 'visions' || step.id === 'discussion') && (
         // The clock and who the hour waits for share one row.
-        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-stone-200 pt-1.5 dark:border-stone-800">
+        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-line pt-1.5">
           {g.stage === 'visions' && <WaitingLine view={view} room={room} act={act} />}
           {step.id === 'discussion' && <HourClock view={view} room={room} />}
         </div>
@@ -476,7 +433,7 @@ function RevealPanel({
   return (
     <Panel
       role="region"
-      className="space-y-2 p-3 ring-2 ring-special dark:ring-violet-400"
+      className="space-y-2 p-3 ring-2 ring-special"
       aria-label="The ghost answers"
     >
       {g.lockedHow && <p className="text-sm font-semibold">{LOCKED_BY[g.lockedHow]}</p>}
@@ -546,6 +503,7 @@ function SeanceTable({
   });
   const tab = picked.key === stepKey ? picked.tab : defaultTab;
   const setTab = (t: Tab) => setPicked({ tab: t, key: stepKey });
+  const wide = useWideScreen();
 
   const inGame = ghost || !!me;
   useSpectatorPrompt(
@@ -619,23 +577,32 @@ function SeanceTable({
 
   // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
   const ghostFinal = ghost && finalStage;
-  const tabs: { id: Tab; icon: string; label: string }[] = ghost
+  const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = ghost
     ? [
-        { id: 'main', icon: finalStage ? '🗳️' : '👥', label: finalStage ? 'Final' : 'Psychics' },
-        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: '🃏', label: 'Hand' }]),
-        { id: 'table', icon: '🕰️', label: 'Table' },
+        {
+          id: 'main',
+          icon: finalStage ? 'check' : 'users',
+          label: finalStage ? 'Final' : 'Psychics',
+        },
+        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: 'hand' as const, label: 'Hand' }]),
+        { id: 'table', icon: 'hourglass', label: 'Table' },
       ]
     : me
       ? [
-          { id: 'main', icon: finalStage ? '🗳️' : '🔮', label: finalStage ? 'Final' : 'My vision' },
-          { id: 'others', icon: '🧿', label: 'Others' },
-          { id: 'table', icon: '🕰️', label: 'Table' },
+          {
+            id: 'main',
+            icon: finalStage ? 'check' : 'moon',
+            label: finalStage ? 'Final' : 'My vision',
+          },
+          { id: 'others', icon: 'users', label: 'Others' },
+          { id: 'table', icon: 'hourglass', label: 'Table' },
         ]
       : [
-          ...(finalStage ? [{ id: 'main' as Tab, icon: '🗳️', label: 'Final' }] : []),
-          { id: 'others', icon: '🧿', label: 'Psychics' },
-          { id: 'table', icon: '🕰️', label: 'Table' },
+          ...(finalStage ? [{ id: 'main' as Tab, icon: 'check' as const, label: 'Final' }] : []),
+          { id: 'others', icon: 'users', label: 'Psychics' },
+          { id: 'table', icon: 'hourglass', label: 'Table' },
         ];
+  // The "needs you" dot: on the tab holding your move, while another tab is open.
   const alert: Tab | null = status.yourMove ? 'main' : null;
 
   const finalPanel = finalStage && (
@@ -701,7 +668,7 @@ function SeanceTable({
     );
 
   return (
-    <div className="space-y-2 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="space-y-2">
       {ghost && <SilentNote />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <StepBar view={view} room={room} act={act} />
@@ -750,13 +717,38 @@ function SeanceTable({
               : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
         )}
       >
-        {main && <div className={cn('min-w-0 space-y-2', onTab('main'))}>{main}</div>}
-        {second && <div className={cn('min-w-0', onTab('others'))}>{second}</div>}
-        <div className={cn('min-w-0 space-y-2', onTab('table'))}>
+        {main && (
+          <div
+            className={cn('min-w-0 space-y-2', onTab('main'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'main'))}
+          >
+            {main}
+          </div>
+        )}
+        {second && (
+          <div
+            className={cn('min-w-0', onTab('others'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'others'))}
+          >
+            {second}
+          </div>
+        )}
+        <div
+          className={cn('min-w-0 space-y-2', onTab('table'))}
+          {...(!wide && tabPanelProps(TABS_ID, 'table'))}
+        >
           <TableTab view={view} content={content} />
         </div>
       </div>
-      <TabBar tabs={tabs} tab={tab} onChange={setTab} alert={alert} />
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Game sections"
+          value={tab}
+          onChange={setTab}
+          items={tabs.map((t) => ({ ...t, badge: alert === t.id && tab !== t.id ? 'dot' : 0 }))}
+        />
+      )}
       {overlay}
       {confirmLockDialog}
     </div>

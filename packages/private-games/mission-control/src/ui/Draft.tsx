@@ -44,7 +44,7 @@ export function Draft({
   if (sel === 'roles') return <RolesDraft a={a} me={me} act={act} name={name} />;
   return (
     <Panel className="space-y-3" data-testid="mc-draft">
-      <p className="rounded-lg bg-special-soft px-3 py-2 text-center text-sm text-special-ink ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
+      <p className="rounded-lg bg-special-soft px-3 py-2 text-center text-sm text-special-ink ring-1 ring-special-line">
         {openTable
           ? '🗣️ Open table: talk freely.'
           : '🗣️ Talk about the tasks, never about your cards.'}
@@ -123,9 +123,7 @@ export function Draft({
             <li
               key={t.index}
               className={cn(
-                sel === 'distribution' &&
-                  d.offer === t.index &&
-                  'rounded-xl ring-2 ring-accent dark:ring-amber-400',
+                sel === 'distribution' && d.offer === t.index && 'rounded-xl ring-2 ring-accent',
               )}
             >
               <TaskChip task={t} name={name} showOwner you={me} action={action} />

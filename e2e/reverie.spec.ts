@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
@@ -42,10 +43,12 @@ const hand = (page: Page) => cardsIn(page.getByRole('region', { name: 'Your hand
 const table = (page: Page) => cardsIn(page.getByRole('region', { name: 'Table' }));
 
 /** The storyteller tells with their first card; a player gives their first card. */
-async function tell(page: Page, clue: string) {
+async function tell(page: Page, clue: string, fit = false) {
   await hand(page).first().click();
   await page.getByRole('button', { name: 'Tell a story with this card' }).click();
   await page.getByPlaceholder('A word, a line, a feeling…').fill(clue);
+  // The storyteller's screen is the tightest: the clue form and the whole hand in the bar.
+  if (fit) await expectPhoneFit(page, 'reverie storyteller');
   await page.getByRole('button', { name: 'Tell', exact: true }).click();
 }
 async function give(page: Page) {
@@ -166,7 +169,7 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
       .toBe(1);
     // Everyone can see who tells next.
     await expect(host.getByTestId('next-storyteller')).toContainText('Next storyteller:');
-    await tell(storyteller!, `clue ${round}`);
+    await tell(storyteller!, `clue ${round}`, round === 1);
     await expect(ana!.getByText(`“clue ${round}”`)).toBeVisible();
     for (const p of players) if (p !== storyteller) await give(p);
     await expect(table(host)).toHaveCount(players.length);

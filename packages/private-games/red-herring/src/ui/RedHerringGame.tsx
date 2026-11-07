@@ -4,11 +4,14 @@ import {
   Countdown,
   EndTabs,
   Hint,
-  Modal,
   Panel,
   RefusalSlot,
   Standings,
+  StickyBar,
   Superlatives,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   cn,
   useAbandonGame,
   useSpectatorPrompt,
@@ -86,6 +89,15 @@ export function RedHerringGame({
   );
 }
 
+/** Phones in play: the table, your notebook and hand, and the scores. */
+type PlayTab = 'table' | 'me' | 'scores';
+const PLAY_TABS_ID = 'red-herring-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'me', label: 'Me', icon: 'book-open' },
+  { id: 'scores', label: 'Scores', icon: 'chart-bar' },
+];
+
 interface PartProps {
   view: RedHerringView;
   room: RedHerringUiProps['room'];
@@ -99,10 +111,15 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   const g = view.game!;
   const r = g.round;
   const wide = useWideScreen();
-  const [scores, setScores] = useState(false);
+  const [tab, setTab] = useState<PlayTab>('table');
   const you = room.you;
   const inGame = r.order.includes(you);
   const handStage = r.stage === 'card' || r.stage === 'word' || r.stage === 'play';
+  // Phones and tablets: the table, your notebook and hand (Me), and the scores, from the tab bar.
+  // On your card or play turn the hand is the table's workspace instead (never shown twice).
+  const shown: PlayTab | null = wide ? null : tab;
+  const yourCardTurn = (r.stage === 'card' || r.stage === 'play') && r.turn === you;
+  const handOnTable = shown === null ? handStage : yourCardTurn;
   const timerLabel =
     r.stage === 'discuss'
       ? 'to talk'
@@ -149,45 +166,58 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
                         : 'Time’s up: the host can move things on.',
                 })}
           />
-          {!wide && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-11"
-              onClick={() => {
-                setScores(true);
-              }}
-              data-testid="rh-scores"
-            >
-              🪙<span className="sr-only">Scores</span>
-            </Button>
-          )}
           <Button variant="ghost" size="sm" className="min-h-11" onClick={() => showGuide()}>
             📖<span className="sr-only">Rules</span>
           </Button>
         </span>
       </div>
-      <HostTools view={view} room={room} act={act} art={art} name={name} />
+      {shown === null && <HostTools view={view} room={room} act={act} art={art} name={name} />}
       {inGame && <Tips />}
-      {inGame && <Notebook view={view} you={you} art={art} />}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="flex min-w-0 flex-col gap-2">
+      {inGame && shown === null && <Notebook view={view} you={you} art={art} />}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+        <div
+          className={cn(
+            'flex min-w-0 flex-col gap-2',
+            shown !== null && shown !== 'table' && 'hidden',
+          )}
+          {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+        >
           {!wide && panel}
           <Table view={view} room={room} art={art} name={name} />
-          {inGame && handStage && <HandStrip view={view} act={act} art={art} you={you} />}
+          {inGame && handOnTable && <HandStrip view={view} act={act} art={art} you={you} />}
         </div>
         {wide && <aside className="flex flex-col gap-3">{side}</aside>}
+        {shown === 'me' && (
+          <div className="flex min-w-0 flex-col gap-2" {...tabPanelProps(PLAY_TABS_ID, 'me')}>
+            {inGame ? (
+              <>
+                <Notebook view={view} you={you} art={art} />
+                {handStage && !handOnTable && (
+                  <HandStrip view={view} act={act} art={art} you={you} />
+                )}
+              </>
+            ) : (
+              <ScoreList view={view} you={you} art={art} />
+            )}
+          </div>
+        )}
+        {shown === 'scores' && (
+          <div className="flex min-w-0 flex-col gap-3" {...tabPanelProps(PLAY_TABS_ID, 'scores')}>
+            <ScoreList view={view} you={you} art={art} />
+            <HostTools view={view} room={room} act={act} art={art} name={name} />
+          </div>
+        )}
       </div>
-      <Modal
-        open={scores}
-        onClose={() => {
-          setScores(false);
-        }}
-        title="Scores"
-        size="sm"
-      >
-        {scores && <ScoreList view={view} you={you} art={art} />}
-      </Modal>
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Red Herring"
+          items={inGame ? PLAY_TABS : PLAY_TABS.filter((t) => t.id !== 'me')}
+          value={!inGame && tab === 'me' ? 'table' : tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </>
   );
 }
@@ -231,12 +261,15 @@ function Discuss({ view, room, act }: PartProps) {
         <li>Then talk it over: who had nothing to go on?</li>
       </ol>
       {room.isHost && (
-        <>
-          <Button onClick={() => void act({ type: 'end-discussion' }, { anchor: 'rh-discuss' })}>
+        <StickyBar fixed refusal="rh-discuss">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => void act({ type: 'end-discussion' }, { anchor: 'rh-discuss' })}
+          >
             Start the vote
           </Button>
-          <RefusalSlot anchor="rh-discuss" />
-        </>
+        </StickyBar>
       )}
     </Panel>
   );
@@ -346,10 +379,7 @@ function End({ view, room, act, name }: PartProps) {
       <h3 className="font-semibold">Every round</h3>
       <ol className="flex flex-col gap-1">
         {g.history.map((h) => (
-          <li
-            key={h.no}
-            className="rounded-lg bg-panel px-2 py-1 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
-          >
+          <li key={h.no} className="rounded-lg bg-panel px-2 py-1 ring-1 ring-line">
             <span className="font-semibold">
               {h.no}. “{h.word}”
             </span>{' '}

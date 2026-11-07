@@ -1,5 +1,17 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, PlayerTag, ProtectedImage, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  PlayerTag,
+  ProtectedImage,
+  RefusalSlot,
+  StickyBar,
+  TabBar,
+  type TabBarItem,
+  cn,
+  tabPanelProps,
+  useWideScreen,
+} from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type HandCard,
@@ -74,9 +86,28 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
   )
     setChose({ round: g.round, flip: g.myFlip });
   const turnedNow = g.stage === 'play' && chose?.round === g.round && chose.flip;
+  // Phones and tablets in play: the table (with your hand), the log and the scores, from the tab
+  // bar; wide screens keep the log and scores in the rail.
+  const wide = useWideScreen();
+  const [tab, setTab] = useState<PlayTab>('table');
+  const shown: PlayTab | null = wide || view.phase !== 'playing' ? null : tab;
+  const scores = g.results.length > 0 && view.phase === 'playing' && (
+    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={shown === 'scores'}>
+      <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+        Scores after {plural(g.results.length, 'round')}
+      </summary>
+      <ScoreTable g={g} name={name} you={room.you} className="mt-2" />
+    </details>
+  );
   return (
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-      <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-3',
+          shown !== null && shown !== 'table' && 'hidden',
+        )}
+        {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
+      >
         <Seats g={g} room={room} art={art} name={name} />
         {g.stage === 'flip' ? (
           <FlipStep view={view} room={room} act={act} art={art} name={name} />
@@ -94,20 +125,44 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
           />
         )}
       </div>
-      <aside className="flex min-w-0 flex-col gap-3">
-        {g.results.length > 0 && view.phase === 'playing' && (
-          <details className="rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
-            <summary className="cursor-pointer text-sm font-semibold">
-              Scores after {plural(g.results.length, 'round')}
-            </summary>
-            <ScoreTable g={g} name={name} you={room.you} className="mt-2" />
-          </details>
-        )}
-        <Log view={view} name={logName ?? name} />
-      </aside>
+      {shown === null ? (
+        <aside className="flex min-w-0 flex-col gap-3">
+          {scores}
+          <Log view={view} name={logName ?? name} />
+        </aside>
+      ) : (
+        shown !== 'table' && (
+          <div className="flex min-w-0 flex-col gap-3" {...tabPanelProps(PLAY_TABS_ID, shown)}>
+            {shown === 'scores' ? (
+              scores || <p className="text-sm text-ink-muted">No rounds scored yet.</p>
+            ) : (
+              <Log view={view} name={logName ?? name} />
+            )}
+          </div>
+        )
+      )}
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Encore"
+          items={PLAY_TABS}
+          value={tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
+
+/** Phones in play: the table and your hand, the log, the scores. */
+type PlayTab = 'table' | 'log' | 'scores';
+const PLAY_TABS_ID = 'encore-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'log', label: 'Log', icon: 'scroll-text' },
+  { id: 'scores', label: 'Scores', icon: 'chart-bar' },
+];
 
 /** The chip's art, or 🎟️ without the manifest. */
 function ChipIcon({ art }: { art: Art }) {
@@ -137,8 +192,8 @@ function Seats({
           <li
             key={p.id}
             className={cn(
-              'flex items-center gap-0.5 rounded-full bg-card px-2 py-0.5 text-xs shadow-sm sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-              current && 'ring-2 ring-accent dark:ring-amber-500',
+              'flex items-center gap-0.5 rounded-full bg-card px-2 py-0.5 text-xs shadow-sm sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-sm ring-1 ring-line',
+              current && 'ring-2 ring-accent',
               p.left && 'opacity-60',
             )}
             data-seat={p.id}
@@ -157,7 +212,7 @@ function Seats({
               <CardBack art={art} className="h-4 w-3" />
               {p.hand}
             </span>
-            <span className="tabular-nums text-ink-muted dark:text-stone-400" title="Captured">
+            <span className="tabular-nums text-ink-muted" title="Captured">
               ▢{p.captured}
             </span>
             <span className="flex items-center gap-0.5 tabular-nums" title="Chips">
@@ -177,12 +232,12 @@ function Seats({
                 )
               ) : null)}
             {owner && (
-              <span className="text-xs text-ink-muted dark:text-stone-400" title="Owns the table">
+              <span className="text-xs text-ink-muted" title="Owns the table">
                 ★
               </span>
             )}
             {(g.stage === 'flip' || g.stage === 'scores') && p.done && (
-              <span className="text-success-ink dark:text-emerald-300" title="Ready">
+              <span className="text-success-ink" title="Ready">
                 ✓
               </span>
             )}
@@ -242,16 +297,14 @@ function FlipStep({
               <div
                 key={String(flip)}
                 className={cn(
-                  'flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-                  chosen && 'ring-[3px] ring-accent dark:ring-amber-400',
+                  'flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line',
+                  chosen && 'ring-[3px] ring-accent',
                 )}
                 data-testid={flip ? 'en-flip-turned' : 'en-flip-kept'}
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="font-semibold">{flip ? 'Turned round' : 'As dealt'}</h3>
-                  <span className="text-xs text-ink-muted dark:text-stone-400">
-                    {shapeLine(shown)}
-                  </span>
+                  <span className="text-xs text-ink-muted">{shapeLine(shown)}</span>
                 </div>
                 <Hand
                   cards={shown}
@@ -271,13 +324,11 @@ function FlipStep({
           })}
         </div>
       ) : (
-        <p className="text-sm text-ink-muted dark:text-stone-400">
-          The players are looking at their new hands.
-        </p>
+        <p className="text-sm text-ink-muted">The players are looking at their new hands.</p>
       )}
       <RefusalSlot anchor="en-flip" />
       {open.length > 0 && (
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {waitingFor(
             open.map((p) => p.id),
             room.players,
@@ -448,14 +499,14 @@ function Play({
         />
       </div>
       <div
-        className="relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-3 ring-1 sm:min-h-36 sm:py-4 ring-line dark:bg-stone-900 dark:ring-stone-700"
+        className="relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-3 ring-1 sm:min-h-36 sm:py-4 ring-line"
         data-testid="en-table"
       >
         {table.length ? (
           <>
             <p className="text-center text-sm">
               <span className="font-semibold">{poss(ownerName, true)} show</span>{' '}
-              <span className="text-ink-muted dark:text-stone-400">· {kindLine(table)}</span>
+              <span className="text-ink-muted">· {kindLine(table)}</span>
             </p>
             <div
               key={last?.entry.id ?? 0}
@@ -475,7 +526,7 @@ function Play({
                     size="table"
                     className={cn(
                       gone && 'opacity-25',
-                      recruitable && picking && 'ring-[3px] ring-info dark:ring-sky-400',
+                      recruitable && picking && 'ring-[3px] ring-info',
                     )}
                   />
                 );
@@ -489,9 +540,7 @@ function Play({
                     data-table-end={end}
                   >
                     {face}
-                    <span className="text-[11px] text-info-ink dark:text-sky-300">
-                      {say('recruit')}
-                    </span>
+                    <span className="text-[11px] text-info-ink">{say('recruit')}</span>
                   </button>
                 ) : (
                   <span key={c.id} className="flex flex-col items-center gap-0.5">
@@ -502,16 +551,13 @@ function Play({
               })}
             </div>
             {last?.fresh && last.entry.beat.length > 0 && (
-              <p
-                role="status"
-                className="en-pop text-center text-sm font-bold text-accent dark:text-amber-300"
-              >
+              <p role="status" className="en-pop text-center text-sm font-bold text-accent">
                 {beatReason(strengthOf(last.entry.cards)!, strengthOf(last.entry.beat))}!
               </p>
             )}
           </>
         ) : (
-          <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+          <p className="text-center text-sm text-ink-muted">
             {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
             The table is empty: the next player shows anything.
           </p>
@@ -531,10 +577,10 @@ function Play({
       )}
 
       {g.hand ? (
-        <div className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+        <div className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line">
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold">Your hand · {plural(hand.length, 'card')}</h3>
-            <span className="text-xs text-ink-muted dark:text-stone-400">
+            <span className="text-xs text-ink-muted">
               {mine && choosingShow && shows.length
                 ? '✦ can be shown · tap to pick'
                 : shapeLine(hand)}
@@ -560,7 +606,7 @@ function Play({
             }
           />
           {mine && (
-            <StickyBar whole>
+            <StickyBar fixed refusal="en-play" refusalKey={turnKey}>
               <div className="flex flex-col gap-2" data-testid="en-actions">
                 {recruiting ? (
                   <div className="flex flex-wrap gap-2">
@@ -663,27 +709,24 @@ function Play({
                       )}
                     </div>
                     {picking && (
-                      <p className="text-sm text-info-ink dark:text-sky-300">
+                      <p className="text-sm text-info-ink">
                         Tap the card you want at either end of the table.
                       </p>
                     )}
                   </>
                 )}
-                <RefusalSlot anchor="en-play" resetKey={turnKey} />
               </div>
             </StickyBar>
           )}
         </div>
       ) : (
-        <p className="text-sm text-ink-muted dark:text-stone-400">
-          You’re watching: hands stay hidden.
-        </p>
+        <p className="text-sm text-ink-muted">You’re watching: hands stay hidden.</p>
       )}
       {!mine && view.phase === 'playing' && <HostActFor g={g} room={room} act={act} name={name} />}
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className="self-start text-xs text-ink-muted underline dark:text-stone-400"
+          className="self-start text-xs text-ink-muted underline"
           onClick={() => showGuide('cards')}
         >
           What beats what?
@@ -719,7 +762,7 @@ function Placing({
     : 'Joins nothing there yet';
   return (
     <div
-      className="en-rise flex items-center gap-3 rounded-2xl bg-info-soft p-3 text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="en-rise flex items-center gap-3 rounded-2xl bg-info-soft p-3 text-info-ink ring-1 ring-info-line"
       data-testid="en-placing"
     >
       <CardFace card={card} art={art} size="float" className="en-lift shrink-0 shadow-lg" />
@@ -826,38 +869,39 @@ function ScoresStep({
   return (
     <section className="en-rise flex flex-col gap-3" aria-label="Round scores">
       <div
-        className="rounded-2xl bg-special-soft p-3 text-special-ink ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40"
+        className="rounded-2xl bg-special-soft p-3 text-special-ink ring-1 ring-special-line"
         data-testid="en-round-end"
       >
         <p className="font-semibold">👏 Round {r.round} is over</p>
         <p className="text-sm">{say(endLine(r, name))}</p>
       </div>
-      <div className="rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+      <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">
         <RoundBreakdown g={g} round={r.round} name={name} you={room.you} art={art} />
       </div>
-      <div className="flex flex-wrap gap-2">
-        {me && (
-          <Button
-            className="flex-1"
-            disabled={me.done}
-            onClick={() => void act({ type: 'ready' }, { anchor: 'en-scores' })}
-            data-testid="en-ready"
-          >
-            {me.done ? '✓ Ready' : `Ready for round ${g.round + 1}`}
-          </Button>
-        )}
-        {room.isHost && (
-          <Button
-            variant="secondary"
-            onClick={() => void act({ type: 'next-round' }, { anchor: 'en-scores' })}
-          >
-            Deal now
-          </Button>
-        )}
-      </div>
-      <RefusalSlot anchor="en-scores" />
+      <StickyBar fixed refusal="en-scores">
+        <div className="flex flex-wrap gap-2">
+          {me && (
+            <Button
+              className="flex-1"
+              disabled={me.done}
+              onClick={() => void act({ type: 'ready' }, { anchor: 'en-scores' })}
+              data-testid="en-ready"
+            >
+              {me.done ? '✓ Ready' : `Ready for round ${g.round + 1}`}
+            </Button>
+          )}
+          {room.isHost && (
+            <Button
+              variant="secondary"
+              onClick={() => void act({ type: 'next-round' }, { anchor: 'en-scores' })}
+            >
+              Deal now
+            </Button>
+          )}
+        </div>
+      </StickyBar>
       {open.length > 0 && (
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {waitingFor(
             open.map((p) => p.id),
             room.players,
@@ -887,7 +931,7 @@ export function RoundBreakdown({
   if (!r) return null;
   return (
     <table className="w-full text-sm tabular-nums" aria-label={`Round ${round} scores`}>
-      <thead className="text-xs text-ink-muted dark:text-stone-400">
+      <thead className="text-xs text-ink-muted">
         <tr>
           <th className="text-left font-normal">Player</th>
           <th className="font-normal" title="Captured cards">
@@ -920,12 +964,7 @@ export function RoundBreakdown({
                 <span title="No penalty">{row.hand ? `(${row.hand})` : 0}</span>
               )}
             </td>
-            <td
-              className={cn(
-                'text-right font-bold',
-                row.points < 0 && 'text-danger-ink dark:text-rose-300',
-              )}
-            >
+            <td className={cn('text-right font-bold', row.points < 0 && 'text-danger-ink')}>
               {row.points > 0 ? `+${row.points}` : row.points}
             </td>
           </tr>
@@ -950,7 +989,7 @@ export function ScoreTable({
   return (
     <div className={cn('overflow-x-auto', className)}>
       <table className="w-full text-sm tabular-nums" aria-label="Scores by round">
-        <thead className="text-xs text-ink-muted dark:text-stone-400">
+        <thead className="text-xs text-ink-muted">
           <tr>
             <th className="text-left font-normal">Player</th>
             {g.results.map((r) => (
@@ -998,17 +1037,12 @@ function Log({ view, name }: { view: EncoreView; name: NameOf }) {
   return (
     <section
       aria-label="What happened"
-      className="rounded-2xl bg-panel p-3 text-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+      className="rounded-2xl bg-panel p-3 text-sm ring-1 ring-line"
     >
-      <h3 className="mb-1 text-xs font-semibold text-ink-muted dark:text-stone-400">
-        What happened
-      </h3>
+      <h3 className="mb-1 text-xs font-semibold text-ink-muted">What happened</h3>
       <ul className="flex flex-col gap-0.5" data-testid="en-log">
         {lines.map((l, i) => (
-          <li
-            key={l.id}
-            className={cn(i > 0 && 'text-ink-muted dark:text-stone-400', i > 2 && 'max-sm:hidden')}
-          >
+          <li key={l.id} className={cn(i > 0 && 'text-ink-muted', i > 2 && 'max-sm:hidden')}>
             {l.text}
           </li>
         ))}

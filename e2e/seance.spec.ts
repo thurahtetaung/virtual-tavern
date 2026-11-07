@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, unlock, visitor } from './inquest-play.ts';
 import {
   begin,
@@ -55,6 +56,8 @@ test('a ghost and three psychics find everything, read the shared vision in stag
   await ana!.page.getByRole('button', { name: '✓ Ready' }).click();
   await expect(revealButton).toHaveCount(0);
   await expect(waiting(ghost)).toHaveText(/✗ Ana not ready/);
+  // A psychic choosing is the tightest screen: the vision, the candidates and Ready in the bar.
+  await expectPhoneFit(ana!.page, 'seance psychic');
   await ana!.page.getByRole('button', { name: 'Ready', exact: true }).click();
   await reveal(ghost.page);
   for (const p of players) {
@@ -318,7 +321,10 @@ test('on a phone, a tap straight after swiping the card viewer closed registers'
   const card = list.locator('button[data-card]').nth(2);
   const id = await card.getAttribute('data-card');
   const pick = list.locator(`button[data-pick="${id}"]`);
-  await card.scrollIntoViewIfNeeded();
+  // Centred, so the Guess button sits clear of the bars pinned to the foot of the screen.
+  await card.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+  });
   const at = (await pick.boundingBox())!;
   await card.tap();
   const look = page.getByRole('dialog', { name: /on the table/ });

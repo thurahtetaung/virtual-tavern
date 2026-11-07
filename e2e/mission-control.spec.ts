@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   PHONE,
   brief,
@@ -40,6 +41,8 @@ test('a crew of three completes a mission: briefing, free selection, a signal an
   await claim(hana, 'Take the pink 3');
   await claim(hana, 'Take trick one');
   await dive(all);
+  // The trick: the tasks, the trick, the hand and the moves in the bar on one screen.
+  await expectPhoneFit(ben, 'mission control play');
 
   // Ben signals his highest blue before the first trick; everyone sees it.
   await ben.getByTestId('mc-signal').click();

@@ -1,5 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
-import { ProtectedImage, cn } from '@vt/ui';
+import { ProtectedImage, Tabs, cn, tabPanelProps } from '@vt/ui';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -13,6 +13,9 @@ import { GROUPS, GROUP_EMOJI, GROUP_LABELS, type Group, iconsOf } from '../logic
 import { type Board, CUBE_CAP, SETS, type SetId } from '../logic/types.ts';
 import { GAP_X, GAP_Y, GROUP_GAP, LABEL, fitBoard } from '../logic/fit.ts';
 import type { Art } from './assets.ts';
+
+/** The phone board's icon-group tabs. */
+const GROUP_TABS_ID = 'iconic-groups';
 
 /** Each set's symbol, so a set never depends on its colour alone. */
 export const SET_LABEL: Record<SetId, string> = {
@@ -108,7 +111,7 @@ export function IconFace({ icon, art, className }: { icon: number; art: Art; cla
   return (
     <span
       className={cn(
-        'flex size-full select-none flex-col items-center justify-center rounded-[18%] bg-panel text-center font-semibold text-stone-600 ring-1 ring-line-strong dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700',
+        'flex size-full select-none flex-col items-center justify-center rounded-[18%] bg-panel text-center font-semibold text-ink-muted ring-1 ring-line-strong',
         className,
       )}
     >
@@ -303,35 +306,26 @@ export function BoardView({
   return (
     <div className="flex flex-col gap-2">
       <div className="md:hidden" data-testid="ic-board-phone">
-        <div role="tablist" aria-label="Icon groups" className="grid grid-cols-5 gap-1">
-          {GROUPS.map((g) => (
-            <button
-              key={g}
-              type="button"
-              role="tab"
-              aria-selected={tab === g}
-              onClick={() => pick(g)}
-              className={cn(
-                'relative flex flex-col items-center rounded-lg px-0.5 py-1 text-[11px] font-semibold ring-1 transition-colors',
-                tab === g
-                  ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/50'
-                  : 'bg-panel text-stone-600 ring-line dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700',
-              )}
-            >
-              <span aria-hidden className="text-base leading-none">
-                {GROUP_EMOJI[g]}
-              </span>
-              {GROUP_LABELS[g]}
-              {inGroup(g) > 0 && (
-                <span className="absolute -right-1 -top-1 rounded-full bg-accent px-1 text-[10px] text-accent-fg dark:bg-amber-500 dark:text-stone-950">
-                  {inGroup(g)}
+        <Tabs
+          id={GROUP_TABS_ID}
+          label="Icon groups"
+          value={tab}
+          onChange={pick}
+          tabs={GROUPS.map((g) => ({
+            id: g,
+            label: (
+              <span className="flex flex-col items-center leading-tight">
+                <span aria-hidden className="text-base leading-none">
+                  {GROUP_EMOJI[g]}
                 </span>
-              )}
-            </button>
-          ))}
-        </div>
+                {GROUP_LABELS[g]}
+              </span>
+            ),
+            ...(inGroup(g) > 0 && { count: inGroup(g) }),
+          }))}
+        />
         <div
-          role="tabpanel"
+          {...tabPanelProps(GROUP_TABS_ID, tab)}
           aria-label={GROUP_LABELS[tab]}
           className="mt-2 grid grid-cols-5 gap-x-2 gap-y-2.5 px-1"
         >
@@ -392,7 +386,7 @@ function FullBoard({ tile }: { tile: (n: number) => ReactNode }) {
           {GROUPS.map((g) => (
             <section key={g} aria-label={GROUP_LABELS[g]} className="flex flex-col">
               <h4
-                className="text-center text-xs font-semibold text-ink-muted dark:text-stone-400"
+                className="text-center text-xs font-semibold text-ink-muted"
                 style={{ height: LABEL }}
               >
                 {GROUP_LABELS[g]}
@@ -421,13 +415,11 @@ export function ClueStrip({ board, art }: { board: Board; art: Art }) {
   return (
     <section
       aria-label="Clue so far"
-      className="sticky top-0 z-10 -mx-1 flex flex-col gap-1 rounded-xl bg-card/95 px-2 py-1.5 text-sm shadow-sm ring-1 ring-line backdrop-blur dark:bg-stone-900/95 dark:ring-stone-700"
+      className="sticky top-0 z-10 -mx-1 flex flex-col gap-1 rounded-xl bg-card/95 px-2 py-1.5 text-sm shadow-sm ring-1 ring-line backdrop-blur"
       data-testid="ic-clue-strip"
     >
       {used.length === 0 ? (
-        <p className="py-1 text-center text-ink-muted dark:text-stone-400">
-          No pieces on the board yet.
-        </p>
+        <p className="py-1 text-center text-ink-muted">No pieces on the board yet.</p>
       ) : (
         used.map((s) => {
           const c = board[s];
@@ -437,14 +429,14 @@ export function ClueStrip({ board, art }: { board: Board; art: Art }) {
               {c.marker !== null ? (
                 <IconWord icon={c.marker} art={art} strong />
               ) : (
-                <span className="italic text-ink-muted dark:text-stone-400">(marker off)</span>
+                <span className="italic text-ink-muted">(marker off)</span>
               )}
               {c.cubes.map((cube, i) => (
                 <span key={cube.icon} className="inline-flex items-center gap-1">
                   <span aria-hidden className="text-ink-muted">
                     ·
                   </span>
-                  <span className="text-[11px] text-ink-muted dark:text-stone-400">{i + 1}</span>
+                  <span className="text-[11px] text-ink-muted">{i + 1}</span>
                   <IconWord icon={cube.icon} art={art} />
                   {cube.n > 1 && <span className="text-xs font-semibold">×{cube.n}</span>}
                 </span>
@@ -500,8 +492,8 @@ export function SetPicker({
             className={cn(
               'flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-xs font-semibold ring-1 transition',
               active === s
-                ? 'bg-accent-soft text-accent-text ring-2 ring-accent dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-400'
-                : 'bg-panel text-stone-700 ring-line dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700',
+                ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+                : 'bg-panel text-ink-2 ring-line',
               locked && 'opacity-40',
             )}
           >

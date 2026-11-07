@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { openSettings } from './lobby-settings.ts';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 
 // Shared steps for Red Herring's specs: a room, the word, card plays, explanations and votes.
 //
@@ -78,15 +79,25 @@ export async function playCard(p: Page) {
 }
 
 /** The word-picker plays a card and writes the word. */
-export async function writeWord(p: Page, word: string) {
+export async function writeWord(p: Page, word: string, fit = false) {
   await playCard(p);
   await p.getByLabel('Your secret word').fill(word);
+  // The word step is the tightest: the laps, the first card and the word in the bar.
+  if (fit) await expectPhoneFit(p, 'red herring word');
   await p.getByRole('button', { name: 'Send' }).click();
   await expect(p.getByTestId('rh-word-form')).toHaveCount(0);
 }
 
+/** Phones and tablets show the game in tabs. */
+export async function showTab(p: Page, name: 'Table' | 'Me' | 'Scores') {
+  if ((p.viewportSize()?.width ?? 1280) < 1024) await p.getByRole('tab', { name }).click();
+}
+
 /** What `p`'s notebook says (opened with Show, closed again). */
 export async function notebook(p: Page): Promise<string> {
+  // Phones keep the notebook on the Me tab.
+  const phone = (p.viewportSize()?.width ?? 1280) < 1024;
+  if (phone) await p.getByRole('tab', { name: 'Me' }).click();
   await p.getByRole('button', { name: 'Show your notebook' }).click();
   const page = p.getByTestId('rh-notebook-page');
   await expect(page.getByTestId('rh-word').or(page.getByTestId('rh-conspirator'))).toBeVisible();
@@ -95,6 +106,7 @@ export async function notebook(p: Page): Promise<string> {
     ? ((await page.getByTestId('rh-word').textContent()) ?? '')
     : '';
   await p.getByRole('button', { name: 'Hide your notebook' }).click();
+  if (phone) await p.getByRole('tab', { name: 'Table' }).click();
   return word.trim();
 }
 

@@ -10,6 +10,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** targets, the hand, the culprit, the ghost's tags and unrevealed shared cards only reach the ghost; votes are only "voted" until all are in.
   - **Seats:** through `playerPresence`, a psychic gone for 3 minutes (`AWAY_SECONDS`) counts as an empty seat (not waited on, judged or counted as a voter) until they come back. Only a psychic who left (`gone`) can be taken over or retired. The ghost's seat goes only to someone watching or a new joiner, never to a psychic. No bot.
   - **Table screen:** a watcher's 📺 Table screen is the shared poster over the room page (`SeanceTableScreen`, `PosterOverlay`: the table screen's theme, the page behind inert): the step, the hour and its clock, and a slate per psychic (portrait, name, the three finds, Searching / Ready / Done, the last verdict), with the ravens and the pile in the footer. The cards (visions, finds, verdict cards) stay on the phones (owner). Leave is the only control.
+  - **Phones:** the sections (My vision or Psychics or Final, Others or Hand, Table) sit on the shared `TabBar`, whose dot badge marks the tab holding your move while another is open. Ready and Cast my vote sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
 ## Assets
 

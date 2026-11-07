@@ -5,11 +5,16 @@ import {
   Countdown,
   Hint,
   Panel,
+  TabBar,
+  type TabBarItem,
+  cn,
   revealElement,
+  tabPanelProps,
+  useWideScreen,
   useAbandonGame,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   DUMMY,
   EPILOGUE,
@@ -86,7 +91,7 @@ function Tip({ id, children }: { id: string; children: string }) {
   const [show, dismiss] = useTip(id);
   if (!show) return null;
   return (
-    <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+    <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
       <span className="flex-1">💡 {children}</span>
       <button type="button" className="shrink-0 underline" onClick={dismiss}>
         Got it
@@ -127,6 +132,8 @@ function Game({
         : { text: 'The crew is full for now.' }
       : null,
   );
+  const wide = useWideScreen();
+  const [tab, setTab] = useState<PlayTab>('play');
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {
     setYourMove?.(tabAlert);
@@ -152,29 +159,52 @@ function Game({
       </div>
     );
   }
-  const side = (
-    <aside className="hidden space-y-3 lg:block">
-      <Panel className="space-y-2">
-        <h3 className="font-bold">Mission</h3>
-        <RuleBox a={a} />
-        <Button variant="secondary" className="w-full" onClick={showGuide}>
-          📖 Rules
-        </Button>
-      </Panel>
-      {a.stage === 'play' && (
-        <Panel className="hidden space-y-2 lg:block">
-          <h3 className="font-bold">{view.settings.playedCards ? 'Played cards' : 'Last trick'}</h3>
-          <PlayedCards a={a} name={name} />
-        </Panel>
-      )}
-    </aside>
+  // Phones and tablets: the stage and your hand (Play), the mission's rules (Mission) and, in
+  // play, the cards played so far (Logbook), from the tab bar; wide screens show them in the rail.
+  const tabs = PLAY_TABS.filter((t) => t.id !== 'logbook' || a.stage === 'play');
+  const current: PlayTab = tabs.some((t) => t.id === tab) ? tab : 'play';
+  const shown: PlayTab | null = wide || a.stage === 'done' ? null : current;
+  const missionPanel = (
+    <Panel className="space-y-2">
+      <h3 className="font-bold">Mission</h3>
+      <RuleBox a={a} />
+      <Button variant="secondary" className="w-full" onClick={showGuide}>
+        📖 Rules
+      </Button>
+    </Panel>
   );
+  const playedPanel = a.stage === 'play' && (
+    <Panel className="space-y-2">
+      <h3 className="font-bold">{view.settings.playedCards ? 'Played cards' : 'Last trick'}</h3>
+      <PlayedCards a={a} name={name} />
+    </Panel>
+  );
+  const side =
+    shown === null ? (
+      <aside className="hidden space-y-3 lg:block">
+        {missionPanel}
+        {playedPanel}
+      </aside>
+    ) : shown === 'mission' ? (
+      <div className="space-y-3" {...tabPanelProps(PLAY_TABS_ID, 'mission')}>
+        {missionPanel}
+      </div>
+    ) : shown === 'logbook' ? (
+      <div className="space-y-3" {...tabPanelProps(PLAY_TABS_ID, 'logbook')}>
+        {playedPanel}
+      </div>
+    ) : null;
+  const playHidden = shown !== null && shown !== 'play';
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-      <div className="min-w-0 space-y-3">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+      <div
+        className={cn('min-w-0 space-y-3', playHidden && 'hidden')}
+        {...(shown !== null && !playHidden && tabPanelProps(PLAY_TABS_ID, 'play'))}
+      >
         <Header view={view} clockOffset={room.clockOffset} />
-        {/* Phones: the mission's rules fold away; wide screens show them beside the table. */}
-        <details className="group rounded-xl bg-panel ring-1 ring-line lg:hidden dark:bg-stone-800/70 dark:ring-stone-700">
+        {/* Phones: the mission's rules fold away above the hand; the Mission tab and wide
+            screens show them in full. */}
+        <details className="group rounded-xl bg-panel ring-1 ring-line lg:hidden">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             📜 Mission rules
             <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
@@ -202,7 +232,7 @@ function Game({
             {a.extras.notes.map((n, i) => (
               <li
                 key={i}
-                className="rounded-lg bg-info-soft px-3 py-1 text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+                className="rounded-lg bg-info-soft px-3 py-1 text-info-ink ring-1 ring-info-line"
               >
                 <Rich text={n} name={name} />
                 {i === a.extras.notes.length - 1 && a.extras.drawn[me] ? (
@@ -246,9 +276,28 @@ function Game({
         )}
       </div>
       {side}
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Mission Control"
+          items={tabs}
+          value={current}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }
+
+/** Phones in play: the stage and hand, the mission's rules, the cards played. */
+type PlayTab = 'play' | 'mission' | 'logbook';
+const PLAY_TABS_ID = 'mission-control-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'play', label: 'Play', icon: 'gamepad-2' },
+  { id: 'mission', label: 'Mission', icon: 'book-open' },
+  { id: 'logbook', label: 'Logbook', icon: 'scroll-text' },
+];
 
 /** Your hand while the tasks are shared out, so you can judge which to take. */
 function HandPreview({ view }: { view: MissionControlView }) {

@@ -135,13 +135,7 @@ export function CardBack({ art, className }: { art: Art; className?: string }) {
   return src ? (
     <ProtectedImage src={src} alt="" className={cn('rounded-sm object-cover', className)} />
   ) : (
-    <span
-      aria-hidden
-      className={cn(
-        'block rounded-sm bg-panel ring-1 ring-line dark:bg-stone-800 dark:ring-stone-600',
-        className,
-      )}
-    />
+    <span aria-hidden className={cn('block rounded-sm bg-panel ring-1 ring-line', className)} />
   );
 }
 
@@ -204,8 +198,8 @@ export function Hand({
             art={art}
             className={cn(
               'transition-transform duration-150',
-              inSel && '-translate-y-2 ring-[3px] ring-accent dark:ring-amber-400',
-              preview === i && 'en-lift -translate-y-2 ring-[3px] ring-info dark:ring-sky-400',
+              inSel && '-translate-y-2 ring-[3px] ring-accent',
+              preview === i && 'en-lift -translate-y-2 ring-[3px] ring-info',
             )}
           />
         );
@@ -232,7 +226,7 @@ export function Hand({
             {legal?.has(i) && !inSel && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute -top-1.5 left-1/2 -translate-x-1/2 text-[10px] leading-none text-accent dark:text-amber-300"
+                className="pointer-events-none absolute -top-1.5 left-1/2 -translate-x-1/2 text-[10px] leading-none text-accent"
               >
                 ✦
               </span>
@@ -241,11 +235,7 @@ export function Hand({
               aria-hidden
               className={cn(
                 'h-1 rounded-full',
-                seg
-                  ? seg.kind === 'set'
-                    ? 'bg-ink/70 dark:bg-stone-200/80'
-                    : 'bg-ink-muted/60 dark:bg-stone-400/70'
-                  : 'bg-transparent',
+                seg ? (seg.kind === 'set' ? 'bg-ink/70' : 'bg-ink-muted/60') : 'bg-transparent',
               )}
               style={joinsNext ? { marginRight: '-0.25rem' } : undefined}
             />

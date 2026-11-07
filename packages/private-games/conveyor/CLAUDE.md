@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules:** a pick is secret and changeable until the last is in; then the turn resolves in a fixed order (`advance`); a spoon's request and the giver's options only reach the two of them. The owner's and designer's rulings are in `game.test.ts`.
   - **`view()`:** picks only as "picked", a menu's draw only to its player; trays and kept desserts public.
   - **Testing:** `CONVEYOR_TEST_DECK` (e.g. `2:miso onigiri-circle …`, by table size) tops each round's deck.
+  - **Phones:** Play (hand and choices), Table (the trays) and Scores (totals and log) on the shared `TabBar`; Lock in and Ready sit in the fixed `StickyBar`.
 
 ## Assets
 

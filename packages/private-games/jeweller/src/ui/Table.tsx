@@ -1,5 +1,17 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, Modal, PlayerTag, RefusalSlot, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Modal,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  TabBar,
+  type TabBarItem,
+  cn,
+  tabPanelProps,
+  useWideScreen,
+} from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
 import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
@@ -131,8 +143,8 @@ function Flash({ view, name }: { view: JewellerView; name: NameOf }) {
       className={cn(
         'jw-pop rounded-xl px-3 py-1.5 text-center text-sm font-semibold ring-1',
         last.kind === 'noble'
-          ? 'bg-special-soft text-special-ink ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40'
-          : 'bg-success-soft text-success-ink ring-success-line dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-500/40',
+          ? 'bg-special-soft text-special-ink ring-special-line'
+          : 'bg-success-soft text-success-ink ring-success-line',
       )}
     >
       {text}
@@ -154,9 +166,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
           <span
             className={cn(
               'flex h-4 min-w-6 items-center justify-center rounded-sm text-[11px] font-black tabular-nums ring-1',
-              p.bonuses[g]
-                ? 'bg-card text-ink ring-line dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600'
-                : 'text-ink-muted ring-transparent',
+              p.bonuses[g] ? 'bg-card text-ink ring-line' : 'text-ink-muted ring-transparent',
             )}
             title="Cards (lasting discount)"
           >
@@ -176,7 +186,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         role="group"
         aria-label={`Gold: ${p.tokens.gold}`}
       >
-        <span className="h-4 text-[11px] text-ink-muted dark:text-stone-400">wild</span>
+        <span className="h-4 text-[11px] text-ink-muted">wild</span>
         <TokenChip
           token="gold"
           art={art}
@@ -189,8 +199,8 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         className={cn(
           'ml-auto self-center rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ring-1',
           totalOf(p.tokens) >= TOKEN_LIMIT
-            ? 'bg-warn-soft text-warn-ink ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
-            : 'text-ink-muted ring-line dark:text-stone-400 dark:ring-stone-700',
+            ? 'bg-warn-soft text-warn-ink ring-warn-line'
+            : 'text-ink-muted ring-line',
         )}
         aria-label={`${totalOf(p.tokens)} of ${TOKEN_LIMIT} pieces`}
       >
@@ -221,8 +231,8 @@ function PlayerChip({
       type="button"
       onClick={onOpen}
       className={cn(
-        'flex shrink-0 items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-sm shadow-sm ring-1 ring-line focus-visible:outline-2 focus-visible:outline-accent dark:bg-stone-900 dark:ring-stone-700',
-        current && 'ring-2 ring-accent dark:ring-amber-500',
+        'flex shrink-0 items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-sm shadow-sm ring-1 ring-line focus-visible:outline-2 focus-visible:outline-accent',
+        current && 'ring-2 ring-accent',
         p.left && 'opacity-60',
       )}
       aria-label={`${p.name}: ${p.points} ${p.points === 1 ? 'point' : 'points'}, ${totalOf(p.tokens)} ${totalOf(p.tokens) === 1 ? 'piece' : 'pieces'}, ${p.reserved.length} reserved${view.settings.strongholds ? `, ${p.strongholds} ${holdColor(view, room, p.id)} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply` : ''}${p.cities.length ? ', meets a City' : ''}${current ? ', playing now' : ''}`}
@@ -236,17 +246,15 @@ function PlayerChip({
         className="max-w-24 truncate font-semibold"
       />
       {view.settings.strongholds && (
-        <span className="flex items-center text-xs text-ink-muted tabular-nums dark:text-stone-400">
+        <span className="flex items-center text-xs text-ink-muted tabular-nums">
           <StrongholdIcon art={art.stronghold(holdColor(view, room, p.id))} size={14} />
           {p.strongholds}
         </span>
       )}
       <span className="font-black tabular-nums">{p.points}★</span>
-      <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
-        ◆{totalOf(p.tokens)}
-      </span>
+      <span className="text-xs text-ink-muted tabular-nums">◆{totalOf(p.tokens)}</span>
       {p.reserved.length > 0 && (
-        <span className="text-xs text-ink-muted dark:text-stone-400">🂠{p.reserved.length}</span>
+        <span className="text-xs text-ink-muted">🂠{p.reserved.length}</span>
       )}
       {p.nobles.length > 0 && <span className="text-xs">👑{p.nobles.length}</span>}
       {p.cities.length > 0 && <span className="text-xs">🏙✓</span>}
@@ -274,8 +282,8 @@ function PlayerPanel({
     <section
       aria-label={`${p.name}’s table`}
       className={cn(
-        'flex flex-col gap-2 rounded-2xl bg-card/85 p-2.5 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        current && 'ring-2 ring-accent dark:ring-amber-500',
+        'flex flex-col gap-2 rounded-2xl bg-card/85 p-2.5 shadow-sm ring-1 ring-line',
+        current && 'ring-2 ring-accent',
       )}
       data-panel={p.id}
     >
@@ -289,14 +297,10 @@ function PlayerPanel({
         />
         <span className="flex items-center gap-2 text-sm">
           {p.left && (
-            <span className="text-xs text-ink-muted dark:text-stone-400">
-              {p.removed ? 'removed' : 'away'}
-            </span>
+            <span className="text-xs text-ink-muted">{p.removed ? 'removed' : 'away'}</span>
           )}
           {p.cities.length > 0 && (
-            <span className="text-xs font-semibold text-success-ink dark:text-emerald-300">
-              🏙 City met
-            </span>
+            <span className="text-xs font-semibold text-success-ink">🏙 City met</span>
           )}
           <span className="font-black tabular-nums" aria-label={`${p.points} points`}>
             {p.points}★
@@ -350,7 +354,7 @@ function Supply({
   const color = holdColor(view, room, p.id);
   return (
     <span
-      className="flex items-center gap-1 text-xs text-ink-muted dark:text-stone-400"
+      className="flex items-center gap-1 text-xs text-ink-muted"
       role="img"
       aria-label={`${p.strongholds} ${color} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply`}
     >
@@ -474,7 +478,7 @@ function Bank({
   const g = view.game!;
   return (
     <div
-      className="flex items-center justify-between gap-1 rounded-2xl bg-panel px-2 py-1.5 ring-1 ring-line dark:bg-stone-900/70 dark:ring-stone-800"
+      className="flex items-center justify-between gap-1 rounded-2xl bg-panel px-2 py-1.5 ring-1 ring-line"
       role="group"
       aria-label="Gem piles"
     >
@@ -497,7 +501,7 @@ function Bank({
           >
             <TokenChip token={gem} art={art} count={n - picked} size={38} dim={n - picked === 0} />
             {picked > 0 && (
-              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-[11px] font-black text-accent-fg dark:bg-amber-500 dark:text-stone-950">
+              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-[11px] font-black text-accent-fg">
                 +{picked}
               </span>
             )}
@@ -624,7 +628,7 @@ function CardSheet({
     <Modal open onClose={onClose} title={cardLine(id).replace(/^a /, 'A ')}>
       <div className="flex flex-col items-center gap-3">
         <CardTile id={id} art={art} size="lg" {...(me && { hints: me })} />
-        <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-center text-sm text-ink-muted">
           Owning it gives a lasting {TOKEN_NAME[card.bonus]} discount
           {card.points ? ` and ${card.points} ${card.points === 1 ? 'point' : 'points'}` : ''}.
         </p>
@@ -633,8 +637,8 @@ function CardSheet({
             className={cn(
               'w-full rounded-xl px-3 py-1.5 text-center text-sm ring-1',
               blocked
-                ? 'bg-warn-soft text-warn-ink ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
-                : 'bg-info-soft text-info-ink ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
+                ? 'bg-warn-soft text-warn-ink ring-warn-line'
+                : 'bg-info-soft text-info-ink ring-info-line',
             )}
           >
             🏰{' '}
@@ -646,7 +650,7 @@ function CardSheet({
           </p>
         )}
         {me && (mineReserved || inMarket) && (
-          <div className="w-full rounded-xl bg-panel p-2.5 ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700">
+          <div className="w-full rounded-xl bg-panel p-2.5 ring-1 ring-line">
             <p className="mb-1.5 text-sm font-semibold">
               {blocked
                 ? 'Its cost (after your discounts):'
@@ -755,7 +759,7 @@ function DeckSheet({
     <Modal open onClose={onClose} title={`Level ${LEVEL_NAME[level]} deck`}>
       <div className="flex flex-col items-center gap-3">
         <CardBack level={level} art={art} count={n} className="h-40 w-28" />
-        <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-center text-sm text-ink-muted">
           {n} {n === 1 ? 'card' : 'cards'} left. Reserve the top card without showing it to anyone,
           and take a gold.
         </p>
@@ -833,7 +837,7 @@ function HoldPicker({
         )}
         {canEvict && choice('evict', 'Send one back', 'evict')}
       </div>
-      <p className="text-xs text-ink-muted dark:text-stone-400">{hint}</p>
+      <p className="text-xs text-ink-muted">{hint}</p>
       {mode.from === 'evict' && (
         <p className="sr-only">
           {mode.moves
@@ -868,7 +872,7 @@ function CitySheet({
     <Modal open onClose={onClose} title={`A City: ${city.points} points`}>
       <div className="flex flex-col items-center gap-3">
         <CityTile id={id} art={art} size="lg" met={met} />
-        <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-center text-sm text-ink-muted">
           Meet it at the end of your turn to finish the round: at least {city.points} points and
           {wants.length || city.any ? ' these cards (not gems):' : ' no cards at all.'}
         </p>
@@ -877,11 +881,7 @@ function CitySheet({
             <li key={g} className="flex items-center gap-2">
               <TokenChip token={g} art={art} size={22} />
               {city.requires[g]} {TOKEN_NAME[g]} {city.requires[g] === 1 ? 'card' : 'cards'}
-              {me && (
-                <span className="text-ink-muted dark:text-stone-400">
-                  (you have {me.bonuses[g]})
-                </span>
-              )}
+              {me && <span className="text-ink-muted">(you have {me.bonuses[g]})</span>}
             </li>
           ))}
           {city.any > 0 && (
@@ -892,7 +892,7 @@ function CitySheet({
                 .join(', ')}
               )
               {me && (
-                <span className="text-ink-muted dark:text-stone-400">
+                <span className="text-ink-muted">
                   {' '}
                   (your most: {Math.max(...anyColours(city).map((g) => me.bonuses[g]))})
                 </span>
@@ -910,13 +910,22 @@ function CitySheet({
         {others.length > 0 && (
           <p className="text-center text-sm">Also met by {others.map((p) => p.name).join(', ')}.</p>
         )}
-        <p className="text-center text-xs text-ink-muted dark:text-stone-400">
+        <p className="text-center text-xs text-ink-muted">
           Only players who meet a City can win; among them, the most points wins.
         </p>
       </div>
     </Modal>
   );
 }
+
+/** Phones in play: the market and bank, your own table, and the talk (log, players, host). */
+type PlayTab = 'table' | 'mine' | 'talk';
+const PLAY_TABS_ID = 'jeweller-play';
+const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
+  { id: 'table', label: 'Table', icon: 'layout-grid' },
+  { id: 'mine', label: 'Your table', icon: 'armchair' },
+  { id: 'talk', label: 'Table talk', icon: 'message-circle' },
+];
 
 /** The whole table: opponents, nobles, the market, the gem piles, the viewer's own area. */
 export function Table({ view, room, act, art, name, showGuide }: TableProps) {
@@ -966,17 +975,19 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     .slice(-12)
     .reverse();
   const after = me ? totalOf(me.tokens) + staged.length - TOKEN_LIMIT : 0;
+  // Phones and tablets: the market, your own table and the table talk one at a time.
+  const wide = useWideScreen();
+  const [tab, setTab] = useState<PlayTab>('table');
+  const shown: PlayTab | null = wide || !playing ? null : tab;
+  const panel = (t: PlayTab) => ({
+    className: cn('flex flex-col gap-2', shown !== null && shown !== t && 'hidden'),
+    ...(shown === t && tabPanelProps(PLAY_TABS_ID, t)),
+  });
 
   const log = (open: boolean) => (
-    <details
-      className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
-      open={open}
-    >
+    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
       <summary className="cursor-pointer font-semibold">Table talk</summary>
-      <ol
-        className="mt-1 flex flex-col gap-0.5 text-ink-muted dark:text-stone-400"
-        aria-label="Log"
-      >
+      <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>
         ))}
@@ -987,7 +998,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const mePanel = me && (
     <section
       aria-label="Your table"
-      className="flex flex-col gap-2 rounded-2xl bg-card/85 p-2.5 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+      className="flex flex-col gap-2 rounded-2xl bg-card/85 p-2.5 shadow-sm ring-1 ring-line"
     >
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="font-semibold">You</span>
@@ -1004,7 +1015,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       <Holdings p={me} art={art} />
       {me.reserved.length > 0 && (
         <div className="flex items-center gap-1.5" role="group" aria-label="Your reserved cards">
-          <span className="text-xs text-ink-muted dark:text-stone-400">Reserved:</span>
+          <span className="text-xs text-ink-muted">Reserved:</span>
           {me.reserved.map((r, i) =>
             r.card ? (
               <CardTile
@@ -1025,8 +1036,14 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[17rem_minmax(0,34rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
-      {/* Opponents: chips on phones, panels on desktop. */}
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden" aria-label="Players">
+      {/* Opponents: chips on phones (Table talk), panels on desktop. */}
+      <div
+        className={cn(
+          'flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden',
+          shown !== 'talk' && 'hidden',
+        )}
+        aria-label="Players"
+      >
         {others.map((p) => (
           <PlayerChip
             key={p.id}
@@ -1046,262 +1063,276 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       </aside>
 
       <div className="flex min-w-0 flex-col gap-2">
-        {playing && (clock?.deadline || g.finalBy) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="text-ink-muted dark:text-stone-400">
-              {clock ? waitingFor([clock.who], room.players, { you: room.you }) : ''}
-            </span>
-            {clock?.deadline && (
-              <Countdown
-                deadline={clock.deadline}
-                clockOffset={room.clockOffset}
-                label="for this turn"
-                soft={!strict}
-                expiredHint={
-                  room.isHost ? 'You can act for them below.' : 'The host can act for them.'
-                }
-                atZero={strict ? 'then a safe move is made' : undefined}
-              />
-            )}
-          </div>
-        )}
-        {playing && g.finalBy && (
-          <p className="rounded-xl bg-warn-soft px-3 py-1 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
-            ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)}{' '}
-            {cities ? 'met a City' : `reached ${view.settings.target}`}. {name(g.order.at(-1))}{' '}
-            plays last.
-          </p>
-        )}
-        <Flash view={view} name={name} />
+        <div {...panel('table')}>
+          {playing && (clock?.deadline || g.finalBy) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-ink-muted">
+                {clock ? waitingFor([clock.who], room.players, { you: room.you }) : ''}
+              </span>
+              {clock?.deadline && (
+                <Countdown
+                  deadline={clock.deadline}
+                  clockOffset={room.clockOffset}
+                  label="for this turn"
+                  soft={!strict}
+                  expiredHint={
+                    room.isHost ? 'You can act for them below.' : 'The host can act for them.'
+                  }
+                  atZero={strict ? 'then a safe move is made' : undefined}
+                />
+              )}
+            </div>
+          )}
+          {playing && g.finalBy && (
+            <p className="rounded-xl bg-warn-soft px-3 py-1 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line">
+              ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)}{' '}
+              {cities ? 'met a City' : `reached ${view.settings.target}`}. {name(g.order.at(-1))}{' '}
+              plays last.
+            </p>
+          )}
+          <Flash view={view} name={name} />
 
-        {cities ? (
-          <section aria-label="Cities" className="grid grid-cols-3 gap-1.5">
-            {g.cities.map((c) => (
-              <CityTile
-                key={c}
-                id={c}
-                art={art}
-                met={!!me?.cities.includes(c)}
-                onClick={() => setSheet({ kind: 'city', id: c })}
-              />
-            ))}
-          </section>
-        ) : (
-          <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
-            {g.nobles.map((n) => (
-              <NobleTile
-                key={n}
-                id={n}
-                art={art}
-                {...(me && { bonuses: me.bonuses })}
-                onClick={() => setSheet({ kind: 'noble', id: n })}
-              />
-            ))}
-            {g.nobles.length === 0 && (
-              <span className="text-sm text-ink-muted dark:text-stone-400">No nobles left.</span>
-            )}
-          </section>
-        )}
+          {cities ? (
+            <section aria-label="Cities" className="grid grid-cols-3 gap-1.5">
+              {g.cities.map((c) => (
+                <CityTile
+                  key={c}
+                  id={c}
+                  art={art}
+                  met={!!me?.cities.includes(c)}
+                  onClick={() => setSheet({ kind: 'city', id: c })}
+                />
+              ))}
+            </section>
+          ) : (
+            <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
+              {g.nobles.map((n) => (
+                <NobleTile
+                  key={n}
+                  id={n}
+                  art={art}
+                  {...(me && { bonuses: me.bonuses })}
+                  onClick={() => setSheet({ kind: 'noble', id: n })}
+                />
+              ))}
+              {g.nobles.length === 0 && (
+                <span className="text-sm text-ink-muted">No nobles left.</span>
+              )}
+            </section>
+          )}
 
-        <section aria-label="Cards for sale" className="flex flex-col gap-1.5">
-          {([3, 2, 1] as const).map((l) => (
-            <div
-              key={l}
-              className="grid grid-cols-[2.25rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
-            >
-              <CardBack
-                level={l}
-                art={art}
-                count={g.decks[l]}
-                className="h-full min-h-12"
-                onClick={() => setSheet({ kind: 'deck', level: l })}
-              />
-              {g.market[l].map((id, i) => {
-                if (!id)
+          <section aria-label="Cards for sale" className="flex flex-col gap-1.5">
+            {([3, 2, 1] as const).map((l) => (
+              <div
+                key={l}
+                className="grid grid-cols-[2.25rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
+              >
+                <CardBack
+                  level={l}
+                  art={art}
+                  count={g.decks[l]}
+                  className="h-full min-h-12"
+                  onClick={() => setSheet({ kind: 'deck', level: l })}
+                />
+                {g.market[l].map((id, i) => {
+                  if (!id)
+                    return (
+                      <span
+                        key={`empty-${i}`}
+                        className="rounded-lg border border-dashed border-line"
+                        aria-label="Empty space"
+                      />
+                    );
+                  const move = holding ? holdMode.legal(id) : undefined;
                   return (
-                    <span
-                      key={`empty-${i}`}
-                      className="rounded-lg border border-dashed border-line dark:border-stone-700"
-                      aria-label="Empty space"
+                    <CardTile
+                      key={id}
+                      id={id}
+                      art={art}
+                      {...(me && { hints: me })}
+                      afford={me && !holding ? affordOf(id, me, view) : null}
+                      fresh={fresh(id)}
+                      hold={holdInfo(view, room, art, id)}
+                      target={!!move}
+                      onClick={() =>
+                        move
+                          ? void act({ ...move }, { anchor: 'jw-play' })
+                          : setSheet({ kind: 'card', id })
+                      }
                     />
                   );
-                const move = holding ? holdMode.legal(id) : undefined;
-                return (
-                  <CardTile
-                    key={id}
-                    id={id}
-                    art={art}
-                    {...(me && { hints: me })}
-                    afford={me && !holding ? affordOf(id, me, view) : null}
-                    fresh={fresh(id)}
-                    hold={holdInfo(view, room, art, id)}
-                    target={!!move}
-                    onClick={() =>
-                      move
-                        ? void act({ ...move }, { anchor: 'jw-play' })
-                        : setSheet({ kind: 'card', id })
-                    }
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </section>
+                })}
+              </div>
+            ))}
+          </section>
 
-        {/* On your turn the piles sit in the action bar, so the bar never hides them. */}
-        {!(acting && !noMove) && (
-          <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
-        )}
+          {/* On your turn the piles sit in the action bar, so the bar never hides them. */}
+          {!(acting && !noMove) && (
+            <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
+          )}
 
-        <div className="lg:hidden">{mePanel}</div>
+          <p className="text-center text-xs text-ink-muted">
+            Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
+            {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
+            <button type="button" className="min-h-11 underline" onClick={() => showGuide()}>
+              rules
+            </button>
+          </p>
+        </div>
+
+        <div {...panel('mine')} className={cn(panel('mine').className, 'lg:hidden')}>
+          {mePanel}
+        </div>
 
         {mine && (
-          <div className="sticky bottom-2 z-10 flex flex-col gap-2 rounded-2xl bg-card p-2.5 shadow-lg ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
-            {g.stage === 'return' ? (
-              <ReturnPicker key={g.turns} me={me} art={art} act={act} />
-            ) : g.stage === 'noble' ? (
-              <div
-                className="flex flex-col items-center gap-2"
-                role="group"
-                aria-label="Pick a noble"
-              >
-                <p className="text-sm font-semibold">Which noble visits you?</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {g.nobleChoice.map((n) => (
-                    <NobleTile
-                      key={n}
-                      id={n}
-                      art={art}
-                      bonuses={me.bonuses}
-                      size="lg"
-                      onClick={() => void act({ type: 'noble', noble: n }, { anchor: 'jw-play' })}
-                    />
+          <StickyBar fixed refusal="jw-play" refusalKey={view.log.at(-1)?.id ?? 0}>
+            <div className="flex flex-col gap-2 sm:rounded-2xl sm:bg-card sm:p-2.5 sm:shadow-lg sm:ring-1 sm:ring-line">
+              {g.stage === 'return' ? (
+                <ReturnPicker key={g.turns} me={me} art={art} act={act} />
+              ) : g.stage === 'noble' ? (
+                <div
+                  className="flex flex-col items-center gap-2"
+                  role="group"
+                  aria-label="Pick a noble"
+                >
+                  <p className="text-sm font-semibold">Which noble visits you?</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {g.nobleChoice.map((n) => (
+                      <NobleTile
+                        key={n}
+                        id={n}
+                        art={art}
+                        bonuses={me.bonuses}
+                        size="lg"
+                        onClick={() => void act({ type: 'noble', noble: n }, { anchor: 'jw-play' })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : g.stage === 'hold' ? (
+                <HoldPicker view={view} room={room} me={me} art={art} mode={holdMode} name={name} />
+              ) : g.stage === 'conquer' && conquest ? (
+                <div
+                  className="flex flex-col items-center gap-2"
+                  role="group"
+                  aria-label="Conquest"
+                >
+                  <p className="text-center text-sm font-semibold">
+                    🏰 Conquest! All three of your strongholds hold this card. Buy it too?
+                  </p>
+                  <CardTile
+                    id={conquest}
+                    art={art}
+                    hints={me}
+                    afford={affordOf(conquest, me)}
+                    hold={holdInfo(view, room, art, conquest)}
+                    className="!w-20"
+                    onClick={() => setSheet({ kind: 'card', id: conquest })}
+                  />
+                  <div className="flex w-full gap-2">
+                    <Button
+                      className="flex-1"
+                      onClick={() => setSheet({ kind: 'card', id: conquest })}
+                      data-testid="jw-conquer"
+                    >
+                      Buy it…
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => void act({ type: 'no-conquest' }, { anchor: 'jw-play' })}
+                    >
+                      Not now
+                    </Button>
+                  </div>
+                </div>
+              ) : noMove ? (
+                <Button onClick={() => void act({ type: 'pass' }, { anchor: 'jw-play' })}>
+                  No move is possible: pass
+                </Button>
+              ) : (
+                <>
+                  <Bank view={view} art={art} staged={staged} onTap={tap} active />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex min-w-0 flex-1 items-center gap-1">
+                      {staged.length > 0
+                        ? staged.map((s, i) => <TokenChip key={i} token={s} art={art} size={26} />)
+                        : null}
+                      <span className="text-xs text-ink-muted">
+                        {takeHint(view, staged)}
+                        {!problem && after > 0 && ` You’ll hand back ${after} after.`}
+                      </span>
+                    </span>
+                    {staged.length > 0 && (
+                      <Button variant="ghost" size="sm" onClick={clear}>
+                        Clear
+                      </Button>
+                    )}
+                    <Button
+                      disabled={!!problem}
+                      onClick={() =>
+                        void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })
+                      }
+                      data-testid="jw-take"
+                    >
+                      Take {staged.length || ''}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </StickyBar>
+        )}
+
+        <div {...panel('talk')}>
+          {playing && away.length > 0 && (
+            <section
+              aria-label="Players who left"
+              className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line"
+            >
+              <p>
+                {away.map((p) => p.name).join(', ')} left the room: the table plays their turns for
+                them.{' '}
+                {room.isHost
+                  ? 'Wait for them to come back, or remove them: their pieces go back to the supply and their cards leave play.'
+                  : 'The host can wait for them or remove them.'}
+              </p>
+              {room.isHost && (
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {away.map((p) => (
+                    <Button
+                      key={p.id}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        void act({ type: 'remove', player: p.id }, { anchor: 'jw-away' })
+                      }
+                    >
+                      Remove {p.name}
+                    </Button>
                   ))}
                 </div>
-              </div>
-            ) : g.stage === 'hold' ? (
-              <HoldPicker view={view} room={room} me={me} art={art} mode={holdMode} name={name} />
-            ) : g.stage === 'conquer' && conquest ? (
-              <div className="flex flex-col items-center gap-2" role="group" aria-label="Conquest">
-                <p className="text-center text-sm font-semibold">
-                  🏰 Conquest! All three of your strongholds hold this card. Buy it too?
-                </p>
-                <CardTile
-                  id={conquest}
-                  art={art}
-                  hints={me}
-                  afford={affordOf(conquest, me)}
-                  hold={holdInfo(view, room, art, conquest)}
-                  className="!w-20"
-                  onClick={() => setSheet({ kind: 'card', id: conquest })}
-                />
-                <div className="flex w-full gap-2">
-                  <Button
-                    className="flex-1"
-                    onClick={() => setSheet({ kind: 'card', id: conquest })}
-                    data-testid="jw-conquer"
-                  >
-                    Buy it…
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => void act({ type: 'no-conquest' }, { anchor: 'jw-play' })}
-                  >
-                    Not now
-                  </Button>
-                </div>
-              </div>
-            ) : noMove ? (
-              <Button onClick={() => void act({ type: 'pass' }, { anchor: 'jw-play' })}>
-                No move is possible: pass
+              )}
+              <RefusalSlot anchor="jw-away" />
+            </section>
+          )}
+
+          {nudge && (
+            <div className="flex justify-end gap-1.5">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  void act({ type: 'act-for', player: clock.who }, { anchor: 'jw-host' })
+                }
+              >
+                Act for {name(clock.who)}
               </Button>
-            ) : (
-              <>
-                <Bank view={view} art={art} staged={staged} onTap={tap} active />
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex min-w-0 flex-1 items-center gap-1">
-                    {staged.length > 0
-                      ? staged.map((s, i) => <TokenChip key={i} token={s} art={art} size={26} />)
-                      : null}
-                    <span className="text-xs text-ink-muted dark:text-stone-400">
-                      {takeHint(view, staged)}
-                      {!problem && after > 0 && ` You’ll hand back ${after} after.`}
-                    </span>
-                  </span>
-                  {staged.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clear}>
-                      Clear
-                    </Button>
-                  )}
-                  <Button
-                    disabled={!!problem}
-                    onClick={() => void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })}
-                    data-testid="jw-take"
-                  >
-                    Take {staged.length || ''}
-                  </Button>
-                </div>
-              </>
-            )}
-            <RefusalSlot anchor="jw-play" resetKey={view.log.at(-1)?.id ?? 0} />
-          </div>
-        )}
-
-        {playing && away.length > 0 && (
-          <section
-            aria-label="Players who left"
-            className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
-          >
-            <p>
-              {away.map((p) => p.name).join(', ')} left the room: the table plays their turns for
-              them.{' '}
-              {room.isHost
-                ? 'Wait for them to come back, or remove them: their pieces go back to the supply and their cards leave play.'
-                : 'The host can wait for them or remove them.'}
-            </p>
-            {room.isHost && (
-              <div className="flex flex-wrap justify-end gap-1.5">
-                {away.map((p) => (
-                  <Button
-                    key={p.id}
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      void act({ type: 'remove', player: p.id }, { anchor: 'jw-away' })
-                    }
-                  >
-                    Remove {p.name}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <RefusalSlot anchor="jw-away" />
-          </section>
-        )}
-
-        {nudge && (
-          <div className="flex justify-end gap-1.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                void act({ type: 'act-for', player: clock.who }, { anchor: 'jw-host' })
-              }
-            >
-              Act for {name(clock.who)}
-            </Button>
-            <RefusalSlot anchor="jw-host" />
-          </div>
-        )}
-        <div className="lg:hidden">{log(false)}</div>
-        <p className="text-center text-xs text-ink-muted">
-          Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
-          {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
-          <button type="button" className="underline" onClick={() => showGuide()}>
-            rules
-          </button>
-        </p>
+              <RefusalSlot anchor="jw-host" />
+            </div>
+          )}
+          <div className="lg:hidden">{log(shown === 'talk')}</div>
+        </div>
       </div>
 
       <aside className="hidden lg:block">{log(true)}</aside>
@@ -1330,7 +1361,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         <Modal open onClose={() => setSheet(null)} title={art.nobleName(sheet.id)}>
           <div className="flex flex-col items-center gap-3">
             <NobleTile id={sheet.id} art={art} size="lg" {...(me && { bonuses: me.bonuses })} />
-            <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+            <p className="text-center text-sm text-ink-muted">
               Visits the first player whose cards (not gems) meet these numbers, at the end of their
               turn: 3 points.{me ? ' The small numbers are your cards so far.' : ''}
             </p>
@@ -1346,13 +1377,23 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           return p ? (
             <Modal open onClose={() => setSheet(null)} title={`${p.name}’s table`}>
               <PlayerPanel p={p} view={view} room={room} art={art} />
-              <p className="mt-2 text-xs text-ink-muted dark:text-stone-400">
+              <p className="mt-2 text-xs text-ink-muted">
                 {p.cards.length} {p.cards.length === 1 ? 'card' : 'cards'} bought. Reserved cards
                 stay hidden unless the host shows them; you see their level.
               </p>
             </Modal>
           ) : null;
         })()}
+      {shown !== null && (
+        <TabBar
+          id={PLAY_TABS_ID}
+          label="Jeweller"
+          items={me ? PLAY_TABS : PLAY_TABS.filter((t) => t.id !== 'mine')}
+          value={!me && tab === 'mine' ? 'table' : tab}
+          onChange={setTab}
+          className="lg:hidden"
+        />
+      )}
     </div>
   );
 }

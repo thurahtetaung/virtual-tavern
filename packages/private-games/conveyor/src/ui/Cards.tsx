@@ -80,7 +80,7 @@ export const CardFace = memo(function CardFace({
   return (
     <span
       className={cn(
-        'relative inline-flex aspect-[440/690] shrink-0 flex-col overflow-hidden rounded-[7%] bg-card shadow-sm ring-1 ring-line select-none dark:bg-stone-800 dark:ring-stone-600',
+        'relative inline-flex aspect-[440/690] shrink-0 flex-col overflow-hidden rounded-[7%] bg-card shadow-sm ring-1 ring-line select-none',
         SIZES[size],
         className,
       )}
@@ -93,7 +93,7 @@ export const CardFace = memo(function CardFace({
           className="h-full w-full object-cover"
         />
       ) : flipped ? (
-        <span className="flex h-full flex-col items-center justify-center gap-0.5 bg-stone-300 text-stone-700 dark:bg-stone-700 dark:text-stone-200">
+        <span className="flex h-full flex-col items-center justify-center gap-0.5 bg-stone-300 text-ink-2 dark:bg-stone-700">
           <span aria-hidden className={size === 'mini' ? 'text-xs' : 'text-lg'}>
             🥡
           </span>
@@ -116,9 +116,7 @@ export const CardFace = memo(function CardFace({
               </span>
             )}
             {size !== 'mini' && detail(k) && (
-              <span className="text-[0.6rem] font-bold text-ink-muted dark:text-stone-300">
-                {detail(k)}
-              </span>
+              <span className="text-[0.6rem] font-bold text-ink-muted">{detail(k)}</span>
             )}
           </span>
           {no !== undefined && size !== 'mini' && (

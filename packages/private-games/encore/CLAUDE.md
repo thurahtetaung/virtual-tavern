@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules:** Recruit & Show is atomic (refused whole unless its Show beats what is left); a round ends when a hand empties or play comes back to an unbeaten Show's owner (checked as play reaches them); 2 players use reserve cards and own chips. Safe moves are the bot's (`encoreBot`, a one-ply search).
   - **`view()`:** your own hand only; the flip choice only to its maker; where a recruited card went and which way up never; every last hand at `over`.
   - **Testing:** `ENCORE_TEST_DECK` (e.g. `3:1/2 4/1 …`, each card up-number first) deals that order every round.
+  - **Phones:** Table (with your hand), Log and Scores on the shared `TabBar`; the turn's actions and Ready sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
 ## Assets
 

@@ -142,10 +142,7 @@ export async function seanceScreenshots(
     });
   const tab = async (p: Page, name: string) => {
     if (label === 'phone')
-      await p
-        .getByRole('navigation', { name: 'Game sections' })
-        .getByRole('button', { name })
-        .click();
+      await p.getByRole('tablist', { name: 'Game sections' }).getByRole('tab', { name }).click();
   };
   const players = await seanceTable(browser, ['Gwen', 'Ana', 'Ben', 'Cy', 'Dee'], errors, opts);
   const [ghostP, ...psychics] = players as [Player, ...Player[]];

@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, PlayerTag, RefusalSlot } from '@vt/ui';
+import { Button, PlayerTag, RefusalSlot, StickyBar } from '@vt/ui';
 import { useState } from 'react';
 import { lineTile, scoreAt, wallSpaces } from '../logic/rules.ts';
 import { COLOUR_NAME } from '../logic/tiles.ts';
@@ -82,19 +82,23 @@ export function WallStage({
                   },
                 }}
               />
-              {confirm && (
-                <Button
-                  className="w-full sm:w-auto"
-                  disabled={pickCol === null}
-                  onClick={() => pickCol !== null && void place(pickCol)}
-                  data-testid="mo-wall-place"
-                >
-                  {pickCol === null
-                    ? 'Tap a lit space'
-                    : `Place in column ${pickCol + 1} (+${points})`}
-                </Button>
+              {confirm ? (
+                <StickyBar fixed refusal={ANCHOR}>
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto"
+                    disabled={pickCol === null}
+                    onClick={() => pickCol !== null && void place(pickCol)}
+                    data-testid="mo-wall-place"
+                  >
+                    {pickCol === null
+                      ? 'Tap a lit space'
+                      : `Place in column ${pickCol + 1} (+${points})`}
+                  </Button>
+                </StickyBar>
+              ) : (
+                <RefusalSlot anchor={ANCHOR} />
               )}
-              <RefusalSlot anchor={ANCHOR} />
             </div>
           );
         })()
@@ -103,12 +107,12 @@ export function WallStage({
   return (
     <section
       aria-label={`Round ${g.round}: choosing wall spaces`}
-      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line dark:bg-stone-900/85 dark:ring-stone-800"
+      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-wall"
     >
       <h2 className="font-bold">Round {g.round}: wall-tiling, top line first</h2>
       {mine ?? (
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {me
             ? 'Your wall is done. The scores show once everyone has placed their tiles.'
             : 'Some players are choosing where their tiles go on the wall.'}
@@ -120,7 +124,7 @@ export function WallStage({
           .map((c) => (
             <li key={c.id} className="flex items-center gap-1">
               <PlayerTag name={name(c.id)} />
-              <span className="text-ink-muted dark:text-stone-400">line {c.row + 1}…</span>
+              <span className="text-ink-muted">line {c.row + 1}…</span>
             </li>
           ))}
       </ul>

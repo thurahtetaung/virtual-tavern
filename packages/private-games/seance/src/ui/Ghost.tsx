@@ -16,7 +16,7 @@ type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 /** The silent reminder on every ghost screen. */
 export function SilentNote() {
   return (
-    <p className="rounded-xl bg-violet-950 px-3 py-1.5 text-center text-sm text-violet-100 ring-1 ring-special dark:ring-violet-700">
+    <p className="rounded-xl bg-violet-950 px-3 py-1.5 text-center text-sm text-violet-100 ring-1 ring-special">
       🤫 You’re the ghost: not a word, a nod or a sigh. Your pictures do the talking.
     </p>
   );
@@ -168,11 +168,7 @@ function PsychicSheet({
                   onTap={() =>
                     open(at(kindOf(pillar, g.third), p.intuition!, visionStart + p.visions.length))
                   }
-                  className={
-                    p.intuition === target
-                      ? 'ring-2 ring-success dark:ring-emerald-500'
-                      : 'ring-2 ring-danger dark:ring-rose-500'
-                  }
+                  className={p.intuition === target ? 'ring-2 ring-success' : 'ring-2 ring-danger'}
                 />
               </div>
             ) : (
@@ -310,7 +306,7 @@ export function GhostPsychics({
                   </span>
                 </Card>
               ) : (
-                <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-success/15 dark:bg-emerald-600/15 text-2xl">
+                <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-success/15 text-2xl">
                   ✅
                 </div>
               );
@@ -318,10 +314,7 @@ export function GhostPsychics({
               <li key={p.color}>
                 <Panel
                   role="region"
-                  className={cn(
-                    'p-2',
-                    needs && !isAway && 'ring-2 ring-accent dark:ring-amber-400',
-                  )}
+                  className={cn('p-2', needs && !isAway && 'ring-2 ring-accent')}
                   aria-label={`${p.name} (ghost view)`}
                 >
                   {!isOpen && (
@@ -332,7 +325,7 @@ export function GhostPsychics({
                         aria-expanded={false}
                         aria-label={`Show ${p.name}’s row`}
                         onClick={toggle}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent dark:hover:bg-stone-800 dark:focus-visible:outline-amber-500"
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
                       >
                         <Avatar color={p.color} content={content} name={p.name} size="sm" />
                         <span className="min-w-0 flex-1 text-sm leading-tight font-semibold">
@@ -367,7 +360,7 @@ export function GhostPsychics({
                           Choose
                         </Button>
                       ) : pillar && sending && !isEmpty(p) ? (
-                        <span className="shrink-0 rounded-full bg-stone-200 px-2 text-[11px] font-semibold dark:bg-stone-800">
+                        <span className="shrink-0 rounded-full bg-sunk px-2 text-[11px] font-semibold">
                           {p.ready ? 'ready' : 'sent'}
                         </span>
                       ) : null}
@@ -396,7 +389,7 @@ export function GhostPsychics({
                           type="button"
                           onClick={() => setSheet(p.color)}
                           aria-label={`All of ${p.name}’s cards`}
-                          className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent dark:hover:bg-stone-800 dark:focus-visible:outline-amber-500"
+                          className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
                         >
                           <Avatar color={p.color} content={content} name={p.name} size="sm" />
                           <span className="min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
@@ -416,11 +409,11 @@ export function GhostPsychics({
                           </span>
                         </button>
                         {needs ? (
-                          <span className="rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[11px] font-bold text-stone-950">
+                          <span className="rounded-full bg-accent-line px-2 text-[11px] font-bold text-ink">
                             {isAway ? 'away · needs a vision' : 'needs a vision'}
                           </span>
                         ) : pillar && sending && !isEmpty(p) ? (
-                          <span className="rounded-full bg-stone-200 px-2 text-[11px] font-semibold dark:bg-stone-800">
+                          <span className="rounded-full bg-sunk px-2 text-[11px] font-semibold">
                             {p.ready ? 'ready' : 'sent'}
                           </span>
                         ) : null}
@@ -429,7 +422,7 @@ export function GhostPsychics({
                         <div
                           tabIndex={0}
                           role="group"
-                          className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+                          className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                           aria-label={`What ${p.name} holds`}
                         >
                           {p.visions.map((v, i) => (
@@ -453,8 +446,8 @@ export function GhostPsychics({
                                 onTap={() => open(cards.length - 1)}
                                 className={cn(
                                   p.intuition === target
-                                    ? 'ring-2 ring-success dark:ring-emerald-500'
-                                    : 'ring-2 ring-danger dark:ring-rose-500',
+                                    ? 'ring-2 ring-success'
+                                    : 'ring-2 ring-danger',
                                 )}
                               />
                             </div>
@@ -522,7 +515,7 @@ export function HandCards({
       <ul
         aria-label={label}
         tabIndex={0}
-        className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:px-0 2xl:grid-cols-4 dark:focus-visible:outline-amber-500"
+        className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:px-0 2xl:grid-cols-4"
       >
         {hand.map((c, i) => (
           <li
@@ -576,7 +569,7 @@ export function GhostHand({
           🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
         </Button>
       </div>
-      <p className="text-xs text-stone-600 dark:text-stone-400">
+      <p className="text-xs text-ink-muted">
         {raven
           ? `Tap Throw away on the cards to lose, then draw back up to 7.${g.difficulty === 'easy' ? ' One raven per hour.' : ''}`
           : 'Tap a card to see it full screen. To send one, tap Choose on a psychic.'}

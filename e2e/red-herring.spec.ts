@@ -79,7 +79,7 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
     const picker = order[0]!;
     const conspirator = pages[(k + 2) % 4]!;
     await expect(ana.getByTestId('rh-round')).toHaveText(`Round ${k + 1} of 8`);
-    await writeWord(picker, `Clue${k + 1}`);
+    await writeWord(picker, `Clue${k + 1}`, k === 0);
     // Everyone but the Conspirator reads the word; the Conspirator's page has no word.
     if (k < 2)
       for (const p of order.slice(1))

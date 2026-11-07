@@ -10,6 +10,7 @@ import {
   ChoicePicker,
   Countdown,
   Hint,
+  Input,
   LobbySettings,
   Panel,
   PlayerTag,
@@ -17,13 +18,17 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  TabBar,
   Superlatives,
   Switch,
   cn,
+  tabPanelProps,
   useAbandonGame,
   useConfirm,
   useSpectatorPrompt,
   EndTabs,
+  Fold,
+  usePhone,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -44,6 +49,7 @@ import {
 import { type Art, artFor, useManifest } from './assets.ts';
 import { BoardView, ClueStrip, PAGE_BELOW, SetPicker, useRoomBelow } from './Board.tsx';
 import { type NameOf, andList, statusFor } from './status.ts';
+import { PhoneFill } from './fill.tsx';
 
 export type IconicUiProps = GameUiProps<IconicView, IconicAction>;
 type Act = IconicUiProps['act'];
@@ -52,8 +58,7 @@ type Act = IconicUiProps['act'];
 const LEVEL_CHIP: Record<Level, string> = {
   easy: 'bg-sky-100 text-sky-900 ring-sky-300 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40', // vt-palette
   hard: 'bg-red-100 text-red-900 ring-red-300 dark:bg-red-500/15 dark:text-red-100 dark:ring-red-500/40', // vt-palette
-  challenging:
-    'bg-stone-200 text-stone-900 ring-stone-400 dark:bg-stone-700/60 dark:text-stone-100 dark:ring-stone-500',
+  challenging: 'bg-sunk text-ink ring-line-strong',
 };
 
 export function IconicGame({
@@ -163,6 +168,7 @@ const TIPS_KEY = 'iconic.tips.v1';
  * `compact` is the wide screen's: small print with Got it in its heading, so the column fits.
  */
 function Tips({ view, you, compact }: { view: IconicView; you: string; compact?: boolean }) {
+  const phone = usePhone();
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
@@ -173,6 +179,7 @@ function Tips({ view, you, compact }: { view: IconicView; you: string; compact?:
   const r = view.game!.round;
   if (seen || r.stage !== 'clue' || !view.game!.order.includes(you)) return null;
   const giving = r.givers.includes(you) || r.helper === you;
+  const fold = !compact && phone;
   const gotIt = (
     <Button
       variant="ghost"
@@ -190,21 +197,8 @@ function Tips({ view, you, compact }: { view: IconicView; you: string; compact?:
       Got it
     </Button>
   );
-  return (
-    <aside
-      className={cn(
-        'flex shrink-0 flex-col rounded-2xl bg-info-soft text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
-        compact ? 'gap-1 px-3 py-2 text-xs' : 'gap-2 px-4 py-3 text-sm',
-      )}
-    >
-      {compact ? (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold">New here? Three things to know</p>
-          {gotIt}
-        </div>
-      ) : (
-        <p className="font-semibold">New here? Three things to know</p>
-      )}
+  const lists = (
+    <>
       {giving ? (
         <ul className={cn('list-disc pl-5', compact ? 'space-y-0.5' : 'space-y-1')}>
           <li>
@@ -224,6 +218,32 @@ function Tips({ view, you, compact }: { view: IconicView; you: string; compact?:
           <li>Stuck? Tap Give up; when everyone has, the word is dropped.</li>
         </ul>
       )}
+    </>
+  );
+  // Phones keep the play screen to one screen: the tips wait in a closed fold.
+  if (fold)
+    return (
+      <Fold summary="New here? Three things to know" bodyClassName="flex flex-col gap-2 text-sm">
+        {lists}
+        {gotIt}
+      </Fold>
+    );
+  return (
+    <aside
+      className={cn(
+        'flex shrink-0 flex-col rounded-2xl bg-info-soft text-info-ink ring-1 ring-info-line',
+        compact ? 'gap-1 px-3 py-2 text-xs' : 'gap-2 px-4 py-3 text-sm',
+      )}
+    >
+      {compact ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold">New here? Three things to know</p>
+          {gotIt}
+        </div>
+      ) : (
+        <p className="font-semibold">New here? Three things to know</p>
+      )}
+      {lists}
       {!compact && gotIt}
     </aside>
   );
@@ -251,7 +271,7 @@ function Choice<T extends string | number | null>({
   return (
     <fieldset className="flex flex-col gap-1.5" data-testid={testId}>
       <legend className="text-sm font-semibold">{label}</legend>
-      {help && <p className="text-xs text-ink-muted dark:text-stone-400">{help}</p>}
+      {help && <p className="text-xs text-ink-muted">{help}</p>}
       <div className="flex flex-wrap gap-1.5">
         {options.map(([v, text]) => (
           <button
@@ -263,8 +283,8 @@ function Choice<T extends string | number | null>({
             className={cn(
               'rounded-full px-3 py-1 text-sm font-medium ring-1 transition-colors disabled:cursor-default',
               value === v
-                ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/50'
-                : 'bg-panel text-stone-700 ring-line enabled:hover:bg-card dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700',
+                ? 'bg-accent-soft text-accent-text ring-accent-line'
+                : 'bg-panel text-ink-2 ring-line enabled:hover:bg-card',
             )}
           >
             {text}
@@ -362,7 +382,7 @@ function Lobby({
           </ul>
         </div>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((x) => (
               <PlayerTag key={x.id} name={x.name} />
@@ -374,7 +394,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           Clue givers describe a secret word with pieces on a board of icons; everyone else guesses.{' '}
           {pair ? 'Two clue givers' : 'One clue giver'} per word.
         </p>
@@ -484,7 +504,7 @@ function Lobby({
             />
           ))}
           {noWords && (
-            <p className="text-sm text-warn-ink dark:text-amber-200">
+            <p className="text-sm text-warn-ink">
               No word list is tagged for this game yet: an admin can add some.
             </p>
           )}
@@ -526,11 +546,11 @@ function Play({
   const g = view.game!;
   const r = g.round;
   const target = view.settings.length === 'twelve' ? ` of ${WORDS_TO_END}` : '';
-  // Wide screens put the scores beside the board while clues are given (see Clue).
-  const scoresBeside = useWide() && r.stage === 'clue';
+  // While clues are given the scores sit beside the board (wide) or in their own tab (phones).
+  const scoresBeside = r.stage === 'clue';
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span>
           Round {r.no} · Words guessed {g.wordsGuessed}
           {target}
@@ -607,7 +627,7 @@ function WordCard({
     <div className="grid gap-2 sm:grid-cols-3" data-testid="ic-card">
       {LEVELS.map((level) => (
         <div key={level} className="flex flex-col gap-1.5">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-stone-400">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
             {LEVEL_LABELS[level]}
           </h4>
           {card.map((w, i) =>
@@ -621,9 +641,8 @@ function WordCard({
                 className={cn(
                   'min-h-10 rounded-lg px-3 py-1.5 text-left text-sm font-semibold ring-1 transition disabled:cursor-default',
                   LEVEL_CHIP[level],
-                  (pick === i || chosen === w.word) && 'ring-2 ring-accent dark:ring-amber-400',
-                  proposed === i &&
-                    'outline-2 outline-offset-2 outline-dashed outline-accent dark:outline-amber-400',
+                  (pick === i || chosen === w.word) && 'ring-2 ring-accent',
+                  proposed === i && 'outline-2 outline-offset-2 outline-dashed outline-accent',
                 )}
               >
                 {w.word}
@@ -673,7 +692,7 @@ function Choose({
         <p className="text-lg font-semibold">
           {andList(r.givers.map(name))} {pair ? 'are' : 'is'} picking a word from their card
         </p>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {waitingFor(r.givers, room.players, { you: room.you })}
         </p>
         {clock}
@@ -707,58 +726,62 @@ function Choose({
         {...(!theirProposal && !mustWait && { onPick: setPick })}
       />
       {theirProposal ? (
-        <div className="flex flex-col gap-2 rounded-xl bg-accent-soft p-3 ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40">
+        <div className="flex flex-col gap-2 rounded-xl bg-accent-soft p-3 ring-1 ring-accent-line">
           <p>
             {name(proposal.by)} proposes <b>“{card[proposal.index]!.word}”</b>.
             {(secret?.vetoes ?? 0) > 0 && ' This is the second pick: a veto keeps it anyway.'}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void act({ type: 'agree' }, { anchor: 'ic-choose' })}>
-              Agree
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void act({ type: 'veto' }, { anchor: 'ic-choose' })}
-            >
-              {(secret?.vetoes ?? 0) > 0 ? 'Veto (it stands)' : 'Veto: I’ll pick'}
-            </Button>
-          </div>
+          <StickyBar fixed refusal="ic-choose" refusalKey={`${r.no}`}>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void act({ type: 'agree' }, { anchor: 'ic-choose' })}>
+                Agree
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void act({ type: 'veto' }, { anchor: 'ic-choose' })}
+              >
+                {(secret?.vetoes ?? 0) > 0 ? 'Veto (it stands)' : 'Veto: I’ll pick'}
+              </Button>
+            </div>
+          </StickyBar>
         </div>
       ) : mustWait ? (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {proposal
             ? `Waiting for ${name(partner)} to agree or veto.`
             : `${name(partner)} picks now.`}
         </p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={pick === null}
-            onClick={() => {
-              if (pick === null) return;
-              void act({ type: 'pick', index: pick }, { anchor: 'ic-choose' });
-              setPick(null);
-            }}
-          >
-            {pick === null
-              ? 'Tap a word'
-              : pair
-                ? `Propose “${card[pick]!.word}”`
-                : `Give clues for “${card[pick]!.word}”`}
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={!!secret?.rerolled}
-            onClick={() => {
-              setPick(null);
-              void act({ type: 'reroll' }, { anchor: 'ic-choose' });
-            }}
-          >
-            {secret?.rerolled ? 'New card used' : '🔄 New card (once)'}
-          </Button>
-        </div>
+        <StickyBar fixed refusal="ic-choose" refusalKey={`${r.no}`}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={pick === null}
+              onClick={() => {
+                if (pick === null) return;
+                void act({ type: 'pick', index: pick }, { anchor: 'ic-choose' });
+                setPick(null);
+              }}
+            >
+              {pick === null
+                ? 'Tap a word'
+                : pair
+                  ? `Propose “${card[pick]!.word}”`
+                  : `Give clues for “${card[pick]!.word}”`}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!!secret?.rerolled}
+              onClick={() => {
+                setPick(null);
+                void act({ type: 'reroll' }, { anchor: 'ic-choose' });
+              }}
+            >
+              {secret?.rerolled ? 'New card used' : '🔄 New card (once)'}
+            </Button>
+          </div>
+        </StickyBar>
       )}
-      <RefusalSlot anchor="ic-choose" resetKey={`${r.no}`} />
+      {mustWait && !theirProposal && <RefusalSlot anchor="ic-choose" resetKey={`${r.no}`} />}
     </Panel>
   );
 }
@@ -780,7 +803,7 @@ function Clue({
   const inTeam = r.givers.includes(room.you) || r.helper === room.you;
   const isGiver = r.givers.includes(room.you);
   const [chosenSet, setActive] = useState<SetId>('main');
-  const [tab, setTab] = useState<'board' | 'guesses'>(inTeam ? 'board' : 'guesses');
+  const [tab, setTab] = useState<ClueTab>(inTeam ? 'board' : 'guesses');
   const [confirm, dialog] = useConfirm();
   // Back to the main set whenever its marker is off the board (a wipe, a new word).
   const active: SetId = r.board.main.marker !== null ? chosenSet : 'main';
@@ -803,10 +826,10 @@ function Clue({
     />
   );
   const controls = inTeam && (
-    <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-800/60 dark:ring-stone-700">
+    <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line">
       <p className="text-sm">
         Your word: <b data-testid="ic-answer">“{answer}”</b>
-        <span className="ml-1 text-xs text-ink-muted dark:text-stone-400">
+        <span className="ml-1 text-xs text-ink-muted">
           ({LEVEL_LABELS[r.secret!.answer!.level]})
         </span>
       </p>
@@ -841,7 +864,7 @@ function Clue({
         )}
         {isGiver && r.helperOpen && <InviteHelper view={view} room={room} act={act} name={name} />}
       </div>
-      <p className="text-xs text-ink-muted dark:text-stone-400">
+      <p className="text-xs text-ink-muted">
         Tap an icon to place; tap again to stack; long-press or right-click to take one off.
       </p>
       <RefusalSlot anchor="ic-board" />
@@ -860,7 +883,9 @@ function Clue({
       })}
     />
   );
-  const guesses = <Guesses view={view} room={room} act={act} name={name} confirm={confirm} />;
+  const guesses = (
+    <Guesses view={view} room={room} act={act} name={name} confirm={confirm} withForm={wide} />
+  );
   if (wide)
     // Wide screens: the whole board on the left, sized to the window, and everything else beside
     // it in a column of the same height, where the guess list takes what's left and scrolls.
@@ -889,43 +914,52 @@ function Clue({
       <Tips view={view} you={room.you} />
       <div className="flex justify-end">{clock}</div>
       <ClueStrip board={r.board} art={art} />
-      <div role="tablist" aria-label="View" className="grid grid-cols-2 gap-1">
-        {(
-          [
-            ['board', '🧩 Board'],
-            [
-              'guesses',
-              `💬 Guesses (${r.guesses.length})${isGiver && unjudged ? ` · ${unjudged} new` : ''}`,
-            ],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            className={cn(
-              'rounded-lg py-2 text-sm font-semibold ring-1',
-              tab === k
-                ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/50'
-                : 'bg-panel text-stone-600 ring-line dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}>
+      <Panel
+        className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'board')}
+      >
         {controls}
-        {boardView}
+        {/* Phones: the icons take what the screen has left and scroll inside it. */}
+        <PhoneFill>{boardView}</PhoneFill>
       </Panel>
-      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}>
+      <Panel
+        className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'guesses')}
+      >
         {guesses}
       </Panel>
+      <div
+        className={cn('flex flex-col gap-2', tab !== 'scores' && 'hidden')}
+        {...tabPanelProps(CLUE_TABS_ID, 'scores')}
+      >
+        <Scores view={view} room={room} open />
+        {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+      </div>
+      {isGuessing(view, room.you) && <GuessForm view={view} act={act} />}
+      <TabBar
+        id={CLUE_TABS_ID}
+        label="View"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'board', label: 'Board', icon: 'layout-grid' },
+          {
+            id: 'guesses',
+            label: `Guesses (${r.guesses.length})`,
+            icon: 'message-circle',
+            // The clue givers see how many guesses wait for their judgement.
+            badge: isGiver ? unjudged : 0,
+          },
+          { id: 'scores', label: 'Scores', icon: 'list-ordered' },
+        ]}
+      />
     </>
   );
 }
+
+/** The phone tabs while clues are given. */
+type ClueTab = 'board' | 'guesses' | 'scores';
+const CLUE_TABS_ID = 'iconic-clue';
 
 /** A box as tall as the window below its top, so the page under it never scrolls. */
 function FillWindow({ className, children }: { className: string; children: ReactNode }) {
@@ -984,25 +1018,74 @@ function InviteHelper({
 
 const MARK_TEXT = { wrong: '✗', close: '🤏 close' } as const;
 
+/** Whether `you` types guesses this word (not a clue giver or the helper). */
+const isGuessing = (view: IconicView, you: string) => {
+  const g = view.game!;
+  const r = g.round;
+  return g.order.includes(you) && !r.givers.includes(you) && r.helper !== you;
+};
+
+/**
+ * The guess box and Guess, with its refusal: in the sticky bar on phones (so the board stays in
+ * view), in place in the guesses column on wider screens.
+ */
+function GuessForm({ view, act }: { view: IconicView; act: Act }) {
+  const r = view.game!.round;
+  const [text, setText] = useState('');
+  const send = async () => {
+    const t = text.trim();
+    if (!t) return;
+    if (await act({ type: 'guess', text: t }, { anchor: 'ic-guess' })) setText('');
+  };
+  return (
+    <StickyBar fixed refusal="ic-guess" refusalKey={`${r.no}`}>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send();
+        }}
+      >
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          maxLength={MAX_GUESS_LENGTH}
+          enterKeyHint="send"
+          autoComplete="off"
+          autoCapitalize="none"
+          aria-label="Your guess"
+          placeholder="Type a guess…"
+          className="flex-1"
+        />
+        <Button type="submit" size="lg" disabled={!text.trim()}>
+          Guess
+        </Button>
+      </form>
+    </StickyBar>
+  );
+}
+
 function Guesses({
   view,
   room,
   act,
   name,
   confirm,
+  withForm,
 }: {
   view: IconicView;
   room: GameRoomInfo;
   act: Act;
   name: NameOf;
   confirm: ReturnType<typeof useConfirm>[0];
+  /** The guess box here (wide screens); phones keep it in the sticky bar under both tabs. */
+  withForm: boolean;
 }) {
   const g = view.game!;
   const r = g.round;
   const isGiver = r.givers.includes(room.you);
-  const guessing = g.order.includes(room.you) && !isGiver && r.helper !== room.you;
+  const guessing = isGuessing(view, room.you);
   const gaveUp = r.gaveUp.includes(room.you);
-  const [text, setText] = useState('');
   const list = useRef<HTMLOListElement>(null);
   const flagged = new Set(r.secret?.looksRight ?? []);
   const award = r.secret?.award ?? null;
@@ -1014,11 +1097,6 @@ function Guesses({
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
   }, [count]);
   const guessers = g.order.filter((id) => !r.givers.includes(id) && id !== r.helper);
-  const send = async () => {
-    const t = text.trim();
-    if (!t) return;
-    if (await act({ type: 'guess', text: t }, { anchor: 'ic-guess' })) setText('');
-  };
   return (
     <>
       {award && isGiver && (
@@ -1037,9 +1115,7 @@ function Guesses({
         data-testid="ic-guesses"
       >
         {r.guesses.length === 0 && (
-          <li className="py-4 text-center text-sm text-ink-muted dark:text-stone-400">
-            No guesses yet.
-          </li>
+          <li className="py-4 text-center text-sm text-ink-muted">No guesses yet.</li>
         )}
         {r.guesses.map((x) => (
           <GuessRow
@@ -1056,31 +1132,7 @@ function Guesses({
         ))}
       </ol>
       <RefusalSlot anchor="ic-guesses" />
-      {guessing && (
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send();
-          }}
-        >
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={MAX_GUESS_LENGTH}
-            enterKeyHint="send"
-            autoComplete="off"
-            autoCapitalize="none"
-            aria-label="Your guess"
-            placeholder="Type a guess…"
-            className="min-w-0 flex-1 rounded-lg bg-card px-3 py-2 ring-1 ring-line-strong focus:outline-2 focus:outline-accent dark:bg-stone-800 dark:ring-stone-600"
-          />
-          <Button type="submit" disabled={!text.trim()}>
-            Guess
-          </Button>
-        </form>
-      )}
-      <RefusalSlot anchor="ic-guess" resetKey={`${r.no}`} />
+      {guessing && withForm && <GuessForm view={view} act={act} />}
       {guessing && (
         <Button
           variant={gaveUp ? 'secondary' : 'ghost'}
@@ -1091,7 +1143,7 @@ function Guesses({
           {gaveUp ? '↩︎ Take back my give-up' : '🏳️ Give up on this word'}
         </Button>
       )}
-      <p className="text-xs text-ink-muted dark:text-stone-400">
+      <p className="text-xs text-ink-muted">
         {r.gaveUp.length
           ? `Gave up: ${andList(r.gaveUp.map((id) => (id === room.you ? 'you' : name(id))))} (${r.gaveUp.length} of ${guessers.length}). The word is dropped once everyone has.`
           : 'If every guesser gives up, the word is dropped.'}
@@ -1128,14 +1180,13 @@ function GuessRow({
     <li
       className={cn(
         'flex items-center gap-2 rounded-lg px-2 py-1 text-sm',
-        flagged &&
-          'bg-success-soft ring-1 ring-success-line dark:bg-emerald-500/10 dark:ring-emerald-500/40',
-        pending && 'ring-2 ring-success dark:ring-emerald-400',
+        flagged && 'bg-success-soft ring-1 ring-success-line',
+        pending && 'ring-2 ring-success',
         guess.mark === 'wrong' && 'opacity-60',
       )}
       data-guess={guess.id}
     >
-      <span className="w-16 shrink-0 truncate text-xs text-ink-muted dark:text-stone-400">
+      <span className="w-16 shrink-0 truncate text-xs text-ink-muted">
         {guess.by === you ? 'You' : name(guess.by)}
       </span>
       <span
@@ -1147,9 +1198,7 @@ function GuessRow({
         {guess.text}
       </span>
       {flagged && judge && (
-        <span className="text-xs font-semibold text-success-ink dark:text-emerald-300">
-          looks right
-        </span>
+        <span className="text-xs font-semibold text-success-ink">looks right</span>
       )}
       {judge ? (
         <span className="flex shrink-0 gap-1">
@@ -1186,7 +1235,7 @@ function GuessRow({
         </span>
       ) : (
         guess.mark && (
-          <span className="shrink-0 text-xs font-semibold text-stone-600 dark:text-stone-300">
+          <span className="shrink-0 text-xs font-semibold text-ink-muted">
             {MARK_TEXT[guess.mark]}
           </span>
         )
@@ -1217,11 +1266,8 @@ function MarkButton({
       onClick={onClick}
       className={cn(
         'flex size-9 items-center justify-center rounded-lg text-base font-bold ring-1 transition-colors',
-        on
-          ? 'bg-accent-soft ring-accent dark:bg-amber-500/25 dark:ring-amber-400'
-          : 'bg-card ring-line hover:bg-panel dark:bg-stone-800 dark:ring-stone-600',
-        right &&
-          'ml-1 text-success-ink ring-success-line dark:text-emerald-300 dark:ring-emerald-500/50',
+        on ? 'bg-accent-soft ring-accent' : 'bg-card ring-line hover:bg-panel',
+        right && 'ml-1 text-success-ink ring-success-line',
       )}
     >
       {label}
@@ -1243,7 +1289,7 @@ function AwardBanner({
   onUndo: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-sm ring-1 ring-success-line dark:bg-emerald-500/10 dark:ring-emerald-500/40">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-sm ring-1 ring-success-line">
       <span className="flex-1">
         ✓ <b>“{guess?.text}”</b> by {name(guess?.by)} counts in a moment.
       </span>
@@ -1281,7 +1327,7 @@ function Reveal({
         className="ic-reveal flex flex-col items-center gap-2 text-center"
         data-testid="ic-reveal"
       >
-        <p className="text-sm uppercase tracking-wide text-ink-muted dark:text-stone-400">
+        <p className="text-sm uppercase tracking-wide text-ink-muted">
           The word was · {LEVEL_LABELS[res.level]}
         </p>
         <p className="text-3xl font-black">“{res.word}”</p>
@@ -1305,9 +1351,7 @@ function Reveal({
         />
         {r.card && (
           <details className="w-full text-left">
-            <summary className="cursor-pointer text-sm text-stone-600 dark:text-stone-400">
-              The whole card
-            </summary>
+            <summary className="cursor-pointer text-sm text-ink-muted">The whole card</summary>
             <div className="mt-2">
               <WordCard card={r.card} chosen={res.word} />
             </div>
@@ -1319,7 +1363,7 @@ function Reveal({
   );
 }
 
-function Scores({ view, room }: { view: IconicView; room: GameRoomInfo }) {
+function Scores({ view, room, open }: { view: IconicView; room: GameRoomInfo; open?: boolean }) {
   const g = view.game!;
   const scoring = view.settings.scoring;
   const rows = g.players
@@ -1327,7 +1371,7 @@ function Scores({ view, room }: { view: IconicView; room: GameRoomInfo }) {
     .map((p) => ({ ...p, value: scoring ? p.score : p.guessed }))
     .sort((a, b) => b.value - a.value);
   return (
-    <details className="rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-line dark:bg-stone-800/60 dark:ring-stone-700">
+    <details className="rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-line" open={open}>
       <summary className="cursor-pointer font-semibold">
         {scoring ? 'Scores' : 'Words guessed'}
       </summary>
@@ -1390,7 +1434,7 @@ function End({
                   {g.history.map((h) => (
                     <li key={h.no} className="flex flex-wrap gap-x-2">
                       <span className="font-semibold">“{h.word}”</span>
-                      <span className="text-ink-muted dark:text-stone-400">
+                      <span className="text-ink-muted">
                         {h.outcome === 'guessed'
                           ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
                           : `dropped (clues by ${andList(h.givers.map(name))})`}

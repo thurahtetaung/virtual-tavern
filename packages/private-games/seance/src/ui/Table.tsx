@@ -18,11 +18,11 @@ export function Clock({ g }: { g: GameView }) {
           className={cn(
             'flex h-7 min-w-7 flex-1 items-center justify-center rounded-md px-1 font-serif text-xs font-bold',
             h < g.hour
-              ? 'bg-stone-300 text-ink-muted dark:bg-stone-700 dark:text-stone-400'
+              ? 'bg-stone-300 text-ink-muted dark:bg-stone-700'
               : h === g.hour
-                ? 'bg-special dark:bg-violet-700 text-white ring-2 ring-special-line dark:ring-violet-500'
-                : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
-            h === HOURS && h !== g.hour && 'ring-1 ring-danger/60 dark:ring-rose-400/60',
+                ? 'bg-special text-white ring-2 ring-special-line'
+                : 'bg-sunk text-ink-muted',
+            h === HOURS && h !== g.hour && 'ring-1 ring-danger/60',
           )}
         >
           {roman(h)}
@@ -87,7 +87,7 @@ export function Progress({
                     }
                   >
                     {found !== undefined && (
-                      <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-700 px-1 text-[10px] font-bold text-white">
+                      <span className="absolute right-0.5 bottom-0.5 rounded bg-success px-1 text-[10px] font-bold text-white">
                         ✓
                       </span>
                     )}
@@ -98,9 +98,7 @@ export function Progress({
                     aria-label={`${content.pillarName(pillar)} not found yet`}
                     className={cn(
                       'flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed text-lg',
-                      i === p.step
-                        ? 'border-special dark:border-violet-400 bg-special/10 dark:bg-violet-500/10'
-                        : 'border-stone-300 opacity-60 dark:border-stone-700',
+                      i === p.step ? 'border-special bg-special/10' : 'border-line opacity-60',
                     )}
                   >
                     {content.pillarIcon(pillar)}
@@ -230,11 +228,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
                         `Hour ${roman(hour)}`,
                       )
                     }
-                    className={
-                      v.correct
-                        ? 'ring-2 ring-success dark:ring-emerald-500'
-                        : 'ring-2 ring-danger dark:ring-rose-500'
-                    }
+                    className={v.correct ? 'ring-2 ring-success' : 'ring-2 ring-danger'}
                   />
                 </span>
               )}
@@ -257,7 +251,7 @@ export function TableTab({ view, content }: { view: SeanceView; content: Content
     <Panel className="space-y-3 p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">Hour {roman(g.hour)} / VII</h3>
-        <p className="text-xs text-stone-600 dark:text-stone-400">
+        <p className="text-xs text-ink-muted">
           🐦‍⬛ Ravens:{' '}
           {g.difficulty === 'easy'
             ? `1 per hour${g.ravenHour === g.hour ? ' (used)' : ''}`

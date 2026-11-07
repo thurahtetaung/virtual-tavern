@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { keepAll, myTurn, readyAll, recruit, show, table } from './encore-play.ts';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // The e2e server's rig deals known hands every round (see encore-play.ts).
@@ -88,6 +89,8 @@ test('2 players on phones: recruiting costs a chip and keeps the turn, and no ch
   await expect(ana.getByText(/nothing beats Ben’s 9-9-9-9, so recruit/)).toBeVisible();
   await expect(ana.getByTestId('en-recruit-show')).toHaveCount(0);
   await expect(ana.getByTestId('en-recruit')).toHaveText('🤝 Recruit (3 chips left)');
+  // A turn: the table's set, the hand and the actions in the bar on one screen.
+  await expectPhoneFit(ana, 'encore play');
   await recruit(ana, 0, { turn: true, button: /^Pay a chip and recruit it here$/ });
   await expect(ana.getByTestId('en-recruit')).toHaveText('🤝 Recruit (2 chips left)');
   await recruit(ana, 11, { turn: true, button: /^Pay a chip and recruit it here$/ });

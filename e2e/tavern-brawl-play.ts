@@ -4,6 +4,7 @@ import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { openSettings } from './lobby-settings.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a
 // room, and a "play whatever is asked" loop that finishes a game from the players' screens.
@@ -100,12 +101,10 @@ export async function pickHero(p: Page, hero: string, byId = false) {
 /** The Play button under the hand. */
 export const dock = (p: Page) => p.getByRole('group', { name: 'Play a card' }).getByRole('button');
 
-const seq = async (p: Page) => (await p.locator('[data-seq]').getAttribute('data-seq')) ?? '';
-
-/** Waits until the table on `p` has moved on from `before`. */
-async function movedOn(p: Page, before: string) {
-  await expect.poll(() => seq(p), { timeout: 10_000, intervals: [50] }).not.toBe(before);
-}
+const seq = async (p: Page) => {
+  const table = p.locator('[data-seq]');
+  return (await table.count()) ? ((await table.getAttribute('data-seq')) ?? '') : '';
+};
 
 export const isOver = async (p: Page) => {
   const counts = await Promise.all([
@@ -118,6 +117,16 @@ export const isOver = async (p: Page) => {
   ]);
   return counts.some((n) => n > 0);
 };
+
+/** Waits until the table on `p` has moved on from `before`, or the brawl is over (on a phone the end screen keeps the table in a tab). */
+async function movedOn(p: Page, before: string) {
+  await expect
+    .poll(async () => (await isOver(p)) || (await seq(p)) !== before, {
+      timeout: 10_000,
+      intervals: [50],
+    })
+    .toBe(true);
+}
 
 type Ask = 'social' | 'choice' | 'card' | null;
 
@@ -187,6 +196,8 @@ export async function fullBrawl(browser: Browser, heroes: string[], names: strin
   if (zone) await expect(pages[0]!.getByText(/Five or more players/)).toBeVisible();
   await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
   await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
+  // Six seats is the tightest table: the roster, the played zone, the hand and Play in the bar.
+  if (pages.length === 6) await expectPhoneFit(pages[0]!, 'tavern brawl 6 seats');
   // A ghost haunts only when a knocked-out seat's turn comes round before the end, and on the test
   // hit points about one game in ten knocks everyone out within a round. Such a game says nothing
   // about ghosts, so the table plays again (at most five games: all five missing is below 1 in

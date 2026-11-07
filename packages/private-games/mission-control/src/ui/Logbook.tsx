@@ -61,10 +61,7 @@ export function MissionTags({
   return (
     <span className={cn('flex flex-wrap gap-1', className)}>
       {tags.map((t) => (
-        <span
-          key={t}
-          className="rounded-full bg-panel px-2 py-0.5 text-xs ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
-        >
+        <span key={t} className="rounded-full bg-panel px-2 py-0.5 text-xs ring-1 ring-line">
           {say(t)}
         </span>
       ))}
@@ -100,18 +97,14 @@ export function DepthStrip({
       <div
         role="img"
         aria-label={`${done} of ${total} missions done`}
-        className="flex h-3 gap-px overflow-hidden rounded-full bg-panel ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
+        className="flex h-3 gap-px overflow-hidden rounded-full bg-panel ring-1 ring-line"
       >
         {voyage.missions.map((m) => (
           <span
             key={m.n}
             className={cn(
               'h-full flex-1',
-              campaign?.log[m.n]?.done
-                ? 'bg-info dark:bg-sky-500'
-                : m.n === next
-                  ? 'bg-accent-line dark:bg-amber-600/70'
-                  : '',
+              campaign?.log[m.n]?.done ? 'bg-info' : m.n === next ? 'bg-accent-line' : '',
             )}
           />
         ))}
@@ -201,15 +194,14 @@ export function Logbook({
     );
     const classes = cn(
       'flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left',
-      selected &&
-        'bg-accent-soft ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40',
+      selected && 'bg-accent-soft ring-1 ring-accent-line',
     );
     return (
       <li key={m.n} data-testid={`logbook-${m.n}`} className={cn(folded(selected))}>
         {onChoose ? (
           <button
             type="button"
-            className={cn(classes, 'min-h-11 hover:bg-panel dark:hover:bg-stone-800')}
+            className={cn(classes, 'min-h-11 hover:bg-panel')}
             aria-pressed={selected}
             onClick={() => onChoose(m.n === next ? null : m.n)}
           >
@@ -226,7 +218,7 @@ export function Logbook({
     <div className="space-y-3" data-testid="logbook">
       <DepthStrip voyage={voyage} campaign={campaign} />
       {picked !== next && (
-        <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30">
+        <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
           🎯 {missionLabel(picked, voyage.missions.find((x) => x.n === picked)?.label)} is out of
           order: it plays as practice and doesn’t change the attempt counts.
         </p>
@@ -240,8 +232,7 @@ export function Logbook({
               disabled={!onChoose}
               className={cn(
                 'flex min-h-11 w-full items-start gap-3 rounded-xl px-2 py-2 text-left disabled:cursor-default',
-                picked === EPILOGUE &&
-                  'bg-accent-soft ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40',
+                picked === EPILOGUE && 'bg-accent-soft ring-1 ring-accent-line',
               )}
               onClick={() => onChoose?.(EPILOGUE === next ? null : EPILOGUE)}
               data-testid="logbook-epilogue"

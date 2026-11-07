@@ -149,3 +149,9 @@ export async function settle(pages: Page[], round: number, turn: number, turns: 
 export async function readyAll(pages: Page[]) {
   for (const p of pages) await p.getByRole('button', { name: 'Ready', exact: true }).click();
 }
+
+/** Phones and tablets show the game in tabs (Play, Table, Scores); wider screens show it all. */
+export async function showTab(p: Page, name: 'Play' | 'Table' | 'Scores') {
+  if ((p.viewportSize()?.width ?? 1280) < 1024)
+    await p.getByRole('tab', { name, exact: true }).click();
+}

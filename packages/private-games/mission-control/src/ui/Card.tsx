@@ -31,7 +31,7 @@ export function CardChip({ card, className }: { card: CardId; className?: string
       role="img"
       aria-label={cardName(card, names.trump)}
       className={cn(
-        'inline-flex items-baseline gap-0.5 rounded-md bg-card px-1 font-bold tabular-nums ring-1 ring-line dark:bg-stone-100',
+        'inline-flex items-baseline gap-0.5 rounded-md bg-card px-1 font-bold tabular-nums ring-1 ring-line',
         className,
       )}
       style={{ color: look.color }}
@@ -113,13 +113,13 @@ export function CardFace({
     </>
   );
   const classes = cn(
-    'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-line transition dark:ring-stone-600',
+    'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-line transition',
     SIZE[size],
     state === 'dim' && 'opacity-35',
-    state === 'legal' && 'ring-2 ring-accent -translate-y-1 dark:ring-amber-400',
-    state === 'selected' && 'z-10 ring-4 ring-accent -translate-y-2 dark:ring-amber-400',
-    state === 'queued' && 'z-10 ring-4 ring-info -translate-y-1 dark:ring-sky-400',
-    state === 'signalled' && 'ring-2 ring-special dark:ring-violet-400',
+    state === 'legal' && 'ring-2 ring-accent -translate-y-1',
+    state === 'selected' && 'z-10 ring-4 ring-accent -translate-y-2',
+    state === 'queued' && 'z-10 ring-4 ring-info -translate-y-1',
+    state === 'signalled' && 'ring-2 ring-special',
   );
   if (!onClick)
     return (
@@ -156,7 +156,7 @@ export function CardBack({ size = 'sm' }: { size?: keyof typeof SIZE }) {
       role="img"
       aria-label="face-down card"
       className={cn(
-        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-panel ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600',
+        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-panel ring-1 ring-line',
         SIZE[size],
       )}
     >

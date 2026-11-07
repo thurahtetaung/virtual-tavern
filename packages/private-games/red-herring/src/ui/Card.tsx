@@ -44,7 +44,7 @@ export function Card({
         <span
           aria-hidden={s !== 'failed'}
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center bg-card font-serif font-bold text-ink ring-1 ring-line ring-inset dark:bg-stone-800 dark:text-stone-100',
+            'absolute inset-0 flex flex-col items-center justify-center bg-card font-serif font-bold text-ink ring-1 ring-line ring-inset',
             big ? 'text-5xl' : 'text-lg',
           )}
         >
@@ -73,8 +73,8 @@ export function Card({
     </>
   );
   const classes = cn(
-    'relative block aspect-[366/512] w-full overflow-hidden rounded-lg bg-stone-200 shadow ring-1 ring-black/10 dark:bg-stone-800',
-    selected && 'ring-4 ring-accent dark:ring-amber-400',
+    'relative block aspect-[366/512] w-full overflow-hidden rounded-lg bg-sunk shadow ring-1 ring-black/10',
+    selected && 'ring-4 ring-accent',
     onClick && 'cursor-pointer transition hover:-translate-y-0.5 motion-reduce:transition-none',
     className,
   );
@@ -111,7 +111,7 @@ export function CardBack({
   return (
     <div
       className={cn(
-        'relative aspect-[366/512] w-full overflow-hidden rounded-lg bg-panel shadow-inner ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+        'relative aspect-[366/512] w-full overflow-hidden rounded-lg bg-panel shadow-inner ring-1 ring-line',
         className,
       )}
       aria-hidden
@@ -139,7 +139,7 @@ export function EmptySlot({ lap, art }: { lap: 1 | 2; art: Art }) {
         className="absolute inset-0 flex items-center justify-center"
         data-testid="rh-empty-slot"
       >
-        <span className="rounded-full bg-card/90 px-2 py-0.5 text-sm font-bold text-ink dark:bg-stone-900/90 dark:text-stone-200">
+        <span className="rounded-full bg-card/90 px-2 py-0.5 text-sm font-bold text-ink">
           {lap === 1 ? 'I' : 'II'}
         </span>
       </span>
@@ -166,12 +166,12 @@ export function DrawPile({
     >
       <span className="relative w-6 shrink-0" aria-hidden>
         {count > 1 && (
-          <span className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-md bg-line ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600" />
+          <span className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-md bg-line ring-1 ring-line" />
         )}
         {count > 0 ? (
           <CardBack art={art} className="rounded-md" />
         ) : (
-          <span className="block aspect-[366/512] w-full rounded-md border border-dashed border-line dark:border-stone-700" />
+          <span className="block aspect-[366/512] w-full rounded-md border border-dashed border-line" />
         )}
       </span>
       <span className="text-sm tabular-nums">

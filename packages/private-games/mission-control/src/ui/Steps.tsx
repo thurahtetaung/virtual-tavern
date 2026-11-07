@@ -132,7 +132,7 @@ export function TokensPanel({
               onClick={() => pick(t.index)}
               className={cn(
                 'w-full rounded-xl text-left',
-                first === t.index && 'ring-2 ring-accent dark:ring-amber-400',
+                first === t.index && 'ring-2 ring-accent',
               )}
             >
               <TaskChip task={t} name={name} you={me} />
@@ -210,7 +210,7 @@ export function HandOverPanel({
               onClick={() => setTask(task === t.index ? null : t.index)}
               className={cn(
                 'w-full rounded-xl text-left',
-                task === t.index && 'ring-2 ring-accent dark:ring-amber-400',
+                task === t.index && 'ring-2 ring-accent',
               )}
             >
               <TaskChip task={t} name={name} showOwner you={me} />
@@ -310,10 +310,7 @@ export function RolesDraft({
         <>
           <ul className="grid gap-2 sm:grid-cols-3">
             {names.map((label, r) => (
-              <li
-                key={r}
-                className="space-y-1 rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700"
-              >
+              <li key={r} className="space-y-1 rounded-xl bg-card p-2 ring-1 ring-line">
                 <p className="text-sm font-semibold">{label}</p>
                 <p className="text-xs">
                   {a.crew

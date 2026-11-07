@@ -71,8 +71,8 @@ function Choice({
       className={cn(
         'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
-          ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-          : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50 disabled:opacity-60 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600 dark:hover:bg-stone-700',
+          ? 'bg-accent text-accent-fg ring-accent'
+          : 'bg-card text-ink-2 ring-line hover:bg-sunk disabled:opacity-60',
       )}
     >
       {children}
@@ -135,7 +135,7 @@ export function Lobby({
             📖 How to play
           </Button>
         </div>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           {seated.length >= 3
             ? `${seated.length} players: one ghost and ${seated.length - 1} psychics.`
             : `${room.gameName ?? 'Séance'} needs 3 to 7 players: one ghost and 2 to 6 psychics.`}
@@ -146,9 +146,7 @@ export function Lobby({
               key={p.id}
               className={cn(
                 'flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm ring-1',
-                p.playing
-                  ? 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600'
-                  : 'pl-3 opacity-60 ring-stone-300',
+                p.playing ? 'bg-card ring-line' : 'pl-3 opacity-60 ring-line',
               )}
             >
               {p.playing && p.color && (
@@ -167,9 +165,7 @@ export function Lobby({
                 </span>
               )}
               {s.ghostMode === 'host' && s.ghostPick === p.id && (
-                <span className="rounded bg-special/20 dark:bg-violet-500/20 px-1 text-xs font-bold">
-                  ghost
-                </span>
+                <span className="rounded bg-special/20 px-1 text-xs font-bold">ghost</span>
               )}
               {!p.playing && <span className="text-xs">watching</span>}
             </li>
@@ -219,8 +215,8 @@ export function Lobby({
                     className={cn(
                       'rounded-full p-0.5 transition disabled:opacity-35',
                       mine
-                        ? 'ring-4 ring-accent dark:ring-amber-500'
-                        : 'ring-1 ring-transparent hover:ring-stone-400',
+                        ? 'ring-4 ring-accent'
+                        : 'ring-1 ring-transparent hover:ring-line-strong',
                     )}
                   >
                     <Avatar color={c} content={content} size="lg" />

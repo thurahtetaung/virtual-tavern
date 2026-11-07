@@ -47,7 +47,7 @@ export function PastGuesses({
       <ul
         tabIndex={0}
         aria-label={`${p.name}’s past guesses`}
-        className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+        className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
       >
         {list.map((x, i) => {
           const label = `hour ${roman(x.hour)}, ${x.correct ? 'right' : 'wrong'}`;
@@ -64,7 +64,7 @@ export function PastGuesses({
                 <div
                   role="img"
                   aria-label={`No ${content.pillarName(x.pillar).toLowerCase()} guess, ${label}`}
-                  className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-xs text-ink-muted dark:border-stone-700"
+                  className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-xs text-ink-muted"
                 >
                   {content.pillarIcon(x.pillar)} —
                 </div>
@@ -76,17 +76,13 @@ export function PastGuesses({
                   note={label}
                   dimmed={!x.correct}
                   onTap={() => look(cards, at[i], `${p.name}’s past guesses`)}
-                  className={
-                    x.correct
-                      ? 'ring-2 ring-success dark:ring-emerald-500'
-                      : 'ring-1 ring-danger dark:ring-rose-500'
-                  }
+                  className={x.correct ? 'ring-2 ring-success' : 'ring-1 ring-danger'}
                 >
                   <span
                     aria-hidden
                     className={cn(
                       'absolute top-0.5 right-0.5 rounded px-0.5 text-[10px] leading-tight font-black text-white',
-                      x.correct ? 'bg-success dark:bg-emerald-700' : 'bg-danger dark:bg-rose-700',
+                      x.correct ? 'bg-success' : 'bg-danger',
                     )}
                   >
                     {x.correct ? '✓' : '✗'}

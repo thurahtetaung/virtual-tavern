@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
@@ -145,9 +145,9 @@ export function Lineup({
             <li key={color}>
               <div
                 className={cn(
-                  'rounded-xl p-2 ring-1 ring-stone-200 dark:ring-stone-800',
+                  'rounded-xl p-2 ring-1 ring-line',
                   (selected || culprit || (myTurn && choice === i)) &&
-                    'ring-2 ring-special bg-special/10 dark:bg-violet-500/10',
+                    'ring-2 ring-special bg-special/10',
                   chosen && !culprit && 'ring-2 ring-danger',
                 )}
                 aria-label={`Group ${i + 1}`}
@@ -213,8 +213,8 @@ export function Lineup({
         })}
       </ul>
       {myTurn && (
-        // Stays in reach above the phone tab bar while the groups scroll past.
-        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-card/95 p-1.5 shadow-lg ring-1 ring-line backdrop-blur lg:bottom-2 dark:bg-stone-900/95 dark:ring-stone-700">
+        // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
+        <StickyBar fixed refusal="seance-vote">
           <Button
             size="lg"
             className="w-full"
@@ -227,7 +227,7 @@ export function Lineup({
               ? 'Tap a group to choose it first'
               : `Cast my vote for group ${cast + 1}`}
           </Button>
-        </div>
+        </StickyBar>
       )}
     </div>
   );
@@ -277,7 +277,7 @@ export function SharedPicker({
           🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
         </Button>
       </div>
-      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-stone-700 dark:text-stone-300">
+      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-ink-2">
         <li className={cn(group !== null && 'line-through opacity-60')}>
           You choose the culprit: pick one group (tap “This is the culprit” on it).
         </li>
@@ -310,7 +310,7 @@ export function SharedPicker({
       </Button>
       {raven ? (
         <>
-          <p className="text-xs text-stone-600 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             Tap Throw away on the cards to lose, then draw back up to 7.
           </p>
           <HandCards
@@ -436,7 +436,7 @@ export function VoteBar({ view, room, act }: { view: SeanceView; room: GameRoomI
   const now = votersNow(g);
   const strict = view.settings.timerMode === 'strict';
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft px-3 py-1.5 text-sm ring-1 ring-special-line dark:bg-violet-500/10 dark:ring-violet-500/30">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft px-3 py-1.5 text-sm ring-1 ring-special-line">
       <p className="min-w-0 flex-1">
         🗳️ Card {f.revealed} of 3 is up.{' '}
         {now.length
@@ -455,7 +455,6 @@ export function VoteBar({ view, room, act }: { view: SeanceView; room: GameRoomI
           Close this round
         </Button>
       )}
-      <RefusalSlot anchor="seance-vote" />
     </div>
   );
 }

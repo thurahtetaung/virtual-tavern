@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { clue, dragCard, handOrder, localArt, myTurn, table, useCard } from './skyfire-play.ts';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // The e2e server's rig deals known hands (see skyfire-play.ts).
@@ -171,6 +172,8 @@ test('5 players on phones: every turn fits the screen without scrolling', async 
     const p = pages[turn % names.length]!;
     await myTurn(p);
     for (const q of pages) await fits(q);
+    // Ana's turn with a full "since" list and four teammates' hands is the tightest.
+    if (turn === names.length) await expectPhoneFit(p, 'skyfire 5 players');
     if (turn < names.length) await clue(p, 1);
   }
 });

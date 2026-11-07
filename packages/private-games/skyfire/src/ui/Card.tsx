@@ -252,23 +252,20 @@ export function Marks({
             </span>
           ))}
           {know.ranks.map((r) => (
-            <span
-              key={r}
-              className="rounded bg-ink px-1 font-bold text-page tabular-nums dark:bg-stone-100 dark:text-stone-900"
-            >
+            <span key={r} className="rounded bg-ink px-1 font-bold text-page tabular-nums">
               {r}
             </span>
           ))}
         </span>
       )}
       {!compact && (know.notColours.length > 0 || know.notRanks.length > 0) && (
-        <span className="text-ink-muted tabular-nums dark:text-stone-400">
+        <span className="text-ink-muted tabular-nums">
           ✕{know.notColours.map((c) => SUIT_SYMBOL[c]).join('')}
           {know.notRanks.join('')}
         </span>
       )}
       {suits && ranks && (suits.length > 1 || ranks.length > 1) && (
-        <span className="text-info-ink tabular-nums dark:text-sky-300">
+        <span className="text-info-ink tabular-nums">
           {suits.map((s) => SUIT_SYMBOL[s]).join('')} {ranks.join('')}
         </span>
       )}

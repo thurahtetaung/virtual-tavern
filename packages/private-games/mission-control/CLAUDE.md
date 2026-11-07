@@ -10,6 +10,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Campaign:** saved per voyage key in state (`campaigns`) and carried into a "Same crew, new game" room through `carry`. Each attempt is one game for the stats recorder; a leaver stops it without counting it.
   - **`view()`:** your own hand only (none during the briefing), the dummy's face-down row as counts, secret predictions only to their holder, passed cards hidden, every dealt hand at the end.
   - **Testing:** `MISSION_CONTROL_TEST_DEAL` (e.g. `hands=p1 p2 …|b1 …;tasks=1,2`) fixes every deal and its tasks.
+  - **Phones:** Play, Mission (the rules) and, in a trick, Logbook (the cards played) on the shared `TabBar`; the trick's moves sit in the fixed `StickyBar` with `mc-play`.
 
 ## Assets
 

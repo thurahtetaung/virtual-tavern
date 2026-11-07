@@ -57,7 +57,7 @@ export function Lobby({
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {view.notice && (
-        <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30">
+        <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line">
           {view.notice}
         </p>
       )}
@@ -129,8 +129,7 @@ export function Lobby({
                   onClick={() => set({ voyageKey: v.key })}
                   className={cn(
                     'h-11 rounded-lg px-3 text-sm font-semibold ring-1 ring-line',
-                    s.voyageKey === v.key &&
-                      'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
+                    s.voyageKey === v.key && 'bg-accent-soft ring-2 ring-accent',
                   )}
                 >
                   {art.campaignName(v)}
@@ -184,8 +183,7 @@ export function Lobby({
                   onClick={() => set({ dummyAfter: i })}
                   className={cn(
                     'h-11 rounded-lg px-3 text-sm ring-1 ring-line',
-                    s.dummyAfter === i &&
-                      'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
+                    s.dummyAfter === i && 'bg-accent-soft ring-2 ring-accent',
                   )}
                 >
                   After {seated[i]!.name}

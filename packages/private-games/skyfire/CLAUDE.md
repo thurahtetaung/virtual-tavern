@@ -11,6 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules (the owner's rulings):** empty clues are allowed unless `zeroClues` is off; host options multicolour, black powder and the expert ending combine. The clue memory setting `memory` drops older clue log entries from `view()`.
   - **`view()`:** every hand but your own (yours as ids and marks only), who clued which card never, the replay at `over`. Safe moves never play a card.
   - **Testing:** `SKYFIRE_TEST_DECK` (e.g. `r1 y1 g5 m3 k5 …`, top first) tops the deck.
+  - **Phones:** Table, Discards and Log on the shared `TabBar`; your hand stays pinned above it.
 
 ## Assets
 
