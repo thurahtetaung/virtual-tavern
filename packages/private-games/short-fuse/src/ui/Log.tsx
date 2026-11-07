@@ -60,7 +60,8 @@ export function Log({ view, c }: { view: ShortFuseView; c: Content }) {
             aria-selected={filter === id}
             onClick={() => setFilter(id)}
             className={cn(
-              'rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+              // 44 px to a finger, the same pills to a mouse.
+              'rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-3.5',
               filter === id
                 ? 'bg-accent-soft text-accent-text ring-accent-line'
                 : 'bg-card text-ink-muted ring-line',
@@ -79,7 +80,7 @@ export function Log({ view, c }: { view: ShortFuseView; c: Content }) {
               e.kind === 'explode' ? 'bg-danger-soft text-danger-ink' : 'text-ink',
             )}
           >
-            <span className="mr-1.5 text-[0.65rem] text-ink-muted">T{e.turn}</span>
+            <span className="mr-1.5 text-xs text-ink-muted">T{e.turn}</span>
             {logLine(view, c, e)}
           </li>
         ))}

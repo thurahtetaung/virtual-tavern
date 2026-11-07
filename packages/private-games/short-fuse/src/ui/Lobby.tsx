@@ -10,6 +10,7 @@ import {
   PlayerTag,
   StickyBar,
   Switch,
+  FoldSummary,
   cn,
   LobbySettings,
 } from '@vt/ui';
@@ -294,9 +295,9 @@ export function Lobby({
       </LobbySettings>
       <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
 
-      <details className="rounded-2xl bg-panel p-4 ring-1 ring-line">
-        <summary className="cursor-pointer font-bold text-ink">Timing and house rules</summary>
-        <div className="mt-3 space-y-3">
+      <details className="group rounded-xl bg-panel ring-1 ring-line">
+        <FoldSummary>⏱️ Timing and house rules</FoldSummary>
+        <div className="space-y-3 px-4 pb-4">
           {!host && <HostOnlyNote />}
           <label className="block">
             <span className="text-sm font-semibold text-ink">{c.name('nope')} countdown</span>
@@ -397,12 +398,10 @@ export function Lobby({
  */
 function RigPanel({ act, rigged }: { act: Act; rigged: boolean }) {
   return (
-    <details className="rounded-2xl bg-panel p-3 text-sm ring-1 ring-line" data-testid="rig">
-      <summary className="cursor-pointer font-semibold text-ink">
-        Test setup {rigged && '(armed)'}
-      </summary>
+    <details className="group rounded-xl bg-panel text-sm ring-1 ring-line" data-testid="rig">
+      <FoldSummary>🧪 Test setup {rigged && '(armed)'}</FoldSummary>
       <form
-        className="mt-2 space-y-2"
+        className="space-y-2 px-4 pb-4"
         onSubmit={(e) => {
           e.preventDefault();
           const text = new FormData(e.currentTarget).get('rig');
