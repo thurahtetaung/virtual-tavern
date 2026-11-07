@@ -867,7 +867,7 @@ function ScoresStep({
   const me = g.players.find((p) => p.id === room.you);
   const open = g.players.filter((p) => !p.done && !p.left);
   return (
-    <section className="en-rise flex flex-col gap-3" aria-label="Round scores">
+    <section className="flex flex-col gap-3" aria-label="Round scores">
       <div
         className="rounded-2xl bg-special-soft p-3 text-special-ink ring-1 ring-special-line"
         data-testid="en-round-end"

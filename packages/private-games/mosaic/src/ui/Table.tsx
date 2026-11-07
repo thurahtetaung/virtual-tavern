@@ -708,7 +708,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       <BoardView
         board={me}
         art={art}
-        size={wide ? 'lg' : 'md'}
+        size={wide ? 'xl' : 'md'}
         owner={me.id}
         grey={!!view.settings.grey}
       />
@@ -717,15 +717,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
-        <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
-          {others
-            .filter((_, i) => i % 2 === 0)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
-        </aside>
-
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start lg:gap-3">
         <div
           className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}
           {...(!wide && tabPanelProps(TABS_ID, 'play'))}
@@ -758,11 +750,9 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </div>
 
         <aside className="hidden flex-col gap-2 lg:flex" aria-label="More players and scores">
-          {others
-            .filter((_, i) => i % 2 === 1)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
+          {others.map((p) => (
+            <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
+          ))}
           <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
             <Scores view={view} room={room} art={art} />
           </div>

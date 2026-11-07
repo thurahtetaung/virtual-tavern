@@ -620,15 +620,9 @@ function GridCard({
       </button>
       <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
         {posName(pos)}
+        {marked && <span aria-hidden> · ✕</span>}
       </span>
-      {marked && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-accent text-sm font-black text-accent-fg shadow"
-        >
-          ✕
-        </span>
-      )}
+
       {fresh && (
         <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
           New

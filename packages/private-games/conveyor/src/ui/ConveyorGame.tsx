@@ -633,10 +633,10 @@ function End({
         ]}
       />
       {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button
             size="lg"
-            className="flex-1"
+            className="min-w-0"
             onClick={() => void act({ type: 'play-again' }, { anchor: 'cv-end' })}
           >
             Play again
@@ -644,6 +644,7 @@ function End({
           <Button
             variant="secondary"
             size="lg"
+            className="min-w-0"
             onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
           >
             Change setup

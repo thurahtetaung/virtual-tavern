@@ -1038,7 +1038,7 @@ function Play({
                 <Button
                   key={id}
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
                   className="ml-1"
                   onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })}
                 >

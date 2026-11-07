@@ -777,7 +777,7 @@ function LocationsBoard({
           )}
           <ul
             aria-label={groups.length > 1 ? g.label : undefined}
-            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]"
           >
             {g.ids.map((id) => {
               const mark = marks[id];
@@ -1023,10 +1023,14 @@ export function MasqueradeBoard({
     <div className="space-y-3">
       <TopBar view={view} room={room} />
       <Nudge view={view} room={room} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div {...panel('play')} className={cn('min-w-0 space-y-3', panel('play').className)}>
           <StatusHint view={view} room={room} />
-          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-3">
+          <FitArea
+            on={view.phase === 'playing' && (wide || (fit && tab === 'play'))}
+            resetKey={stepKey}
+            className="space-y-3"
+          >
             {round?.redealtAfter && round.stage === 'talk' && (
               <p className="text-center text-small text-ink-muted">
                 {round.redealtAfter} left while a spy, so the round was dealt again.
@@ -1084,12 +1088,18 @@ export function MasqueradeBoard({
         </div>
         <div className="min-w-0 space-y-4">
           <div {...panel('locations')}>
-            <FitArea on={fit && tab === 'locations'} resetKey={stepKey}>
+            <FitArea
+              on={view.phase === 'playing' && (wide || (fit && tab === 'locations'))}
+              resetKey={stepKey}
+            >
               <LocationsBoard view={view} display={display} act={act} />
             </FitArea>
           </div>
           <div {...panel('ideas')}>
-            <FitArea on={fit && tab === 'ideas'} resetKey={stepKey}>
+            <FitArea
+              on={view.phase === 'playing' && (wide || (fit && tab === 'ideas'))}
+              resetKey={stepKey}
+            >
               <IdeasBoard view={view} display={display} />
             </FitArea>
           </div>

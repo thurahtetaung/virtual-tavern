@@ -170,7 +170,7 @@ function Segmented<T extends string | number>({
             onClick={() => onChange(o.id)}
             className={cn(
               'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
-              o.id === value ? 'bg-special text-white ring-special' : 'bg-card hover:bg-panel',
+              o.id === value ? 'bg-accent text-accent-fg ring-accent' : 'bg-card hover:bg-panel',
               disabled && o.id !== value && 'opacity-50',
             )}
           >
@@ -202,7 +202,7 @@ function RoleTile({
     <li
       data-testid={`role-${role}`}
       className={cn(
-        'flex w-[6.5rem] flex-col items-center gap-1 rounded-xl p-1.5 ring-1',
+        'flex w-full flex-col items-center gap-1 rounded-xl p-1.5 ring-1',
         count > 0 ? 'bg-special-soft ring-special' : 'ring-line',
       )}
     >
@@ -230,7 +230,7 @@ function RoleTile({
             aria-label={`One less ${deck.name(role)}`}
             disabled={count === 0}
             onClick={() => onChange(count - 1)}
-            className="size-8 rounded-full bg-sunk font-bold disabled:opacity-30"
+            className="size-11 rounded-full bg-sunk font-bold disabled:opacity-30"
           >
             −
           </button>
@@ -240,7 +240,7 @@ function RoleTile({
             aria-label={`One more ${deck.name(role)}`}
             disabled={count >= max}
             onClick={() => onChange(count + 1)}
-            className="size-8 rounded-full bg-sunk font-bold disabled:opacity-30"
+            className="size-11 rounded-full bg-sunk font-bold disabled:opacity-30"
           >
             +
           </button>
@@ -411,7 +411,7 @@ export function Lobby({
     .filter(({ set }) => set !== 'base')
     .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <h3 className="font-bold">
@@ -572,7 +572,7 @@ export function Lobby({
                   {deck.setName(set)}
                   {inSet > 0 && <span className="font-normal">· {inSet} in</span>}
                 </summary>
-                <ul className="flex flex-wrap gap-1.5">
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
                   {roles.map((role) => (
                     <RoleTile
                       key={role}
