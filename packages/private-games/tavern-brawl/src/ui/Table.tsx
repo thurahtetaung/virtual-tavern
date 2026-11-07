@@ -88,7 +88,8 @@ export function statusFor(view: TavernBrawlView, you: string, name: NameOf, art:
         : turn.plays > 0
           ? 'Play one more card (⚡)'
           : 'Your turn: play a card';
-    return { text: `${more}. Tap a card, then Play.`, yourMove: true };
+    // The play bar says how ("Pick a card to play", then "Play …"): the status only says what.
+    return { text: `${more}.`, yourMove: true };
   }
   return {
     text: `${possessive(name(turn.player)).replace(/^./, (x) => x.toUpperCase())} turn…`,
