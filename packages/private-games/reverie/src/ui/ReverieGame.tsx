@@ -755,7 +755,6 @@ function Play({
           </Panel>
         )}
 
-
         {!phoneEnd && tableSection}
 
         {!phoneEnd && results}

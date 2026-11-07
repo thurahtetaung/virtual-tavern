@@ -150,7 +150,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   // Phones show the scores first, the gallery a tab away.
   for (const p of all) {
     // The rack-up counts the money first.
-    await expect(p.getByRole('region', { name: 'Final standings' })).toBeVisible({ timeout: 135_000 });
+    await expect(p.getByRole('region', { name: 'Final standings' })).toBeVisible({
+      timeout: 135_000,
+    });
     await expect(await galleryLot(p, 'Apple')).toBeVisible();
     await expect(await galleryLot(p, 'Fez')).toBeVisible();
     expect(await p.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);

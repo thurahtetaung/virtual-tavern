@@ -100,11 +100,7 @@ function roundStatus(view: StampedeView, round: RoundView, room: StatusRoom, nam
   }
 }
 
-export function statusFor(
-  view: StampedeView,
-  room: StatusRoom,
-  names: Names,
-): Status {
+export function statusFor(view: StampedeView, room: StatusRoom, names: Names): Status {
   const f = (s: string) => fillNames(s, names);
   if (view.phase === 'lobby') {
     // The shared lobby line; a host who can't start yet reads why under Start game.

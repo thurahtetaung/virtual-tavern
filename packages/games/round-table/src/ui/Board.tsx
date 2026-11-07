@@ -71,9 +71,7 @@ export function QuestTrack({
             {!compact && !result && (
               <span className="text-center text-caption leading-tight text-ink-muted">
                 {locked ? '🔒 later' : `team of ${q.size}`}
-                {q.failsNeeded > 1 && !locked && (
-                  <span className="block">needs 2 fails</span>
-                )}
+                {q.failsNeeded > 1 && !locked && <span className="block">needs 2 fails</span>}
               </span>
             )}
           </>

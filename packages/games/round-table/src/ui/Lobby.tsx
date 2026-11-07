@@ -249,7 +249,7 @@ export function Lobby({
             ? ` ✓ right for ${size} players`
             : balanced
               ? ` · right for ${size} players`
-            : ` · ${size} players need ${goodCount(size)} vs ${evilCount(size)}`}
+              : ` · ${size} players need ${goodCount(size)} vs ${evilCount(size)}`}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <RoleColumn side="good" view={view} editable={editable} onToggle={toggle} size={size} />

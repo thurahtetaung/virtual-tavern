@@ -62,7 +62,7 @@ export function StagePage() {
           line={
             roomId
               ? 'This screen is paired with the room. Start the show when everyone can see it.'
-              : 'The host taps the 👥 button in the room\'s header, then 📺 Table screen, and reads you a code. Type it here.'
+              : "The host taps the 👥 button in the room's header, then 📺 Table screen, and reads you a code. Type it here."
           }
           footer={{
             icon: 'tv',

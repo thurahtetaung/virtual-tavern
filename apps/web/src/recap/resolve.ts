@@ -71,5 +71,8 @@ export function resolveTextFor(
     .replaceAll(new RegExp(`${ME} has\\b`, 'g'), 'you have')
     .replaceAll(ME, 'you');
   // A sentence that starts with it starts with a capital.
-  return out.replace(/(^|[.!?]\s+)(you|your)\b/g, (_m, lead: string, w: string) => lead + w[0]!.toUpperCase() + w.slice(1));
+  return out.replace(
+    /(^|[.!?]\s+)(you|your)\b/g,
+    (_m, lead: string, w: string) => lead + w[0]!.toUpperCase() + w.slice(1),
+  );
 }

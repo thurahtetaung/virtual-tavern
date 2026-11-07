@@ -43,10 +43,7 @@ export function statusFor(view: EncoreView, you: string, name: NameOf): Status {
   // The round's number is on the table and the scores just below: this line never repeats it.
   if (g.stage === 'flip')
     return me && !me.done
-      ? f(
-          'Keep your hand as dealt, or turn it all round. Nobody sees which you pick.',
-          true,
-        )
+      ? f('Keep your hand as dealt, or turn it all round. Nobody sees which you pick.', true)
       : f('Everyone is deciding whether to turn their hand round.');
   if (g.stage === 'scores')
     return me && !me.done

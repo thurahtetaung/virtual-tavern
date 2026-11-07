@@ -83,7 +83,10 @@ describe('lobbyStatus', () => {
   });
   it('tells a guest what is missing, else who starts', () => {
     expect(need).toBe('3 players are needed (2 seated).');
-    expect(lobbyStatus({ isHost: false, hostId: 'a', players }, need)).toEqual({ text: need, me: false });
+    expect(lobbyStatus({ isHost: false, hostId: 'a', players }, need)).toEqual({
+      text: need,
+      me: false,
+    });
     expect(lobbyStatus({ isHost: false, hostId: 'a', players }, null)).toEqual({
       text: 'Waiting for Ana (host) to start…',
       me: false,

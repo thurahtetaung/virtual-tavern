@@ -261,7 +261,8 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
         .click();
     }
     await expect(host.getByRole('region', { name: 'Final standings' })).toBeVisible();
-    for (const p of others) await expect(p.getByRole('region', { name: 'Final standings' })).toBeVisible();
+    for (const p of others)
+      await expect(p.getByRole('region', { name: 'Final standings' })).toBeVisible();
     await shoot(others[1]!, 'final');
   } finally {
     await admin.request.delete(`/api/admin/word-lists/${listId}`);

@@ -93,43 +93,43 @@ export function Standings({
         </ol>
       )}
       {table && (
-      <div>
-        <h3 className="mb-1 text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
-          {title}
-        </h3>
-        <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
-          {ranked.map((r) => (
-            <li
-              key={r.entry.id}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2',
-                dense && 'max-lg:py-1 max-lg:text-sm',
-                r.entry.id === you && 'bg-accent-soft',
-              )}
-            >
-              <span className="w-10 shrink-0 font-display text-small font-semibold text-ink-muted tabular-nums">
-                {r.tied ? '=' : ''}
-                {ordinal(r.place)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 font-medium">
-                  <span className="truncate">
-                    {r.entry.name}
-                    {r.entry.id === you && <span className="text-ink-muted"> (you)</span>}
-                  </span>
-                  <NameDot name={r.entry.name} className="order-first" />
-                </span>
-                {r.entry.note && (
-                  <span className="block text-xs text-ink-muted">{r.entry.note}</span>
+        <div>
+          <h3 className="mb-1 text-caption font-semibold tracking-[0.08em] text-ink-muted uppercase">
+            {title}
+          </h3>
+          <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
+            {ranked.map((r) => (
+              <li
+                key={r.entry.id}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2',
+                  dense && 'max-lg:py-1 max-lg:text-sm',
+                  r.entry.id === you && 'bg-accent-soft',
                 )}
-              </span>
-              <span className="shrink-0 font-semibold tabular-nums">
-                {scoreLabel(r.entry.score)}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
+              >
+                <span className="w-10 shrink-0 font-display text-small font-semibold text-ink-muted tabular-nums">
+                  {r.tied ? '=' : ''}
+                  {ordinal(r.place)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1 font-medium">
+                    <span className="truncate">
+                      {r.entry.name}
+                      {r.entry.id === you && <span className="text-ink-muted"> (you)</span>}
+                    </span>
+                    <NameDot name={r.entry.name} className="order-first" />
+                  </span>
+                  {r.entry.note && (
+                    <span className="block text-xs text-ink-muted">{r.entry.note}</span>
+                  )}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {scoreLabel(r.entry.score)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
     </section>
   );

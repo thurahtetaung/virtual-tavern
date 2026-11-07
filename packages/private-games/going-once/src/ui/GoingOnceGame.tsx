@@ -49,13 +49,7 @@ import type { Act } from './act.ts';
 import { soundModeIn } from './audio.ts';
 import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
-import {
-  Auction,
-  GO_TABS,
-  GO_TABS_ID,
-  type GoTab,
-  useSeenDrawings,
-} from './Auction.tsx';
+import { Auction, GO_TABS, GO_TABS_ID, type GoTab, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
 import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';

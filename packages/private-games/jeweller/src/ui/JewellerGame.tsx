@@ -420,17 +420,20 @@ function End({
                         <span className="w-24 truncate">{p.name}</span>
                         <span className="flex items-center gap-1">
                           {/* The "none" dash only for an empty row: nobles follow the cards. */}
-                          {p.reserved.length === 0 ? (
-                            p.nobles.length === 0 && <span className="text-ink-muted">—</span>
-                          ) : (
-                            p.reserved.map((r, i) =>
-                              r.card ? (
-                                <CardTile key={i} id={r.card} art={art} className="!w-16" />
-                              ) : (
-                                <CardBack key={i} level={r.level} art={art} className="h-12 w-10" />
-                              ),
-                            )
-                          )}
+                          {p.reserved.length === 0
+                            ? p.nobles.length === 0 && <span className="text-ink-muted">—</span>
+                            : p.reserved.map((r, i) =>
+                                r.card ? (
+                                  <CardTile key={i} id={r.card} art={art} className="!w-16" />
+                                ) : (
+                                  <CardBack
+                                    key={i}
+                                    level={r.level}
+                                    art={art}
+                                    className="h-12 w-10"
+                                  />
+                                ),
+                              )}
                         </span>
                         <span className="flex items-center gap-1">
                           {p.nobles.map((n) => (

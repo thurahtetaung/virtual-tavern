@@ -1,4 +1,10 @@
-import { type PresencePlayer, listNames, lobbyStatus, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  listNames,
+  lobbyStatus,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { MAX_REJECTIONS, type EndReason, type RoundTableView } from '../logic/types.ts';
 
 export interface Status {

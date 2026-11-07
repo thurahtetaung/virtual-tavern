@@ -112,9 +112,7 @@ describe('status', () => {
       'Good won three quests! EVE, the Assassin, is choosing who they think is Merlin…',
     );
     h.act({ type: 'assassinate', target: 'ana' }, 'eve');
-    expect(statusFor(h.view('ana'), false).text).toBe(
-      'You win!',
-    );
+    expect(statusFor(h.view('ana'), false).text).toBe('You win!');
     expect(statusFor(h.view('eve'), false).text).toMatch(/^You lose\./);
   });
 });

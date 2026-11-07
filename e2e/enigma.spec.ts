@@ -106,9 +106,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
 
   // The scoreboard spells out the round and, in round 1, what its icons mean.
   await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
-  await expect(
-    cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose'),
-  ).toBeVisible();
+  await expect(cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose')).toBeVisible();
 
   // Team chat is private. Hana is Red's first Encryptor, so she stays quiet until the codes are revealed.
   await expect(host.getByText('Your keywords')).toBeVisible();
@@ -258,9 +256,7 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
 
   // The scoreboard spells out the round and, in round 1, what its icons mean.
   await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
-  await expect(
-    cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose'),
-  ).toBeVisible();
+  await expect(cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose')).toBeVisible();
   await expect(host.getByText('Your keywords')).toBeVisible();
 
   const red = [host, ana!];

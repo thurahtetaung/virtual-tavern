@@ -351,7 +351,8 @@ function ReadyToggle({ round, act, room }: { round: RoundView; act: Act; room: G
         </p>
       </StickyBar>
       <p className="text-caption text-ink-muted">
-        The vote starts when everyone taps Ready to vote below, or when the clock runs out. Tap again to undo.
+        The vote starts when everyone taps Ready to vote below, or when the clock runs out. Tap
+        again to undo.
       </p>
     </div>
   );

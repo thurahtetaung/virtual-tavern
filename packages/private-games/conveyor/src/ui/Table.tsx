@@ -182,14 +182,14 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
           <Moments view={view} you={room.you} art={art} name={name} />
           {shown === null && (
             <Others
-        g={g}
-        room={room}
-        art={art}
-        name={name}
-        live={live}
-        zoom={zoom.open}
-        over={view.phase === 'over'}
-      />
+              g={g}
+              room={room}
+              art={art}
+              name={name}
+              live={live}
+              zoom={zoom.open}
+              over={view.phase === 'over'}
+            />
           )}
           {shown === null && me && (
             <MyTray

@@ -325,10 +325,7 @@ function Lobby({
   const set = (patch: Omit<Extract<IconicAction, { type: 'update-settings' }>, 'type'>) =>
     void act({ type: 'update-settings', ...patch }, { anchor: 'ic-lobby' });
   const pair = s.givers === 2 || (s.givers === 'auto' && seated.length >= 5);
-  const blocker =
-    seated.length < MIN_PLAYERS
-      ? playersNeeded(MIN_PLAYERS, seated.length)
-      : null;
+  const blocker = seated.length < MIN_PLAYERS ? playersNeeded(MIN_PLAYERS, seated.length) : null;
   const listsOf = (level: Level) => view.wordLists.filter((l) => s.lists[level].includes(l.id));
   const noWords = LEVELS.find((l) => listsOf(l).length === 0);
   // The shared lobby line; a host who can't start yet reads why under Start game.

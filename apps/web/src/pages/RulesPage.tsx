@@ -93,8 +93,8 @@ function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: Reado
     <>
       <h1 className="text-title font-semibold">How to play</h1>
       <p className="mt-1 mb-4 text-ink-2">
-        Every game here is played on phones, with your friends in the same room or on a call.
-        Filter by what kind of night it is.
+        Every game here is played on phones, with your friends in the same room or on a call. Filter
+        by what kind of night it is.
       </p>
       <CategoryChips
         chips={chips}

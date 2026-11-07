@@ -194,7 +194,10 @@ export function statusFor(
         : { text: "You're watching. Press Take a seat to join the table.", yourMove: false };
     }
     // The shared lobby line; a host who can't start yet reads why under Start game.
-    const s = lobbyStatus({ isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] }, blocker);
+    const s = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      blocker,
+    );
     return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
