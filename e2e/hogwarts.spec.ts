@@ -82,6 +82,9 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
   await expect(host.getByTestId('composition')).toContainText('Sunlit and');
   await host.getByLabel('Claim timer').selectOption('20');
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
+  // The envelope on a phone: the role card, the quick reference and its switches, clear of both bars.
+  await expect(host.getByRole('switch', { name: /Big moments/ })).toBeVisible();
+  await expectPhoneFit(host, 'hogwarts role envelope');
   await readRoles(players);
   expect(players.filter((p) => p.role === 'leader')).toHaveLength(1);
   // On desktop the Me content shows once, in the sidebar (never again under the table).
