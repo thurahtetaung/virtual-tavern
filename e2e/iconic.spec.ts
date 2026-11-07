@@ -200,6 +200,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await expect(first.getByTestId('ic-card')).toHaveCount(0);
   await expect(first.getByText(`${nameOf(giver)} is picking a word`)).toBeVisible();
   await shoot(giver, 'choosing');
+  await expectPhoneFit(giver, 'iconic choose');
   await chooseTestWord(giver);
 
   // Placing: the ? marker first, then cubes (a second tap stacks), right-click takes one off.
