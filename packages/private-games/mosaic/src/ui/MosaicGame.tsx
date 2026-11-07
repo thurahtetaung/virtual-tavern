@@ -79,6 +79,7 @@ export function MosaicGame({
     };
   }, [setYourMove, tabAlert]);
 
+  const wide = useWideScreen();
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -91,18 +92,26 @@ export function MosaicGame({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       <MosaicStyles />
       {view.phase === 'lobby' || !view.game ? (
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && inGame && <Tips art={art} view={view} />}
+          {!wide && view.phase === 'playing' && inGame && <Tips art={art} view={view} />}
           {view.phase === 'over' ? (
             <End view={view} room={room} act={act} art={art} />
           ) : (
-            <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+            <Table
+              view={view}
+              room={room}
+              act={act}
+              art={art}
+              name={name}
+              showGuide={showGuide}
+              tips={wide && inGame ? <Tips art={art} view={view} /> : null}
+            />
           )}
         </>
       )}

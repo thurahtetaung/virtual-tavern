@@ -1,6 +1,7 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   Countdown,
   Modal,
   PlayerTag,
@@ -12,7 +13,7 @@ import {
   tabPanelProps,
   useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
 import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
@@ -84,6 +85,7 @@ export interface TableProps {
   art: Art;
   name: NameOf;
   showGuide: (id?: string) => void;
+  tips?: ReactNode;
 }
 
 type Sheet =
@@ -927,7 +929,7 @@ const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
 ];
 
 /** The whole table: opponents, nobles, the market, the gem piles, the viewer's own area. */
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, tips }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you);
   const playing = view.phase === 'playing';
@@ -1058,14 +1060,19 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         className="hidden min-w-0 flex-col gap-2 lg:col-start-2 lg:row-start-1 lg:flex"
         aria-label="Players"
       >
-        {mePanel}
-        {others.map((p) => (
-          <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
-        ))}
-        {log(true)}
+        <FitArea on={wide} plain min={128}>
+          <div className="space-y-2">
+            {tips}
+            {mePanel}
+            {others.map((p) => (
+              <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
+            ))}
+            {log(true)}
+          </div>
+        </FitArea>
       </aside>
 
-      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1">
+      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(60rem,max(42rem,calc((100dvh-30rem)*2)))]">
         <div {...panel('table')}>
           {playing && (clock?.deadline || g.finalBy) && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

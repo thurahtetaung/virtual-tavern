@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, PlayerTag, RefusalSlot, StickyBar } from '@vt/ui';
+import { Button, FitArea, PlayerTag, RefusalSlot, StickyBar } from '@vt/ui';
 import { useState } from 'react';
 import { lineTile, scoreAt, wallSpaces } from '../logic/rules.ts';
 import { COLOUR_NAME } from '../logic/tiles.ts';
@@ -66,24 +66,26 @@ export function WallStage({
                   <strong>Line {row + 1}</strong>: {why}
                 </span>
               </p>
-              <div className="w-full overflow-x-auto py-1">
-                <BoardView
-                  board={me}
-                  art={art}
-                  size={wide ? 'lg' : 'md'}
-                  owner={me.id}
-                  grey={grey}
-                  spaces={{
-                    row,
-                    cols,
-                    chosen: pickCol,
-                    onPick: (col) => {
-                      if (confirm) setChosen({ row, col });
-                      else void place(col);
-                    },
-                  }}
-                />
-              </div>
+              <FitArea phone plain min={128}>
+                <div className="w-full overflow-x-auto py-1">
+                  <BoardView
+                    board={me}
+                    art={art}
+                    size={wide ? 'lg' : 'md'}
+                    owner={me.id}
+                    grey={grey}
+                    spaces={{
+                      row,
+                      cols,
+                      chosen: pickCol,
+                      onPick: (col) => {
+                        if (confirm) setChosen({ row, col });
+                        else void place(col);
+                      },
+                    }}
+                  />
+                </div>
+              </FitArea>
               {confirm ? (
                 <StickyBar fixed refusal={ANCHOR}>
                   <Button
