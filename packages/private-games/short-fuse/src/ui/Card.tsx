@@ -94,7 +94,7 @@ export const CardFace = memo(function CardFace({
       {label && !tiny && (
         <span
           className={cn(
-            'absolute inset-x-0.5 bottom-0.5 truncate rounded-md bg-card/90 px-1 text-center leading-tight font-bold text-ink shadow-sm ring-1 ring-line',
+            'absolute inset-x-0.5 bottom-0.5 line-clamp-2 rounded-md break-words bg-card/90 px-1 text-center leading-tight font-bold text-ink shadow-sm ring-1 ring-line',
             size === 'sm' ? 'text-[0.55rem]' : 'text-[0.65rem] sm:text-xs',
           )}
         >

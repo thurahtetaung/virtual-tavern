@@ -70,7 +70,7 @@ export function Seats({
                     aria-label={`ghost, ${p.hand} cards in hand`}
                     data-testid="ghost"
                   >
-                    👻 ghost · 🂠 {p.hand}
+                    👻 ghost · 🂠 {p.hand} {p.hand === 1 ? 'card' : 'cards'}
                   </span>
                 ) : p.dead ? (
                   <span>💥 out (turn {p.deadTurn})</span>
@@ -78,7 +78,7 @@ export function Seats({
                   <span>left</span>
                 ) : (
                   <span aria-label={`${p.hand} cards in hand`} data-testid="hand-count">
-                    🂠 {p.hand}
+                    🂠 {p.hand} {p.hand === 1 ? 'card' : 'cards'}
                   </span>
                 )}
                 {p.stash !== null && (

@@ -98,7 +98,7 @@ export function End({
               ? 'on top'
               : t.position === t.of - 1
                 ? 'at the bottom'
-                : `${ordinal(t.position + 1)} of ${t.of}`}
+                : `${ordinal(t.position + 1)} from the top`}
             {t.drawnBy ? `, and ${who(view, t.drawnBy, false)} drew it.` : '.'}
           </li>
         ))}
