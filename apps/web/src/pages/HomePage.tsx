@@ -62,7 +62,7 @@ export function HomePage() {
         )}
       </section>
 
-      <Card className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
+      <Card className="grid gap-4 md:grid-cols-2 md:items-end">
         <Field label="What should we call you?">
           <Input
             id="home-name"
@@ -74,10 +74,9 @@ export function HomePage() {
             autoComplete="nickname"
           />
         </Field>
-        <p className="text-center text-small text-ink-muted md:pb-3">or, with an invite</p>
         <form onSubmit={join} className="grid gap-1.5">
           <label htmlFor="invite" className="text-small font-semibold text-ink">
-            Paste a room link or code
+            Got an invite? Paste the link or code
           </label>
           <div className="flex gap-2">
             <Input
