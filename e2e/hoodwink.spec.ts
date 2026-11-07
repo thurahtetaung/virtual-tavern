@@ -108,7 +108,7 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await unlock(host);
   await host.getByRole('button', { name: 'Create a Hoodwink room' }).click();
   await expect(host).toHaveURL(/\/r\//);
-  await expect(host.getByText('Almost ready: Hoodwink needs at least 3 players')).toBeVisible();
+  await expect(host.getByText('3 players are needed (1 seated).')).toBeVisible();
   const url = host.url();
   // Joined one at a time, so seat order (and the spelling a merged lie keeps) is fixed.
   const joined: Page[] = [];
@@ -129,7 +129,7 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana.getByRole('region', { name: 'Question decks' })).toContainText(DECK.name);
   await host.getByRole('button', { name: '5 rounds' }).click();
   await expect(ana.getByText('5 rounds', { exact: true })).toBeVisible();
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
   // Round 1, writing: the real answer is refused, and two players write the same lie.

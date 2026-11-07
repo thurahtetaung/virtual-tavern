@@ -3,6 +3,7 @@ import {
   Button,
   type Choice,
   ChoicePicker,
+  GuideLink,
   Hint,
   Panel,
   StickyBar,
@@ -42,12 +43,12 @@ export function Lobby({
   const editable = room.isHost;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
+      <GuideLink title={room.gameName ?? 'Hoodwink'} onClick={showGuide} />
       <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <ChoicePicker
           selectedIds={view.settings.deckIds}
           editable={editable}
@@ -130,9 +131,6 @@ export function Lobby({
           </div>
         </StickyBar>
       )}
-      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to {room.gameName ?? 'Hoodwink'}? Read the guide
-      </Button>
     </div>
   );
 }
