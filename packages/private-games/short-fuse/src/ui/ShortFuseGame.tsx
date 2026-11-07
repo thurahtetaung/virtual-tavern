@@ -2,6 +2,7 @@ import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game
 import {
   Button,
   Countdown,
+  FitArea,
   Hint,
   Modal,
   NameDot,
@@ -891,19 +892,22 @@ export function ShortFuseGame({
                 {status.text}
               </Hint>
               <WaitingChips view={view} room={room} act={act} now={now} />
-              {table}
-              {tip && (
-                <p className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-special-ink ring-1 ring-special-line">
-                  <span className="flex-1">💡 {tip[1]}</span>
-                  <button
-                    type="button"
-                    className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-semibold underline"
-                    onClick={() => dismissTip(tip[0])}
-                  >
-                    Got it
-                  </button>
-                </p>
-              )}
+              {/* Phones: the table and its tip scroll inside, so the hand stays above the bar. */}
+              <FitArea phone on={tab === 'table'} className="space-y-2">
+                {table}
+                {tip && (
+                  <p className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-special-ink ring-1 ring-special-line">
+                    <span className="flex-1">💡 {tip[1]}</span>
+                    <button
+                      type="button"
+                      className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-semibold underline"
+                      onClick={() => dismissTip(tip[0])}
+                    >
+                      Got it
+                    </button>
+                  </p>
+                )}
+              </FitArea>
               {p?.kind === 'bomb' && (
                 <BombStrip
                   key={`${g.turn.n}:${p.card.id}`}
