@@ -1,8 +1,8 @@
 // Chart colours for both themes. The categorical order is fixed and was checked with the dataviz
 // palette validator against our card surfaces (white in light mode, stone-900 in dark): adjacent
 // pairs stay apart for colour-blind readers, and dark mode uses its own selected steps rather than
-// an automatic flip. Three light-mode slots sit under 3:1 contrast, so every chart also has a
-// table view and a text legend.
+// an automatic flip. Every light-mode slot reaches at least 3:1 on the light card (#fdfbf7);
+// every chart also has a table view and a text legend.
 
 export type ChartTheme = 'light' | 'dark';
 
@@ -36,9 +36,9 @@ const LIGHT: ChartTokens = {
   series: [
     '#2a78d6',
     '#eb6834',
-    '#1baf7a',
-    '#eda100',
-    '#e87ba4',
+    '#0ba572',
+    '#c2840a',
+    '#d96e97',
     '#008300',
     '#6250d6',
     '#e34948',
@@ -54,7 +54,7 @@ const LIGHT: ChartTokens = {
     '#6b5a96',
     '#7c6f3a',
     '#c0395b',
-    '#84a800',
+    '#7b9c04',
     '#3f6e9e',
     '#b07d1a',
     '#a5463a',
