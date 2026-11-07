@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.98.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.97.0...v0.98.0) (2026-11-07)
+
+
+### Features
+
+* **ui:** picture, board and card back-room games on the new design ([#545](https://github.com/thurahtetaung/virtual-tavern/issues/545)) ([6fc3fbf](https://github.com/thurahtetaung/virtual-tavern/commit/6fc3fbf780f4062ed9585f394e729a1ccde89ded))
+
 ## [0.97.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.96.0...v0.97.0) (2026-11-06)
 
 
