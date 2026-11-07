@@ -23,7 +23,7 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   test.setTimeout(120_000);
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create a Masquerade room' }).click();
-  await expect(host.getByText('Almost ready: 3 players are needed')).toBeVisible();
+  await expect(host.getByText('3 players are needed (1 seated).')).toBeVisible();
   const url = host.url();
   const others = await Promise.all(['Ana', 'Ben', 'Cy'].map((n) => player(browser, n, url)));
   const players = [host, ...others];

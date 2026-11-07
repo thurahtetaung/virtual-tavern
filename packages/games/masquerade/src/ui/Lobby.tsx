@@ -4,6 +4,7 @@ import {
   Chip,
   Chips,
   Field,
+  GuideLink,
   Hint,
   Panel,
   PlayerTag,
@@ -55,7 +56,6 @@ export function Players({
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-small">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center gap-1.5">
-            <span aria-hidden>🎭</span>
             <PlayerTag
               name={s.name}
               host={s.id === hostId}
@@ -120,10 +120,11 @@ export function Lobby({
   };
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
+      <GuideLink title={room.gameName ?? 'Masquerade'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={[
@@ -134,7 +135,6 @@ export function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-sub font-bold">Game settings</h3>}
         <fieldset>
           <legend className="text-small font-semibold">
             {view.editions.length > 1 ? 'Editions' : 'Locations'}
@@ -212,12 +212,6 @@ export function Lobby({
           />
         </div>
       </LobbySettings>
-      <p className="text-center text-small text-ink-muted">
-        New to Masquerade?{' '}
-        <Button variant="quiet" size="sm" onClick={showGuide}>
-          Read the guide
-        </Button>
-      </p>
       {editable && (
         <StickyBar>
           <div className="space-y-1.5">
