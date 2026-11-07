@@ -131,20 +131,24 @@ function Board({
   online,
 }: Pick<CliffhangerUiProps, 'view' | 'room' | 'act'> & { online: (id: string) => boolean }) {
   const r = view.round;
+  // The end shows both collections and the story itself: the rail keeps only the teams.
+  const over = view.phase === 'over';
   return (
     <div className="space-y-3">
-      <Panel className="space-y-3">
-        {TEAMS.map((t) => (
-          <div key={t} className="space-y-2">
-            <GenreRace view={view} team={t} />
-            {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} size="h-16" />}
-          </div>
-        ))}
-      </Panel>
+      {!over && (
+        <Panel className="space-y-3">
+          {TEAMS.map((t) => (
+            <div key={t} className="space-y-2">
+              <GenreRace view={view} team={t} />
+              {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} size="h-16" />}
+            </div>
+          ))}
+        </Panel>
+      )}
       <Panel>
         <Teams view={view} room={room} act={act} online={online} />
       </Panel>
-      {view.log.length > 0 && (
+      {!over && view.log.length > 0 && (
         <Panel>
           <h3 className="mb-1 text-sm font-semibold">What happened</h3>
           <ol className="max-h-64 space-y-1 overflow-y-auto text-sm" data-testid="log">
@@ -241,9 +245,11 @@ function Game(props: CliffhangerUiProps) {
           {/* The guide and sound sit beside the status line. */}
           <div className="flex items-start gap-1">
             <div className="min-w-0 flex-1">
-              <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
-                {status.text}
-              </Hint>
+              {status.text && (
+                <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
+                  {status.text}
+                </Hint>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Button variant="quiet" size="sm" onClick={() => showGuide()} aria-label="Rules">
