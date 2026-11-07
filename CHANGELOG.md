@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.7...v0.100.8) (2026-11-07)
+
+
+### Bug Fixes
+
+* **web:** phone layouts for the TV pairing page, stats range bar and admin tabs ([#570](https://github.com/thurahtetaung/virtual-tavern/issues/570)) ([eee8bce](https://github.com/thurahtetaung/virtual-tavern/commit/eee8bce6304cca305bb3458ea20f2d1dae90ca5e))
+
 ## [0.100.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.6...v0.100.7) (2026-11-07)
 
 
