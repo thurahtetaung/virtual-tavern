@@ -1,5 +1,7 @@
 import { type Browser, type Locator, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { playEscape } from './recap-play.ts';
 
 // The room frame on a phone: a Spymaster giving a clue sees the header, the status line, the board
 // and the clue form in the sticky bar above the tab bar, all on one 390 × 844 screen with no
@@ -317,4 +319,175 @@ test('a Round Table leader picks a team at a full table on one phone screen', as
     .click();
   await expect(lead.getByRole('button', { name: /^Tap \d more$/ })).toBeVisible();
   await fitsOneScreen(lead, 'Round Table');
+});
+
+// The room header on a phone once Night shows: four buttons, the name never broken inside a word.
+
+/** A desktop browser (the game is played there; the header is checked after a turn to a phone). */
+async function visitor(browser: Browser, name: string) {
+  const context = await browser.newContext();
+  const p = await context.newPage();
+  p.on('pageerror', (e) => pageErrors.push(`${name}: ${e.message}`));
+  p.on('dialog', (d) => void d.accept());
+  await ownLoginLimit(p);
+  await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+  return p;
+}
+
+/** A room `create` opens for Hana, with Ana and Ben, `join` taking each guest to it. */
+async function crewRoom(
+  browser: Browser,
+  create: (host: Page) => Promise<void>,
+  join: (p: Page, url: string) => Promise<void> = (p, url) => p.goto(url).then(() => undefined),
+) {
+  const host = await visitor(browser, 'Hana');
+  await create(host);
+  await expect(host).toHaveURL(/\/r\//);
+  const url = host.url();
+  const others = await Promise.all(
+    ['Ana', 'Ben'].map(async (n) => {
+      const p = await visitor(browser, n);
+      await join(p, url);
+      await expect(p).toHaveURL(url);
+      return p;
+    }),
+  );
+  const players = [host, ...others];
+  const names = new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben'][i]!]));
+  return { host, others, players, names };
+}
+
+/**
+ * The header on a phone with Night showing: one row, nothing spilling, four buttons at 44 px with
+ * their names unchanged and no label shown, and how the name fits (each line break at a space, or
+ * cut with an ellipsis on one line).
+ */
+async function fullPhoneHeader(p: Page, title: string) {
+  await p.setViewportSize(PHONE);
+  const header = p.locator('[data-ui="room-header"]');
+  await expect(header.getByRole('button', { name: /^Night recap \(\d+ games?\)$/ })).toBeVisible();
+  const buttons = header.getByRole('button');
+  await expect(buttons).toHaveCount(4);
+  await expect(header.getByRole('button', { name: 'Invite friends' })).toBeVisible();
+  await expect(header.getByRole('button', { name: /^Players \(\d+ online\)$/ })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Rules' })).toBeVisible();
+  for (const b of await buttons.all()) {
+    const { width, height } = await box(b);
+    expect(Math.round(width)).toBe(44);
+    expect(Math.round(height)).toBe(44);
+    // The label stays for screen readers only (a 1 px box): no visible text beside the icon.
+    const labels = await b
+      .locator('span')
+      .evaluateAll((spans) => spans.map((el) => el.getBoundingClientRect().width));
+    expect(labels.every((w) => w <= 1)).toBe(true);
+  }
+  await expect(header.getByRole('heading', { level: 1 })).toHaveAccessibleName(title);
+
+  const fit = () =>
+    header.locator('h1 > span:not([aria-hidden])').evaluate((el) => {
+      const text = el.firstChild!;
+      const range = document.createRange();
+      const breaks: number[] = [];
+      let top: number | null = null;
+      for (let i = 0; i < text.textContent!.length; i++) {
+        range.setStart(text, i);
+        range.setEnd(text, i + 1);
+        const rect = [...range.getClientRects()].find((r) => r.width > 0);
+        if (!rect) continue;
+        if (top !== null && rect.top > top + 2) breaks.push(i);
+        top = rect.top;
+      }
+      const style = getComputedStyle(el);
+      return {
+        breaks,
+        midWord: breaks.filter((i) => text.textContent![i - 1] !== ' '),
+        cut: style.whiteSpace === 'nowrap' && style.textOverflow === 'ellipsis',
+        title: el.getAttribute('title'),
+        size: style.fontSize,
+        overflow: el.scrollWidth > el.clientWidth,
+      };
+    });
+  await expect.poll(async () => (await fit()).midWord).toEqual([]);
+  const name = await fit();
+  test.info().annotations.push({ type: 'fit', description: `${title}: ${JSON.stringify(name)}` });
+
+  const row = await header.evaluate((el) => ({
+    spill: el.scrollWidth > el.clientWidth || document.scrollingElement!.scrollWidth > 390,
+    middles: [...el.children].map((c) => {
+      const r = c.getBoundingClientRect();
+      return Math.round(r.top + r.height / 2);
+    }),
+  }));
+  expect(row.spill).toBe(false);
+  expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
+  return name;
+}
+
+test('with Night showing, a phone header has four icon buttons and room for the whole name', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { host, players, names } = await crewRoom(browser, async (h) => {
+    await h.goto('/');
+    await h.getByRole('button', { name: 'Create a Masquerade room' }).click();
+  });
+  await host.getByLabel('Rounds').selectOption('1');
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await playEscape(players, names);
+
+  // Masquerade and Codenames show whole, on one line, with no ellipsis.
+  const whole = (n: Awaited<ReturnType<typeof fullPhoneHeader>>) => {
+    expect(n.cut).toBe(false);
+    expect(n.breaks).toEqual([]);
+    expect(n.overflow).toBe(false);
+  };
+  whole(await fullPhoneHeader(host, 'Masquerade'));
+  // The same crew moves on to Codenames, and Night comes along.
+  await host.setViewportSize({ width: 1280, height: 800 });
+  await host.getByRole('button', { name: '🎲 Same crew, new game' }).first().click();
+  await host
+    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('button', { name: 'Codenames' })
+    .click();
+  await expect(host.getByText('Pick a team below')).toBeVisible();
+  whole(await fullPhoneHeader(host, 'Codenames'));
+});
+
+// A long back-room title: the name fits between words, shrinking or cut with an ellipsis if it must.
+test('a long game name never breaks inside a word in a full phone header', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const TITLE = 'Phantasmagorical Midsummer Masquerade Extravaganza';
+  const unlock = async (p: Page, url = '/backroom') => {
+    await p.goto(url);
+    await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+    await p.getByRole('button', { name: 'Knock' }).click();
+  };
+  const admin = await visitor(browser, 'Admin');
+  await admin.goto('/tavern-keeper');
+  await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
+  await admin.getByRole('button', { name: 'Sign in' }).click();
+  await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
+  await admin.getByRole('button', { name: /Open the back room|Change password/ }).click();
+  await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
+  const setTitle = (title: string | null) =>
+    admin.request.put('/api/admin/games/masquerade-originals', { data: { title } });
+  expect((await setTitle(TITLE)).ok()).toBe(true);
+  try {
+    const { host, players, names } = await crewRoom(
+      browser,
+      async (h) => {
+        await unlock(h);
+        await h.getByRole('button', { name: `Create a ${TITLE} room` }).click();
+      },
+      (p, url) => unlock(p, `/backroom?next=${encodeURIComponent(new URL(url).pathname)}`),
+    );
+    await host.getByLabel('Rounds').selectOption('1');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    await playEscape(players, names);
+    const name = await fullPhoneHeader(host, TITLE);
+    if (name.cut) expect(name.title).toBe(TITLE);
+    else expect(name.overflow).toBe(false);
+  } finally {
+    await setTitle(null);
+  }
 });
