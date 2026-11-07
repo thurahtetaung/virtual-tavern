@@ -14,7 +14,7 @@ const SEND_EARLY_MS = 1200;
  * pens and Send; the auctioneer's words too unless a table screen shows them), so the sheet is as
  * big as the screen allows with all of it in view, never too small to draw on.
  */
-const AROUND_PX = { quiet: 480, full: 575 };
+const AROUND_PX = { quiet: 315, full: 410 };
 
 export function Draw({
   view,
@@ -51,10 +51,10 @@ export function Draw({
           {/* Phones: the status line above says what to draw and which of the two it is. */}
           <div className="flex items-baseline justify-between gap-2 max-lg:sr-only">
             <h2 className="min-w-0 text-lg font-bold">
-              <span className="text-sm font-medium text-ink-muted dark:text-stone-400">Draw: </span>
+              <span className="text-sm font-medium text-ink-muted">Draw: </span>
               <span data-testid="go-title">{todo.title}</span>
             </h2>
-            <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700">
+            <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold ring-1 ring-line">
               {index + 1} of {mine.prompts.length}
             </span>
           </div>
@@ -73,6 +73,8 @@ export function Draw({
                   act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
                 }
                 submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
+                refusal="go-draw"
+                bar
                 footer={
                   clock && (
                     <span className="flex items-center gap-1.5">
@@ -89,7 +91,7 @@ export function Draw({
               />
             </PadFrame>
           </div>
-          <p className="text-xs text-ink-muted dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             Keep it simple: others drew lookalike titles.
             <span className="max-lg:hidden"> Nobody sees your title until it sells.</span>
           </p>
@@ -108,7 +110,7 @@ export function Draw({
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="text-ink-muted dark:text-stone-400">Still drawing:</span>
+            <span className="text-ink-muted">Still drawing:</span>
             {g.players
               .filter((p) => !p.drawn && !p.left)
               .map((p) => (

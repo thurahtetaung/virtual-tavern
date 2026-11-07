@@ -1,13 +1,15 @@
 import { type Drawing, listNames, storageKey } from '@vt/game-sdk';
-import { Button, DrawingView, NameDot, RefusalSlot, cn } from '@vt/ui';
 import {
-  type CSSProperties,
-  type FormEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+  Button,
+  DrawingView,
+  Fold,
+  NameDot,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from 'react';
 import { lieProblem, tidyLie } from '../logic/game.ts';
 import { revealOrder, revealProgress } from '../logic/reveal.ts';
 import {
@@ -151,7 +153,7 @@ export function TableDrawing({
         drawing={veiled ? null : turn.drawing}
         label={artist ? `${artist}’s drawing` : 'The drawing on the table'}
         className={cn(
-          'mx-auto w-full max-w-(--fit) shadow-md ring-1 ring-line',
+          'mx-auto w-full max-w-(--fit) shadow-vt-1 ring-1 ring-line',
           side && 'max-sm:mx-0 max-sm:w-(--fit) max-sm:shrink-0',
           // Big while titles are written; smaller once the board needs the room.
           view.game?.stage === 'write' ? 'sm:max-w-md' : 'sm:max-w-sm',
@@ -192,8 +194,7 @@ export function TableDrawing({
 
 // ---- Writing ----
 
-const INPUT =
-  'block h-12 w-full rounded-lg bg-white px-3 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
+const INPUT = 'block h-12 w-full rounded-lg bg-card px-3 text-lg text-ink ring-1 ring-line-input';
 
 function LieForm({ turn, act }: { turn: TurnView; act: Act }) {
   const [text, setText] = useState(turn.myLie ?? '');
@@ -226,29 +227,31 @@ function LieForm({ turn, act }: { turn: TurnView; act: Act }) {
           onChange={(e) => setText(e.target.value)}
           placeholder="what could this be?"
           data-testid="sketchy-lie"
-          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-danger dark:ring-rose-500')}
+          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-danger')}
         />
         {problem && (
-          <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
+          <span role="alert" className="mt-1 block text-sm text-danger-ink">
             {problem}
           </span>
         )}
       </label>
       {turn.myLieShared && unchanged && (
-        <p data-testid="lie-shared" className="text-sm text-amber-800 dark:text-amber-300">
+        <p data-testid="lie-shared" className="text-sm text-warn-ink">
           👯 Someone else wrote that too: it’ll be shared, and so will the points. Change it to keep
           them all.
         </p>
       )}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={busy || unchanged || !trimmed || blocked}
-      >
-        {sent ? (unchanged ? '✓ Sent' : 'Change my title') : 'Send title'}
-      </Button>
-      <RefusalSlot anchor={LIE_ANCHOR} />
+      {/* Phones: Send and its refusal in the bar at the foot of the screen (still in the form). */}
+      <StickyBar fixed refusal={LIE_ANCHOR}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={busy || unchanged || !trimmed || blocked}
+        >
+          {sent ? (unchanged ? '✓ Sent' : 'Change my title') : 'Send title'}
+        </Button>
+      </StickyBar>
     </form>
   );
 }
@@ -279,8 +282,8 @@ function LikeButton({
         'grid size-12 shrink-0 place-items-center rounded-xl text-xl ring-1 transition',
         dense && 'max-sm:size-11',
         liked
-          ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
-          : 'bg-white ring-stone-300 grayscale hover:grayscale-0 dark:bg-stone-800 dark:ring-stone-600',
+          ? 'bg-accent-soft ring-2 ring-accent'
+          : 'bg-card ring-line-strong grayscale hover:grayscale-0',
       )}
     >
       👍
@@ -328,10 +331,10 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                   dense &&
                     'max-sm:min-h-11 max-sm:gap-1 max-sm:px-2 max-sm:py-1.5 max-sm:text-[13px]',
                   o.mine
-                    ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
+                    ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
                     : chosen
-                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
-                      : 'bg-white ring-stone-300 enabled:hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:enabled:hover:bg-stone-700',
+                      ? 'bg-accent-soft ring-2 ring-accent'
+                      : 'bg-card ring-line-strong enabled:hover:bg-accent-soft',
                 )}
               >
                 <span className="min-w-0 [overflow-wrap:anywhere]">{o.text}</span>
@@ -404,7 +407,7 @@ function RevealSequence({
           {shown.map((o) => (
             <li
               key={o.index}
-              className="flex items-baseline justify-between gap-2 rounded-lg bg-white px-3 py-1 text-sm ring-1 ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700"
+              className="flex items-baseline justify-between gap-2 rounded-lg bg-card px-3 py-1 text-sm ring-1 ring-line"
             >
               {/* One line each on a phone, so the drawing above keeps its room. */}
               <span className="min-w-0 font-semibold break-words max-lg:truncate">{o.text}</span>
@@ -432,10 +435,10 @@ function RevealSequence({
           className={cn(
             'space-y-2 overflow-hidden rounded-2xl px-4 py-3 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
             progress.flipped && current.truth
-              ? 'bg-success-soft ring-success dark:bg-emerald-500/15 dark:ring-emerald-500'
+              ? 'bg-success-soft ring-success'
               : progress.flipped
-                ? 'bg-danger-soft ring-danger-line dark:bg-rose-500/15 dark:ring-rose-500/50'
-                : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
+                ? 'bg-danger-soft ring-danger-line'
+                : 'bg-card ring-line-strong',
           )}
         >
           <p
@@ -460,9 +463,7 @@ function RevealSequence({
             <p
               className={cn(
                 'text-lg font-extrabold text-balance break-words sm:text-xl motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
-                current.truth
-                  ? 'text-emerald-800 dark:text-emerald-200'
-                  : 'text-rose-800 dark:text-rose-200',
+                current.truth ? 'text-success-ink' : 'text-danger-ink',
               )}
             >
               {verdict(current, name)}
@@ -495,7 +496,7 @@ function ArtistMoment({
   return (
     <div
       data-testid="artist-moment"
-      className="flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-2 ring-1 lg:py-3 ring-success-line dark:bg-emerald-500/10 dark:ring-emerald-500/40"
+      className="flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-2 ring-1 lg:py-3 ring-success-line"
     >
       {drawing && !mineHidden ? (
         <>
@@ -505,7 +506,7 @@ function ArtistMoment({
           <DrawingView
             drawing={drawing}
             label="The drawing"
-            className="w-12 shrink-0 shadow-sm ring-1 ring-line lg:hidden"
+            className="w-12 shrink-0 shadow-vt-1 ring-1 ring-line lg:hidden"
           />
         </>
       ) : (
@@ -549,9 +550,7 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
           key={o.index}
           className={cn(
             'min-w-0 space-y-1 rounded-xl px-4 py-1.5 ring-1 lg:py-2',
-            o.truth
-              ? 'bg-success-soft ring-2 ring-success sm:col-span-2 dark:bg-emerald-500/10 dark:ring-emerald-500'
-              : 'bg-white ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700',
+            o.truth ? 'bg-success-soft ring-2 ring-success sm:col-span-2' : 'bg-card ring-line',
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
@@ -620,37 +619,16 @@ function TurnPoints({ view, turn }: { view: SketchyView; turn: TurnView }) {
   return (
     <ul aria-label="Points for this drawing" className="grid gap-1.5 sm:grid-cols-2">
       {gained.map(([id, p]) => (
-        <li
-          key={id}
-          className="rounded-lg bg-success-soft px-3 py-1.5 text-sm dark:bg-emerald-500/10"
-        >
-          <span className="flex items-center gap-1 font-semibold text-emerald-900 dark:text-emerald-200">
+        <li key={id} className="rounded-lg bg-success-soft px-3 py-1.5 text-sm">
+          <span className="flex items-center gap-1 font-semibold text-success-ink">
             <NameDot name={nameOf(view, id)} />
             <span className="min-w-0 flex-1 truncate">{nameOf(view, id)}</span>
             <span className="tabular-nums">+{points(p)}</span>
           </span>
-          <span className="block text-xs text-stone-600 dark:text-stone-400">{reasons(id)}</span>
+          <span className="block text-xs text-ink-2">{reasons(id)}</span>
         </li>
       ))}
     </ul>
-  );
-}
-
-/** Folded away on a phone (a tap opens it), open from the start on a wide screen. */
-function Fold({ summary, children }: { summary: string; children: ReactNode }) {
-  const [wide] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1024px)').matches,
-  );
-  return (
-    <details open={wide} className="group">
-      <summary className="flex h-11 cursor-pointer list-none items-center justify-between rounded-lg px-3 text-sm font-semibold ring-1 ring-line">
-        {summary}
-        <span aria-hidden className="text-ink-muted group-open:rotate-180">
-          ▾
-        </span>
-      </summary>
-      <div className="pt-2">{children}</div>
-    </details>
   );
 }
 
@@ -670,6 +648,7 @@ export function TurnStage({
   const turn = g.turn!;
   const key = `${g.round}-${turn.number}`;
   const cardShown = useCardShown();
+  const wide = useWideScreen();
   const progressLine = (verb: string) => (
     <p className="text-center text-sm text-ink-muted" data-testid="sketchy-progress">
       {turn.done} of {turn.writerCount} {verb}
@@ -746,18 +725,26 @@ export function TurnStage({
       <div className="max-lg:hidden">{drawing(0)}</div>
       <ArtistMoment view={view} turn={turn} drawing={turn.hidden ? null : turn.drawing} />
       <RevealBoard view={view} turn={turn} />
-      <Fold summary="Points for this drawing">
+      {/* Folded away on a phone (a tap opens it), open on a wide screen. */}
+      <Fold
+        summary={<span className="font-semibold">Points for this drawing</span>}
+        open={wide || undefined}
+        className="text-sm"
+        bodyClassName="px-3 pb-3"
+      >
         <TurnPoints view={view} turn={turn} />
       </Fold>
       {isHost && (
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() => void act({ type: 'next' })}
-          data-testid="sketchy-next"
-        >
-          {last ? 'Finish' : turn.number >= turn.of ? 'Next round' : 'Next drawing'}
-        </Button>
+        <StickyBar fixed>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => void act({ type: 'next' })}
+            data-testid="sketchy-next"
+          >
+            {last ? 'Finish' : turn.number >= turn.of ? 'Next round' : 'Next drawing'}
+          </Button>
+        </StickyBar>
       )}
     </div>
   );

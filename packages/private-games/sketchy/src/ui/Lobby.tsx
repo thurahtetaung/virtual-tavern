@@ -116,9 +116,7 @@ function Segmented<T extends number | null>({
               onClick={() => onChange(v)}
               className={cn(
                 'h-11 rounded-lg text-sm font-semibold ring-1 transition',
-                value === v
-                  ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                  : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
+                value === v ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line hover:bg-panel',
               )}
             >
               {secs(v)}
@@ -335,9 +333,7 @@ function SoundSettingsPanel({
               onClick={() => set({ sound: m })}
               className={cn(
                 'h-11 rounded-lg text-sm font-semibold ring-1 transition',
-                soundNow === m
-                  ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                  : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
+                soundNow === m ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line hover:bg-panel',
               )}
             >
               {SOUND_NAME[m]}
@@ -389,9 +385,7 @@ function AnnouncerPicker({
               onClick={() => onChange(a)}
               className={cn(
                 'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1 transition',
-                value === a
-                  ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
-                  : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
+                value === a ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line hover:bg-panel',
               )}
             >
               {announcerName(manifest, a)}

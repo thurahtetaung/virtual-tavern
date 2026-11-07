@@ -9,6 +9,8 @@ import {
 import {
   Button,
   Countdown,
+  EndTabs,
+  FitArea,
   Hint,
   LobbySettings,
   Panel,
@@ -18,6 +20,7 @@ import {
   StickyBar,
   Superlatives,
   Switch,
+  TabBar,
   cn,
   useAbandonGame,
   useSpectatorPrompt,
@@ -43,7 +46,14 @@ import type { Act } from './act.ts';
 import { soundModeIn } from './audio.ts';
 import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
-import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
+import {
+  Auction,
+  GO_TABS,
+  GO_TABS_ID,
+  type GoTab,
+  useLocalHidden,
+  useSeenDrawings,
+} from './Auction.tsx';
 import { Draw } from './Draw.tsx';
 import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
@@ -118,6 +128,12 @@ export function GoingOnceGame({
   const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
 
   const quiet = profile === 'phone-quiet';
+  // Phones during the lots: the auction, the wish list, the hints and the lots, from the tab bar.
+  const wideScreen = useWideScreen();
+  const lots = g?.stage === 'auction' || g?.stage === 'sold';
+  const [tab, setTab] = useState<GoTab>('auction');
+  const shown: GoTab | null = view.phase === 'playing' && lots && !wideScreen ? tab : null;
+  const away = shown !== null && shown !== 'auction';
   const screwBanner = useScrewBanner({
     view,
     name,
@@ -151,51 +167,73 @@ export function GoingOnceGame({
             </div>
             {/* While drawing, during a lot and at the end a quiet phone leaves the auctioneer's
                 words to the table screen. */}
-            {!(
-              quiet &&
-              (g.stage === 'draw' ||
-                g.stage === 'auction' ||
-                g.stage === 'sold' ||
-                g.stage === 'done')
-            ) && <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />}
-            {g.stage === 'draw' && g.redraw && (
-              <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
-                Nobody drew anything, so here are new titles. If nobody draws this time, the game
-                ends.
-              </p>
-            )}
-            <Alerts view={view} you={room.you} />
-            {!quiet && screwBanner}
-            {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
-            {g.introSkipped &&
-              (g.stage === 'practice' ||
-                (g.stage === 'auction' && g.auction?.lot === 0 && g.auction.close === 'intro')) && (
-                <IntroSkipped />
-              )}
-            {g.stage === 'draw' && <Draw view={view} room={room} act={act} quiet={quiet} />}
-            {g.stage === 'practice' && g.practice && (
-              <Practice view={view} room={room} act={act} art={art} name={name} />
-            )}
-            {(g.stage === 'auction' || g.stage === 'sold') && (
-              <>
-                {g.stage === 'sold' && (
-                  <SoldCard view={view} room={room} act={act} name={name} quiet={quiet} />
+            {/* Phones: the play area takes the rest of the screen and scrolls inside when it
+                must, so the page never does; the end has its own tabs. */}
+            <FitArea
+              on={!wideScreen && g.stage !== 'done'}
+              resetKey={`${g.stage}-${shown ?? ''}`}
+              className="flex flex-col gap-3"
+            >
+              {!(
+                quiet &&
+                (g.stage === 'draw' ||
+                  g.stage === 'auction' ||
+                  g.stage === 'sold' ||
+                  g.stage === 'done')
+              ) &&
+                !away && (
+                  <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
                 )}
-                <Auction
-                  view={view}
-                  room={room}
-                  act={act}
-                  art={art}
-                  name={name}
-                  seen={seen}
-                  quiet={quiet}
-                />
-              </>
-            )}
-            {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
-            {g.stage === 'bank' && <Bank view={view} room={room} act={act} art={art} />}
+              {g.stage === 'draw' && g.redraw && (
+                <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line">
+                  Nobody drew anything, so here are new titles. If nobody draws this time, the game
+                  ends.
+                </p>
+              )}
+              <Alerts view={view} you={room.you} />
+              {!quiet && screwBanner}
+              {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
+              {g.introSkipped &&
+                (g.stage === 'practice' ||
+                  (g.stage === 'auction' &&
+                    g.auction?.lot === 0 &&
+                    g.auction.close === 'intro')) && <IntroSkipped />}
+              {g.stage === 'draw' && <Draw view={view} room={room} act={act} quiet={quiet} />}
+              {g.stage === 'practice' && g.practice && (
+                <Practice view={view} room={room} act={act} art={art} name={name} />
+              )}
+              {(g.stage === 'auction' || g.stage === 'sold') && (
+                <>
+                  {g.stage === 'sold' && !away && (
+                    <SoldCard view={view} room={room} act={act} name={name} quiet={quiet} />
+                  )}
+                  <Auction
+                    view={view}
+                    room={room}
+                    act={act}
+                    art={art}
+                    name={name}
+                    seen={seen}
+                    quiet={quiet}
+                    tab={shown}
+                  />
+                </>
+              )}
+              {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
+              {g.stage === 'bank' && <Bank view={view} room={room} act={act} art={art} />}
+            </FitArea>
             {g.stage === 'done' && (
               <End view={view} room={room} act={act} art={art} name={name} seen={seen} />
+            )}
+            {shown && (
+              <TabBar
+                id={GO_TABS_ID}
+                label={room.gameName ?? 'Going Once'}
+                items={GO_TABS}
+                value={tab}
+                onChange={setTab}
+                className="lg:hidden"
+              />
             )}
           </>
         )}
@@ -238,10 +276,11 @@ function Segmented<T extends string | number>({
             disabled={!editable}
             onClick={() => onChange(v)}
             className={cn(
-              'h-10 flex-1 rounded-lg px-3 text-sm font-semibold ring-1',
+              'min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold ring-1',
+              'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus',
               v === value
-                ? 'bg-accent text-accent-fg ring-accent dark:bg-amber-500 dark:text-stone-950 dark:ring-amber-500'
-                : 'bg-card ring-line-strong hover:bg-panel dark:bg-stone-800 dark:ring-stone-600',
+                ? 'bg-accent text-accent-fg shadow-vt-1 ring-accent'
+                : 'bg-card text-ink ring-line-strong hover:bg-panel',
               !editable && 'cursor-default',
             )}
           >
@@ -352,7 +391,7 @@ function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span>Watching:</span>
             {watching.map((s) => (
               <PlayerTag key={s.id} name={s.name} />
@@ -364,7 +403,7 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="text-sm text-ink-muted dark:text-stone-400">
+        <p className="text-sm text-ink-muted">
           Draw two quick pictures from secret titles, then bid on everyone’s art. Each artist’s two
           drawings are worth $4,500 together. 4 to 6 players is best.
         </p>
@@ -407,7 +446,7 @@ function Lobby({
               }
             />
           </div>
-          <p className="text-xs text-ink-muted dark:text-stone-400" data-testid="go-pace-help">
+          <p className="text-xs text-ink-muted" data-testid="go-pace-help">
             {voiceSetsPace
               ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'
               : PACE_HELP[view.settings.pace]}
@@ -429,7 +468,7 @@ function Lobby({
               void act({ type: 'update-settings', sound: v }, { anchor: 'go-lobby' })
             }
           />
-          <p className="text-xs text-ink-muted dark:text-stone-400">{SOUND_HELP[soundNow]}</p>
+          <p className="text-xs text-ink-muted">{SOUND_HELP[soundNow]}</p>
           <div className="grid gap-2">
             <Switch
               on={view.settings.voice}
@@ -462,7 +501,7 @@ function Lobby({
       <GoLobbySound view={view} room={room} act={act} manifest={manifest} />
       {view.rigAllowed && room.isHost && <RigPanel view={view} act={act} />}
       {room.isHost && (
-        <StickyBar>
+        <StickyBar refusal="go-start">
           <Button
             size="lg"
             className="w-full"
@@ -472,7 +511,6 @@ function Lobby({
           >
             Start the game
           </Button>
-          <RefusalSlot anchor="go-start" />
         </StickyBar>
       )}
     </>
@@ -524,7 +562,7 @@ function SoldCard({
     cn('transition-opacity duration-300', beats > n ? 'opacity-100' : 'opacity-0');
   return (
     <Panel
-      className="flex flex-col items-center gap-1 text-center ring-2 ring-accent-line dark:ring-amber-500/50"
+      className="flex flex-col items-center gap-1 text-center ring-2 ring-accent-line"
       role="status"
       data-testid="go-sold"
     >
@@ -548,11 +586,7 @@ function SoldCard({
                   · Worth{' '}
                   <b
                     className={
-                      profit > 0
-                        ? 'text-success-ink dark:text-emerald-300'
-                        : profit < 0
-                          ? 'text-danger-ink dark:text-rose-300'
-                          : ''
+                      profit > 0 ? 'text-success-ink' : profit < 0 ? 'text-danger-ink' : ''
                     }
                   >
                     {money(r.value)}
@@ -563,11 +597,7 @@ function SoldCard({
                 className={cn(
                   'font-bold',
                   beat(3),
-                  profit > 0
-                    ? 'text-success-ink dark:text-emerald-300'
-                    : profit < 0
-                      ? 'text-danger-ink dark:text-rose-300'
-                      : '',
+                  profit > 0 ? 'text-success-ink' : profit < 0 ? 'text-danger-ink' : '',
                 )}
               >
                 {profit > 0
@@ -581,20 +611,20 @@ function SoldCard({
           <p className={cn('text-lg', beat(4))}>
             “<span className="font-semibold">{unquote(r.title)}</span>”
             {r.artistKnown && (
-              <span className="text-ink-muted dark:text-stone-400">
+              <span className="text-ink-muted">
                 {' '}
                 {r.artist ? `by ${who(r.artist)}` : '· a house picture'}
               </span>
             )}
           </p>
           {r.commission > 0 && r.artist && (!quiet || r.artist === room.you) && (
-            <p className={cn('text-sm text-ink-muted dark:text-stone-400', beat(4))}>
+            <p className={cn('text-sm text-ink-muted', beat(4))}>
               {r.artist === room.you ? 'You earn' : `${name(r.artist)} earns`} {money(r.commission)}{' '}
               commission 🎨
             </p>
           )}
           {r.screwedBy && (
-            <p className={cn('text-sm text-ink-muted dark:text-stone-400', beat(1))}>
+            <p className={cn('text-sm text-ink-muted', beat(1))}>
               🔩 A forced buy, thanks to {who(r.screwedBy)}
             </p>
           )}
@@ -608,7 +638,7 @@ function SoldCard({
         </>
       )}
       {room.isHost && (
-        <Button variant="ghost" size="sm" onClick={() => void act({ type: 'skip' })}>
+        <Button variant="secondary" size="sm" onClick={() => void act({ type: 'skip' })}>
           Next lot ▸
         </Button>
       )}
@@ -628,7 +658,7 @@ function IntroSkipped() {
     <p
       role="status"
       data-testid="go-intro-skipped"
-      className="rounded-xl bg-panel px-4 py-2 text-center text-sm ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700"
+      className="rounded-xl bg-panel px-4 py-2 text-center text-sm ring-1 ring-line"
     >
       ⏭ Skipping the introduction
     </p>
@@ -686,7 +716,7 @@ function Halftime({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo
         label="until the next lot"
       />
       {room.isHost && (
-        <Button variant="ghost" size="sm" onClick={() => void act({ type: 'skip' })}>
+        <Button variant="secondary" size="sm" onClick={() => void act({ type: 'skip' })}>
           Next lot ▸
         </Button>
       )}
@@ -724,35 +754,40 @@ function Bank({
               You will receive <b>{money(LOAN_CASH)}</b> now, and owe <b>{money(LOAN_DEBT)}</b> at
               the end. ({mine.loans} of 3 loans taken.)
             </p>
-            <div className="flex w-full gap-2">
-              <Button
-                size="lg"
-                className="flex-1"
-                onClick={() => void act({ type: 'loan', take: true }, { anchor: 'go-bank' })}
-                data-testid="go-take-loan"
-              >
-                Get a loan
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => void act({ type: 'loan', take: false }, { anchor: 'go-bank' })}
-              >
-                No thanks
-              </Button>
-            </div>
+            <StickyBar fixed refusal="go-bank" className="w-full">
+              <div className="flex w-full gap-2">
+                <Button
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => void act({ type: 'loan', take: true }, { anchor: 'go-bank' })}
+                  data-testid="go-take-loan"
+                >
+                  Get a loan
+                </Button>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => void act({ type: 'loan', take: false }, { anchor: 'go-bank' })}
+                >
+                  No thanks
+                </Button>
+              </div>
+            </StickyBar>
           </>
         ) : (
           <>
             <p>Bad credit: three loans is the limit.</p>
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => void act({ type: 'loan', take: false }, { anchor: 'go-bank' })}
-            >
-              Carry on
-            </Button>
+            <StickyBar fixed refusal="go-bank" className="w-full">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full"
+                onClick={() => void act({ type: 'loan', take: false }, { anchor: 'go-bank' })}
+              >
+                Carry on
+              </Button>
+            </StickyBar>
           </>
         )
       ) : (
@@ -764,9 +799,10 @@ function Bank({
         </p>
       )}
       <Countdown deadline={g.until} clockOffset={room.clockOffset} label="until it closes" />
-      <RefusalSlot anchor="go-bank" />
+      {/* While this player answers, the refusal shows with the bar's buttons. */}
+      {!(mine && !mine.bankDone) && <RefusalSlot anchor="go-bank" />}
       {room.isHost && (
-        <Button variant="ghost" size="sm" onClick={() => void act({ type: 'skip' })}>
+        <Button variant="secondary" size="sm" onClick={() => void act({ type: 'skip' })}>
           {f('Close {bank}')} ▸
         </Button>
       )}
@@ -797,7 +833,6 @@ function End({
   const final = g.final ?? [];
   // Phones show the scores, the awards or the gallery (a page of lots at a time), so the end fits
   // the screen; wider screens show them all.
-  const [tab, setTab] = useState<'scores' | 'awards' | 'gallery'>('scores');
   const awards = (room.superlatives?.length ?? 0) > 0;
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(g.results.length / END_PAGE));
@@ -805,186 +840,157 @@ function End({
   const onPage = (i: number) => i >= first && i < first + END_PAGE;
   // Phones: Play again under whichever tab is open, outside the tabs (wider screens: in the scores).
   const wide = useWideScreen();
-  const endButtons = (
-    <>
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'go-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'go-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
+  const endButtons = room.isHost ? (
+    <StickyBar refusal="go-end">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="lg"
+          className="flex-1"
+          onClick={() => void act({ type: 'play-again' }, { anchor: 'go-end' })}
+        >
+          Play again
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'go-end' })}
+        >
+          Change setup
+        </Button>
+      </div>
+    </StickyBar>
+  ) : (
+    <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+  );
+  const scores = (
+    <Panel className="flex flex-col gap-3">
+      {g.ended === 'no-drawings' ? (
+        <p className="text-center" data-testid="go-no-drawings">
+          Nobody drew anything, twice, so there was nothing to auction. Try again!
+        </p>
       ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+        <RackUp view={view} art={art} name={name} you={room.you}>
+          <Standings
+            entries={final.map((f) => ({
+              id: f.id,
+              name: name(f.id),
+              score: f.score,
+              note: `cash ${money(f.cash)} + art ${money(f.art)}${f.debt ? ` − debt ${money(f.debt)}` : ''}`,
+            }))}
+            you={room.you}
+            scoreLabel={(n) => money(n)}
+            // Phones: the table alone (the podium repeats it), so the end fits the screen.
+            className="max-lg:[&>ol:first-child]:hidden"
+          />
+        </RackUp>
       )}
-      <RefusalSlot anchor="go-end" />
-    </>
+      {wide && <Superlatives lines={room.superlatives} />}
+      {wide && endButtons}
+    </Panel>
+  );
+  const gallery = (
+    <Panel className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-bold">🖼 The gallery</h3>
+        {pages > 1 && (
+          <div className="flex items-center gap-1 lg:hidden" data-testid="go-gallery-pager">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={first === 0}
+              onClick={() => setPage(first / END_PAGE - 1)}
+              aria-label="Earlier lots"
+            >
+              ‹
+            </Button>
+            <span className="text-sm tabular-nums text-ink-muted">
+              Lots {first + 1}–{Math.min(first + END_PAGE, g.results.length)} of {g.results.length}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={first + END_PAGE >= g.results.length}
+              onClick={() => setPage(first / END_PAGE + 1)}
+              aria-label="Later lots"
+            >
+              ›
+            </Button>
+          </div>
+        )}
+      </div>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="go-gallery">
+        {g.results.map((r, i) => {
+          const profit = r.value - r.price;
+          return (
+            <li
+              key={r.item}
+              className={cn('flex flex-col gap-1 text-sm', !onPage(i) && 'max-lg:hidden')}
+            >
+              <Picture
+                drawing={r.drawing ?? seen.get(r.item) ?? null}
+                house={r.house}
+                hidden={r.hidden}
+                hiddenByMe={localHidden.has(r.item)}
+                art={art}
+                label={r.title}
+                className="w-full shadow-vt-1 ring-1 ring-line"
+              />
+              <span className="truncate font-semibold">{r.title}</span>
+              <span className="truncate text-xs text-ink-muted">
+                {r.artist
+                  ? `by ${r.artist === room.you ? 'you' : name(r.artist)}`
+                  : 'house picture'}
+              </span>
+              <span className="text-xs">
+                {r.buyer ? (
+                  <>
+                    {/* Cut short in its column: a long name never runs past the card. */}
+                    <PlayerTag
+                      name={name(r.buyer)}
+                      you={r.buyer === room.you}
+                      className="max-w-full"
+                    />{' '}
+                    paid {money(r.price)} · worth {money(r.value)}{' '}
+                    <b className={profit >= 0 ? 'text-success-ink' : 'text-danger-ink'}>
+                      {profit >= 0 ? '+' : '−'}
+                      {money(Math.abs(profit))}
+                    </b>
+                  </>
+                ) : (
+                  `Unsold · worth ${money(r.value)}`
+                )}
+              </span>
+              {(g.knew?.by[r.item]?.length ?? 0) > 0 && (
+                <span className="text-xs text-ink-muted" data-testid="go-knew">
+                  📜 Knew it:{' '}
+                  {g.knew!.by[r.item]!.map((id) => (id === room.you ? 'you' : name(id))).join(', ')}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
   );
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
-      <div
-        role="tablist"
-        aria-label="The end"
-        className="flex gap-1 rounded-lg bg-page p-1 lg:hidden dark:bg-stone-900 [&>*]:flex-1"
-      >
-        {(
-          [
-            ['scores', '🏆 Scores'],
-            ...(awards ? [['awards', '✨ Awards'] as const] : []),
-            ['gallery', '🖼 Gallery'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            type="button"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            data-testid={`go-end-tab-${id}`}
-            className={cn(
-              'rounded-md px-2 py-1.5 text-sm font-semibold',
-              tab === id
-                ? 'bg-card shadow-sm dark:bg-stone-700'
-                : 'text-ink-muted dark:text-stone-400',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <Panel className={cn('flex flex-col gap-3', tab !== 'scores' && 'max-lg:hidden')}>
-        {g.ended === 'no-drawings' ? (
-          <p className="text-center" data-testid="go-no-drawings">
-            Nobody drew anything, twice, so there was nothing to auction. Try again!
-          </p>
-        ) : (
-          <RackUp view={view} art={art} name={name} you={room.you}>
-            <Standings
-              entries={final.map((f) => ({
-                id: f.id,
-                name: name(f.id),
-                score: f.score,
-                note: `cash ${money(f.cash)} + art ${money(f.art)}${f.debt ? ` − debt ${money(f.debt)}` : ''}`,
-              }))}
-              you={room.you}
-              scoreLabel={(n) => money(n)}
-              // Phones: the table alone (the podium repeats it), so the end fits the screen.
-              className="max-lg:[&>ol:first-child]:hidden"
-            />
-          </RackUp>
-        )}
-        <Superlatives lines={room.superlatives} className="max-lg:hidden" />
-        {wide && endButtons}
-      </Panel>
-      {awards && tab === 'awards' && (
-        <Panel className="lg:hidden" data-testid="go-end-awards">
-          <Superlatives lines={room.superlatives} />
-        </Panel>
-      )}
-      <Panel className={cn('flex flex-col gap-2', tab !== 'gallery' && 'max-lg:hidden')}>
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold">🖼 The gallery</h3>
-          {pages > 1 && (
-            <div className="flex items-center gap-1 lg:hidden" data-testid="go-gallery-pager">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={first === 0}
-                onClick={() => setPage(first / END_PAGE - 1)}
-                aria-label="Earlier lots"
-              >
-                ‹
-              </Button>
-              <span className="text-sm tabular-nums text-ink-muted dark:text-stone-400">
-                Lots {first + 1}–{Math.min(first + END_PAGE, g.results.length)} of{' '}
-                {g.results.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={first + END_PAGE >= g.results.length}
-                onClick={() => setPage(first / END_PAGE + 1)}
-                aria-label="Later lots"
-              >
-                ›
-              </Button>
-            </div>
-          )}
-        </div>
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="go-gallery">
-          {g.results.map((r, i) => {
-            const profit = r.value - r.price;
-            return (
-              <li
-                key={r.item}
-                className={cn('flex flex-col gap-1 text-sm', !onPage(i) && 'max-lg:hidden')}
-              >
-                <Picture
-                  drawing={r.drawing ?? seen.get(r.item) ?? null}
-                  house={r.house}
-                  hidden={r.hidden}
-                  hiddenByMe={localHidden.has(r.item)}
-                  art={art}
-                  label={r.title}
-                  className="w-full shadow-sm"
-                />
-                <span className="truncate font-semibold">{r.title}</span>
-                <span className="truncate text-xs text-ink-muted dark:text-stone-400">
-                  {r.artist
-                    ? `by ${r.artist === room.you ? 'you' : name(r.artist)}`
-                    : 'house picture'}
-                </span>
-                <span className="text-xs">
-                  {r.buyer ? (
-                    <>
-                      {/* Cut short in its column: a long name never runs past the card. */}
-                      <PlayerTag
-                        name={name(r.buyer)}
-                        you={r.buyer === room.you}
-                        className="max-w-full"
-                      />{' '}
-                      paid {money(r.price)} · worth {money(r.value)}{' '}
-                      <b
-                        className={
-                          profit >= 0
-                            ? 'text-success-ink dark:text-emerald-300'
-                            : 'text-danger-ink dark:text-rose-300'
-                        }
-                      >
-                        {profit >= 0 ? '+' : '−'}
-                        {money(Math.abs(profit))}
-                      </b>
-                    </>
-                  ) : (
-                    `Unsold · worth ${money(r.value)}`
-                  )}
-                </span>
-                {(g.knew?.by[r.item]?.length ?? 0) > 0 && (
-                  <span
-                    className="text-xs text-ink-muted dark:text-stone-400"
-                    data-testid="go-knew"
-                  >
-                    📜 Knew it:{' '}
-                    {g
-                      .knew!.by[r.item]!.map((id) => (id === room.you ? 'you' : name(id)))
-                      .join(', ')}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
+      <EndTabs
+        testId="go-end-tab"
+        tabs={[
+          { id: 'scores', label: '🏆 Scores', content: scores },
+          !wide &&
+            awards && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: (
+                <Panel data-testid="go-end-awards">
+                  <Superlatives lines={room.superlatives} />
+                </Panel>
+              ),
+            },
+          { id: 'gallery', label: '🖼 Gallery', content: gallery },
+        ]}
+      />
       {!wide && <div className="flex flex-col gap-2">{endButtons}</div>}
     </div>
   );

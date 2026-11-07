@@ -55,9 +55,7 @@ export function Practice({
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             🎓 Practice lot{' '}
-            <span className="text-sm font-normal text-ink-muted dark:text-stone-400">
-              play money, nothing counts
-            </span>
+            <span className="text-sm font-normal text-ink-muted">play money, nothing counts</span>
           </h2>
           {view.mine && (
             <Button
@@ -77,10 +75,10 @@ export function Practice({
               className={cn(
                 'h-1.5 flex-1 rounded-full',
                 lesson && n <= lesson.n
-                  ? 'bg-accent dark:bg-amber-500'
+                  ? 'bg-accent'
                   : p.step === 'bid' && n === 1
-                    ? 'bg-accent dark:bg-amber-500'
-                    : 'bg-line dark:bg-stone-700',
+                    ? 'bg-accent'
+                    : 'bg-line',
               )}
             />
           ))}
@@ -119,7 +117,7 @@ export function Practice({
             knows it’s yours. If you buy it you pay the full price and earn no commission, but its
             value still counts for you at the end, and outbidding you costs the others more.
           </p>
-          <p className="text-sm text-ink-muted dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             When someone else buys your drawing, you earn half the price as commission.
           </p>
           <Countdown deadline={p.until} clockOffset={room.clockOffset} label="next" />
@@ -183,7 +181,7 @@ function PracticeBidding({
         hiddenByMe={false}
         art={art}
         label="The practice picture"
-        className="mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
+        className="mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-none"
       />
       <Panel className="flex flex-col gap-3 p-3">
         <p className="text-sm">
@@ -192,10 +190,7 @@ function PracticeBidding({
         </p>
         {view.mine && (
           <p className="text-xl font-extrabold tabular-nums">
-            {money(p.cash)}{' '}
-            <span className="text-xs font-normal text-ink-muted dark:text-stone-400">
-              play money
-            </span>
+            {money(p.cash)} <span className="text-xs font-normal text-ink-muted">play money</span>
           </p>
         )}
         <BidPanel view={stand} room={room} act={practiceAct} art={art} name={name} />
@@ -229,11 +224,7 @@ function PracticeSold({
       <p
         className={cn(
           'font-bold',
-          profit > 0
-            ? 'text-success-ink dark:text-emerald-300'
-            : profit < 0
-              ? 'text-danger-ink dark:text-rose-300'
-              : '',
+          profit > 0 ? 'text-success-ink' : profit < 0 ? 'text-danger-ink' : '',
         )}
       >
         {profit > 0
@@ -271,9 +262,9 @@ function PracticeScrew({ view, room }: { view: GoingOnceView; room: GameRoomInfo
         bid $100 more than the top bid. But if they <b>can’t afford it</b>, the screw fails and is
         gone.
       </p>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-panel px-3 py-2 dark:bg-stone-800/70">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-panel px-3 py-2">
         <span className="font-semibold">{HOUSE_NAME}</span>
-        <span className="text-sm text-ink-muted dark:text-stone-400">has $0 left</span>
+        <span className="text-sm text-ink-muted">has $0 left</span>
         <Button
           variant="secondary"
           size="sm"
@@ -288,7 +279,7 @@ function PracticeScrew({ view, room }: { view: GoingOnceView; room: GameRoomInfo
       {tried && (
         <p
           role="status"
-          className="rounded-xl bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+          className="rounded-xl bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-ink ring-1 ring-danger-line"
         >
           The screw fails: the {HOUSE_NAME.toLowerCase()} can’t pay {money(top + 100)}, so your
           screw is wasted. Pick someone with cash! The clock waits while a screw plays out, then

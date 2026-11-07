@@ -150,7 +150,7 @@ export function Toast() {
       }}
       role="status"
       data-testid="sketchy-toast"
-      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-stone-900 px-4 text-center text-base font-bold text-white shadow-lg empty:hidden dark:bg-stone-100 dark:text-stone-900"
+      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-ink px-4 text-center text-base font-bold text-page shadow-vt-2 empty:hidden"
     />
   );
 }

@@ -1,14 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import {
-  Button,
-  Countdown,
-  DrawingPad,
-  DrawingView,
-  Panel,
-  RefusalSlot,
-  cn,
-  useConfirm,
-} from '@vt/ui';
+import { Button, Countdown, DrawingPad, DrawingView, Panel, cn, useConfirm } from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
@@ -141,12 +132,13 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
           onSubmit={(drawing) => act({ type: 'draw', drawing }, { anchor: DRAW_ANCHOR })}
           submitLabel="Send drawing"
           footer={clock('to draw')}
+          refusal={DRAW_ANCHOR}
+          bar
           // On a phone the sheet is as big as the screen allows with everything else in view
-          // (about 540 px of room, tabs, a one-line prompt, pens and Send around it, plus the
+          // (about 515 px of room, tabs, a one-line prompt, pens and Send around it, plus the
           // prompt's extra lines), never too small to draw.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_540px_-_var(--extra))_*_0.8))]"
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_515px_-_var(--extra))_*_0.8))]"
         />
-        <RefusalSlot anchor={DRAW_ANCHOR} />
         <p className="text-xs text-ink-muted">
           Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.
         </p>

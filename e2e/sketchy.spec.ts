@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectPhoneFit } from './phone-fit.ts';
 import {
   PHONE,
   drawAndSend,
@@ -71,6 +72,8 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await ben.getByRole('button', { name: '🎲 New prompt' }).click();
   await ben.getByRole('button', { name: 'New prompt', exact: true }).click();
   await expect(ben.getByTestId('sketchy-prompt')).toHaveText('happy cloud');
+  // Drawing on a phone: the prompt, the sheet and its pens, with Send in the bar, on one screen.
+  await expectPhoneFit(ben, 'sketchy draw');
   await expect(ben.getByRole('button', { name: '🎲 New prompt' })).toHaveCount(0);
   for (const p of all) await drawAndSend(p);
 
@@ -80,6 +83,8 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await ben.getByTestId('sketchy-lie').fill('Purple Elephants');
   await ben.getByRole('button', { name: 'Send title' }).click();
   await expect(ben.getByText('Too close to the real title! Write a different one.')).toBeVisible();
+  // Writing on a phone, refused: the drawing, the field and Send with its refusal, on one screen.
+  await expectPhoneFit(ben, 'sketchy write refused');
   await writeLie(ben, 'grape monster');
   await writeLie(cleo, 'violet hippo');
   // Ben finds it and likes Cleo's; the artist likes Ben's; Cleo falls for Ben's.
@@ -92,10 +97,10 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
     ben.getByTestId('reveal-board').getByRole('listitem').filter({ hasText: 'violet hippo' }),
   ).toContainText('👍 1');
   // Ben 1,000 + 500, Hana 1,000 as the artist (a phone shows the scores on their own tab).
-  await cleo.getByTestId('tab-scores').click();
+  await cleo.getByRole('tab', { name: 'Scores', exact: true }).click();
   await expect(scoreOf(cleo, 'Ben')).toContainText('1,500');
   await expect(scoreOf(cleo, 'Hana')).toContainText('1,000');
-  await cleo.getByTestId('tab-play').click();
+  await cleo.getByRole('tab', { name: 'Play', exact: true }).click();
   await hana.getByTestId('sketchy-next').click();
 
   // Drawing 2 is Ben's: Hana and Cleo write their own titles (there is nothing ready-made to
@@ -108,9 +113,9 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await pick(cleo, 'happy cloud');
   await results(all, 'happy cloud');
   // Ben 1,500 + 2,000 as the artist.
-  await hana.getByTestId('tab-scores').click();
+  await hana.getByRole('tab', { name: 'Scores', exact: true }).click();
   await expect(scoreOf(hana, 'Ben')).toContainText('3,500');
-  await hana.getByTestId('tab-play').click();
+  await hana.getByRole('tab', { name: 'Play', exact: true }).click();
   await hana.getByTestId('sketchy-next').click();
 
   // Drawing 3 is Cleo's: Hana and Ben both find it, on a streak of two (+100 each).
@@ -123,11 +128,11 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   // The points are folded away on a phone.
   await hana.getByText('Points for this drawing').click();
   await expect(hana.getByText(/found it \(1,000 \+ 100 streak\)/).first()).toBeVisible();
-  await cleo.getByTestId('tab-scores').click();
+  await cleo.getByRole('tab', { name: 'Scores', exact: true }).click();
   await expect(scoreOf(cleo, 'Hana')).toContainText('3,100');
   await expect(scoreOf(cleo, 'Ben')).toContainText('4,600');
   await expect(scoreOf(cleo, 'Cleo')).toContainText('3,000');
-  await cleo.getByTestId('tab-play').click();
+  await cleo.getByRole('tab', { name: 'Play', exact: true }).click();
   await hana.getByTestId('sketchy-next').click();
 
   // Round 2: the next prompts in order. Every writer falls for the other writer's title.
@@ -158,11 +163,11 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
     await expect(p.getByRole('list', { name: 'Podium' })).toBeVisible();
   }
   await expect(hana.getByText('Game over! Ben wins with 5,600 points.')).toBeVisible();
-  await hana.getByTestId('tab-scores').click();
+  await hana.getByRole('tab', { name: 'Scores', exact: true }).click();
   await expect(scoreOf(hana, 'Ben')).toContainText('5,600');
   await expect(scoreOf(hana, 'Hana')).toContainText('4,100');
   await expect(scoreOf(hana, 'Cleo')).toContainText('4,000');
-  await hana.getByTestId('tab-play').click();
+  await hana.getByRole('tab', { name: 'Play', exact: true }).click();
   await cleo.getByText(/Every drawing \(6\)/).click();
   await expect(cleo.getByTestId('sketchy-history').getByRole('listitem')).toHaveCount(6);
   await expect(cleo.getByTestId('sketchy-history')).toContainText('drew “purple elephant”');
