@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.1...v0.100.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** back-room phone fixes for Hydra, Iconic, Sketchy and Inquest ([#558](https://github.com/thurahtetaung/virtual-tavern/issues/558)) ([b9de0b2](https://github.com/thurahtetaung/virtual-tavern/commit/b9de0b26b1a5faf5e00c4d5921632e1f7f0f642e))
+
 ## [0.100.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.0...v0.100.1) (2026-11-07)
 
 
