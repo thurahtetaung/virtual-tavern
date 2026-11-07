@@ -52,7 +52,8 @@ export function Scoreboard({ view, names }: { view: StampedeView; names: Names }
           </li>
         ))}
       </ol>
-      {view.pinkCow && (
+      {/* An in-play warning: the end screen drops it. */}
+      {view.pinkCow && view.phase !== 'over' && (
         <p className="text-sm text-ink-muted">
           {f(
             `🩷 ${nameOf(view, view.pinkCow)} holds the {pink} and can’t win until someone else takes it.`,

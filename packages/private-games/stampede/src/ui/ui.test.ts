@@ -35,7 +35,7 @@ describe('Stampede UI text', () => {
   it('tells each player what to do at every step', () => {
     const h = started(4);
     const status = (id: string) =>
-      statusFor(stampede.view(h.state, id), room(id), PLACEHOLDER_NAMES, 'Stampede');
+      statusFor(stampede.view(h.state, id), room(id), PLACEHOLDER_NAMES);
     expect(status('p2').yourMove).toBe(true);
     expect(status('p2').text).toMatch(/most people/);
     answerAll(h, ['a', 'a', 'b']);
@@ -53,7 +53,7 @@ describe('Stampede UI text', () => {
     }
     playRound(h, ['x', 'y', 'x']);
     const at = (id: string) =>
-      statusFor(stampede.view(h.state, id), room(id), PLACEHOLDER_NAMES, 'Stampede').text;
+      statusFor(stampede.view(h.state, id), room(id), PLACEHOLDER_NAMES).text;
     expect(at('p1')).toBe('🏆 You win! Your herd is complete.');
     expect(at('p2')).toBe('🏆 P1 wins!');
   });

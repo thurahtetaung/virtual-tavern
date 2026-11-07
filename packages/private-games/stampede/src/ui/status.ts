@@ -1,4 +1,11 @@
-import { type PresencePlayer, listNames, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  listNames,
+  lobbyStatus,
+  playersNeeded,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { type Names, cowCount, fillNames } from '../logic/names.ts';
 import { MAX_PLAYERS, MIN_PLAYERS, type RoundView, type StampedeView } from '../logic/types.ts';
 
@@ -31,10 +38,9 @@ export const chosenQuestionCount = (view: StampedeView) =>
     .reduce((n, d) => n + d.questionCount, 0);
 
 /** Why the game can't start yet, or null if it can. */
-export function startBlocker(view: StampedeView, title: string): string | null {
+export function startBlocker(view: StampedeView): string | null {
   const playing = view.seats.filter((s) => s.playing).length;
-  if (playing < MIN_PLAYERS)
-    return `${title} needs at least ${MIN_PLAYERS} players (${playing} so far).`;
+  if (playing < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, playing);
   if (playing > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players can play.`;
   if (view.decks.length === 0) return 'No question decks yet. Ask an admin to add some.';
   if (chosenQuestionCount(view) === 0) return 'Pick at least one question deck.';
@@ -98,22 +104,13 @@ export function statusFor(
   view: StampedeView,
   room: StatusRoom,
   names: Names,
-  title: string,
 ): Status {
   const f = (s: string) => fillNames(s, names);
   if (view.phase === 'lobby') {
-    if (room.isHost) {
-      const blocker = startBlocker(view, title);
-      return blocker
-        ? { text: blocker, yourMove: false }
-        : { text: 'Pick the decks and the target, then start.', yourMove: true };
-    }
-    return {
-      text: view.me?.playing
-        ? waitingForHost(room, 'start')
-        : `You’re watching. ${waitingForHost(room, 'start')}`,
-      yourMove: false,
-    };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(room, startBlocker(view));
+    const watching = !room.isHost && !view.me?.playing ? 'You’re watching. ' : '';
+    return { text: `${watching}${s?.text ?? ''}`.trim(), yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     switch (view.endReason) {

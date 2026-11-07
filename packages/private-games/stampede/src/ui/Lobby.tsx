@@ -3,6 +3,7 @@ import {
   Button,
   type Choice,
   ChoicePicker,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -74,16 +75,16 @@ export function Lobby({
   const f = (t: string) => fillNames(t, names);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} names={names} />
       </Panel>
+      <GuideLink title={title} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={settingsSummary(view, names)}
         className="space-y-4"
       >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <ChoicePicker
           selectedIds={s.deckIds}
           editable={editable}
@@ -198,9 +199,6 @@ export function Lobby({
           </div>
         </StickyBar>
       )}
-      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to {title}? Read the guide
-      </Button>
     </div>
   );
 }
