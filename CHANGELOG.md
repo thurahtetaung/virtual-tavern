@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.98.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.2...v0.98.3) (2026-11-07)
+
+
+### Bug Fixes
+
+* **web:** fit the games admin, playtest lobby and stats range on phones ([#544](https://github.com/thurahtetaung/virtual-tavern/issues/544)) ([bad866f](https://github.com/thurahtetaung/virtual-tavern/commit/bad866fdf02a4aacab4ad6e15ceb0295b16e4802))
+
 ## [0.98.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.1...v0.98.2) (2026-11-07)
 
 
