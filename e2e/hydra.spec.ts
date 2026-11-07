@@ -233,8 +233,11 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
 }) => {
   test.setTimeout(120_000);
   await openBackroom(await hydraVisitor(browser, 'Admin', pageErrors));
+  // A touch phone: every seat's Ready, in the sticky bar, registers and play moves on (readRoles).
   const players = await hydraTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], pageErrors, {
     viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
   });
   await players[0]!.page.getByRole('button', { name: 'Start with 5 players' }).click();
   await readRoles(players);
@@ -243,13 +246,13 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   const leader = players.find((p) => p.role === 'leader')!;
   const page = red.page;
   const badge = page.getByTitle('Your teammate (only you see this)');
-  const tabs = page.getByRole('navigation', { name: 'Game sections' });
+  const tabs = page.getByRole('tablist', { name: 'Game sections' });
   await expect(page.getByRole('list', { name: 'Seats' }).first()).toBeVisible();
   await expect(badge).toHaveCount(0);
   // The Me content shows only on the Me tab, and once.
   const card = page.getByRole('region', { name: 'Your role card' });
   await expect(card).toHaveCount(0);
-  await tabs.getByRole('button', { name: /Me/ }).click();
+  await tabs.getByRole('tab', { name: /Me/ }).click();
   await expect(card).toHaveCount(1);
   await expect(card).toBeVisible();
   await expect(page.getByTestId('role-details-hidden').first()).toBeVisible();
@@ -260,9 +263,9 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   await expect(
     page.getByRole('list', { name: 'What you know' }).first().getByText(leader.name),
   ).toBeVisible();
-  await tabs.getByRole('button', { name: /Table/ }).click();
+  await tabs.getByRole('tab', { name: /Table/ }).click();
   await expect(badge.first()).toBeVisible();
-  await tabs.getByRole('button', { name: /Me/ }).click();
+  await tabs.getByRole('tab', { name: /Me/ }).click();
   await card.getByRole('button', { name: '🙈 Hide my role' }).click();
   await expect(page.getByTestId('role-details')).toHaveCount(0);
   await expect(badge).toHaveCount(0);
@@ -271,8 +274,8 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   // A nomination on a phone: the boards, the seats and the dock on one screen.
   const pres = await president(players);
   await pres.page
-    .getByRole('navigation', { name: 'Game sections' })
-    .getByRole('button', { name: /Table/ })
+    .getByRole('tablist', { name: 'Game sections' })
+    .getByRole('tab', { name: /Table/ })
     .click();
   const chan = await eligible(pres, players, () => false);
   await pres.page
