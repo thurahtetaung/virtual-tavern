@@ -1,6 +1,7 @@
-import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   Panel,
   PlayerTag,
@@ -138,7 +139,7 @@ function setsLine(view: TavernBrawlView, art: Art): string {
 
 export function startBlocker(view: TavernBrawlView): string | null {
   const seated = view.seats.filter((s) => s.playing);
-  if (seated.length < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed.`;
+  if (seated.length < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, seated.length);
   if (seated.length > MAX_PLAYERS) return `At most ${MAX_PLAYERS} can play.`;
   const missing = seated.filter((s) => !s.hero);
   if (missing.length) return `Waiting for ${missing.map((s) => s.name).join(', ')} to pick a hero.`;
@@ -173,31 +174,23 @@ export function Lobby({
   const phone = usePhone();
   const detailsTaker = details ? takenBy.get(details) : undefined;
 
+  // The shared lobby line once you have a hero; a host who can't start yet reads why under Start.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : !me.hero
+        ? { text: 'Pick your hero below, or 🎲 for a random one.', me: true }
+        : lobbyStatus(room, blocker);
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3">
-      <Hint tone={canPick && !me?.hero ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : !me.hero
-              ? 'Pick your hero below, or tap 🎲 for a random one.'
-              : blocker
-                ? blocker
-                : room.isHost
-                  ? 'Everyone has a hero: start when you’re ready.'
-                  : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
 
       <Panel className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          {/* Phones have the room bar's Rules button, and the lobby must fit the screen. */}
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={showGuide}>
-            📖 Rules
-          </Button>
         </div>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
@@ -254,6 +247,7 @@ export function Lobby({
           </Button>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? 'Tavern Brawl'} onClick={showGuide} />
 
       <Panel className="flex flex-col gap-2" id="tb-heroes">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -304,7 +298,7 @@ export function Lobby({
                     )}
                   >
                     <Portrait hero={h} art={art} size={36} />
-                    <span className="w-full truncate text-center text-xs leading-tight font-semibold">
+                    <span className="line-clamp-2 w-full text-center text-xs leading-tight font-semibold">
                       {art.hero(h)}
                     </span>
                     <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted">
@@ -361,7 +355,8 @@ export function Lobby({
                   className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel"
                   data-powers={h}
                 >
-                  <span className="line-clamp-2 min-w-0 flex-1">
+                  {/* Every power named in full: wrapped, never cut mid-word. */}
+                  <span className="min-w-0 flex-1">
                     <span aria-hidden className="text-accent-text">
                       ✦{' '}
                     </span>
@@ -435,9 +430,6 @@ export function Lobby({
               })
             }
           />
-          <p className="mt-2 text-xs text-ink-muted">
-            Animal noises and other honour-system prompts always get 20 seconds.
-          </p>
         </div>
       </LobbySettings>
 
@@ -451,6 +443,7 @@ export function Lobby({
           >
             Start the brawl
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="tb-start" />
         </StickyBar>
       )}

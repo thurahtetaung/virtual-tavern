@@ -74,7 +74,7 @@ export function describe(e: LogEntry, name: NameOf, art: Art): string | null {
     case 'charm':
       return `${name(e.by)} took ${card(e.card)} from ${name(e.from) === 'You' ? 'you' : name(e.from)}`;
     case 'swap':
-      return `${name(e.a)} and ${name(e.b)} swapped hit points (${e.hpA} and ${e.hpB} now)`;
+      return `${name(e.a)} and ${midSentence(name(e.b))} swapped hit points (${e.hpA} and ${e.hpB} now)`;
     case 'rotate':
       return `Hit points passed to the right: ${e.players.map((p, i) => `${name(p)} ${e.after[i]}`).join(', ')}`;
     case 'recover':
@@ -114,7 +114,7 @@ export function describe(e: LogEntry, name: NameOf, art: Art): string | null {
     case 'hp-copy':
       return `${Possessive(name(e.a))} hit points became ${e.hp}, like ${possessive(name(e.b))}`;
     case 'hands':
-      return `${name(e.a)} and ${name(e.b)} swapped hands`;
+      return `${name(e.a)} and ${midSentence(name(e.b))} swapped hands`;
     case 'mother':
       return e.cards.length
         ? `${name(e.by)} took ${e.cards.map(card).join(', ')} from discard piles`

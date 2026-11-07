@@ -318,7 +318,7 @@ const PlayerRow = memo(function PlayerRow({
               )}
             </span>
             <span className="block truncate text-xs text-ink-muted">
-              {art.hero(p.hero)} · ✋{p.handCount} · 🂠{p.deckCount}
+              {art.hero(p.hero)} · ✋ {p.handCount} in hand · 🂠 {p.deckCount} in deck
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
               {p.controls && ' · 🎯 steers attacks'}

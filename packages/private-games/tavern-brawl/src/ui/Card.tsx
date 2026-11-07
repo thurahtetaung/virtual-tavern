@@ -66,6 +66,8 @@ export const Card = memo(function Card({
   if (!def) return null;
   const face = art.face(card, width > 220 ? 'full' : 'thumb');
   const big = width >= 104;
+  // A thumbnail too narrow for a word leaves the name to its label rather than cut it mid-word.
+  const named = width >= 48;
   const name = art.card(card);
   return (
     <div
@@ -111,6 +113,7 @@ export const Card = memo(function Card({
         </span>
       )}
       <div
+        hidden={!named}
         className={cn(
           'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/75 to-black/0 text-center font-semibold text-white',
           big
