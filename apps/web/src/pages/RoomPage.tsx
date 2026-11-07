@@ -42,7 +42,7 @@ import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
-import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
+import { Layout, LoadingStep, PageLoading, ThemeSwitch } from '../components/Layout.tsx';
 import { useBackroomPage } from '../lib/backroom.ts';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
@@ -1357,6 +1357,10 @@ function People({
             >
               {playtest ? 'Change my colour' : 'Change name or colour'}
             </Button>
+            {/* Phones hide the site header (and its theme switch) in a room, so it lives here. */}
+            <span className="contents sm:hidden">
+              <ThemeSwitch inSheet />
+            </span>
             <Button variant="danger" onClick={() => void onLeave()}>
               Leave room
             </Button>

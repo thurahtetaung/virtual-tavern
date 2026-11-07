@@ -88,7 +88,7 @@ const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
  * choice can always be undone, and every tap but that last one visibly changes the page. It shows
  * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
-function ThemeSwitch() {
+export function ThemeSwitch({ inSheet = false }: { inSheet?: boolean }) {
   const { theme, resolved, setTheme } = useTheme();
   const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
   const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';
@@ -98,15 +98,15 @@ function ThemeSwitch() {
   const state = THEME_STATE[theme];
   return (
     <Button
-      variant="ghost"
-      size="icon"
-      className="sm:w-auto sm:px-3"
+      variant={inSheet ? 'secondary' : 'ghost'}
+      size={inSheet ? undefined : 'icon'}
+      className={inSheet ? undefined : 'sm:w-auto sm:px-3'}
       aria-label={`Theme: ${state.text}. ${label}`}
       title={label}
       onClick={() => setTheme(next)}
     >
       <span aria-hidden>{state.icon}</span>
-      <span className="hidden text-sm sm:inline">{state.text}</span>
+      <span className={inSheet ? undefined : 'hidden text-sm sm:inline'}>{state.text}</span>
     </Button>
   );
 }
