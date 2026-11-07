@@ -21,7 +21,7 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // The draft: the factories, the centre and your board on one screen.
   await expect(hana.getByText(YOUR_TURN)).toBeVisible();
@@ -79,7 +79,7 @@ test('the grey wall: full lines wait for their owner to pick a lit space, and a 
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
   await option(hana, 'mo-grey');
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   await take(hana, 'blue', 1, 1);
   await take(ana, 'red', 2, 2);
@@ -124,7 +124,7 @@ test('jokers: a joker alone fills a line and goes to the wall in its place; real
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
   await option(hana, 'mo-jokers');
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Picking the joker offers it alone or with the blue beside it.
   await pick(hana, 'joker', 1);
@@ -163,7 +163,7 @@ test('special factories: leftovers sent to a neighbour, and a floor shield', asy
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
   await option(hana, 'mo-specials');
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Factory 1 sends its leftovers on: the yellows go right, to factory 2.
   await pick(hana, 'blue', 1);
