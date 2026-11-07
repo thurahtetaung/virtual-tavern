@@ -83,3 +83,43 @@ export async function expectPhoneFit(
   if (size && (size.width !== PHONE.width || size.height !== PHONE.height))
     await page.setViewportSize(size);
 }
+
+/**
+ * A fitted part keeps the reader's place: on a phone shorter than the screen it fits (so the part
+ * must scroll inside), it is scrolled to its foot, the screen keeps updating for `wait` ms (a
+ * ticking clock re-renders it), and the part must still be at its foot. Re-fits once threw the
+ * reader back to the top every second.
+ */
+export async function expectScrollKept(
+  page: Page,
+  label: string,
+  { height = 640, wait = 2500 }: { height?: number; wait?: number } = {},
+) {
+  const size = page.viewportSize();
+  await page.setViewportSize({ width: PHONE.width, height });
+  const capped = () =>
+    page.evaluate(() => {
+      const el = [...document.querySelectorAll<HTMLElement>('*')].find(
+        (e) => e.style.maxHeight !== '' && e.scrollHeight > e.clientHeight + 8,
+      );
+      if (!el) return null;
+      el.dataset.fitProbe = '1';
+      return el.scrollHeight - el.clientHeight;
+    });
+  await expect.poll(capped, { message: `${label}: a fitted part scrolls inside` }).not.toBeNull();
+  const part = page.locator('[data-fit-probe="1"]');
+  const foot = await part.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+    return el.scrollTop;
+  });
+  expect(foot, `${label}: the part scrolled`).toBeGreaterThan(0);
+  await page.waitForTimeout(wait);
+  expect(
+    await part.evaluate((el) => el.scrollTop),
+    `${label}: the part kept the reader's place`,
+  ).toBeGreaterThanOrEqual(foot - 2);
+  await part.evaluate((el) => {
+    delete el.dataset.fitProbe;
+  });
+  if (size) await page.setViewportSize(size);
+}
