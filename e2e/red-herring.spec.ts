@@ -68,11 +68,11 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
   const [ana] = pages;
   await expect(ana.getByTestId('host-settings')).toContainText('8 rounds');
   // The draw pile, face down: both of the game's decks.
-  await expect(ana.getByTestId('rh-pile')).toContainText('252 cards in the deck');
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await expect(ana.getByTestId('rh-pile')).toContainText('252 cards');
+  await ana.getByRole('button', { name: 'Start game' }).click();
   // Every seat's two slots wait face down; the pile is the decks less four hands of six.
   await expect(ana.getByTestId('rh-empty-slot')).toHaveCount(8);
-  await expect(ana.getByTestId('rh-pile')).toContainText('228 cards in the deck');
+  await expect(ana.getByTestId('rh-pile')).toContainText('228 cards left');
 
   for (let k = 0; k < 8; k++) {
     const order = roundOrder(pages, k % 4);
@@ -147,7 +147,7 @@ test('one round with the options: one picture set, No Discussion and the open vo
   await ana.getByTestId('rh-no-discussion').click();
   await ana.getByTestId('rh-open-vote').click();
   await expect(ana.getByTestId('rh-open-vote')).toHaveAttribute('aria-checked', 'true');
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
   // That set only: Ana's hand starts at its first card (Reverie's card 0).
   await expect(ana.getByTestId('rh-hand').locator('[data-card="1000"]')).toHaveCount(1);
 

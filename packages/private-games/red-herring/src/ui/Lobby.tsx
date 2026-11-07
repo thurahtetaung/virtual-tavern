@@ -1,9 +1,10 @@
-import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus } from '@vt/game-sdk';
 import { cardSetChoices, useManifest as useReverieManifest } from '@vt/private-reverie/card';
 import {
   Button,
   type Choice,
   ChoicePicker,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -87,27 +88,20 @@ export function Lobby({
     guessSeconds: s.discussSeconds,
     timerMode: s.timerMode,
   };
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <>
-      <Hint tone={host && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : host
-                ? 'Everyone’s here? Start the game.'
-                : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         <div className="flex gap-3">
           {art.lobby && (
@@ -154,7 +148,12 @@ export function Lobby({
               </Button>
             )}
             <div className="flex items-start gap-3">
-              <DrawPile art={art} count={poolOf(s).length} className="flex-col gap-1 pt-1" />
+              <DrawPile
+                art={art}
+                count={poolOf(s).length}
+                left={false}
+                className="flex-col gap-1 pt-1"
+              />
               <p className="text-sm text-ink-muted">
                 Everyone gets the secret word but one. Play pictures that fit it, explain them, and
                 find the player bluffing blind.
@@ -163,6 +162,7 @@ export function Lobby({
           </div>
         </div>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Red Herring'} onClick={showGuide} />
       <LobbySettings
         editable={host}
         summary={[
@@ -298,8 +298,9 @@ export function Lobby({
             disabled={!!blocker}
             onClick={() => void act({ type: 'start' }, { anchor: 'rh-start' })}
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="rh-start" />
         </StickyBar>
       )}

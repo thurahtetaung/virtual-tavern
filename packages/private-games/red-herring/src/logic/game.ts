@@ -8,6 +8,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
+  playersNeeded,
 } from '@vt/game-sdk';
 import { redHerringAwards } from './awards.ts';
 import { redHerringBot } from './bot.ts';
@@ -226,7 +227,7 @@ function withSets(settings: Settings): Settings {
 /** Why the host can't start yet, or null. */
 export function startProblem(state: Pick<RedHerringState, 'seats' | 'settings'>): string | null {
   const n = Object.values(state.seats).filter((s) => s.playing).length;
-  if (n < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed.`;
+  if (n < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, n);
   if (n > MAX_PLAYERS) return `At most ${MAX_PLAYERS} can play.`;
   const { twice } = state.settings;
   const sets = chosenSets(state.settings);

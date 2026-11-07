@@ -151,13 +151,16 @@ export function EmptySlot({ lap, art }: { lap: 1 | 2; art: Art }) {
 export function DrawPile({
   art,
   count,
+  left = true,
   className,
 }: {
   art: Art;
   count: number;
+  /** In play: "228 cards left"; the lobby's whole pool is just "252 cards". */
+  left?: boolean;
   className?: string;
 }) {
-  const label = `${count} ${count === 1 ? 'card' : 'cards'} in the deck`;
+  const label = `${count} ${count === 1 ? 'card' : 'cards'}${left ? ' left' : ''}`;
   return (
     <span
       className={cn('inline-flex shrink-0 items-center gap-1.5', className)}
@@ -174,10 +177,7 @@ export function DrawPile({
           <span className="block aspect-[366/512] w-full rounded-md border border-dashed border-line" />
         )}
       </span>
-      <span className="text-sm tabular-nums">
-        <span aria-hidden>{count}</span>
-        <span className="sr-only">{label}</span>
-      </span>
+      <span className="text-sm tabular-nums">{label}</span>
     </span>
   );
 }
