@@ -483,56 +483,17 @@ function Learn({
   done: ReactNode;
   go: (t: Tab) => void;
   openTile: (t: GuideTile) => void;
-  /** Shown under the rail's jump cards (desktop only). */
+  /** "Ready to play?", in the rail on a desktop. */
   ready?: ReactNode;
   /** The room's role is secret: the card shows only while peeking. */
   peek?: Peek;
 }) {
-  const sectionCount = guide.sections.length + (guide.setup.length ? 1 : 0);
   const you = ctx?.you;
   const youTile = you?.tile ? guide.tiles?.items.find((t) => t.id === you.tile) : undefined;
   const youArt = you?.art ?? youTile?.art;
   const youText = you?.text ?? youTile?.text;
   const youSubtitle = you?.subtitle ?? youTile?.subtitle;
   const tiles = guide.tiles;
-  const more = (
-    <nav
-      aria-label="More of the guide"
-      className={cn(
-        'grid gap-2',
-        guide.catalog?.groups.length ? 'sm:grid-cols-2' : 'sm:grid-cols-3',
-        !compact && 'lg:grid-cols-1 lg:gap-2.5',
-      )}
-    >
-      {tiles && tiles.items.length > 0 && (
-        <MoreButton
-          title={tiles.label}
-          sub={tiles.blurb ?? `${tiles.items.length} to browse`}
-          onClick={() => go('tiles')}
-        />
-      )}
-      {guide.catalog && guide.catalog.groups.length > 0 && (
-        <MoreButton
-          title={guide.catalog.label}
-          sub={
-            guide.catalog.blurb ??
-            `${guide.catalog.groups.reduce((n, g) => n + g.items.length, 0)} to browse`
-          }
-          onClick={() => go('cards')}
-        />
-      )}
-      <MoreButton
-        title="Full rules"
-        sub={`${sectionCount} topics, opened one at a time`}
-        onClick={() => go('rules')}
-      />
-      <MoreButton
-        title="Cheat sheet"
-        sub={guide.reference?.length ? 'Tables, words and tips' : 'Words and tips'}
-        onClick={() => go('ref')}
-      />
-    </nav>
-  );
   const card = you && (
     <section aria-label="You are" className="flex gap-3 rounded-2xl bg-card p-3 ring-2 ring-accent">
       {youArt ? (
@@ -563,7 +524,9 @@ function Learn({
     <div
       className={cn(
         'space-y-3',
-        !compact && 'lg:grid lg:grid-cols-[1fr_18.75rem] lg:items-start lg:gap-4 lg:space-y-0',
+        !compact &&
+          !!ready &&
+          'lg:grid lg:grid-cols-[1fr_18.75rem] lg:items-start lg:gap-4 lg:space-y-0',
       )}
     >
       <div className="space-y-3 lg:space-y-4">
@@ -594,28 +557,8 @@ function Learn({
         />
         {!tiles && guide.roles && guide.roles.length > 0 && <WhoIsWho guide={guide} />}
       </div>
-      <div className="space-y-3 lg:space-y-4">
-        {more}
-        {ready}
-      </div>
+      {ready && <div className="space-y-3 lg:space-y-4">{ready}</div>}
     </div>
-  );
-}
-
-function MoreButton({ title, sub, onClick }: { title: string; sub: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'min-h-11 rounded-xl bg-card px-3.5 py-3 text-left text-ink ring-1 ring-line',
-        'transition-shadow duration-[180ms] hover:shadow-vt-1 hover:ring-line-strong',
-        'focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus',
-      )}
-    >
-      <span className="block text-sub leading-tight font-semibold">{title}</span>
-      <span className="mt-0.5 block text-caption text-ink-muted">{sub}</span>
-    </button>
   );
 }
 
@@ -834,9 +777,11 @@ function Tiles({
             In this game
           </Chip>
         )}
-        <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
-          All {items.length}
-        </Chip>
+        {(inGame || groups.length > 1) && (
+          <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
+            All {items.length}
+          </Chip>
+        )}
         {groups.length > 1 &&
           groups.map((g) => (
             <Chip key={g} on={filter === g} onClick={() => setFilter(g)}>
@@ -1093,9 +1038,11 @@ function Catalog({
             In this game
           </Chip>
         )}
-        <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
-          All {groups.length}
-        </Chip>
+        {(inGame || sets.length > 1) && (
+          <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
+            All {groups.length}
+          </Chip>
+        )}
         {sets.length > 1 &&
           sets.map((g) => (
             <Chip key={g} on={filter === g} onClick={() => setFilter(g)}>
@@ -1355,7 +1302,6 @@ function RuleSection({
 }) {
   const off = !isOn(s.option, ctx);
   const list: GuideList | undefined = ctx?.lists?.[s.title] ?? s.list;
-  const points = (s.paragraphs?.length ?? 0) + (s.bullets?.length ?? 0);
   const Bullets = numbered ? 'ol' : 'ul';
   return (
     <details
@@ -1382,9 +1328,7 @@ function RuleSection({
                 </span>
               )
             )}
-            <span>
-              {points} {points === 1 ? 'point' : 'points'} · {minutes(sectionWords(s))} min
-            </span>
+            <span>{minutes(sectionWords(s))} min</span>
           </span>
         </span>
         <Icon

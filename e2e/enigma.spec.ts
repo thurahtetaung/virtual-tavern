@@ -98,7 +98,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await ana!.getByRole('button', { name: 'Join Red' }).click();
   await ben!.getByRole('button', { name: 'Join Blue' }).click();
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   // The word-list summary describes Enigma, not a 25-word board.
   await openSettings(ben!);
   await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
@@ -106,9 +106,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
 
   // The scoreboard spells out the round and, in round 1, what its icons mean.
   await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
-  await expect(
-    cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
-  ).toBeVisible();
+  await expect(cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose')).toBeVisible();
 
   // Team chat is private. Hana is Red's first Encryptor, so she stays quiet until the codes are revealed.
   await expect(host.getByText('Your keywords')).toBeVisible();
@@ -250,7 +248,7 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
   await ana!.getByRole('button', { name: 'Join Red' }).click();
   await ben!.getByRole('button', { name: 'Join Blue' }).click();
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   // The word-list summary describes Enigma, not a 25-word board.
   await openSettings(ben!);
   await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
@@ -258,9 +256,7 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
 
   // The scoreboard spells out the round and, in round 1, what its icons mean.
   await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
-  await expect(
-    cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
-  ).toBeVisible();
+  await expect(cy!.getByText('🕵️ 2 intercepts win · 💥 2 miscommunications lose')).toBeVisible();
   await expect(host.getByText('Your keywords')).toBeVisible();
 
   const red = [host, ana!];
@@ -314,7 +310,7 @@ test('a team can reopen an agreed code, and a mid-round end waits for the round'
     'aria-pressed',
     'true',
   );
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
   const teams: Record<TeamName, Page[]> = { Red: [host, ana!], Blue: [ben!, cy!] };
@@ -422,7 +418,7 @@ test('a level score goes to a showdown on the other team’s keywords', async ({
   for (const t of ['Red', 'Blue'] as const) {
     for (const p of teams[t]) await p.getByRole('button', { name: `Join ${t}` }).click();
   }
-  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
   // Two rounds in which both teams miscommunicate: 2 each, a level score.

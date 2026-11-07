@@ -64,7 +64,7 @@ describe('setup', () => {
   });
 
   it('explains what is wrong with a deck, and warns about odd ones (spec 8–9)', () => {
-    expect(validateSetup(BASE5, 4).errors[0]).toBe('5 players are needed (4 so far).');
+    expect(validateSetup(BASE5, 4).errors[0]).toBe('5 players are needed (4 seated).');
     expect(validateSetup(['merlin', 'servant', 'assassin', 'minion', 'minion'], 5).errors).toEqual([
       'Too much Evil: 5 players need 3 Good and 2 Evil.',
     ]);

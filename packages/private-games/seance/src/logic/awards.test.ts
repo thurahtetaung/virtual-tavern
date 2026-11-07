@@ -67,7 +67,9 @@ describe('Séance awards', () => {
 
   it('Spirit Guide: the ghost of a won game; nothing for a loss', () => {
     const win = fixtureGame([outcome({ win: true, ghost: 'g', hour: 4 })], { players: PLAYERS });
-    expect(rule('seance.spirit-guide').compute!(win)).toEqual([{ players: ['g'], value: 4 }]);
+    expect(rule('seance.spirit-guide').compute!(win)).toEqual([
+      { players: ['g'], value: 4, params: { hour: 'IV' } },
+    ]);
     const loss = fixtureGame([outcome({ win: false, ghost: 'g', hour: 7 })], { players: PLAYERS });
     expect(rule('seance.spirit-guide').compute!(loss)).toEqual([]);
   });
@@ -88,9 +90,11 @@ describe('Séance awards', () => {
     expect(rule('seance.raven-keeper').compute!(g)).toEqual([{ players: ['g'], value: 2 }]);
     expect(rule('seance.one-card-wonder').compute!(g)).toEqual([{ players: ['g'], value: 2 }]);
     expect(rule('seance.first-to-finish').compute!(g)).toMatchObject([
-      { players: ['a'], value: 5 },
+      { players: ['a'], value: 5, params: { hour: 'V' } },
     ]);
-    expect(rule('seance.photo-finish').compute!(g)).toEqual([{ players: [], value: 7 }]);
+    expect(rule('seance.photo-finish').compute!(g)).toEqual([
+      { players: [], value: 7, params: { hour: 'VII' } },
+    ]);
   });
 
   it('old events without the newer props give no candidate', () => {

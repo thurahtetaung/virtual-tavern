@@ -94,7 +94,7 @@ import type { GameFigure } from '@vt/protocol';
 //              fuses, turns}, clue {kind, touched; recap: to, value, turn, auto}, play {ok,
 //              clued, lastRound; recap: suit, rank, completed, clueBy, clueTurn, auto}, discard
 //              {clued; recap: suit, rank, auto}
-//   sketchy    drawing {found, voters, lies, house, hidden; recap: round, points}, lie {fooled,
+//   sketchy    drawing {found, voters, lies, house; recap: round, points}, lie {fooled,
 //              auto; recap: authors, artist}, vote {foundTruth, house; recap: authors, artist,
 //              streak}, like {byArtist; recap: authors, round}, outcome {drawings, endReason;
 //              recap: ranking, scores, fooled, truths, likes}
@@ -1787,7 +1787,6 @@ function sketchyCounters(type: string, props: Props): Counters {
       const found = num(props.found) ?? 0;
       out.push(['f.voter_sum', voters], ['f.found_sum', found]);
       if (voters > 0 && found === 0) out.push(['f.unsolved', 1]);
-      if (props.hidden === true) out.push(['f.hidden', 1]);
       break;
     }
     case 'vote':

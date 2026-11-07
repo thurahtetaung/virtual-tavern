@@ -21,7 +21,6 @@ import {
   type Suit,
   copiesOf,
   played,
-  ratingOf,
   scoreOf,
 } from '../logic/cards.ts';
 import {
@@ -299,11 +298,7 @@ function TopStrip({
         🂠 {g.deck}
       </button>
       <span className="ml-auto font-semibold tabular-nums" data-testid="sf-score">
-        {score}{' '}
-        <span className="font-normal text-ink-muted">
-          / {g.max}
-          <span className="hidden sm:inline"> · {ratingOf(score, g.max)}</span>
-        </span>
+        {score} <span className="font-normal text-ink-muted">/ {g.max}</span>
       </span>
       {view.phase === 'playing' && <Clock view={view} room={room} name={name} />}
     </div>

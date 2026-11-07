@@ -4,14 +4,12 @@ import type { ReactNode } from 'react';
 import type { Art } from './assets.ts';
 
 /**
- * A lot's picture: the player's strokes, the house picture (from the manifest, or a plain
- * placeholder card), or a veil when the host or the viewer hid it.
+ * A lot's picture: the player's strokes, or the house picture (from the manifest, or a plain
+ * placeholder card).
  */
 export function Picture({
   drawing,
   house,
-  hidden,
-  hiddenByMe = false,
   compact = false,
   art,
   label,
@@ -20,8 +18,6 @@ export function Picture({
 }: {
   drawing: Drawing | null;
   house: string | null;
-  hidden: boolean;
-  hiddenByMe?: boolean;
   /** A thumbnail: icons only, no captions. */
   compact?: boolean;
   art: Art;
@@ -29,23 +25,6 @@ export function Picture({
   className?: string;
   children?: ReactNode;
 }) {
-  if (hidden || hiddenByMe)
-    return (
-      <div
-        className={cn(
-          'relative flex aspect-[4/5] flex-col items-center justify-center gap-1 rounded-lg bg-sunk text-center text-sm text-ink-2',
-          className,
-        )}
-        role="img"
-        aria-label={`${label}: hidden`}
-      >
-        <span aria-hidden className={compact ? 'text-base' : 'text-3xl'}>
-          🙈
-        </span>
-        {!compact && <span>{hidden ? 'Hidden by the host' : 'Hidden on your screen'}</span>}
-        {children}
-      </div>
-    );
   if (drawing)
     return (
       <DrawingView drawing={drawing} label={label} className={className}>

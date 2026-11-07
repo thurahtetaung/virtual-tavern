@@ -570,7 +570,6 @@ function start(state: SketchyState, ctx: Ctx): Result {
     order: [],
     at: 0,
     turn: null,
-    hidden: [],
     streaks: {},
     history: [],
     deadline: null,
@@ -725,19 +724,6 @@ function next(state: SketchyState, ctx: Ctx): Result {
   return afterRound(closed, ctx.now);
 }
 
-function hide(state: SketchyState, hidden: boolean, ctx: Ctx): Result {
-  const no = requireHost(ctx);
-  if (no) return no;
-  const g = state.game;
-  if (state.phase !== 'playing' || !g?.turn)
-    return err('no-drawing', 'There is no drawing to hide.');
-  const artist = g.turn.artist;
-  const list = hidden
-    ? [...new Set([...g.hidden, artist])]
-    : g.hidden.filter((id) => id !== artist);
-  return withGame(state, { hidden: list });
-}
-
 /** Who the stage still waits for. */
 export function missingPlayers(game: Game): PlayerId[] {
   const turn = game.turn;
@@ -840,8 +826,6 @@ export function reduce(state: SketchyState, action: SketchyAction, ctx: Ctx): Re
       return skipReveal(current, ctx);
     case 'continue-without':
       return continueWithout(current, ctx);
-    case 'hide':
-      return hide(current, action.hidden, ctx);
   }
 }
 

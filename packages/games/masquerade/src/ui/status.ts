@@ -1,4 +1,11 @@
-import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  lobbyStatus,
+  namesWithPresence,
+  playersNeeded,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { MAX_SEATS, MIN_PLAYERS, type MasqueradeView, type RoundResult } from '../logic/types.ts';
 
 export interface Status {
@@ -26,7 +33,7 @@ export function listNames(names: readonly string[]): string {
 /** Why the game can't start yet, or null if it can. */
 export function startBlocker(view: MasqueradeView): string | null {
   const seated = view.seats.filter((s) => s.playing).length;
-  if (seated < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed (${seated} so far).`;
+  if (seated < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, seated);
   if (seated > MAX_SEATS) return `At most ${MAX_SEATS} can play.`;
   if (view.locations.length === 0) return 'Pick at least one edition.';
   return null;
@@ -56,11 +63,12 @@ export function statusFor(
         text: `${back}The table is full: you’re watching, and you’ll get a seat when one frees up.`,
         yourMove: false,
       };
-    const blocker = startBlocker(view);
-    if (blocker) return { text: `${back}Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? { text: `${back}Everyone is in. Press Start game when you’re ready!`, yourMove: true }
-      : { text: `${back}All set. ${host('start')}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      startBlocker(view),
+    );
+    return { text: `${back}${s?.text ?? ''}`.trim(), yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));
@@ -94,14 +102,14 @@ export function statusFor(
         secondsLeft !== null && view.settings.roundSeconds - secondsLeft >= STARTER_SHOWN_SECONDS;
       const asking = underway
         ? 'Whoever answers asks the next question.'
-        : `${starter} first: one question about the location, out loud. Whoever answers asks next.`;
+        : `${starter} first: one question about the location, out loud.`;
       // The same words for the spy and the locals: the card itself is behind its peek.
       const lead =
         'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out.';
       return {
         text: round.meReady
           ? 'You’re ready to vote. Keep talking until everyone is.'
-          : `${lead} ${asking} Need ideas? See the Ideas tab.`,
+          : `${lead} ${asking} Need ideas? See Question ideas.`,
         yourMove: false,
       };
     }

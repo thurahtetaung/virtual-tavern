@@ -70,8 +70,8 @@ function base(art: GuideArt): GameGuide {
   ];
   return {
     tagline: 'Hide a {thorn} among your {roses}, bid on how many you can turn over, and bluff.',
-    players: '3 to 6',
-    duration: '15 minutes',
+    players: '3–6 players',
+    duration: '15 min',
     goal: 'Win two challenges, or be the last player left. A challenge is a bid that you can turn over that many discs without finding a {thorn}.',
     quickStart: [
       'Everyone has three {roses} and one {thorn}. Each round, everyone puts one disc face down at once.',

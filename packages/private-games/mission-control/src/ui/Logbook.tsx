@@ -104,7 +104,12 @@ export function DepthStrip({
             key={m.n}
             className={cn(
               'h-full flex-1',
-              campaign?.log[m.n]?.done ? 'bg-info' : m.n === next ? 'bg-accent-line' : '',
+              campaign?.log[m.n]?.done
+                ? 'bg-info'
+                : // The next mission is outlined, not filled: it isn't done yet.
+                  m.n === next
+                  ? 'rounded-full ring-2 ring-accent-line ring-inset'
+                  : '',
             )}
           />
         ))}
@@ -118,7 +123,8 @@ const day = (t: number) =>
 
 function Attempts({ log }: { log: MissionLog | undefined }) {
   const art = useArt();
-  if (!log || (!log.attempts && !log.practice)) return <span className="text-ink-muted">–</span>;
+  if (!log || (!log.attempts && !log.practice))
+    return <span className="text-ink-muted">not played</span>;
   return (
     <span className="tabular-nums">
       {log.attempts > 0 && (

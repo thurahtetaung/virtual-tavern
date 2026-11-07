@@ -590,7 +590,11 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const clockLine = (drafting || choosing.length > 0) && clock && (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span className="text-ink-muted">
-        {waitingFor(drafting ? [clock.who] : choosing, room.players, { you: room.you })}
+        {/* The status line already tells the viewer it's their move: name only the others. */}
+        {waitingFor(
+          (drafting ? [clock.who] : choosing).filter((id) => id !== room.you),
+          room.players,
+        )}
       </span>
       {clock.deadline && (
         <Countdown

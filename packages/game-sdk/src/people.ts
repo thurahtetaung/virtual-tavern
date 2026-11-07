@@ -77,3 +77,30 @@ export function waitingForHost(
   const note = host.connected === false ? 'host, offline' : 'host';
   return `Waiting for ${host.name} (${note}) to ${what}…`;
 }
+
+/** The lobby's player requirement, worded the same in every game: "3 players are needed (2 seated)." */
+export function playersNeeded(min: number, seated: number): string {
+  return `${min} players are needed (${seated} seated).`;
+}
+
+/** The lobby's status line: its words and whether it is the viewer's move (the action look). */
+export interface LobbyStatus {
+  text: string;
+  me: boolean;
+}
+
+/**
+ * The lobby's status line, the same in every game. `blocker` is what still stops the game from
+ * starting (e.g. `playersNeeded(…)`), or null when it can start.
+ *
+ * - The host who can start: "Start when ready.", in the action look.
+ * - The host who can't start yet: null. The reason sits under Start game, said once.
+ * - Anyone else: what the game still needs, else who starts it ("Waiting for Ana (host) to start…").
+ */
+export function lobbyStatus(
+  room: { isHost: boolean; hostId: string; players: readonly PresencePlayer[] },
+  blocker: string | null,
+): LobbyStatus | null {
+  if (room.isHost) return blocker ? null : { text: 'Start when ready.', me: true };
+  return { text: blocker ?? waitingForHost(room), me: false };
+}

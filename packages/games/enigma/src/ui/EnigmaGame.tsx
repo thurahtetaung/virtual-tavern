@@ -59,8 +59,8 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
   const side = (team: Team) => (
     <div className={cn('flex items-center gap-1 sm:gap-2', TEAM_TEXT[team])}>
       <span className="text-small font-bold sm:text-body">{TEAM_LABEL[team]}</span>
-      <Tokens count={view.teams[team].intercepts} icon="🕵️" label="interceptions (2 wins)" />
-      <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 loses)" />
+      <Tokens count={view.teams[team].intercepts} icon="🕵️" label="intercepts (2 win)" />
+      <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 lose)" />
     </div>
   );
   const strict = view.settings.timerMode === 'strict';
@@ -103,7 +103,7 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         {side('blue')}
       </div>
       <p id="enigma-legend" hidden={!legend} className="text-center text-caption text-ink-muted">
-        🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses
+        🕵️ 2 intercepts win · 💥 2 miscommunications lose
       </p>
     </div>
   );

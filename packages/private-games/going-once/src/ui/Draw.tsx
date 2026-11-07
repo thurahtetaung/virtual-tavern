@@ -92,7 +92,7 @@ export function Draw({
             </PadFrame>
           </div>
           <p className="text-xs text-ink-muted">
-            Keep it simple: others drew lookalike titles.
+            Others drew titles like yours, so buyers can’t be sure which one this is.
             <span className="max-lg:hidden"> Nobody sees your title until it sells.</span>
           </p>
         </Panel>

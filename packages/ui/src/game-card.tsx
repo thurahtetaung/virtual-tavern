@@ -34,7 +34,7 @@ export function GameCard({
   /** The game's own emoji, from its definition. */
   emblem: string;
   name: string;
-  /** Players and duration: "4 or more · 15–20 minutes". */
+  /** Players and duration: "4+ players · best with 6–10 · 15–20 min". */
   meta?: ReactNode;
   tagline?: ReactNode;
   cover?: GameCover | null;

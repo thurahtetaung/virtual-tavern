@@ -1,6 +1,8 @@
 import {
   type PresencePlayer,
+  lobbyStatus,
   namesWithPresence,
+  playersNeeded,
   timedOut,
   waitingFor,
   waitingForHost,
@@ -29,7 +31,7 @@ export interface People {
 export function startBlocker(view: EchoView, wordCount: number): string | null {
   const playing = view.seats.filter((s) => s.playing).length;
   if (playing < MIN_PLAYERS) {
-    return `Echo needs at least ${MIN_PLAYERS} players (${playing} so far).`;
+    return playersNeeded(MIN_PLAYERS, playing);
   }
   if (playing > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players can play.`;
   const needed = view.settings.deckSize * CARD_SIZE;
@@ -191,13 +193,12 @@ export function statusFor(
         ? { text: "You're watching. You can take a seat when one frees up.", yourMove: false }
         : { text: "You're watching. Press Take a seat to join the table.", yourMove: false };
     }
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : {
-          text: `All set. ${people ? waitingForHost(people, 'start the game') : 'Waiting for the host to start the game…'}`,
-          yourMove: false,
-        };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      blocker,
+    );
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     // The score and its rating are shown big just below, so this line doesn't repeat them.

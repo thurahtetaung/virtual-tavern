@@ -83,7 +83,7 @@ for (const [label, viewport, colorScheme] of [
     await play(cleo, 'g6');
     await expect(hana.getByTestId('mc-stamp')).toBeVisible();
     await shot(hana, '09-debrief-stamp');
-    await hana.getByRole('button', { name: '📘 Logbook and settings' }).click();
+    await hana.getByRole('button', { name: 'Change setup' }).click();
     await expect(hana.getByTestId('logbook-1')).toContainText('✅');
     await shot(hana, '10-logbook');
   });
@@ -128,7 +128,7 @@ for (const [label, viewport, colorScheme] of [
     await expect(hana.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'failure');
     await shot(hana, '14-order-failure');
     // A custom mission: the captain's question round and pick.
-    await hana.getByRole('button', { name: '📘 Logbook and settings' }).click();
+    await hana.getByRole('button', { name: 'Change setup' }).click();
     // Phones list only the chosen mission until the whole logbook is opened.
     if (viewport.width < 640) await hana.getByRole('button', { name: /All missions/ }).click();
     await hana.getByTestId('logbook-2').getByRole('button').click();

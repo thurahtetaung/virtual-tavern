@@ -89,7 +89,7 @@ export function PastGuesses({
                   </span>
                 </Card>
               )}
-              <p className="text-[10px] leading-none text-ink-muted">{roman(x.hour)}</p>
+              <p className="text-[10px] leading-none text-ink-muted">hour {roman(x.hour)}</p>
             </li>
           );
         })}

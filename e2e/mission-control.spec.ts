@@ -60,7 +60,7 @@ test('a crew of three completes a mission: briefing, free selection, a signal an
   }
 
   // The logbook marks the mission done.
-  await hana.getByRole('button', { name: '📘 Logbook and settings' }).click();
+  await hana.getByRole('button', { name: 'Change setup' }).click();
   await expect(hana.getByTestId('logbook-1')).toContainText('✅');
   await expect(hana.getByTestId('depth-strip')).toContainText('1/2 missions done');
 });
@@ -98,7 +98,7 @@ test('a failed attempt says why, shows the replay, and retries with the same tas
   await ben.getByTestId('mc-retry-same').click();
   for (const p of all) {
     await expect(p.getByTestId('mc-draft')).toBeVisible();
-    await expect(p.getByText('Try 2')).toBeVisible();
+    await expect(p.getByText('Attempt 2')).toBeVisible();
     await expect(p.getByTestId('mc-task').filter({ hasText: 'Take the pink 3' })).toContainText(
       'Not taken',
     );
@@ -124,9 +124,9 @@ test('“Same crew, new game” takes the campaign to the new room', async ({ br
   await expect(hana.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'success');
 
   // The host opens the next table with the same game; the crew follows.
-  await hana.getByRole('button', { name: '🎲 Same crew, new game' }).click();
+  await hana.getByRole('button', { name: '🎲 Same crew, another game' }).click();
   await hana
-    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('dialog', { name: '🎲 Same crew, another game' })
     .getByRole('button', { name: 'Mission Control' })
     .click();
   await expect(hana.getByTestId('logbook')).toBeVisible();

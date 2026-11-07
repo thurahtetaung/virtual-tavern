@@ -1,6 +1,13 @@
 import { useHostVolumes } from '@vt/ui/sound';
-import { type GameUiProps, storageKey } from '@vt/game-sdk';
 import {
+  type GameRoomInfo,
+  type GameUiProps,
+  lobbyStatus,
+  storageKey,
+  waitingForHost,
+} from '@vt/game-sdk';
+import {
+  GuideLink,
   Button,
   Hint,
   LobbySettings,
@@ -263,6 +270,7 @@ export function DefuseGame({
         isHost={room.isHost}
         nameOf={nameOf}
         superlatives={room.superlatives}
+        waiting={waitingForHost(room, 'start the next bomb')}
         send={send}
       />
     );
@@ -323,6 +331,7 @@ export function DefuseGame({
       desk={deskable ? () => setLeftDesk(false) : null}
       you={you}
       isHost={room.isHost}
+      room={room}
       nameOf={nameOf}
       send={send}
       showGuide={showGuide}
@@ -844,9 +853,7 @@ function SettingsPanel({
         <span className="shrink-0 font-semibold">
           <span aria-hidden>⚙️ </span>Settings
         </span>
-        <span className="min-w-0 flex-1 truncate text-ink-muted">
-          {summary.filter(Boolean).join(' · ')}
-        </span>
+        <span className="min-w-0 flex-1 text-ink-muted">{summary.filter(Boolean).join(' · ')}</span>
         <span
           aria-hidden
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
@@ -929,7 +936,12 @@ function DefuserPicker({
           : 'The host defuses first unless they pick someone.'}
       </p>
       {isHost && (
-        <div className="flex flex-wrap gap-1">
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label="Who defuses first"
+        >
+          <span className="text-sm font-semibold">Who defuses first:</span>
           {v.seats.map((p) => (
             <Button
               key={p.id}
@@ -994,6 +1006,7 @@ function Lobby({
   desk,
   you,
   isHost,
+  room,
   nameOf,
   send,
   showGuide,
@@ -1004,6 +1017,7 @@ function Lobby({
   v: DefuseView;
   you: string;
   isHost: boolean;
+  room: GameRoomInfo;
   nameOf: (id: string | null) => string;
   send: (a: Action, anchor?: string) => void;
   showGuide: (t?: unknown) => void;
@@ -1018,15 +1032,18 @@ function Lobby({
   const s = v.settings;
   const enough = v.seats.length >= MIN_PLAYERS;
   const ready = s.defuserMode !== 'volunteer' || !!v.defuser;
+  // The host's blocker is the Start button's own label, so their line is empty then.
+  const line = lobbyStatus(
+    room,
+    !enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null,
+  );
   return (
     <div className="mx-auto max-w-2xl space-y-3" data-testid="lobby">
-      {isHost ? (
-        (!enough || !ready) && (
-          <Hint dense>{enough ? 'Waiting for a defuser' : 'Waiting for an expert'}</Hint>
-        )
-      ) : (
-        <div data-testid="waiting">
-          <Hint dense>Waiting for the host to start the bomb.</Hint>
+      {line && (
+        <div data-testid={line.me ? undefined : 'waiting'}>
+          <Hint dense tone={line.me ? 'action' : 'neutral'}>
+            {line.text}
+          </Hint>
         </div>
       )}
       {intro && (
@@ -1054,6 +1071,7 @@ function Lobby({
         <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
         {viewChoice}
       </Panel>
+      <GuideLink title={room.gameName ?? 'Defuse'} onClick={() => showGuide()} />
       <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
       {sound}
       <StickyBar>
@@ -1078,9 +1096,6 @@ function Lobby({
                 : 'Waiting for an expert'}
             </Button>
           ) : null}
-          <Button variant="quiet" onClick={() => showGuide()}>
-            How to play
-          </Button>
         </div>
         <RefusalSlot anchor="defuse-start" />
       </StickyBar>
@@ -1098,6 +1113,7 @@ function Result({
   isHost,
   nameOf,
   superlatives,
+  waiting,
   send,
 }: {
   v: DefuseView;
@@ -1107,6 +1123,8 @@ function Result({
   isHost: boolean;
   nameOf: (id: string | null) => string;
   superlatives?: DefuseUiProps['room']['superlatives'];
+  /** Guests: who starts the next bomb. */
+  waiting: string;
   send: (a: Action, anchor?: string) => void;
 }) {
   const end = b.end!;
@@ -1139,7 +1157,7 @@ function Result({
         </p>
         <p className="text-sm" data-testid="outcome-line">
           {defused
-            ? `${nameOf(last?.defuser ?? null)} defused bomb ${b.no} with ${timerText(end.left)} left.`
+            ? `${nameOf(last?.defuser ?? null)} defused bomb ${b.no} with ${clockText(end.left)} left.`
             : end.how === 'time'
               ? `Time ran out on ${nameOf(last?.defuser ?? null)}.`
               : `Too many strikes: the bomb went off in ${nameOf(last?.defuser ?? null)}’s hands.`}
@@ -1152,7 +1170,9 @@ function Result({
         )}
         <p className="text-xs text-ink-muted">
           {last?.solved ?? 0} of {last?.modules ?? 0} modules · {last?.strikes ?? 0} strike
-          {last?.strikes === 1 ? '' : 's'} · {clockText(b.total - end.left)} used
+          {last?.strikes === 1 ? '' : 's'}
+          {/* A defused bomb's time left is in the line above: the time used would say it again. */}
+          {!defused && ` · ${clockText(b.total - end.left)} used`}
         </p>
       </Panel>
       <div
@@ -1198,7 +1218,11 @@ function Result({
                   >
                     <span aria-hidden>{isNeedy(m.kind) ? '⚠️' : m.solved ? '✅' : '⬜'}</span>
                     <span className="min-w-0 flex-1">{art.names[m.kind]}</span>
-                    {strikes > 0 && <span className="text-danger-ink">{'✕'.repeat(strikes)}</span>}
+                    {strikes > 0 && (
+                      <span className="text-xs text-danger-ink">
+                        ✕ {strikes} strike{strikes === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
@@ -1229,7 +1253,7 @@ function Result({
                   Bomb {h.no}
                   {h.mission ? ` (${art.mission(h.mission).name})` : ''}: {nameOf(h.defuser)} ·{' '}
                   {h.how === 'defused'
-                    ? `defused, ${timerText(h.left)} left`
+                    ? `defused, ${clockText(h.left)} left`
                     : h.how === 'time'
                       ? 'time ran out'
                       : 'too many strikes'}{' '}
@@ -1251,14 +1275,12 @@ function Result({
             >
               Next bomb
             </Button>
-            <Button variant="secondary" onClick={() => send({ type: 'lobby' })}>
-              Lobby
+            <Button size="lg" variant="secondary" onClick={() => send({ type: 'lobby' })}>
+              Change setup
             </Button>
           </div>
         ) : (
-          <p className="text-center text-sm text-ink-muted">
-            Waiting for the host to start the next bomb.
-          </p>
+          <p className="text-center text-sm text-ink-muted">{waiting}</p>
         )}
         <RefusalSlot anchor="defuse-next" />
       </StickyBar>

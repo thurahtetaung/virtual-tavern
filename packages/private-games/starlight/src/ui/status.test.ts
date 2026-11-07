@@ -28,7 +28,7 @@ describe('status line', () => {
     h.act({ type: 'show', pos: 1 }, a);
     const v = starlight.view(h.state, c);
     expect(showLine(v, v.round!.shown[0]!, c)).toBe(
-      `🌟 Super-Spark! Only ${b.toUpperCase()} marked it too: 3 stars each.`,
+      `🌟 Super-Spark! Only ${b.toUpperCase()} marked it too: 3 points each.`,
     );
   });
 

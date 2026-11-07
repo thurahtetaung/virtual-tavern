@@ -1,6 +1,6 @@
-import { type PresencePlayer, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, lobbyStatus, waitingFor } from '@vt/game-sdk';
 import { KINDS } from '../logic/content.ts';
-import { nounOf, progress } from '../logic/genres.ts';
+import { nounOf } from '../logic/genres.ts';
 import {
   type CliffhangerView,
   MAX_PLAYERS,
@@ -169,30 +169,15 @@ function turnSoon(view: CliffhangerView, r: RoundView, me: string): Status {
 
 export function statusFor(view: CliffhangerView, room: StatusRoom): Status {
   if (view.phase === 'lobby') {
-    if (room.isHost) {
-      const blocker = startBlocker(view);
-      return blocker
-        ? { text: blocker, yourMove: false }
-        : { text: 'Teams set? Start the game.', yourMove: true };
-    }
-    if (!view.myTeam) return { text: 'Join a team to play.', yourMove: true };
-    return { text: waitingForHost(room, 'start'), yourMove: false };
+    if (!room.isHost && !view.myTeam) return { text: 'Join a team to play.', yourMove: true };
+    // The host's blocker shows beside Start game, so their line is empty then.
+    const line = lobbyStatus(room, startBlocker(view));
+    return line ? { text: line.text, yourMove: line.me } : { text: '', yourMove: false };
   }
   if (view.phase === 'over') {
     const w = view.winner;
-    if (w) {
-      const goal = view.target;
-      const p = progress(
-        view.collections[w].map((c) => c.genre),
-        goal,
-      );
-      const tail =
-        view.endReason === 'sudden-death' ? ' in sudden death' : ` with ${p.have}/${p.need}`;
-      return {
-        text: w === view.myTeam ? `🏆 Your team wins${tail}!` : `🏆 ${TEAM_NAMES[w]} win${tail}.`,
-        yourMove: false,
-      };
-    }
+    // The end's banner says who won and how; the status line doesn't repeat it.
+    if (w) return { text: '', yourMove: false };
     switch (view.endReason) {
       case 'too-few':
         return {

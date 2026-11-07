@@ -202,9 +202,8 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
             ? 'bg-warn-soft text-warn-ink ring-warn-line'
             : 'text-ink-muted ring-line',
         )}
-        aria-label={`${totalOf(p.tokens)} of ${TOKEN_LIMIT} pieces`}
       >
-        {totalOf(p.tokens)}/{TOKEN_LIMIT}
+        {totalOf(p.tokens)} of {TOKEN_LIMIT} gems
       </span>
     </div>
   );

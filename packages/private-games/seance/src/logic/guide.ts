@@ -217,8 +217,8 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
 function base(): GameGuide {
   return {
     tagline: 'A ghost who cannot speak, a table of psychics, and seven hours to read its visions.',
-    players: '3 to 7 (one ghost, 2 to 6 psychics)',
-    duration: '40–60 minutes',
+    players: '3–7 players (one ghost, 2–6 psychics)',
+    duration: '40–60 min',
     goal: 'Everyone plays together. The ghost knows who was there, where it happened and with what, but can only send picture cards. Each psychic must find their own suspect, place and object before the seventh hour ends; then one last shared vision points to the culprit, and the psychics vote. Pick the right one and everyone wins.',
     quickStart: [
       'One player is the ghost; everyone else is a psychic. The ghost never speaks: no words, no faces, no nods.',

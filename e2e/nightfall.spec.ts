@@ -246,8 +246,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     });
     expect(finals.map((f) => f.won === 'true')).toEqual(expected);
     await expect(host.getByTestId('death')).toContainText('Hana got the most votes (4) and died.');
-    // The full tally, and why the winners won.
-    await expect(host.getByTestId('tally')).toContainText('Hana 4');
+    // Why the winners won.
     await expect(host.getByTestId('why').first()).toContainText(/won|Nobody won/);
     await expect(host.getByTestId('team-line').first()).toBeVisible();
     // Guests are told who moves the game on.

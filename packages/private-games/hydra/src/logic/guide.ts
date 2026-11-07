@@ -26,8 +26,8 @@ const teams = (n: number) => {
 
 const RAW: GameGuide = {
   tagline: 'Elect a government, pass laws in secret, and find {leader} before it’s too late.',
-  players: '5 to 10 players',
-  duration: '20–40 minutes',
+  players: '5–10 players',
+  duration: '20–40 min',
   goal: 'The {blues} win by passing 5 {bluePolicy} {policies} or by executing {leader}. The {reds} win with 6 {redPolicy} {policies}, or by getting {leader} elected {chancellor} once 3 {redPolicy} {policies} are on the board.',
   quickStart: [
     'Read your secret role. {reds} know each other; the {blues} know nothing.',
@@ -39,7 +39,7 @@ const RAW: GameGuide = {
   ],
   setup: [
     'Sit down in the lobby (5 to 10 players). The host can turn on the community rebalance, quick mode and timers.',
-    'The host starts. Everyone reads their role card (slide it up, or hold it, so neighbours can’t see) and taps Ready.',
+    'The host starts. Everyone reads their role card (on a phone slide it up or hold it; on a computer hold it or press Show, so neighbours can’t see) and taps Ready.',
     'The first {candidate} is drawn at random; after that the role passes clockwise.',
   ],
   roles: [
@@ -123,7 +123,7 @@ const RAW: GameGuide = {
       ],
     },
     {
-      title: 'Options',
+      title: 'Settings',
       bullets: [
         'Community rebalance (off by default): at 6 players a {redPolicy} {policy} starts on the board; at 7 and 9 the deck has one {redPolicy} {policy} fewer.',
         'Quick mode skips the dramatic pause before the table learns whether the {chancellor} is {leader}.',
@@ -175,7 +175,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   '4. Claims': 'basics',
   '5. Powers': 'details',
   'The election tracker and chaos': 'details',
-  Options: 'edge',
+  Settings: 'edge',
 };
 
 /**

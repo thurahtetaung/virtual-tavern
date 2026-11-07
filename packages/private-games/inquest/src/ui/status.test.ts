@@ -31,7 +31,7 @@ describe('statusFor', () => {
     expect(statusFor(inquest.view(h.state, 'ana'), false).text).toMatch(/4 players are needed/);
     const full = harness(4);
     expect(statusFor(inquest.view(full.state, HOST), true)).toEqual({
-      text: 'Everyone is in. Press Start when you’re ready!',
+      text: 'Start when ready.',
       yourMove: true,
     });
   });
@@ -45,7 +45,8 @@ describe('statusFor', () => {
     for (const id of ['ben', 'cy', 'dee', HOST]) {
       const s = say(h, id);
       expect(s.yourMove).toBe(false);
-      expect(s.text).toMatch(/Night falls/);
+      // The night panel says the Murderer is choosing; the status doesn't repeat it.
+      expect(s.text).not.toMatch(/choosing the crime/);
       if (id === 'dee') expect(s.text).not.toMatch(/Ana/);
     }
     expect(waitingOn(inquest.view(h.state, 'dee'))).toEqual({ ids: [], label: 'the Murderer' });

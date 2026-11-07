@@ -1,4 +1,4 @@
-import { type Drawing, type GameRoomInfo, storageKey } from '@vt/game-sdk';
+import type { Drawing, GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Panel,
@@ -36,31 +36,6 @@ function useServerNow(clockOffset: number, on: boolean): number {
     return () => clearInterval(id);
   }, [on]);
   return now + clockOffset;
-}
-
-const HIDDEN_KEY = 'go.hidden.v1';
-
-/** Drawings this viewer hid on their own screen (kept in this browser). */
-export function useLocalHidden(): [Set<string>, (item: string, hide: boolean) => void] {
-  const [hidden, setHidden] = useState<Set<string>>(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(storageKey(HIDDEN_KEY)) ?? '[]') as string[]);
-    } catch {
-      return new Set();
-    }
-  });
-  const set = (item: string, hide: boolean) => {
-    const next = new Set(hidden);
-    if (hide) next.add(item);
-    else next.delete(item);
-    setHidden(next);
-    try {
-      localStorage.setItem(storageKey(HIDDEN_KEY), JSON.stringify([...next].slice(-200)));
-    } catch {
-      // Blocked storage: hidden for this visit only.
-    }
-  };
-  return [hidden, set];
 }
 
 /**
@@ -422,14 +397,12 @@ function LotLog({
   art,
   name,
   seen,
-  localHidden,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   art: Art;
   name: NameOf;
   seen: ReadonlyMap<string, Drawing>;
-  localHidden: Set<string>;
 }) {
   const results = [...(view.game?.results ?? [])].reverse();
   const notices = view.log
@@ -456,8 +429,6 @@ function LotLog({
               <Picture
                 drawing={seen.get(r.item) ?? r.drawing}
                 house={r.house}
-                hidden={r.hidden}
-                hiddenByMe={localHidden.has(r.item)}
                 art={art}
                 label={`Lot ${r.index + 1}`}
                 compact
@@ -592,9 +563,6 @@ function LotIntro({
 
 // ---- The screen ----
 
-/** Small buttons over the lot: a solid chip, readable on the gallery wall in light and dark. */
-const CHIP = 'bg-card text-ink shadow-vt-1 ring-1 ring-line-strong hover:bg-panel';
-
 export function Auction({
   view,
   room,
@@ -620,7 +588,6 @@ export function Auction({
   const g = view.game!;
   const a = g.auction!;
   const pic = a.picture;
-  const [localHidden, setLocalHidden] = useLocalHidden();
   const own = drewIt(view.mine, pic.item);
   const side = (t: SideTab) =>
     t === 'wish' ? (
@@ -628,12 +595,12 @@ export function Auction({
     ) : t === 'hints' ? (
       <Hints view={view} name={name} art={art} />
     ) : (
-      <LotLog view={view} room={room} art={art} name={name} seen={seen} localHidden={localHidden} />
+      <LotLog view={view} room={room} art={art} name={name} seen={seen} />
     );
   const latest = view.mine?.messages.at(-1);
   // A quiet phone picking whom to screw shows the picker where the bid buttons were.
   const picking = quiet && a.screw?.by === room.you;
-  // The lot's number, whose drawing it is and the hide buttons (beside the thumbnail on a quiet
+  // The lot's number and whose drawing it is (beside the thumbnail on a quiet
   // phone, so the bidding fits the screen).
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -659,29 +626,6 @@ export function Auction({
           🎨 Your drawing
         </span>
       )}
-      <div className="flex gap-1">
-        {pic.drawing && !pic.hidden && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={CHIP}
-            onClick={() => setLocalHidden(pic.item, !localHidden.has(pic.item))}
-          >
-            {localHidden.has(pic.item) ? 'Show' : 'Hide'}
-          </Button>
-        )}
-        {room.isHost && (pic.drawing || pic.hidden) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={CHIP}
-            onClick={() => void act({ type: 'hide', item: pic.item, hidden: !pic.hidden })}
-            title="Hide or show this drawing for everyone; it still sells"
-          >
-            {pic.hidden ? 'Unhide for all' : 'Hide for all'}
-          </Button>
-        )}
-      </div>
     </div>
   );
   // Phones: the lot and its bidding on the Auction tab; the wish list, hints and lots each on theirs
@@ -711,8 +655,6 @@ export function Auction({
             <Picture
               drawing={pic.drawing}
               house={pic.house}
-              hidden={pic.hidden}
-              hiddenByMe={localHidden.has(pic.item)}
               art={art}
               compact
               label={`Lot ${a.lot + 1}`}
@@ -732,8 +674,6 @@ export function Auction({
           <Picture
             drawing={pic.drawing}
             house={pic.house}
-            hidden={pic.hidden}
-            hiddenByMe={localHidden.has(pic.item)}
             art={art}
             label={`Lot ${a.lot + 1}`}
             className="relative mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-none"

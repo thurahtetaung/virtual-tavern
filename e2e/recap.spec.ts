@@ -38,9 +38,12 @@ test('two games of Masquerade, a superlatives strip on every device, and a wrapp
   // Game 1: the spy escapes without a single vote.
   const first = await playEscape(players, names);
   await expectStrips(players);
-  // The ghost of the round: the spy with zero votes.
+  // The ghost of the round: the spy with zero votes (called "you" on the spy's own screen).
   await expect(
-    host.getByRole('region', { name: 'Superlatives' }).getByText(names.get(first.spy)!).first(),
+    host
+      .getByRole('region', { name: 'Superlatives' })
+      .getByText(first.spy === host ? /\byou(r)?\b/i : names.get(first.spy)!)
+      .first(),
   ).toBeVisible();
   for (const p of players)
     await expect(p.getByRole('button', { name: 'Night recap (1 game)' })).toBeVisible();

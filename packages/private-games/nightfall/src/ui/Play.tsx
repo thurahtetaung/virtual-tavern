@@ -566,8 +566,7 @@ export function Ready({
             </Button>
           </div>
           <p className="text-xs text-ink-muted">
-            Start the night now if someone can’t press Ready (they dropped out, say): their card
-            still plays.
+            If someone dropped out, start the night now: their card still plays.
           </p>
         </div>
       )}
@@ -1634,12 +1633,6 @@ export function Reveal({
         <p className="text-sm font-semibold" data-testid="epic">
           ⚔️ An epic battle: the most voted player dies (with at least 2 votes), and so does
           everyone tied for second; if several tie for the most votes, only they die.
-        </p>
-      )}
-      {explained.tally.length > 0 && (
-        <p className="text-sm" data-testid="tally">
-          🗳️ Votes: {explained.tally.map((t) => `${nameOf(t.player)} ${t.votes}`).join(' · ')}
-          {(result.appVotes ?? 0) > 0 && ` · the app ${result.appVotes}`}
         </p>
       )}
       <Announcements list={view.announcements} view={view} deck={deck} title="Said out loud" />

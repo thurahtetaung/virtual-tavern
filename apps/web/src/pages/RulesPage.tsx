@@ -1,5 +1,5 @@
-import { Button, Card, Field, Icon, Input, Notice, buttonClass } from '@vt/ui';
-import { useEffect, useState } from 'react';
+import { Button, Card, Field, Icon, Input, Notice, buttonClass, cn } from '@vt/ui';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
 import { Layout, PageLoading, RoomOpening } from '../components/Layout.tsx';
@@ -58,14 +58,14 @@ function CreateRoom({ game }: { game: ClientGame }) {
       {creating && <RoomOpening />}
       <p className="text-sub font-semibold">Ready to play?</p>
       {needsName && (
-        <Field label="Your name" className="text-left">
+        <Field label="What should we call you?" className="text-left">
           <Input
             id="rules-name"
             value={name}
             maxLength={24}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => name.trim() && saveName(name)}
-            placeholder="What should we call you?"
+            placeholder="Your name"
             autoComplete="nickname"
           />
         </Field>
@@ -82,16 +82,19 @@ function CreateRoom({ game }: { game: ClientGame }) {
  * follow when unlocked. Rooms are opened from the home page's shelf or a guide's "Ready to play?".
  */
 function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: ReadonlySet<string> }) {
-  const { chips, filter, shown, categoriesOf } = useShelf(clientGames, 'vt.categories.rules');
-  const games = shown.filter((g) => !off.has(g.id));
-  const backroomGames = backroom?.filter((g) => !off.has(g.id)) ?? [];
+  // The chips are built from, and filter, both lists: the public games and the back room's.
+  const all = useMemo(() => [...clientGames, ...(backroom ?? [])], [backroom]);
+  const { chips, filter, shown, categoriesOf } = useShelf(all, 'vt.categories.rules');
+  const visible = shown.filter((g) => !off.has(g.id));
+  const games = visible.filter((g) => clientGames.includes(g));
+  const backroomGames = visible.filter((g) => !clientGames.includes(g));
   const chosen = chips.filter((c) => filter.chosen.includes(c.id));
   return (
     <>
       <h1 className="text-title font-semibold">How to play</h1>
       <p className="mt-1 mb-4 text-ink-2">
-        Every game here is played on phones, together in one room. Filter by what kind of night it
-        is.
+        Every game here is played on phones, with your friends in the same room or on a call. Filter
+        by what kind of night it is.
       </p>
       <CategoryChips
         chips={chips}
@@ -100,9 +103,9 @@ function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: Reado
         onClear={filter.clear}
         className="mb-3"
       />
-      {chosen.length > 0 && games.length > 0 && (
+      {chosen.length > 0 && visible.length > 0 && (
         <p className="mb-3 flex items-center justify-between gap-2 text-small text-ink-muted">
-          {`${games.length} ${games.length === 1 ? 'game is' : 'games are'} ${chosen
+          {`${visible.length} ${visible.length === 1 ? 'game is' : 'games are'} ${chosen
             .map((c) => c.name.toLowerCase())
             .join(' and ')}`}
           <Button variant="quiet" size="sm" onClick={filter.clear}>
@@ -110,15 +113,20 @@ function GameList({ backroom, off }: { backroom: ClientGame[] | null; off: Reado
           </Button>
         </p>
       )}
-      <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
-        {games.length === 0 && <NoMatch onClear={filter.clear} />}
-        {games.map((g) => (
-          <GuideRow key={g.id} game={g} categories={categoriesOf(g.id)} />
-        ))}
-      </div>
+      {(games.length > 0 || visible.length === 0) && (
+        <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
+          {visible.length === 0 && <NoMatch onClear={filter.clear} />}
+          {games.map((g) => (
+            <GuideRow key={g.id} game={g} categories={categoriesOf(g.id)} />
+          ))}
+        </div>
+      )}
       {backroomGames.length > 0 && (
         <section aria-labelledby="rules-back-room">
-          <h2 id="rules-back-room" className="mt-10 mb-3 text-heading font-semibold">
+          <h2
+            id="rules-back-room"
+            className={cn('mb-3 text-heading font-semibold', games.length > 0 && 'mt-10')}
+          >
             <span aria-hidden>🕯️</span> The back room
           </h2>
           <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">

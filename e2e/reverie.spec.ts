@@ -107,7 +107,7 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
   const players = [host, ana!, ben!, cy!];
   const late = await visitor(browser, 'Eve');
   await expect(host.getByText('Players (4/8)')).toBeVisible();
-  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await expect(host.getByText('Start when ready.')).toBeVisible();
 
   // Seat colours are the players' room colours: Ana taps her own seat to change hers. Hana's
   // colour is refused; a free one shows on every seat list.

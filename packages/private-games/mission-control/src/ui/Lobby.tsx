@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -55,7 +56,7 @@ export function Lobby({
   const picked = view.chosen ?? next;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       {view.notice && (
         <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line">
           {view.notice}
@@ -75,7 +76,7 @@ export function Lobby({
                 void act({ type: 'sit', playing: !view.me!.playing }, { anchor: ANCHOR })
               }
             >
-              {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
+              {view.me.playing ? 'Watch instead' : 'Take a seat'}
             </Button>
           )}
         </div>
@@ -91,10 +92,13 @@ export function Lobby({
             </li>
           ))}
           {seated.length === 2 && (
-            <li className="text-ink-muted">🤖 {art.say('{dummy}')} (best with 3–5)</li>
+            <li className="text-ink-muted">
+              🤖 {art.say('{dummy}')}, the helper crewmate for small crews
+            </li>
           )}
         </ul>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Mission Control'} onClick={showGuide} />
       {view.voyage ? (
         <Panel>
           <Logbook
@@ -114,7 +118,6 @@ export function Lobby({
         </Panel>
       )}
       <LobbySettings editable={editable} summary={settingsSummary(view, art)} className="space-y-4">
-        {editable && <h3 className="text-lg font-bold">Settings</h3>}
         {view.voyages.length > 1 && (
           <fieldset>
             <legend className="text-sm font-semibold">Campaign</legend>
@@ -209,9 +212,6 @@ export function Lobby({
           </div>
         </StickyBar>
       )}
-      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New here? Read the guide
-      </Button>
     </div>
   );
 }

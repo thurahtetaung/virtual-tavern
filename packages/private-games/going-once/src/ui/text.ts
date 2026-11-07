@@ -153,7 +153,8 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
         return `🔩 ${name(e.by)} tried to screw ${name(e.target)}, who couldn’t afford it.`;
       return `🔩 ${name(e.by)}’s screw was wasted.`;
     case 'hidden':
-      return e.hidden ? '🙈 The host hid a drawing.' : '👁 The host showed a drawing again.';
+      // An older release's host hide: the drawing shows now, so the line would mislead.
+      return null;
     case 'left':
       return `${name(e.player)} left; they keep their seat, cash and art.`;
     case 'back':

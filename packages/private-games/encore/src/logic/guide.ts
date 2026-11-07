@@ -87,8 +87,8 @@ function base(art: GuideArt): GameGuide {
   ];
   return {
     tagline: art.tagline ?? TAGLINE,
-    players: '2 to 5 (best with 4 or 5)',
-    duration: '20 minutes',
+    players: '2–5 players · best with 4–5',
+    duration: '20 min',
     goal: 'Score the most points over all the rounds: a point for every card you capture and every chip, minus a point for every card still in your hand when a round ends.',
     quickStart: [
       'Your hand stays in the order it was dealt. At the start of a round you may turn the whole hand round, once.',

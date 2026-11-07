@@ -289,10 +289,9 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
     >
       <ol className="list-decimal space-y-1 pl-5 text-small">
         <li>
-          {starter}: ask anyone a question about the location, out loud. The app doesn’t track the
+          Whoever answers asks someone else next (not straight back). The app doesn’t track the
           talking.
         </li>
-        <li>They answer, then ask someone else (not straight back).</li>
         <li>
           When the clock runs out, or everyone taps Ready to vote, you all vote once, in secret, for
           the spy.
@@ -352,7 +351,8 @@ function ReadyToggle({ round, act, room }: { round: RoundView; act: Act; room: G
         </p>
       </StickyBar>
       <p className="text-caption text-ink-muted">
-        The vote starts when everyone taps this, or when the clock runs out. Tap again to undo.
+        The vote starts when everyone taps Ready to vote below, or when the clock runs out. Tap
+        again to undo.
       </p>
     </div>
   );

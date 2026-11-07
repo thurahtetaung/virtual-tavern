@@ -143,7 +143,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           Round {r.no} of {g.rounds}
         </span>
         <span className="text-ink-muted">
-          · ✏️ {r.picker === you ? 'You' : name(r.picker)}
+          · ✏️ {r.picker === you ? 'You pick the word' : `${name(r.picker)} picks the word`}
           {view.settings.topic && <> · Topic: {view.settings.topic}</>}
         </span>
         <span className="ml-auto flex items-center gap-1">
@@ -289,7 +289,9 @@ function HostTools({ view, room, act, name }: PartProps) {
   }, []);
   const waiting = waitingIds(view);
   if (view.phase !== 'playing') return null;
-  const line = waiting.length ? waitingFor(waiting, room.players, { you: room.you }) : '';
+  // The status line already tells the viewer it's their move: name only the others.
+  const others = waiting.filter((id) => id !== room.you);
+  const line = others.length ? waitingFor(others, room.players) : '';
   if (!room.isHost) return line ? <p className="text-xs text-ink-muted">{line}</p> : null;
   const late = r.deadline !== null && now + room.clockOffset >= r.deadline;
   const offline = (id: PlayerId) => room.players.find((p) => p.id === id)?.connected === false;

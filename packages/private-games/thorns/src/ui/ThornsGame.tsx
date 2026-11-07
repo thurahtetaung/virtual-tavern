@@ -1,6 +1,16 @@
-import { type GameRoomInfo, type GameUiProps, storageKey, waitingForHost } from '@vt/game-sdk';
+import {
+  type GameRoomInfo,
+  type GameUiProps,
+  lobbyStatus,
+  playersNeeded,
+  storageKey,
+  waitingForHost,
+} from '@vt/game-sdk';
 import {
   Button,
+  EndTabs,
+  Fold,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -15,8 +25,6 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
-  EndTabs,
-  Fold,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -108,6 +116,8 @@ export function ThornsGame({
 }
 
 const TIPS_KEY = 'thorns.tips.v1';
+/** Added to the winner's standings score so they top the podium; never shown. */
+const WINNER = 100;
 
 /** First-time tips, until dismissed (per seat in a playtest); folded on phones. */
 function Tips({ art }: { art: Art }) {
@@ -179,31 +189,24 @@ function Lobby({
   };
   const blocker =
     seated.length < MIN_PLAYERS
-      ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
+      ? playersNeeded(MIN_PLAYERS, seated.length)
       : seated.length > MAX_PLAYERS
         ? `At most ${MAX_PLAYERS} can play.`
         : null;
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <>
-      <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : room.isHost
-                ? 'Everyone’s here? Start the game.'
-                : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         {art.lobby && (
           <ProtectedImage
@@ -235,7 +238,7 @@ function Lobby({
                   size="sm"
                   onClick={() => void act({ type: 'sit', playing: false })}
                 >
-                  Stand up
+                  Watch instead
                 </Button>
               )}
             </li>
@@ -263,6 +266,7 @@ function Lobby({
           )}
         </p>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Thorns'} onClick={showGuide} />
       <LobbySettings
         editable={room.isHost}
         summary={[
@@ -311,8 +315,9 @@ function Lobby({
             disabled={!!blocker}
             onClick={() => void act({ type: 'start' }, { anchor: 'th-start' })}
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="th-start" />
         </StickyBar>
       )}
@@ -355,13 +360,17 @@ function End({
               <Standings
                 entries={g.players.map((p) => ({
                   id: p.id,
+                  // The winner always tops the podium (a last player standing
+                  // may have fewer points); the column shows everyone's real points.
                   name: p.name,
-                  // Nobody but the winner can have two points, so the winner always tops the podium.
-                  score: g.winners.includes(p.id) ? 2 : p.points,
-                  note: `${p.points} ${p.points === 1 ? 'point' : 'points'} · ${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
+                  score: p.points + (g.winners.includes(p.id) ? WINNER : 0),
+                  note: `${g.winners.includes(p.id) ? '👑 winner · ' : ''}${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
                 }))}
                 you={room.you}
-                scoreLabel={(n) => (n === 2 ? 'winner' : `${n} ${n === 1 ? 'point' : 'points'}`)}
+                scoreLabel={(n) => {
+                  const pts = n >= WINNER ? n - WINNER : n;
+                  return `${pts} ${pts === 1 ? 'point' : 'points'}`;
+                }}
               />
             ),
           },

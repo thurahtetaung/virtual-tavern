@@ -136,10 +136,12 @@ test('"Same crew, new game" opens a linked table and the crew follows', async ({
   await playEscape(players, names);
   await expectStrips(players);
   // Guests don't get the button; the host picks the next game.
-  await expect(others[0]!.getByRole('button', { name: '🎲 Same crew, new game' })).toHaveCount(0);
-  await host.getByRole('button', { name: '🎲 Same crew, new game' }).click();
+  await expect(others[0]!.getByRole('button', { name: '🎲 Same crew, another game' })).toHaveCount(
+    0,
+  );
+  await host.getByRole('button', { name: '🎲 Same crew, another game' }).click();
   await host
-    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('dialog', { name: '🎲 Same crew, another game' })
     .getByRole('button', { name: 'Codenames' })
     .click();
   await expect(host.getByText('Pick a team below')).toBeVisible();

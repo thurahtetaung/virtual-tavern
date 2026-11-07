@@ -83,8 +83,8 @@ const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: Gu
 
 const RAW: GameGuide = {
   tagline: 'Play your cards, draw one, and pray it isn’t a {bomb}. Last one standing wins.',
-  players: '2 to 10 players',
-  duration: '10–25 minutes',
+  players: '2–10 players',
+  duration: '10–25 min',
   goal: 'Be the last player who hasn’t exploded. Every turn ends with a draw, and the pile hides {bombs}.',
   quickStart: [
     'On your turn, play as many cards as you like (or none), then draw one card. Drawing ends your turn.',

@@ -85,7 +85,7 @@ for (const [label, viewport] of [
       .getByRole('button', { name: 'Be the Spymaster' })
       .click();
     await others[2]!.getByRole('button', { name: 'Join Blue as Operative' }).click();
-    await expect(host.getByText('Everyone is seated')).toBeVisible();
+    await expect(host.getByText('Start when ready.')).toBeVisible();
     await host.screenshot({ path: `test-results/shots/${label}-lobby.png`, fullPage: true });
     // On a phone the host's settings start folded.
     await openSettings(host);
@@ -143,7 +143,7 @@ for (const [label, viewport] of [
     await others[0]!.getByRole('button', { name: 'Join Red' }).click();
     await others[1]!.getByRole('button', { name: 'Join Blue' }).click();
     await others[2]!.getByRole('button', { name: 'Join Blue' }).click();
-    await expect(host.getByText('Everyone is in')).toBeVisible();
+    await expect(host.getByText('Start when ready.')).toBeVisible();
     await shot(host, 'lobby');
     await host.getByRole('button', { name: 'Start game' }).click();
 
@@ -451,11 +451,11 @@ for (const [label, viewport] of [
     const host = await make('Hana');
     await host.goto('/');
     await host.getByRole('button', { name: 'Create an Echo room' }).click();
-    await expect(host.getByText('Almost ready')).toBeVisible();
+    await expect(host.getByText('players are needed')).toBeVisible();
     const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
     await Promise.all(others.map((p) => p.goto(host.url())));
     const all = [host, ...others];
-    await expect(host.getByText('Everyone is in')).toBeVisible();
+    await expect(host.getByText('Start when ready.')).toBeVisible();
     // On a phone the host's settings start folded.
     await openSettings(host);
     await host.getByRole('button', { name: '8 cards' }).click();
@@ -617,7 +617,7 @@ for (const [label, viewport, colorScheme] of [
         'aria-pressed',
         'true',
       );
-      await expect(host.getByText('Everyone is in')).toBeVisible();
+      await expect(host.getByText('Start when ready.')).toBeVisible();
       await shot(host, 'lobby');
       await host.getByRole('button', { name: 'Start game' }).click();
       const [ana, ben, cy] = others as [Page, Page, Page];

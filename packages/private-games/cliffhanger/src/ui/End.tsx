@@ -1,4 +1,4 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
+import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Button, EndTabs, StickyBar, Superlatives, cn } from '@vt/ui';
 import { progress } from '../logic/genres.ts';
 import { genreName } from '../logic/manifest.ts';
@@ -118,12 +118,14 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
               variant="secondary"
               onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cl-end' })}
             >
-              Change teams or settings
+              Change setup
             </Button>
           </div>
         </StickyBar>
       ) : (
-        <p className="text-center text-sm text-ink-muted">The host can start another game.</p>
+        <p className="text-center text-sm text-ink-muted">
+          {waitingForHost(room, 'start another game')}
+        </p>
       )}
     </div>
   );

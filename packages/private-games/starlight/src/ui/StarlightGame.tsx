@@ -4,6 +4,7 @@ import {
   Button,
   ChoicePicker,
   Countdown,
+  GuideLink,
   Hint,
   LobbySettings,
   Modal,
@@ -135,8 +136,9 @@ export function StarlightGame({
   if (view.phase === 'lobby') {
     return (
       <div className="space-y-4">
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Seats view={view} room={room} online={online} act={act} pickColor={pickColor} />
+        <GuideLink title={room.gameName ?? 'Starlight'} onClick={showGuide} />
         <LobbySettings
           editable={room.isHost}
           summary={[
@@ -146,7 +148,6 @@ export function StarlightGame({
           ]}
           className="space-y-4"
         >
-          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <WordListPicker
             selectedIds={view.settings.wordListIds}
             wordLists={view.wordLists}
@@ -195,16 +196,6 @@ export function StarlightGame({
             </div>
           </StickyBar>
         )}
-        <p className="text-center text-sm text-ink-muted">
-          New here?{' '}
-          <button
-            type="button"
-            className="font-semibold text-accent-text underline"
-            onClick={showGuide}
-          >
-            Read the guide
-          </button>
-        </p>
       </div>
     );
   }
@@ -288,7 +279,7 @@ function Seats({
           variant={me.playing ? 'ghost' : 'primary'}
           onClick={() => void act({ type: 'sit', playing: !me.playing })}
         >
-          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
+          {me.playing ? 'Watch instead' : 'Take a seat'}
         </Button>
       )}
     </Panel>
@@ -481,9 +472,20 @@ function Play({
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
           <span className="flex items-center gap-1">
-            {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} ·{' '}
-            <Token tokens={tokens} src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />{' '}
-            First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+            {view.phase === 'over' ? (
+              'Game over'
+            ) : (
+              <>
+                Round {roundName(r.no)} of {ROUNDS} ·{' '}
+                <Token
+                  tokens={tokens}
+                  src={firstScoutArt(tokens)}
+                  emoji="🔭"
+                  alt="First Scout pawn"
+                />{' '}
+                First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+              </>
+            )}
           </span>
           {view.phase === 'playing' && (
             <Countdown

@@ -55,8 +55,8 @@ export function Replay({
   const touched = new Set(turn?.touched ?? []);
   return (
     <section className="flex flex-col gap-2" aria-label="Replay" data-testid="sf-replay">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">Replay</h3>
+      {/* The fold around it is already called Replay: no second heading. */}
+      <div className="flex items-center justify-end gap-2">
         <span className="text-xs text-ink-muted tabular-nums">
           {at === 0 ? 'The deal' : `Turn ${at} of ${total}`}
         </span>
@@ -68,13 +68,14 @@ export function Replay({
       </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums">
         <span>
-          💡 {after.clues}/{CLUE_TOKENS}
+          💡 {after.clues} of {CLUE_TOKENS} clues
         </span>
         <span>
-          🧨 {after.fuses}/{FUSES}
+          🧨 {after.fuses} of {FUSES} fuses
         </span>
-        <span>🂠 {after.deck}</span>
+        <span>🂠 {after.deck} in the deck</span>
         <span className="flex flex-wrap gap-1.5">
+          <span className="text-ink-muted">Fireworks</span>
           {(Object.entries(after.fireworks) as [Suit, number][]).map(([suit, h]) => (
             <span key={suit}>
               {SUIT_SYMBOL[suit]}

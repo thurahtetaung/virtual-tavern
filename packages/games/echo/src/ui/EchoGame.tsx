@@ -128,7 +128,8 @@ export function EchoGame({
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       <div className="min-w-0 space-y-3">
-        <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {/* At the end the score shows once, big, in the result. */}
+        {view.phase !== 'over' && <Scoreboard view={view} clockOffset={room.clockOffset} />}
         <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
           {status.text}
         </Hint>

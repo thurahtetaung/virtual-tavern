@@ -40,18 +40,15 @@ export function statusFor(view: EncoreView, you: string, name: NameOf): Status {
       ? f(`You win with ${plural(total(you), 'point')}!`)
       : f(`${name(w[0])} wins with ${plural(total(w[0]!), 'point')}!`);
   }
-  const round = `Round ${g.round} of ${g.rounds}`;
+  // The round's number is on the table and the scores just below: this line never repeats it.
   if (g.stage === 'flip')
     return me && !me.done
-      ? f(
-          `${round}: keep your hand as dealt, or turn it all round. Nobody sees which you pick.`,
-          true,
-        )
-      : f(`${round}: everyone is deciding whether to turn their hand round.`);
+      ? f('Keep your hand as dealt, or turn it all round. Nobody sees which you pick.', true)
+      : f('Everyone is deciding whether to turn their hand round.');
   if (g.stage === 'scores')
     return me && !me.done
-      ? f(`${round} is over. Tap Ready when you’ve seen the scores.`, true)
-      : f(`${round} is over. The next round starts when everyone is ready.`);
+      ? f('Tap Ready when you’ve seen the scores.', true)
+      : f('The next round starts when everyone is ready.');
   const table = g.table?.cards.length ? g.table : null;
   const owner = table ? name(table.owner) : '';
   const tableLine = table ? `${poss(owner)} ${groupLine(table.cards)}` : '';

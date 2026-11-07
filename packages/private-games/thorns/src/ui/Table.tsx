@@ -151,11 +151,12 @@ function Mat({
       </div>
       <div className="flex items-center justify-between text-xs text-ink-muted">
         <span aria-label={`${p.points} of ${POINTS_TO_WIN} points`}>
-          {Array.from({ length: POINTS_TO_WIN }, (_, i) => (i < p.points ? '★' : '☆')).join('')}
+          {Array.from({ length: POINTS_TO_WIN }, (_, i) => (i < p.points ? '★' : '☆')).join('')}{' '}
+          points
         </span>
         <span aria-label={`${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left`}>
           {'●'.repeat(p.discs)}
-          <span className="opacity-40">{'○'.repeat(Math.max(0, 4 - p.discs))}</span>
+          <span className="opacity-40">{'○'.repeat(Math.max(0, 4 - p.discs))}</span> discs
           {g.chance?.holder === p.id && g.chance.round === r.number && ' 🍀'}
         </span>
       </div>

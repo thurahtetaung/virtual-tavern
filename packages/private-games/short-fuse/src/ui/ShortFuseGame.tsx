@@ -183,26 +183,39 @@ function WaitingChips({
   const ids = g.waiting;
   if (!ids.length || view.phase !== 'playing' || (ids.length === 1 && ids[0] === view.me?.id))
     return null;
+  // The status line already names the player whose turn it is: only their buttons stay here.
+  const named = ids.length === 1 && ids[0] === g.turn.player;
+  if (named) {
+    const online = room.players.find((p) => p.id === ids[0])?.connected ?? false;
+    const late = g.decisionEnds !== null && now >= g.decisionEnds;
+    if (!(online && amIn(view)) && !(room.isHost && (!online || late))) return null;
+  }
   return (
     <div
       className="flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap [scrollbar-width:none]"
       data-testid="waiting-on"
     >
       {confirmDialog}
-      <span className="shrink-0 font-semibold text-ink-muted">Waiting on:</span>
+      {!named && <span className="shrink-0 font-semibold text-ink-muted">Waiting on:</span>}
       {ids.map((id) => {
         const online = room.players.find((p) => p.id === id)?.connected ?? false;
         const mine = id === view.me?.id;
         const recently = (g.nudges[id] ?? 0) + NUDGE_MS > now;
         const late = g.decisionEnds !== null && now >= g.decisionEnds;
+        const canNudge = !mine && online && amIn(view);
+        const canActFor = room.isHost && !mine && (!online || late);
         return (
           <span
             key={id}
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-soft py-0.5 pr-1 pl-2 font-semibold text-info-ink ring-1 ring-info-line"
           >
-            {mine ? 'you' : namesWithPresence([id], room.players) || who(view, id)}
-            <NameDot name={who(view, id, false)} className="order-first" />
-            {!mine && online && amIn(view) && (
+            {!named && (
+              <>
+                {mine ? 'you' : namesWithPresence([id], room.players) || who(view, id)}
+                <NameDot name={who(view, id, false)} className="order-first" />
+              </>
+            )}
+            {canNudge && (
               <button
                 type="button"
                 disabled={recently}
@@ -211,10 +224,10 @@ function WaitingChips({
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
               >
-                👋
+                👋{named && ' Nudge'}
               </button>
             )}
-            {room.isHost && !mine && (!online || late) && (
+            {canActFor && (
               <Button
                 variant="quiet"
                 size="sm"

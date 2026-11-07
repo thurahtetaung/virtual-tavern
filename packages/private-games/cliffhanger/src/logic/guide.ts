@@ -36,8 +36,8 @@ function text(names: Names): GameGuide {
   return {
     tagline:
       'Two teams, one film at a time: win the face-off, then describe films in one word, a quote or a mime to collect every genre.',
-    players: '4 to 16, in two teams (best with 6 or more)',
-    duration: '30–45 minutes',
+    players: '4–16 players in two teams · best with 6+',
+    duration: '30–45 min',
     goal: 'Be the first team to collect a film of every genre: eight by default. Each round starts with a face-off between one player from each team, then both teams get 30 seconds to describe their films.',
     quickStart: [
       'Split into two teams. The first team to collect a film of every chosen genre wins.',

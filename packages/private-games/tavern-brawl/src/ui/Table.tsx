@@ -88,7 +88,8 @@ export function statusFor(view: TavernBrawlView, you: string, name: NameOf, art:
         : turn.plays > 0
           ? 'Play one more card (⚡)'
           : 'Your turn: play a card';
-    return { text: `${more}. Tap a card, then Play.`, yourMove: true };
+    // The play bar says how ("Pick a card to play", then "Play …"): the status only says what.
+    return { text: `${more}.`, yourMove: true };
   }
   return {
     text: `${possessive(name(turn.player)).replace(/^./, (x) => x.toUpperCase())} turn…`,
@@ -318,7 +319,7 @@ const PlayerRow = memo(function PlayerRow({
               )}
             </span>
             <span className="block truncate text-xs text-ink-muted">
-              {art.hero(p.hero)} · ✋{p.handCount} · 🂠{p.deckCount}
+              {art.hero(p.hero)} · ✋ {p.handCount} in hand · 🂠 {p.deckCount} in deck
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
               {p.controls && ' · 🎯 steers attacks'}

@@ -2,8 +2,8 @@ import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
 const text: GameGuide = {
   tagline: 'Two teams race to find their secret agents using one-word clues.',
-  players: '4 or more (best with 6–10)',
-  duration: '15–20 minutes',
+  players: '4+ players · best with 6–10',
+  duration: '15–20 min',
   goal: 'Be the first team to find all of your agents on the board, and never touch the assassin.',
   quickStart: [
     'Join Red or Blue. Each team needs one Spymaster; everyone else is an Operative.',

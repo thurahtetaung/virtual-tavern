@@ -184,7 +184,7 @@ export function PlaytestAdmin() {
                   {icons.get(g.id) ?? '🎲'}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate" title={g.name}>
+                  <span className="line-clamp-2 block leading-tight break-words" title={g.name}>
                     {g.name}
                   </span>
                   <span className="block text-caption font-normal text-ink-muted">

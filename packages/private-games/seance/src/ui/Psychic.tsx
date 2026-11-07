@@ -215,23 +215,26 @@ export function MineTab({
         </div>
         {/* Phones: your vision and the cards on the table take what the screen has left and scroll inside it. */}
         <FitArea phone plain min={128} className="-mx-1 space-y-2 px-1 py-1">
-          <VisionStrip
-            p={me}
-            g={g}
-            content={content}
-            onOpen={(i) => openCompare(i)}
-            onLook={(i) =>
-              look(
-                cardsOf(
-                  'vision',
-                  me.visions.map((v) => v.card),
-                  visionCaptions(me, g.hour),
-                ),
-                i,
-                'Your vision',
-              )
-            }
-          />
+          {/* No vision yet: the status line and the waiting line already say so. */}
+          {me.visions.length > 0 && (
+            <VisionStrip
+              p={me}
+              g={g}
+              content={content}
+              onOpen={(i) => openCompare(i)}
+              onLook={(i) =>
+                look(
+                  cardsOf(
+                    'vision',
+                    me.visions.map((v) => v.card),
+                    visionCaptions(me, g.hour),
+                  ),
+                  i,
+                  'Your vision',
+                )
+              }
+            />
+          )}
           <h3 className="text-sm font-bold">
             {g.stage === 'reveal' ? (
               // Between hours: these are next hour's cards, not something to guess now.

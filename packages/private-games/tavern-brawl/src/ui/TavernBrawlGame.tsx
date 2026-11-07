@@ -159,6 +159,7 @@ function End({
                     <span className="inline-flex items-center gap-1 text-sm">
                       <span>
                         <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
+                        {!p.out && ` · ${p.hp} hit points left`}
                       </span>
                       <NameDot name={p.name} className="order-first" />
                     </span>

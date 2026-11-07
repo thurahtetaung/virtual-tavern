@@ -694,7 +694,7 @@ function TurnRoom({
           style={CANVAS}
           data-testid="sk-stage-drawing"
         >
-          {turn.drawing && !turn.hidden ? (
+          {turn.drawing ? (
             <DrawingView
               drawing={turn.drawing}
               label="The drawing on the table"
@@ -702,7 +702,7 @@ function TurnRoom({
             />
           ) : (
             <p className="grid h-full place-items-center text-lg font-bold text-stone-700">
-              {turn.hidden ? '🙈 Hidden by the host' : 'No drawing'}
+              No drawing
             </p>
           )}
         </div>

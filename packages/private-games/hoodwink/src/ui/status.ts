@@ -1,4 +1,10 @@
-import { type PresencePlayer, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  lobbyStatus,
+  playersNeeded,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { awards, liePoints } from '../logic/game.ts';
 import {
   type HoodwinkView,
@@ -28,11 +34,9 @@ export const chosenQuestionCount = (view: HoodwinkView) =>
     .reduce((n, d) => n + d.questionCount, 0);
 
 /** Why the game can't start yet, or null if it can. */
-export function startBlocker(view: HoodwinkView, title = 'Hoodwink'): string | null {
+export function startBlocker(view: HoodwinkView): string | null {
   const playing = view.seats.filter((s) => s.playing).length;
-  if (playing < MIN_PLAYERS) {
-    return `${title} needs at least ${MIN_PLAYERS} players (${playing} so far).`;
-  }
+  if (playing < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, playing);
   if (playing > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players can play.`;
   if (view.decks.length === 0) return 'No question decks yet. Ask an admin to add some.';
   const { rounds } = view.settings;
@@ -162,16 +166,12 @@ export function statusFor(
         yourMove: false,
       };
     }
-    if (blocker) return { text: `${ended}Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? {
-          text: `${ended}Everyone is in. Press Start game when your friends are ready!`,
-          yourMove: true,
-        }
-      : {
-          text: `${ended}All set. ${room ? waitingForHost(room) : 'Waiting for the host to start a game…'}`,
-          yourMove: false,
-        };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: room?.hostId ?? '', players: room?.players ?? [] },
+      blocker,
+    );
+    return { text: `${ended}${s?.text ?? ''}`.trim(), yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     if (view.endReason === 'too-few') {

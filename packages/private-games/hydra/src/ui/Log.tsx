@@ -1,5 +1,5 @@
 import { NameDot, cn } from '@vt/ui';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { type Flag, type FlagKind, claimFlags } from '../logic/claims.ts';
 import type { HydraView, Round } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -10,7 +10,7 @@ import { Sheet } from './Secret.tsx';
 import type { Notes, Suspicions } from './storage.ts';
 import { nameOf } from './status.ts';
 
-type Filter = 'all' | 'claims' | 'votes';
+type Filter = 'all' | 'claims' | 'votes' | 'truth';
 
 const FLAG_TEXT: Record<FlagKind, string> = {
   'government-mismatch':
@@ -83,7 +83,16 @@ function VoteLine({ view, c, r }: { view: HydraView; c: Content; r: Round }) {
 }
 
 /** The round-by-round timeline, with claims inline and flags where claims can't all be true. */
-export function Timeline({ view, c }: { view: HydraView; c: Content }) {
+export function Timeline({
+  view,
+  c,
+  truth,
+}: {
+  view: HydraView;
+  c: Content;
+  /** At the end on wide screens: the truth, as one more filter of the same round list. */
+  truth?: ReactNode;
+}) {
   const g = view.game!;
   const [filter, setFilter] = useState<Filter>('all');
   const flags = g.flags ? claimFlags(g.rounds) : [];
@@ -102,26 +111,35 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-bold">📜 Timeline</h3>
         <div className="flex gap-1" role="group" aria-label="Show">
-          {(['all', 'claims', 'votes'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              aria-pressed={filter === f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
-                filter === f ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
-              )}
-            >
-              {f === 'all' ? 'All' : f === 'claims' ? 'Claims' : 'Votes'}
-            </button>
-          ))}
+          {(['all', 'claims', 'votes', ...(truth ? (['truth'] as const) : [])] as const).map(
+            (f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
+                  filter === f ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
+                )}
+              >
+                {f === 'all'
+                  ? 'All'
+                  : f === 'claims'
+                    ? 'Claims'
+                    : f === 'votes'
+                      ? 'Votes'
+                      : 'Truth'}
+              </button>
+            ),
+          )}
         </div>
       </div>
-      {!rounds.length && (
+      {filter === 'truth' && truth}
+      {filter !== 'truth' && !rounds.length && (
         <p className="text-sm text-ink-muted">Nothing yet: the first government is being formed.</p>
       )}
-      <ol className="space-y-2">
+      <ol className="space-y-2" hidden={filter === 'truth'}>
         {rounds.map((r) => {
           const pending = r === g.rounds.at(-1) && view.stage === 'claim' ? g.needs : [];
           const yes = Object.values(r.votes).filter((b) => b === 'yes').length;

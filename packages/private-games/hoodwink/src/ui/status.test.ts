@@ -33,7 +33,7 @@ const status = (h: { state: HoodwinkState }, id: string | null, host = false) =>
 describe('startBlocker', () => {
   it('needs three players, some decks, and enough questions for the rounds', () => {
     expect(startBlocker(hoodwink.view(harness([HOST, 'p2']).state, HOST))).toContain(
-      'at least 3 players (2 so far)',
+      '3 players are needed (2 seated).',
     );
     expect(startBlocker(hoodwink.view(harness(FOUR, content([])).state, HOST))).toContain(
       'No question decks yet',
@@ -57,10 +57,9 @@ describe('statusFor', () => {
     expect(
       statusFor(hoodwink.view(h.state, 'p2'), false, null, { you: 'p2', hostId: HOST, players })
         .text,
-    ).toBe('All set. Waiting for HOST (host) to start…');
-    expect(statusFor(hoodwink.view(h.state, HOST), true, 'No decks.').text).toBe(
-      'Almost ready: No decks.',
-    );
+    ).toBe('Waiting for HOST (host) to start…');
+    expect(statusFor(hoodwink.view(h.state, HOST), true, 'No decks.').text).toBe('');
+    expect(statusFor(hoodwink.view(h.state, 'p2'), false, 'No decks.').text).toBe('No decks.');
     h.act({ type: 'sit', playing: false }, 'p2');
     expect(status(h, 'p2').text).toContain("You're watching");
   });
@@ -69,7 +68,7 @@ describe('statusFor', () => {
     const h = startedGame();
     h.act({ type: 'back-to-lobby' });
     expect(status(h, 'p2').text).toBe(
-      'The host ended the last game early. All set. Waiting for the host to start a game…',
+      'The host ended the last game early. Waiting for the host to start…',
     );
     expect(status(h, HOST, true).text).toMatch(/^You ended the last game early\. /);
   });

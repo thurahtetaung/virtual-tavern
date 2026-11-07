@@ -26,7 +26,7 @@ test('a full game: a won challenge, failed ones, the Last Chance disc and the wi
   const pages = (await table(browser, ['Hana', 'Ana', 'Ben'])) as [Page, Page, Page];
   const [hana] = pages;
   const nameOf = new Map(pages.map((p, i) => [p, ['Hana', 'Ana', 'Ben'][i]!]));
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Round 1: everyone puts down a rose at once; whoever starts bids all three and makes it.
   await Promise.all(pages.map((p) => putDown(p)));
@@ -110,7 +110,7 @@ test('a player who leaves is skipped until the host removes them', async ({ brow
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana, ben] = (await table(browser, ['Hana', 'Ana', 'Ben'])) as [Page, Page, Page];
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
   await putDown(hana);
   await putDown(ana);
   // Ben leaves before putting his first disc down: nobody waits for him.

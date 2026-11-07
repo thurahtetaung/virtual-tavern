@@ -3,6 +3,7 @@ import {
   Button,
   type Choice,
   ChoicePicker,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -58,7 +59,7 @@ export function settingsSummary(view: CliffhangerView): string[] {
   const s = view.settings;
   return [
     s.deck === 'tv' ? 'TV shows' : 'Films',
-    MODES[s.mode].name,
+    `board: ${MODES[s.mode].name}`,
     ...(s.actAlt === 'cast' ? ['Name the Cast instead of Act It'] : []),
     goalLine(view.target).toLowerCase(),
     `${s.answerSeconds} s face-off, ${s.turnSeconds} s turns`,
@@ -314,7 +315,7 @@ export function Teams({
       <div className="flex flex-wrap gap-2">
         {mine && lobby && (
           <Button size="sm" variant="quiet" onClick={() => join(null)}>
-            Just watch
+            Watch instead
           </Button>
         )}
         {room.isHost && lobby && (
@@ -328,7 +329,7 @@ export function Teams({
           on={view.me.onCall}
           editable
           title="I’m on a call"
-          help={`Can’t be seen? Your Act It squares become ${names.styles[view.settings.actAlt ?? 'describe-badly']}.`}
+          help={`Just for you: your Act It squares become ${names.styles[view.settings.actAlt ?? 'describe-badly']}.`}
           onChange={(v) => void act({ type: 'on-call', onCall: v })}
           testId="on-call"
         />
@@ -398,12 +399,12 @@ export function Lobby({
   };
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Teams view={view} room={room} act={act} online={online} />
       </Panel>
+      <GuideLink title={title} onClick={showGuide} />
       <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <Pills
           label="Deck"
           value={s.deck}
@@ -590,9 +591,6 @@ export function Lobby({
           <RefusalSlot anchor="cl-start" />
         </StickyBar>
       )}
-      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to {title}? Read the guide
-      </Button>
     </div>
   );
 }

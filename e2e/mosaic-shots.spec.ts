@@ -27,7 +27,7 @@ for (const [label, viewport, colorScheme] of [
     await openBackroom(await visitor(browser, 'Admin'));
     const [hana, ana] = (await table(browser, ['Hana', 'Ana'], look)) as [Page, Page];
     await shot(hana, '01-lobby');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await myTurn(hana);
     await shot(hana, '02-your-turn');
     await pick(hana, 'blue', 1);
@@ -96,7 +96,7 @@ for (const [label, viewport, colorScheme] of [
     await shot(hana, '01-lobby-options');
     await hana.getByTestId('mo-jokers').click();
     await hana.getByTestId('mo-specials').click();
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await pick(hana, 'blue', 1);
     await sheet(hana).locator('button[data-target="0"]').click();
     await shot(hana, '02-grey-pick');
@@ -119,7 +119,7 @@ for (const [label, viewport, colorScheme] of [
     await hana.getByRole('button', { name: 'Change setup' }).click();
     await hana.getByTestId('mo-grey').click();
     await option(hana, 'mo-jokers');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await pick(hana, 'joker', 1);
     await sheet(hana).getByRole('radio', { name: 'jokers + 1 blue' }).click();
     await sheet(hana).locator('button[data-target="1"]').click();
@@ -139,7 +139,7 @@ for (const [label, viewport, colorScheme] of [
     await hana.getByRole('button', { name: 'Change setup' }).click();
     await hana.getByTestId('mo-jokers').click();
     await option(hana, 'mo-specials');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await myTurn(hana);
     await shot(hana, '08-specials-table');
     await pick(hana, 'blue', 1);

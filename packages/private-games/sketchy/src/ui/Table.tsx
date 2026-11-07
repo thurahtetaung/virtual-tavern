@@ -63,7 +63,7 @@ export function Table({
                     (await confirm({
                       title: 'Sit out and just watch?',
                       body: 'You can join again from the next round.',
-                      confirmLabel: 'Sit out',
+                      confirmLabel: 'Watch instead',
                     }))
                   ) {
                     void act({ type: 'sit', playing: false });
@@ -71,7 +71,7 @@ export function Table({
                 })()
               }
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           ) : (
             players.length < MAX_PLAYERS && (
@@ -146,13 +146,7 @@ export function Scores({ view, revealing }: { view: SketchyView; revealing: bool
             </span>
             <NameDot name={s.name} className="order-first" />
             {!revealing && (streaks[s.id] ?? 0) >= 2 && (
-              <span
-                className="text-xs"
-                title={`${streaks[s.id]} in a row`}
-                aria-label={`${streaks[s.id]} in a row`}
-              >
-                🔥{streaks[s.id]}
-              </span>
+              <span className="text-xs whitespace-nowrap">🔥 {streaks[s.id]} in a row</span>
             )}
             {gained?.[s.id] ? (
               <span className="text-xs font-semibold text-success-ink">

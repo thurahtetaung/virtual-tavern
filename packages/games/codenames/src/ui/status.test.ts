@@ -52,9 +52,7 @@ describe('statusFor names people', () => {
   it('names the host in waiting texts', () => {
     const h = startedGame();
     const lobby = { ...codenames.view(h.state, OP.red), phase: 'lobby' as const };
-    expect(statusFor(lobby, false, null, room()).text).toBe(
-      'All set. Waiting for HOST (host) to start the game…',
-    );
+    expect(statusFor(lobby, false, null, room()).text).toBe('Waiting for HOST (host) to start…');
   });
 
   it('names an offline Spymaster instead of "thinking…"', () => {

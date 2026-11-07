@@ -110,8 +110,8 @@ function base(art: GuideArt): GameGuide {
   ];
   return {
     tagline: 'Draft coloured tiles, fill your pattern lines and tile a wall that scores in runs.',
-    players: '2 to 4',
-    duration: '30 minutes',
+    players: '2–4 players',
+    duration: '30 min',
     goal: 'Have the most points when the game ends. It ends after the round in which someone completes a full row of their wall.',
     quickStart: [
       'On your turn, take every tile of one colour from one factory, or from the centre.',

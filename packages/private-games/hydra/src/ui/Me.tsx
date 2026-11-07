@@ -151,7 +151,7 @@ export function MeTab({
   big?: boolean;
   moments: boolean;
   setMoments: (on: boolean) => void;
-  /** The edition's display font switched off ("Plain headings"). */
+  /** The edition's display font switched off ("Themed lettering" off). */
   plain: boolean;
   setPlain: (on: boolean) => void;
 }) {
@@ -230,7 +230,7 @@ export function MeTab({
             className="text-sm font-semibold text-accent-text underline"
             onClick={showGuide}
           >
-            Full rules →
+            Rules →
           </button>
           <button
             type="button"
@@ -245,11 +245,11 @@ export function MeTab({
             <button
               type="button"
               role="switch"
-              aria-checked={plain}
+              aria-checked={!plain}
               onClick={() => setPlain(!plain)}
               className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
             >
-              Plain headings: {plain ? 'on' : 'off'}
+              Themed lettering: {plain ? 'off' : 'on'}
             </button>
           )}
         </div>

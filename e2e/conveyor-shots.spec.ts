@@ -29,7 +29,7 @@ for (const [label, viewport, colorScheme] of [
     await ana.locator('[data-menu="custom"]').click();
     await shot(ana, '02-own-menu', true);
     await ana.locator('[data-menu="sampler"]').click();
-    await ana.getByRole('button', { name: 'Start the game' }).click();
+    await ana.getByRole('button', { name: 'Start game' }).click();
     await pickTime(ana, 1, 1);
     await shot(ana, '03-first-turn');
     await ana.locator('button[data-k]').first().click();
@@ -58,7 +58,7 @@ for (const [label, viewport, colorScheme] of [
       for (let turn = 1; turn <= 10; turn++) await fillerTurn(pages, round, turn, 10);
       if (round < 3) await readyAll(pages);
     }
-    await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+    await expect(ana.getByRole('region', { name: 'Final standings' })).toBeVisible();
     await shot(ana, '09-end');
     await shot(ana, '10-end-full', true);
   });

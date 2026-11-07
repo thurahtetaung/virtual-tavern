@@ -147,16 +147,6 @@ describe('view', () => {
     check(h.state);
   });
 
-  it('shows a hidden drawing as hidden to everyone', () => {
-    const h = writing(4);
-    h.act(HOST, { type: 'hide', hidden: true });
-    for (const v of viewers(h.state)) {
-      const t = sketchy.view(h.state, v).game!.turn!;
-      expect(t.hidden).toBe(true);
-      expect(t.drawing).toBeNull();
-    }
-  });
-
   it('leaks nothing in 500 seeded games played by bots', () => {
     let games = 0;
     for (let seed = 1; seed <= 500; seed++) {

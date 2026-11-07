@@ -1,4 +1,10 @@
-import { type GameRoomInfo, namesWithPresence, waitingForHost } from '@vt/game-sdk';
+import {
+  type GameRoomInfo,
+  lobbyStatus,
+  namesWithPresence,
+  playersNeeded,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { EDITIONS, type RoyalPostView } from '../logic/types.ts';
 import { listNames, nameOf } from './text.ts';
 
@@ -11,8 +17,7 @@ export interface Status {
 export function startBlocker(view: RoyalPostView): string | null {
   const edition = EDITIONS[view.settings.edition];
   const seated = view.seats.filter((s) => s.playing).length;
-  if (seated < edition.minPlayers)
-    return `${edition.minPlayers} players are needed (${seated} seated).`;
+  if (seated < edition.minPlayers) return playersNeeded(edition.minPlayers, seated);
   if (seated > edition.maxPlayers)
     return `This edition seats at most ${edition.maxPlayers} (${seated} seated).`;
   return null;
@@ -38,21 +43,15 @@ export function statusFor(view: RoyalPostView, room: Room): Status {
         yourMove: !!me && !full,
       };
     }
-    const blocker = startBlocker(view);
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    // Never "everyone is seated" while friends are left watching.
-    const watching = view.seats.filter((s) => !s.playing).map((s) => s.name);
-    const also = watching.length
-      ? ` ${listNames(watching)} ${watching.length === 1 ? 'is' : 'are'} watching.`
-      : '';
-    return isHost
-      ? {
-          text: watching.length
-            ? `Ready to start.${also} Press Start when your friends are ready!`
-            : 'Everyone is seated. Press Start when your friends are ready!',
-          yourMove: true,
-        }
-      : { text: `All set. ${waitingForHost(room)}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(room, startBlocker(view));
+    // Never let the host think everyone is seated while friends are left watching.
+    const watching = view.seats.filter((x) => !x.playing).map((x) => x.name);
+    const also =
+      s?.me && watching.length
+        ? ` ${listNames(watching)} ${watching.length === 1 ? 'is' : 'are'} watching.`
+        : '';
+    return { text: s ? `${s.text}${also}` : '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));

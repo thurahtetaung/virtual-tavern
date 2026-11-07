@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import type { RecapPush } from '../lib/room-connection.ts';
 import type { useRoom } from '../lib/useRoom.ts';
-import { type Labeler, resolveText } from './resolve.ts';
+import { type Labeler, resolveText, resolveTextFor } from './resolve.ts';
 
 type Call = ReturnType<typeof useRoom>['call'];
 
@@ -117,18 +117,20 @@ export function useRecap({
     return out;
   }, [shown, players]);
 
+  const you = snapshot?.you;
   // The end screen's strip: only once the room's latest game is over, never mid-game.
   const superlatives = useMemo((): Superlative[] | undefined => {
     // Fetched for this very end screen, so a strip never shows the game before.
     if (phase !== 'over' || !shown || shown.running || fetched.for !== current) return undefined;
     const last = shown.games.findLast((g) => !g.elsewhere);
     if (!last?.lines.length) return undefined;
+    // The viewer's own end screen calls them "you", as its status line does.
     return last.lines.map((l) => ({
       emoji: l.emoji,
       title: resolveText(l.title, names, labels),
-      text: resolveText(l.text, names, labels),
+      text: resolveTextFor(l.text, names, labels, you),
     }));
-  }, [phase, shown, names, labels, fetched.for, current]);
+  }, [phase, shown, names, labels, fetched.for, current, you]);
 
   // Count one view per opening of the sheet.
   const viewed = useRef(false);

@@ -34,7 +34,7 @@ describe('statusFor', () => {
     const h = harness();
     for (const id of FOUR) h.act({ type: 'sit', playing: true }, id);
     expect(statusFor(reverie.view(h.state, 'ana'), false, null, room('ana')).text).toBe(
-      'All set. Waiting for HOST (host) to start…',
+      'Waiting for HOST (host) to start…',
     );
   });
 

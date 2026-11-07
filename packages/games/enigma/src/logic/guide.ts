@@ -2,8 +2,8 @@ import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
 const text: GameGuide = {
   tagline: 'Pass secret codes to your team with clues, while the other team tries to crack them.',
-  players: '4 or more (best with 6–8)',
-  duration: '30–45 minutes',
+  players: '4+ players · best with 6–8',
+  duration: '30–45 min',
   goal: 'Get your codes across to your own team without two miscommunications, and intercept the other team’s codes twice before they intercept yours. If nobody has managed either by the end of round 8, the better score wins, and a level score goes to a showdown.',
   quickStart: [
     'Join Red or Blue (at least 2 each). Your team gets 4 secret keywords, numbered 1 to 4.',

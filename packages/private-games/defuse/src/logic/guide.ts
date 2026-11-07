@@ -90,8 +90,8 @@ function base(art: GuideArt): GameGuide {
   return {
     tagline:
       art.tagline ?? 'One of you holds a ticking bomb, everyone else holds the manual. Talk fast.',
-    players: '2 to 12 (one defuser, the rest experts)',
-    duration: '5 minutes a bomb',
+    players: '2–12 players (one defuser, the rest experts)',
+    duration: '5 min a bomb',
     goal: 'Defuse the bomb before the clock runs out. Only the defuser sees the bomb; only the experts see the manual. You win by talking.',
     quickStart: [
       'One player is the defuser: their phone shows the bomb and nothing else.',

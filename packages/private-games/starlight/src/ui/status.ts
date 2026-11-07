@@ -1,4 +1,10 @@
-import { type GameRoomInfo, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type GameRoomInfo,
+  lobbyStatus,
+  playersNeeded,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import { MAX_MARKS, MIN_MARKS, ROUNDS, type Shown, type StarlightView } from '../logic/types.ts';
 
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -25,7 +31,7 @@ type Room = Pick<GameRoomInfo, 'you' | 'hostId' | 'isHost' | 'players'>;
 /** Why the host can't start, from the view (the server checks again). */
 export function startBlocker(view: StarlightView, cards: number, words: number): string | null {
   const n = view.seats.filter((s) => s.playing).length;
-  if (n < 3) return `Waiting for ${3 - n} more ${3 - n === 1 ? 'player' : 'players'} to sit down.`;
+  if (n < 3) return playersNeeded(3, n);
   if (n > 6) return 'At most 6 can play.';
   if (cards < 30) return 'Pick card sets with at least 30 cards.';
   if (words < ROUNDS) return `Pick word lists with at least ${ROUNDS} words.`;
@@ -37,11 +43,10 @@ export function statusFor(view: StarlightView, room: Room, blocker: string | nul
   const me = view.me;
   const r = view.round;
   if (view.phase === 'lobby') {
-    if (room.isHost)
-      return blocker
-        ? { text: blocker, yourMove: false }
-        : { text: 'Everyone’s here? Press Start game.', yourMove: true };
-    return { text: me?.playing ? waitingForHost(room) : 'Take a seat to play.', yourMove: false };
+    if (!room.isHost && !me?.playing) return { text: 'Take a seat to play.', yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(room, blocker);
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over' || !r) {
     const w = view.winners;
@@ -118,6 +123,6 @@ export function showLine(view: StarlightView, s: Shown, you?: string): string {
   if (s.kind === 'fall')
     return `🌠 ${scout} ${s.scout === you ? 'fall' : 'falls'}: nobody else marked it. No more stars this round.`;
   if (s.kind === 'super')
-    return `🌟 Super-Spark! Only ${names(view, others, you)} marked it too: 3 stars each${fallenNote}.`;
-  return `✨ Spark! ${capital(names(view, others, you))} marked it too: 2 stars each${fallenNote}.`;
+    return `🌟 Super-Spark! Only ${names(view, others, you)} marked it too: 3 points each${fallenNote}.`;
+  return `✨ Spark! ${capital(names(view, others, you))} marked it too: 2 points each${fallenNote}.`;
 }

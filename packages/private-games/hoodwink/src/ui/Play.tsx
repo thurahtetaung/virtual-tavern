@@ -505,7 +505,7 @@ export function GameOver({
                   score: s.score,
                 }))}
                 you={view.me?.id}
-                scoreLabel={(n) => `${points(n)} pts`}
+                scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
                 className="text-left"
               />
             ),

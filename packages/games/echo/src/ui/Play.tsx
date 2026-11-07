@@ -403,6 +403,10 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   // Cards a wrong guess cost without being played, so the list adds up to the deck.
   const burned = history.filter((h) => h.burned).length;
   const forfeits = history.filter((h) => h.forfeit).length;
+  // The won card a forfeit gave back: the last one won before it, shown as given back, not won.
+  const givenBack = history.flatMap((h, i) =>
+    h.forfeit ? [history.findLastIndex((w, j) => j < i && w.outcome === 'right')] : [],
+  );
   return (
     <details className="group" open={open}>
       <FoldSummary className="px-0 text-body font-bold">
@@ -411,7 +415,11 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
       <Rows className="text-small">
         {history.map((h, i) => (
           <Row key={i} className="min-h-9 items-baseline gap-2">
-            <span aria-label={h.outcome}>{RESULT_ICON[h.outcome]}</span>
+            {givenBack.includes(i) ? (
+              <span aria-label="given back">↩️</span>
+            ) : (
+              <span aria-label={h.outcome}>{RESULT_ICON[h.outcome]}</span>
+            )}
             <span className="font-semibold uppercase">{h.word}</span>
             <span className="min-w-0 truncate text-ink-muted">
               {h.guesserName}

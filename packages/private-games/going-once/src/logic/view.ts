@@ -30,14 +30,12 @@ import {
   settingsOf,
 } from './types.ts';
 
-/** A lot's picture: strokes or the house picture, nothing while hidden. */
+/** A lot's picture: strokes or the house picture. */
 function picture(item: Item, withStrokes: boolean): LotPicture {
-  if (item.hidden) return { item: item.id, drawing: null, house: null, hidden: true };
   return {
     item: item.id,
     drawing: withStrokes && item.drawing ? clone(item.drawing) : null,
     house: item.drawing ? null : item.house,
-    hidden: false,
   };
 }
 
@@ -82,7 +80,7 @@ function practiceView(g: Game): PracticeView | null {
 
 /** The lot on the easel: nothing of it during its intro, before the picture goes up. */
 function easel(item: Item, intro: boolean): LotPicture {
-  return intro ? { item: item.id, drawing: null, house: null, hidden: false } : picture(item, true);
+  return intro ? { item: item.id, drawing: null, house: null } : picture(item, true);
 }
 
 function gameView(state: GoingOnceState, g: Game): GameView {

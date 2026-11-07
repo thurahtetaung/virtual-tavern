@@ -49,3 +49,30 @@ export const resolveText = (
   resolveSegments(text, names, labels)
     .map((s) => s.text)
     .join('');
+
+const ME = '\u0000me\u0000';
+
+/**
+ * `resolveText` for the viewer's own end screen: their name becomes "you", as the status line
+ * says it ("You were dead last", "your drawings", "Ana & you matched 4 times").
+ */
+export function resolveTextFor(
+  text: string,
+  names: ReadonlyMap<string, string>,
+  labels: Labeler | null,
+  you: string | undefined,
+): string {
+  if (!you || !names.has(you)) return resolveText(text, names, labels);
+  const mine = new Map(names).set(you, ME);
+  const out = resolveText(text, mine, labels)
+    .replaceAll(new RegExp(`${ME}['’]s\\b`, 'g'), 'your')
+    .replaceAll(new RegExp(`${ME} was\\b`, 'g'), 'you were')
+    .replaceAll(new RegExp(`${ME} is\\b`, 'g'), 'you are')
+    .replaceAll(new RegExp(`${ME} has\\b`, 'g'), 'you have')
+    .replaceAll(ME, 'you');
+  // A sentence that starts with it starts with a capital.
+  return out.replace(
+    /(^|[.!?]\s+)(you|your)\b/g,
+    (_m, lead: string, w: string) => lead + w[0]!.toUpperCase() + w.slice(1),
+  );
+}

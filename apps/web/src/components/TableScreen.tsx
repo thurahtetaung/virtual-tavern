@@ -113,7 +113,7 @@ export function TableScreen({
         <p className="text-sm text-ink-muted">
           {present
             ? 'The big show plays on the table screen; phones keep their own controls and stay quieter.'
-            : 'Put the room on a TV or laptop everyone can see. It never plays, and phones get quieter.'}
+            : 'Put the room on a TV or laptop: it shows the table to everyone but never takes a seat, and phones get quieter.'}
         </p>
       )}
       {error && (

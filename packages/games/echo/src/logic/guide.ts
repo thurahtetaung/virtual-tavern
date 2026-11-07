@@ -2,8 +2,8 @@ import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
 const text: GameGuide = {
   tagline: 'Everyone writes a one-word clue for the guesser, but matching clues cancel out.',
-  players: '3 to 7 (best with 5 or more)',
-  duration: '15–30 minutes',
+  players: '3–7 players · best with 5+',
+  duration: '15–30 min',
   goal: 'Work together to get as many secret words as you can across the deck. Each round one player guesses a word from the one-word clues everyone else writes, but any clue that someone else also wrote is cancelled before the guesser sees it.',
   quickStart: [
     'Each card, one player is the guesser and picks one of 5 hidden words by number.',
@@ -14,7 +14,7 @@ const text: GameGuide = {
     'The guesser moves round the table; score as many cards as you can together.',
   ],
   setup: [
-    'Up to 7 players can play; anyone else in the room watches until a seat frees up. Use “Sit out (watch)” to step out and “Take a seat” to come back.',
+    'Up to 7 players can play; anyone else in the room watches until a seat frees up. Use “Watch instead” to step out and “Take a seat” to come back.',
     'The host picks the word lists and the deck length: 8 cards (quick), 13 (standard) or 20 (long).',
     'The host presses Start. You need at least 3 players.',
   ],
@@ -72,7 +72,7 @@ const text: GameGuide = {
     {
       title: 'How did you do?',
       paragraphs: [
-        'Your score is the number of cards you got right. For a 13-card deck: 13 is Perfect, 12 Amazing, 10–11 Great, 7–9 Good, 4–6 A good start, and 0–3 Try again. Shorter and longer decks are rated in the same proportion.',
+        'Your score is the number of cards you got right. For a 13-card deck: 13 is Perfect, 12 Amazing, 10–11 Great, 7–9 Good, 4–6 A good start, and 0–3 Not this time. Shorter and longer decks are rated in the same proportion.',
       ],
     },
     {
@@ -141,7 +141,7 @@ export const guide: GameGuide = shapeGuide(text, {
         ['10–11', 'Great'],
         ['7–9', 'Good'],
         ['4–6', 'A good start'],
-        ['0–3', 'Try again'],
+        ['0–3', 'Not this time'],
       ],
     },
   ],

@@ -61,7 +61,7 @@ function Header({ view, clockOffset }: { view: MissionControlView; clockOffset: 
           {m.n === EPILOGUE ? ` · difficulty ${m.difficulty}` : ''}
         </span>
         <span className="text-ink-muted tabular-nums">
-          Try {a.number}
+          Attempt {a.number}
           {m.practice ? ' · practice' : ''}
         </span>
         {a.distress.used && (
@@ -148,7 +148,7 @@ function Game({
   if (a.stage === 'briefing') {
     return (
       <div className="space-y-3">
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Briefing
           a={a}
           room={room}
@@ -164,7 +164,8 @@ function Game({
   const tabs = PLAY_TABS.filter((t) => t.id !== 'logbook' || a.stage === 'play');
   const current: PlayTab = tabs.some((t) => t.id === tab) ? tab : 'play';
   const shown: PlayTab | null = wide || a.stage === 'done' ? null : current;
-  const missionPanel = (
+  // The end drops the mission's in-play rules.
+  const missionPanel = a.stage !== 'done' && (
     <Panel className="space-y-2">
       <h3 className="font-bold">Mission</h3>
       <RuleBox a={a} />
@@ -218,7 +219,7 @@ function Game({
             </Button>
           </div>
         </details>
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         {a.stage === 'draft' && (
           <>
             <Tip id="draft">

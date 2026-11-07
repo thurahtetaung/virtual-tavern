@@ -279,7 +279,8 @@ export interface Item {
   drawing: Drawing | null;
   /** The house picture for this title (manifest key), used when nobody drew it. */
   house: string;
-  hidden: boolean;
+  /** An older release's host hide (since removed): ignored, kept so its saved rooms still load. */
+  hidden?: boolean;
   /** Set once it has been auctioned. */
   sale: Sale | null;
 }
@@ -408,6 +409,7 @@ export type LogEntry =
       outcome: 'forced' | 'failed' | 'wasted';
       amount?: number;
     }
+  /** An older release's host hide (since removed): still in its saved rooms' logs, never shown. */
   | { id: number; lot: number; kind: 'hidden'; item: string; hidden: boolean }
   | { id: number; lot: number; kind: 'left'; player: PlayerId }
   | { id: number; lot: number; kind: 'back'; player: PlayerId };
@@ -588,7 +590,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('screw-pick'), target: id }),
   z.object({ type: z.literal('call-bank') }),
   z.object({ type: z.literal('loan'), take: z.boolean() }),
-  z.object({ type: z.literal('hide'), item: id, hidden: z.boolean() }),
   z.object({ type: z.literal('skip') }),
   z.object({
     type: z.literal('rig'),
@@ -625,11 +626,10 @@ export interface PlayerView {
 /** A lot as everyone sees it during its auction: the picture, never its title, value or artist. */
 export interface LotPicture {
   item: string;
-  /** Strokes; null for a house picture or while hidden. */
+  /** Strokes; null for a house picture. */
   drawing: Drawing | null;
-  /** The house picture's key when nobody drew it (null otherwise or while hidden). */
+  /** The house picture's key when nobody drew it (null otherwise). */
   house: string | null;
-  hidden: boolean;
 }
 
 /** A lot after its hammer falls. */

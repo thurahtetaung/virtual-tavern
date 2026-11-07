@@ -156,7 +156,7 @@ export function StampedeGame({
   const names = useNames();
   const title = room.gameName ?? names.title;
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const status = statusFor(view, room, names, title);
+  const status = statusFor(view, room, names);
   const moo = useMoo(view, room.clockOffset);
   const [tab, setTab] = useState<Tab>('play');
   const wide = useWideScreen();
@@ -195,7 +195,7 @@ export function StampedeGame({
         room={room}
         act={act}
         status={status}
-        blocker={startBlocker(view, title)}
+        blocker={startBlocker(view)}
         online={online}
         showGuide={showGuide}
         names={names}
@@ -216,7 +216,10 @@ export function StampedeGame({
           <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
             {status.text}
           </Hint>
-          <TopBar view={view} clockOffset={room.clockOffset} names={names} />
+          {/* At the end the herds show once, in the standings. */}
+          {view.phase !== 'over' && (
+            <TopBar view={view} clockOffset={room.clockOffset} names={names} />
+          )}
           {moo && (
             <p
               role="alert"

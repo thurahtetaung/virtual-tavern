@@ -36,7 +36,7 @@ for (const [label, viewport, colorScheme] of [
     await openBackroom(await visitor(browser, 'Admin'));
     const [hana, ana] = (await table(browser, ['Hana', 'Ana'], look)) as [Page, Page];
     await shot(hana, '01-lobby');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await myTurn(hana);
     await shot(hana, '02-your-turn');
     for (const g of ['green', 'red', 'white']) await hana.locator(`[data-pile="${g}"]`).click();
@@ -108,7 +108,7 @@ for (const [label, viewport, colorScheme] of [
     const [hana, ana] = (await table(browser, ['Hana', 'Ana'], look)) as [Page, Page];
     await options(hana, ['jw-cities', 'jw-strongholds']);
     await shot(hana, '01-lobby');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await take(hana, ['white', 'red', 'green']);
     await myTurn(ana);
     await expect(marketCard(ana, 'L1-35')).toHaveAttribute('aria-label', /Hana’s 2 strongholds/);

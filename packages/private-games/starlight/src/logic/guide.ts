@@ -3,8 +3,8 @@ import type { StarlightView } from './types.ts';
 
 const text: GameGuide = {
   tagline: 'One word, fifteen pictures: mark the ones it brings to mind, and hope others did too.',
-  players: '3 to 6',
-  duration: '30 minutes',
+  players: '3–6 players',
+  duration: '30 min',
   goal: 'Score the most stars over 4 rounds by marking the pictures other players also link to the word, without being the only one who saw something.',
   quickStart: [
     'Each round a word is revealed and 15 picture cards lie in a grid.',

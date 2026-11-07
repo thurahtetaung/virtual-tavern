@@ -45,11 +45,17 @@ export function delta(current: number, previous: number): Delta {
   };
 }
 
-/** Change between two shares, in percentage points ("+4 pts"). */
+/**
+ * Change between two shares, in percentage points ("+4 points of %"): never "pts", which reads as
+ * players' scores.
+ */
 export function pointsDelta(current: number, previous: number): Delta {
   const pts = Math.round((current - previous) * 100);
-  if (pts === 0) return { direction: 'flat', text: '±0 pts' };
-  return { direction: pts > 0 ? 'up' : 'down', text: `${pts > 0 ? '+' : '−'}${Math.abs(pts)} pts` };
+  if (pts === 0) return { direction: 'flat', text: 'no change' };
+  return {
+    direction: pts > 0 ? 'up' : 'down',
+    text: `${pts > 0 ? '+' : '−'}${Math.abs(pts)} points of %`,
+  };
 }
 
 /** "just now", "4 min ago", "3 h ago", "2 days ago". */

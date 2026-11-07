@@ -21,8 +21,8 @@ const PACE_LABEL = { relaxed: 'relaxed', normal: 'normal', fast: 'fast' } as con
 
 const base: GameGuide = {
   tagline: 'Draw two quick pictures, then bid on everyone’s art in live auctions. Most money wins.',
-  players: '3 to 6 (4 to 6 is best)',
-  duration: '15 minutes',
+  players: '3–6 players · best with 4–6',
+  duration: '15 min',
   goal: 'End with the most money: your cash, plus what the drawings you bought are worth, minus anything you owe {bank}.',
   quickStart: [
     'Everyone draws two pictures from secret titles. Titles in a game come in two families that look alike.',
@@ -184,7 +184,6 @@ const base: GameGuide = {
       bullets: [
         'Drawing time: 60, 90 (default) or 120 seconds for both drawings.',
         'Auction pace: Relaxed, Normal (the default) or Fast (the default at 3 players). Relaxed gives 12 seconds after each bid, like the original; Fast suits players who know the game.',
-        'The host can hide a drawing for everyone; it still sells, shown as hidden. Anyone can hide a drawing on their own screen.',
         'Between lots the host can tap Next to skip a wait.',
         'The how-to and the practice lot come in a room’s first game only; anyone can skip them, and the host can turn the practice lot off.',
       ],

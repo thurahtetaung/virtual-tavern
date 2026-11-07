@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Countdown,
+  GuideLink,
   Hint,
   Modal,
   Panel,
@@ -195,7 +196,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           ) : playing.length < max ? (
             <Button size="sm" onClick={() => void act({ type: 'sit', playing: true })}>
@@ -212,7 +213,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           )}
         </div>
@@ -271,8 +272,9 @@ function Lobby({
   const cards = EDITIONS[s.edition].cards;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Seats view={view} room={room} act={act} />
+      <GuideLink title={room.gameName ?? 'Royal Post'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={[
@@ -282,14 +284,12 @@ function Lobby({
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">Edition</legend>
           <div className="mt-1 grid grid-cols-2 gap-2">
             {EDITION_IDS.map((id) => {
               const e = EDITIONS[id];
               const on = s.edition === id;
-              const n = Math.min(e.maxPlayers, Math.max(e.minPlayers, seated));
               return (
                 <button
                   key={id}
@@ -309,10 +309,9 @@ function Lobby({
                   <span className="block text-xs text-ink-muted">
                     {deckSize(id)} cards · {e.minPlayers}–{e.maxPlayers} players
                   </span>
-                  <span className="block text-xs text-ink-muted">
-                    {tokensToWin(e, n, s.short)} tokens to win
-                    {id === '2019' ? ' · Spy, Chancellor' : ''}
-                  </span>
+                  {id === '2019' && (
+                    <span className="block text-xs text-ink-muted">Spy, Chancellor</span>
+                  )}
                 </button>
               );
             })}
@@ -346,7 +345,7 @@ function Lobby({
             );
           })}
         </fieldset>
-        <Fold title="The cards" summary={`${cards.length} kinds, tap one to read it`}>
+        <Fold title="The cards" summary={`${cards.length} kinds, pick one to read it`}>
           <ul aria-label="The cards" className="flex flex-wrap gap-x-1 gap-y-3 text-sm">
             {cards.map((c) => (
               <li key={c.role}>
@@ -388,16 +387,6 @@ function Lobby({
           <RefusalSlot anchor="royal-post-start" />
         </StickyBar>
       )}
-      <p className="text-center text-sm text-ink-muted">
-        New here?{' '}
-        <button
-          type="button"
-          className="font-semibold text-accent-text underline"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
     </div>
   );
 }
@@ -671,7 +660,8 @@ function Table({
       {/* Wider screens keep the history in the side column; the end's table tab keeps it too. */}
       {view.phase !== 'playing' && journal}
 
-      {view.seats.some((s) => !s.playing) && (
+      {/* At the end the next game's seats list who is watching. */}
+      {view.phase === 'playing' && view.seats.some((s) => !s.playing) && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
           <span>Watching:</span>
           {view.seats
@@ -756,11 +746,10 @@ function Table({
                 <div className="min-w-0 flex-1 space-y-1 text-xs text-ink-muted">
                   <p className="font-semibold">Your hand</p>
                   {me && <Tokens tokens={me.tokens} target={view.target} />}
-                  {myTurn && (
+                  {/* The status line says it's your turn; this names the card you must play. */}
+                  {myTurn && mustPlayCountess(view.hand) && (
                     <p className="text-accent-text">
-                      {mustPlayCountess(view.hand)
-                        ? `You must play the ${deck.name('countess')}: tap her.`
-                        : 'Tap a card to play it.'}
+                      You must play the {deck.name('countess')}: tap her.
                     </p>
                   )}
                   {chancellor && !chancellorOpen && (

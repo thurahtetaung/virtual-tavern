@@ -117,8 +117,8 @@ function base(art: GuideArt): GameGuide {
   ];
   return {
     tagline: 'Collect gems, buy cards for lasting discounts and points, and win the nobles over.',
-    players: '2 to 4',
-    duration: '30 minutes',
+    players: '2–4 players',
+    duration: '30 min',
     goal: `Have the most points when the game ends. Once someone reaches ${DEFAULT_TARGET} points, the round is finished and the game ends.`,
     quickStart: [
       'On your turn, do one thing: take gems, reserve a card, or buy a card.',

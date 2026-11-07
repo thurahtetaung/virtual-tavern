@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Fold,
+  GuideLink,
   Hint,
   Panel,
   StickyBar,
@@ -65,10 +66,11 @@ export function Lobby({
   const editable = room.isHost;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
+      <GuideLink title={room.gameName ?? 'Echo'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={settingsSummary(view, room)}
@@ -128,12 +130,6 @@ export function Lobby({
           />
         </Fold>
       </LobbySettings>
-      <p className="text-center text-small text-ink-muted">
-        New to Echo?{' '}
-        <Button variant="quiet" size="sm" onClick={showGuide}>
-          Read the guide
-        </Button>
-      </p>
       {editable && (
         <StickyBar>
           <div className="space-y-1.5">

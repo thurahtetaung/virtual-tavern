@@ -9,7 +9,7 @@ import { fetchGames } from '../lib/games.ts';
 import { useGameGuide } from './GuideView.tsx';
 
 /**
- * The public games as the server offers them (switched off ones dropped), filtered by the chips
+ * The given games as the server offers them (switched off ones dropped), filtered by the chips
  * remembered under `key`. Until the server answers every game shows, without categories.
  */
 export function useShelf(games: readonly ClientGame[], key: string) {

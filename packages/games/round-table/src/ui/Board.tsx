@@ -59,8 +59,21 @@ export function QuestTrack({
                 compact ? 'leading-none whitespace-nowrap' : 'leading-tight',
               )}
             >
-              {locked ? '🔒 later' : q.failsNeeded > 1 ? '2 fails' : `Quest ${slot + 1}`}
+              {result || !compact
+                ? `Quest ${slot + 1}`
+                : locked
+                  ? '🔒 later'
+                  : q.failsNeeded > 1
+                    ? 'needs 2 fails'
+                    : `Quest ${slot + 1}`}
             </span>
+            {/* Wider boards say what the number in the circle is, and what sinks the quest. */}
+            {!compact && !result && (
+              <span className="text-center text-caption leading-tight text-ink-muted">
+                {locked ? '🔒 later' : `team of ${q.size}`}
+                {q.failsNeeded > 1 && !locked && <span className="block">needs 2 fails</span>}
+              </span>
+            )}
           </>
         );
         return (

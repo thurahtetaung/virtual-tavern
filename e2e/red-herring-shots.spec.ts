@@ -47,7 +47,7 @@ test('red herring screenshots', async ({ browser }) => {
     for (const p of pages) await shot(p, name);
   };
   await all('01-lobby');
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
   await shot(ana, '02-tips');
   for (const p of pages) {
     // Phones fold the tips away: open the fold first.

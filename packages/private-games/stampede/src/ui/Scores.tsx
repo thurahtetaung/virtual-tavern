@@ -52,7 +52,8 @@ export function Scoreboard({ view, names }: { view: StampedeView; names: Names }
           </li>
         ))}
       </ol>
-      {view.pinkCow && (
+      {/* An in-play warning: the end screen drops it. */}
+      {view.pinkCow && view.phase !== 'over' && (
         <p className="text-sm text-ink-muted">
           {f(
             `🩷 ${nameOf(view, view.pinkCow)} holds the {pink} and can’t win until someone else takes it.`,
@@ -140,7 +141,7 @@ export function Table({
                     (await confirm({
                       title: 'Sit out and just watch?',
                       body: 'You keep your cows, but you can’t win while you watch.',
-                      confirmLabel: 'Sit out',
+                      confirmLabel: 'Watch instead',
                     }))
                   ) {
                     void act({ type: 'sit', playing: false });
@@ -148,7 +149,7 @@ export function Table({
                 })()
               }
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           ) : (
             players.length < MAX_PLAYERS && (

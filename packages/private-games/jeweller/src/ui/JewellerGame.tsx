@@ -1,7 +1,16 @@
-import { type GameRoomInfo, type GameUiProps, storageKey, waitingForHost } from '@vt/game-sdk';
+import {
+  type GameRoomInfo,
+  type GameUiProps,
+  lobbyStatus,
+  playersNeeded,
+  storageKey,
+  waitingForHost,
+} from '@vt/game-sdk';
 import {
   Button,
   EndTabs,
+  Fold,
+  GuideLink,
   Hint,
   LobbySettings,
   Panel,
@@ -15,10 +24,9 @@ import {
   TimerSettings,
   timersLine,
   useAbandonGame,
+  usePhone,
   useSpectatorPrompt,
   useWideScreen,
-  Fold,
-  usePhone,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -177,31 +185,24 @@ function Lobby({
   };
   const blocker =
     seated.length < MIN_PLAYERS
-      ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
+      ? playersNeeded(MIN_PLAYERS, seated.length)
       : seated.length > MAX_PLAYERS
         ? `At most ${MAX_PLAYERS} can play.`
         : null;
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-      <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : room.isHost
-                ? 'Everyone’s here? Start the game.'
-                : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         {(art.box ?? art.logo) && (
           <ProtectedImage
@@ -226,7 +227,7 @@ function Lobby({
                   size="sm"
                   onClick={() => void act({ type: 'sit', playing: false })}
                 >
-                  Stand up
+                  Watch instead
                 </Button>
               )}
             </li>
@@ -255,6 +256,7 @@ function Lobby({
           {strongholds ? ' Strongholds guard cards.' : ''}
         </p>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Jeweller'} onClick={showGuide} />
       <LobbySettings
         editable={room.isHost}
         summary={[
@@ -345,8 +347,9 @@ function Lobby({
             disabled={!!blocker}
             onClick={() => void act({ type: 'start' }, { anchor: 'jw-start' })}
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="jw-start" />
         </StickyBar>
       )}
@@ -399,7 +402,7 @@ function End({
                   you={room.you}
                   scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
                   // Phones: the table alone (the podium repeats it), so the end fits the screen.
-                  className="max-lg:[&>ol:first-child]:hidden"
+                  phoneTable
                 />
               </>
             ),
@@ -416,17 +419,21 @@ function End({
                       <li key={p.id} className="flex items-center gap-2">
                         <span className="w-24 truncate">{p.name}</span>
                         <span className="flex items-center gap-1">
-                          {p.reserved.length === 0 ? (
-                            <span className="text-ink-muted">—</span>
-                          ) : (
-                            p.reserved.map((r, i) =>
-                              r.card ? (
-                                <CardTile key={i} id={r.card} art={art} className="!w-16" />
-                              ) : (
-                                <CardBack key={i} level={r.level} art={art} className="h-12 w-10" />
-                              ),
-                            )
-                          )}
+                          {/* The "none" dash only for an empty row: nobles follow the cards. */}
+                          {p.reserved.length === 0
+                            ? p.nobles.length === 0 && <span className="text-ink-muted">—</span>
+                            : p.reserved.map((r, i) =>
+                                r.card ? (
+                                  <CardTile key={i} id={r.card} art={art} className="!w-16" />
+                                ) : (
+                                  <CardBack
+                                    key={i}
+                                    level={r.level}
+                                    art={art}
+                                    className="h-12 w-10"
+                                  />
+                                ),
+                              )}
                         </span>
                         <span className="flex items-center gap-1">
                           {p.nobles.map((n) => (

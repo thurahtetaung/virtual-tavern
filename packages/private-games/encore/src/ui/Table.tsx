@@ -1018,6 +1018,9 @@ export function ScoreTable({
           ))}
         </tbody>
       </table>
+      {g.results.some((r) => r.ender) && (
+        <p className="mt-1 text-xs text-ink-muted">👏 ended that round</p>
+      )}
     </div>
   );
 }

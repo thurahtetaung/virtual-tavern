@@ -1,4 +1,4 @@
-import { type Drawing, listNames, storageKey } from '@vt/game-sdk';
+import { type Drawing, listNames } from '@vt/game-sdk';
 import {
   Button,
   DrawingView,
@@ -69,36 +69,6 @@ export function useReveal(turn: TurnView | null, clockOffset: number): RevealSta
   return { order, progress: { step, flipped } };
 }
 
-// ---- Hiding a drawing on your own screen ----
-
-const HIDDEN_KEY = 'sketchy.hidden';
-const signature = (d: Drawing) => JSON.stringify(d).slice(0, 80);
-
-function readHidden(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(storageKey(HIDDEN_KEY)) ?? '[]') as unknown;
-    return Array.isArray(raw) ? raw.filter((s): s is string => typeof s === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-function useLocalHide(drawing: Drawing | null): [boolean, (hide: boolean) => void] {
-  const [hidden, setHidden] = useState(readHidden);
-  const sig = drawing ? signature(drawing) : null;
-  const toggle = (hide: boolean) => {
-    if (!sig) return;
-    const next = hide ? [...hidden, sig].slice(-50) : hidden.filter((s) => s !== sig);
-    setHidden(next);
-    try {
-      localStorage.setItem(storageKey(HIDDEN_KEY), JSON.stringify(next));
-    } catch {
-      // Storage blocked: it stays hidden until the page reloads.
-    }
-  };
-  return [sig !== null && hidden.includes(sig), toggle];
-}
-
 /**
  * Everything on a phone screen but the drawing, in px: the room's own bar and buttons, the tabs,
  * the round line, the status line and the panel's padding (`reserve` adds the stage's own).
@@ -106,14 +76,12 @@ function useLocalHide(drawing: Drawing | null): [boolean, (hide: boolean) => voi
 const PHONE_CHROME = 372;
 
 /**
- * The drawing on the table, big, with the hide controls under it. On a phone it is as big as the
+ * The drawing on the table, big, with its caption under it. On a phone it is as big as the
  * screen allows once `reserve` px are left for the rest of the stage (never under 6rem).
  */
 export function TableDrawing({
   view,
   turn,
-  isHost,
-  act,
   reserve = 0,
   caption = true,
   least = '6rem',
@@ -121,18 +89,14 @@ export function TableDrawing({
 }: {
   view: SketchyView;
   turn: TurnView;
-  isHost: boolean;
-  act: Act;
   reserve?: number;
   caption?: boolean;
   /** The smallest the drawing gets on a crowded phone screen. */
   least?: string;
-  /** Phones: the hide controls beside the drawing instead of under it, for a crowded board. */
+  /** Phones: the caption beside the drawing instead of under it, for a crowded board. */
   side?: boolean;
 }) {
-  const [mineHidden, hideMine] = useLocalHide(turn.drawing);
   const artist = turn.artist ? nameOf(view, turn.artist) : null;
-  const veiled = turn.hidden || mineHidden;
   const room = PHONE_CHROME + reserve + (caption && !side ? 44 : 0);
   return (
     <figure
@@ -150,7 +114,7 @@ export function TableDrawing({
       <Replay
         key={`${view.game?.round}-${turn.number}`}
         replayKey={`${view.game?.round}-${turn.number}-${JSON.stringify(turn.drawing).slice(0, 60)}`}
-        drawing={veiled ? null : turn.drawing}
+        drawing={turn.drawing}
         label={artist ? `${artist}’s drawing` : 'The drawing on the table'}
         className={cn(
           'mx-auto w-full max-w-(--fit) shadow-vt-1 ring-1 ring-line',
@@ -158,13 +122,7 @@ export function TableDrawing({
           // Big while titles are written; smaller once the board needs the room.
           view.game?.stage === 'write' ? 'sm:max-w-md' : 'sm:max-w-sm',
         )}
-      >
-        {veiled && (
-          <div className="absolute inset-0 grid place-items-center bg-stone-200/90 text-center text-sm font-semibold text-stone-700">
-            {turn.hidden ? '🙈 The host hid this drawing' : '🙈 Hidden on your screen'}
-          </div>
-        )}
-      </Replay>
+      />
       <figcaption
         hidden={!caption}
         className={cn(
@@ -173,20 +131,6 @@ export function TableDrawing({
         )}
       >
         {turn.mine && <span className="font-semibold text-ink">🎨 Your drawing</span>}
-        {!turn.hidden && turn.drawing && (
-          <button type="button" className="h-11 underline" onClick={() => hideMine(!mineHidden)}>
-            {mineHidden ? 'Show it again' : 'Hide on my screen'}
-          </button>
-        )}
-        {isHost && (
-          <button
-            type="button"
-            className="h-11 underline"
-            onClick={() => void act({ type: 'hide', hidden: !turn.hidden })}
-          >
-            {turn.hidden ? 'Show it to everyone' : 'Hide for everyone'}
-          </button>
-        )}
       </figcaption>
     </figure>
   );
@@ -487,7 +431,6 @@ function ArtistMoment({
   /** On a phone, the drawing small in place of the palette (the big one is left out there). */
   drawing: Drawing | null;
 }) {
-  const [mineHidden] = useLocalHide(turn.drawing);
   if (!turn.artist) return null;
   const truth = turn.options.find((o) => o.truth);
   const found = truth?.voters?.length ?? 0;
@@ -498,7 +441,7 @@ function ArtistMoment({
       data-testid="artist-moment"
       className="flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-2 ring-1 lg:py-3 ring-success-line"
     >
-      {drawing && !mineHidden ? (
+      {drawing ? (
         <>
           <span aria-hidden className="text-3xl max-lg:hidden">
             🎨
@@ -658,8 +601,6 @@ export function TurnStage({
     <TableDrawing
       view={view}
       turn={turn}
-      isHost={isHost}
-      act={act}
       reserve={reserve}
       caption={caption}
       {...(least && { least })}
@@ -723,7 +664,7 @@ export function TurnStage({
       {g.stage === 'reveal' && <PhoneCard shown={false} />}
       {/* Phones: the drawing small beside who drew it, the points folded away. */}
       <div className="max-lg:hidden">{drawing(0)}</div>
-      <ArtistMoment view={view} turn={turn} drawing={turn.hidden ? null : turn.drawing} />
+      <ArtistMoment view={view} turn={turn} drawing={turn.drawing} />
       <RevealBoard view={view} turn={turn} />
       {/* Folded away on a phone (a tap opens it), open on a wide screen. */}
       <Fold

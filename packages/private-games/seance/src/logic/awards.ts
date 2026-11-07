@@ -22,6 +22,11 @@ import {
 const outcomeOf = (g: GameEvents): RecapEvent | undefined => g.of('outcome').at(-1);
 const one = (id: string | undefined | null, value = 1): AwardCandidate[] =>
   id ? [{ players: [id], value }] : [];
+/** The hour as the clock shows it (I to VII), for copy that names one. */
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+const hourOf = (n: number) => ROMAN[n] ?? String(n);
+const withHour = (list: AwardCandidate[]): AwardCandidate[] =>
+  list.map((c) => ({ ...c, params: { ...c.params, hour: hourOf(c.value) } }));
 const won = (g: GameEvents) => bool(outcomeOf(g), 'win') === true;
 
 const mindReader: AwardRule = {
@@ -112,17 +117,17 @@ const spiritGuide: AwardRule = {
   copy: {
     cheeky: [
       '{who} said nothing all game and still won',
-      '{who} haunted the table to a win by hour {n}',
+      '{who} haunted the table to a win by hour {hour}',
     ],
     wholesome: [
       '{who} guided the table to the culprit in silence',
-      '{who} was a wonderful ghost: solved by hour {n}',
+      '{who} was a wonderful ghost: solved by hour {hour}',
     ],
   },
   compute(g) {
     const o = outcomeOf(g);
     if (!won(g)) return [];
-    return one(str(o, 'ghost'), num(o, 'hour') ?? 7);
+    return withHour(one(str(o, 'ghost'), num(o, 'hour') ?? 7));
   },
 };
 
@@ -185,12 +190,12 @@ const firstToFinish: AwardRule = {
   minPlayers: 4,
   copy: {
     cheeky: [
-      '{who} was done by hour {n} and then just watched',
-      '{who} finished first, in hour {n}',
+      '{who} was done by hour {hour} and then just watched',
+      '{who} finished first, in hour {hour}',
     ],
     wholesome: [
-      '{who} found all three cards first, in hour {n}',
-      '{who} lit the way: all three by hour {n}',
+      '{who} found all three cards first, in hour {hour}',
+      '{who} lit the way: all three by hour {hour}',
     ],
   },
   compute(g) {
@@ -199,7 +204,7 @@ const firstToFinish: AwardRule = {
       const h = num(e, 'hour');
       if (e.playerId && h !== undefined) hours.set(e.playerId, h);
     }
-    return leaders(hours, { lowest: true, among: g.players });
+    return withHour(leaders(hours, { lowest: true, among: g.players }));
   },
 };
 
@@ -214,17 +219,17 @@ const photoFinish: AwardRule = {
   minPlayers: 3,
   copy: {
     cheeky: [
-      'The last card fell in hour {n}, with the clock nearly out',
-      'Hour {n}, the last possible moment, and still a win',
+      'The last card fell in hour {hour}, with the clock nearly out',
+      'Hour {hour}, the last possible moment, and still a win',
     ],
     wholesome: [
-      'Everyone found their cards by hour {n} and won together',
-      'A win in hour {n}: right on the last stroke of the clock',
+      'Everyone found their cards by hour {hour} and won together',
+      'A win in hour {hour}: right on the last stroke of the clock',
     ],
   },
   compute(g) {
     const o = outcomeOf(g);
-    return won(g) && num(o, 'hour') === 7 ? [{ players: [], value: 7 }] : [];
+    return won(g) && num(o, 'hour') === 7 ? withHour([{ players: [], value: 7 }]) : [];
   },
 };
 
@@ -269,7 +274,7 @@ const nuggets: NuggetRule[] = [
         .filter((h): h is number => h !== undefined);
       if (!hours.length) return null;
       const best = Math.min(...hours);
-      return { value: best, text: `Quickest séance: solved by hour ${best}` };
+      return { value: best, text: `Quickest séance: solved by hour ${hourOf(best)}` };
     },
   },
   {

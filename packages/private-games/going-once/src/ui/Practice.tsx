@@ -146,7 +146,7 @@ function PracticeBidding({
   const p = g.practice!;
   const auction: AuctionView = {
     lot: -1,
-    picture: { item: 'practice', drawing: null, house: p.house, hidden: false },
+    picture: { item: 'practice', drawing: null, house: p.house },
     seq: p.seq,
     bid: p.bid,
     close: p.close,
@@ -177,8 +177,6 @@ function PracticeBidding({
       <Picture
         drawing={null}
         house={p.house}
-        hidden={false}
-        hiddenByMe={false}
         art={art}
         label="The practice picture"
         className="mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-none"

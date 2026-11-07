@@ -519,7 +519,7 @@ export function Chips({
       aria-label={label}
       // The padding keeps the focus ring inside the scrolling box.
       className={join(
-        '-m-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden',
+        '-mx-1.5 -mt-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden',
         className,
       )}
     >

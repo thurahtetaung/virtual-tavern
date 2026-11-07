@@ -69,7 +69,7 @@ function Scoreboard({
             aria-label={`Your score ${mine.score}`}
             className="font-bold tabular-nums"
           >
-            ⭐ {points(mine.score)}
+            ⭐ {points(mine.score)} {mine.score === 1 ? 'point' : 'points'}
           </span>
         )}
       </div>
@@ -149,7 +149,7 @@ export function HoodwinkGame({
   setAbandon,
 }: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const blocker = startBlocker(view, room.gameName ?? 'Hoodwink');
+  const blocker = startBlocker(view);
   const reveal = useReveal(view.phase === 'playing' ? view.round : null, room.clockOffset);
   // While the answers are turned over one by one, nothing gives away who scored.
   const revealing = reveal.progress !== null;
@@ -211,7 +211,10 @@ export function HoodwinkGame({
         className={cn('min-w-0 space-y-3', shown && shown !== 'play' && 'hidden')}
         {...(shown === 'play' && tabPanelProps(PLAY_TABS_ID, 'play'))}
       >
-        <Scoreboard view={view} clockOffset={room.clockOffset} revealing={revealing} />
+        {/* At the end the scores show once, in the standings. */}
+        {view.phase !== 'over' && (
+          <Scoreboard view={view} clockOffset={room.clockOffset} revealing={revealing} />
+        )}
         {view.phase === 'playing' && view.round?.double && (
           <p
             data-testid="final-round"

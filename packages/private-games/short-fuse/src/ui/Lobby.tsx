@@ -1,8 +1,9 @@
 import { volumeShare } from '@vt/ui/sound';
 import { GAME as SOUND_GAME, ShortFuseLobbySound } from './Sound.tsx';
-import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   HostOnlyNote,
   Panel,
@@ -95,7 +96,13 @@ export function Lobby({
   const playing = view.seats.filter((x) => x.playing);
   const watching = view.seats.filter((x) => !x.playing);
   const n = playing.length;
-  const ok = n >= MIN_PLAYERS && n <= MAX_SEATS;
+  const blocker =
+    n < MIN_PLAYERS
+      ? playersNeeded(MIN_PLAYERS, n)
+      : n > MAX_SEATS
+        ? `At most ${MAX_SEATS} can play.`
+        : null;
+  const ok = !blocker;
   const r = view.readout;
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const set = (patch: Patch) => void act({ type: 'update-settings', ...patch });
@@ -104,19 +111,20 @@ export function Lobby({
     p.id === 'party' || p.id === 'adult' || p.id === 'classic'
       ? setName(p.id)
       : p.id === 'zombie'
-        ? (c.names.sets.x4 ?? p.title)
+        ? `${setName('classic')} + ${c.names.sets.x4 ?? p.title}`
         : p.title;
   const preset = PRESETS.find((p) => p.id === view.preset);
+  const lobbyLine = !view.me
+    ? { text: 'Watching the table.', me: false }
+    : !view.me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      {host ? (
-        !ok && (
-          <Hint dense>
-            Needs {MIN_PLAYERS} to {MAX_SEATS} seated players.
-          </Hint>
-        )
-      ) : (
-        <Hint dense>{waitingForHost(room)}</Hint>
+      {lobbyLine && (
+        <Hint dense tone={lobbyLine.me ? 'action' : 'neutral'}>
+          {lobbyLine.text}
+        </Hint>
       )}
       <Panel className="space-y-2">
         <h3 className="font-bold text-ink">
@@ -155,6 +163,7 @@ export function Lobby({
           </Button>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? c.names.title} onClick={showGuide} />
       <div className="relative overflow-hidden rounded-3xl bg-panel p-5 shadow-sm ring-1 ring-line">
         <div className="flex items-center gap-4">
           <div className="flex shrink-0 -space-x-8">
@@ -168,20 +177,10 @@ export function Lobby({
             />
           </div>
           <div className="min-w-0">
-            <h2 className="text-2xl font-black tracking-wide text-ink sm:text-3xl">
-              {room.gameName ?? c.names.title}
-            </h2>
             <p className="text-sm text-ink-muted">
               Play your cards, draw one, and hope it isn’t {an(c.names.bomb)}. Last one standing
               wins.
             </p>
-            <button
-              type="button"
-              className="mt-1 text-sm font-semibold text-accent-text underline underline-offset-2"
-              onClick={showGuide}
-            >
-              How to play
-            </button>
           </div>
         </div>
       </div>
@@ -192,7 +191,6 @@ export function Lobby({
         summary={deckSummary(s, preset ? presetTitle(preset) : null, setName)}
         className="space-y-3"
       >
-        {host && <h3 className="font-bold text-ink">The deck</h3>}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Deck">
           {PRESETS.map((p) => {
             const on = view.preset === p.id;
@@ -275,28 +273,24 @@ export function Lobby({
           help={c.t('Takes a third of the pile out at random before the {bombs} go in.')}
           onChange={(v) => set({ faster: v })}
         />
-        <p
-          className="rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line"
-          data-testid="readout"
-        >
-          {ok ? (
-            <>
-              {r.players} players: draw pile of <b>{r.pile}</b> · <b>{r.bombs}</b>{' '}
-              {r.bombs === 1 ? c.names.bomb : c.names.bombs}
-              {r.void && <> + {c.name('void')}</>} · hands of {r.hand}
-              {r.revives > 0 && (
-                <>
-                  {' '}
-                  (with {r.revives === r.players ? 'a' : r.revives} {c.name('revive')}
-                  {r.revives === r.players ? ' each' : ''})
-                </>
-              )}{' '}
-              · about {r.turnsEach} turns each
-            </>
-          ) : (
-            `${MIN_PLAYERS} to ${MAX_SEATS} players can play.`
-          )}
-        </p>
+        {ok && (
+          <p
+            className="rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line"
+            data-testid="readout"
+          >
+            {r.players} players: draw pile of <b>{r.pile}</b> · <b>{r.bombs}</b>{' '}
+            {r.bombs === 1 ? c.names.bomb : c.names.bombs}
+            {r.void && <> + {c.name('void')}</>} · hands of {r.hand}
+            {r.revives > 0 && (
+              <>
+                {' '}
+                (with {r.revives === r.players ? 'a' : r.revives} {c.name('revive')}
+                {r.revives === r.players ? ' each' : ''})
+              </>
+            )}{' '}
+            · about {r.turnsEach} turns each
+          </p>
+        )}
       </LobbySettings>
       <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
 
@@ -388,8 +382,9 @@ export function Lobby({
             onClick={() => void act({ type: 'start' }, { anchor: 'start' })}
             data-testid="start"
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
         </StickyBar>
       )}
     </div>

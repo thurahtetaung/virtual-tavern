@@ -154,7 +154,7 @@ export function Teams(props: Props) {
               variant="quiet"
               onClick={() => void props.act({ type: 'join-team', team: null, role: 'operative' })}
             >
-              Sit out (watch)
+              Watch instead
             </Button>
           )}
         </div>

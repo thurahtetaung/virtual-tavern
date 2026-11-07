@@ -1,4 +1,4 @@
-import { type PresencePlayer, namesWithPresence, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, lobbyStatus, namesWithPresence } from '@vt/game-sdk';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import { startProblem } from '../logic/setup.ts';
 import type { GameView, PsychicColor, PsychicView, SeanceView } from '../logic/types.ts';
@@ -111,13 +111,12 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
   if (view.phase === 'lobby' || !g) {
     if (!me?.playing)
       return { text: 'You’re watching. Take a seat to play in the next game.', yourMove: false };
-    const problem = startProblem(view.settings, view.seats);
-    if (problem) return { text: `Almost ready: ${problem}`, yourMove: false };
-    if (isHost) return { text: 'Everyone is in. Press Start when you’re ready!', yourMove: true };
-    return {
-      text: `All set. ${people ? waitingForHost(people, 'start') : 'Waiting for the host to start…'}`,
-      yourMove: false,
-    };
+    // The host's problem shows under Begin the séance, so their line is empty then.
+    const line = lobbyStatus(
+      { isHost, hostId: people?.hostId ?? '', players: people?.players ?? [] },
+      startProblem(view.settings, view.seats),
+    );
+    return line ? { text: line.text, yourMove: line.me } : { text: '', yourMove: false };
   }
   if (view.phase === 'over') return { text: resultLine(g), yourMove: false };
   const names = (list: readonly PsychicView[]) =>
@@ -278,16 +277,17 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
 }
 
 /** The end in one line. */
+/** How it ended, under the end's heading (which already says whether the ghost is at peace). */
 export function resultLine(g: GameView): string {
   const r = g.result;
   if (!r) return 'Game over.';
   switch (r.how) {
     case 'culprit':
-      return 'The vote found the culprit: the ghost can rest in peace. Everyone wins!';
+      return 'The vote found the culprit. Everyone wins!';
     case 'wrong':
-      return 'The vote picked the wrong group: the ghost wanders on. Everyone loses.';
+      return 'The vote picked the wrong group. Everyone loses.';
     case 'no-votes':
-      return 'Nobody voted: the ghost wanders on. Everyone loses.';
+      return 'Nobody voted. Everyone loses.';
     case 'clock':
       return 'The seventh hour has passed and the connection is lost. Everyone loses.';
   }

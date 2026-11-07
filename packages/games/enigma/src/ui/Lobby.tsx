@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  GuideLink,
   Hint,
   Icon,
   PlayerTag,
@@ -21,18 +22,23 @@ type Act = (a: EnigmaAction) => Promise<boolean>;
 /** The team picker, where "Take a seat" leads watchers. */
 export const TEAMS_ID = 'enigma-teams';
 
-const FLOWS: { flow: Flow; title: string; help: string }[] = [
+const FLOWS: { flow: Flow; title: string; summary: string; help: string }[] = [
   {
     flow: 'simultaneous',
     title: 'Simultaneous',
+    summary: 'Both teams at once',
     help: 'Both teams write clues at once, then both guess at once. Faster.',
   },
   {
     flow: 'alternating',
     title: 'Alternating',
+    summary: 'One team at a time',
     help: "One team's code is played through, then the other's. Classic pace.",
   },
 ];
+
+/** "Starter list" for one list, so the summary says what the name is; "3 word lists" as it is. */
+const listLine = (line: string) => (/ word lists?$/.test(line) ? line : `${line} list`);
 
 export function PlayerName({
   view,
@@ -124,7 +130,7 @@ export function TeamsPicker({
             variant="quiet"
             onClick={() => void act({ type: 'join-team', team: null })}
           >
-            Sit out (watch)
+            Watch instead
           </Button>
         )}
       </div>
@@ -152,18 +158,18 @@ export function Lobby({
   const editable = room.isHost;
   return (
     <div className="space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
+      <GuideLink title={room.gameName ?? 'Enigma'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
         summary={[
-          FLOWS.find((f) => f.flow === view.settings.flow)!.title,
-          wordListsLine(view.settings.wordListIds, room.wordLists),
+          FLOWS.find((f) => f.flow === view.settings.flow)!.summary,
+          listLine(wordListsLine(view.settings.wordListIds, room.wordLists)),
           timersLine(view.settings),
         ]}
         className="space-y-4"
       >
-        {editable && <h3 className="text-sub font-bold">Game settings</h3>}
         <WordListPicker
           selectedIds={view.settings.wordListIds}
           wordLists={room.wordLists}
@@ -220,12 +226,6 @@ export function Lobby({
           tight, especially with Strict timers.
         </p>
       </LobbySettings>
-      <p className="text-center text-small text-ink-muted">
-        New to Enigma?{' '}
-        <Button variant="quiet" size="sm" onClick={showGuide}>
-          Read the guide
-        </Button>
-      </p>
       {editable && (
         <StickyBar>
           <div className="space-y-1.5">

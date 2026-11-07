@@ -25,7 +25,7 @@ describe('status', () => {
   it('asks for a vote, then (for a caught spy) a guess', () => {
     const h = table();
     expect(statusFor(masquerade.view(h.state, 'cy'), false)).toEqual({
-      text: 'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out. ANA asks first: one question about the location, out loud. Whoever answers asks next. Need ideas? See the Ideas tab.',
+      text: 'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out. ANA asks first: one question about the location, out loud. Need ideas? See Question ideas.',
       yourMove: false,
     });
     // A minute in, the opener is old news: the status gives the asking rule instead.
@@ -34,7 +34,7 @@ describe('status', () => {
       'ANA asks first',
     );
     expect(statusFor(v, false, undefined, v.settings.roundSeconds - 60).text).toBe(
-      'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out. Whoever answers asks the next question. Need ideas? See the Ideas tab.',
+      'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out. Whoever answers asks the next question. Need ideas? See Question ideas.',
     );
     // The spy and a local read exactly the same line: nothing on screen gives the role away.
     expect(statusFor(masquerade.view(h.state, 'ben'), false)).toEqual(

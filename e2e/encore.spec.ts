@@ -22,7 +22,7 @@ test('a 3-player game: shows, recruits, a Recruit & Show, rounds ending unbeaten
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = (await table(browser, ['Ana', 'Ben', 'Cy'])) as [Page, Page, Page];
   const [ana, ben, cy] = pages;
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
 
   // Round 1: both versions of the hand are offered, and the choice stays secret.
   await expect(ana.getByTestId('en-flip-turned')).toBeVisible();
@@ -66,7 +66,7 @@ test('a 3-player game: shows, recruits, a Recruit & Show, rounds ending unbeaten
   await recruit(ben, 0);
   await expect(ana.getByText('Cy wins with -9 points!')).toBeVisible();
   await expect(cy.getByText('You win with -9 points!')).toBeVisible();
-  await expect(ben.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+  await expect(ben.getByRole('region', { name: 'Final standings' })).toBeVisible();
   await expect(ben.getByRole('table', { name: 'Scores by round' })).toContainText('-21');
   await ana.getByRole('button', { name: 'Play again' }).click();
   await expect(ana.getByTestId('en-flip-kept')).toBeVisible();
@@ -79,7 +79,7 @@ test('2 players on phones: recruiting costs a chip and keeps the turn, and no ch
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];
   const [ana, ben] = pages;
-  await ana.getByRole('button', { name: 'Start the game' }).click();
+  await ana.getByRole('button', { name: 'Start game' }).click();
   await keepAll(pages, 1, 2);
   await expect(ana.getByText('22 cards waiting for round 2')).toBeVisible();
   await show(ana, 0, /^Show 1 · the table is empty$/);

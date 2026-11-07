@@ -12,16 +12,16 @@ const people = (offline: string[] = []) => ({
 describe('status', () => {
   it('guides the lobby', () => {
     const h = harness(ids(4));
-    expect(statusFor(h.view(HOST), true).text).toBe(
-      'Almost ready: 5 players are needed (4 so far).',
-    );
+    // The host reads the reason under Start game; a guest reads it here.
+    expect(statusFor(h.view(HOST), true).text).toBe('');
+    expect(statusFor(h.view('ana'), false).text).toBe('5 players are needed (4 seated).');
     const full = harness(ids(5));
     expect(statusFor(full.view(HOST), true)).toEqual({
-      text: 'Everyone is in. Check the roles, then press Start game!',
+      text: 'Start when ready.',
       yourMove: true,
     });
     expect(statusFor(full.view('ana'), false, people()).text).toBe(
-      'All set. Waiting for HOST (host) to start…',
+      'Waiting for HOST (host) to start…',
     );
   });
 
@@ -112,9 +112,7 @@ describe('status', () => {
       'Good won three quests! EVE, the Assassin, is choosing who they think is Merlin…',
     );
     h.act({ type: 'assassinate', target: 'ana' }, 'eve');
-    expect(statusFor(h.view('ana'), false).text).toBe(
-      'You win! Good wins: Good completed three quests, and the Assassin missed Merlin.',
-    );
+    expect(statusFor(h.view('ana'), false).text).toBe('You win!');
     expect(statusFor(h.view('eve'), false).text).toMatch(/^You lose\./);
   });
 });

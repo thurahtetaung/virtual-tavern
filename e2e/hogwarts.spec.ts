@@ -154,6 +154,7 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
   if (target === leader) {
     for (const p of players)
       await expect(p.page.getByTestId('winner')).toContainText('The Glows win!');
+    await host.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Truth' }).click();
     await expect(host.getByRole('region', { name: 'The truth' })).toContainText('LIE');
     await expect(host.getByLabel('Everyone’s role').getByText('Archon').first()).toBeVisible();
   } else {

@@ -45,7 +45,7 @@ const rules: AwardRule[] = [
     minPlayers: 3,
     copy: {
       cheeky: [
-        '{who} bought a doodle and made {amt} on it. Thief',
+        '{who} made {amt} on a doodle bought for a song',
         '{who} turned one sketch into {amt} of profit',
       ],
       wholesome: [

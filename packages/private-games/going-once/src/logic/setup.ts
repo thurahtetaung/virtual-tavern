@@ -70,7 +70,6 @@ export function deal(
         artist: null,
         drawing: null,
         house: group.house[titleIdx]!,
-        hidden: false,
         sale: null,
       };
       unused.get(drawer)!.push(id);

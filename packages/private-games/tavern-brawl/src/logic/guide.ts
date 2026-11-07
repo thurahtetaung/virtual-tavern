@@ -420,8 +420,8 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
     return {
       tagline:
         'Heroes brawl with cards: hit, block, heal and chain plays to be the last one standing.',
-      players: '2 to 6',
-      duration: '10 to 20 minutes',
+      players: '2–6 players',
+      duration: '10–20 min',
       goal: 'Knock out every other hero. Everyone starts with 10 hit points; the last hero standing wins.',
       quickStart: [
         'Pick a hero: each has their own 28-card deck. Everyone starts with 10 hit points and 3 cards.',

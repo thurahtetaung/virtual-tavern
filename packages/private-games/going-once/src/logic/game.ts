@@ -851,16 +851,6 @@ function loan(s: GoingOnceState, by: PlayerId, take: boolean, now: number, rng: 
   return null;
 }
 
-function hide(s: GoingOnceState, itemId: string, hidden: boolean) {
-  const g = s.game!;
-  const item = g.items[itemId];
-  if (!item?.drawing) return err('no-drawing', 'There is no drawing to hide.');
-  if (item.hidden === hidden) return null;
-  item.hidden = hidden;
-  log(s, { kind: 'hidden', item: itemId, hidden });
-  return null;
-}
-
 function skip(s: GoingOnceState, now: number, rng: Rng) {
   const g = s.game!;
   if (g.stage === 'sold' || g.stage === 'halftime' || g.stage === 'bank') {
@@ -1395,13 +1385,6 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
       return inPlay(state, (s) => callBank(s, by));
     case 'loan':
       return inPlay(state, (s) => loan(s, by, action.take, ctx.now, ctx.rng));
-    case 'hide': {
-      const e = requireHost(ctx);
-      if (e) return e;
-      if (!state.game) return err('not-playing', 'No game in play.');
-      const s = draft(state);
-      return hide(s, action.item, action.hidden) ?? s;
-    }
     case 'skip': {
       const e = requireHost(ctx);
       if (e) return e;

@@ -179,7 +179,8 @@ function Stats() {
         <div {...tabPanelProps('stats', params.tab)} aria-label={TAB_LABELS[params.tab]}>
           <TabBody tab={params.tab} />
         </div>
-        <DataTools onReset={() => setEpoch((e) => e + 1)} />
+        {/* Export and reset sit once, on Overview. */}
+        {params.tab === 'overview' && <DataTools onReset={() => setEpoch((e) => e + 1)} />}
       </div>
     </StatsContext.Provider>
   );
@@ -292,7 +293,7 @@ function DataTools({ onReset }: { onReset: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
-  const exportRange = exportQuery(params.tab === 'live' ? { range: 'all' } : params);
+  const exportRange = exportQuery(params);
 
   const reset = async (e: FormEvent) => {
     e.preventDefault();
@@ -314,11 +315,7 @@ function DataTools({ onReset }: { onReset: () => void }) {
     <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:p-5">
       <div>
         <h2 className="text-sub font-semibold">Stats data</h2>
-        <p className="text-small text-ink-muted">
-          {params.tab === 'live'
-            ? 'Exports every recorded event.'
-            : 'Exports the raw events in the selected range.'}
-        </p>
+        <p className="text-small text-ink-muted">Exports the raw events in the selected range.</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <a

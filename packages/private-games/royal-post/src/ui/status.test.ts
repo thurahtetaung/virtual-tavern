@@ -24,7 +24,7 @@ const lobby = {
 describe('statusFor', () => {
   it('names the host in the lobby', () => {
     expect(statusFor(lobby, { isHost: false, hostId: 'h', players }).text).toBe(
-      'All set. Waiting for Hal (host) to start…',
+      'Waiting for Hal (host) to start…',
     );
   });
 
@@ -54,14 +54,10 @@ describe('statusFor at the table', () => {
 
   it('never tells the host everyone is seated while friends are left watching', () => {
     const h = harness(['host', 'a', 'b', 'c', 'd']);
-    expect(status(h.state, HOST, true).text).toBe(
-      'Ready to start. D is watching. Press Start when your friends are ready!',
-    );
+    expect(status(h.state, HOST, true).text).toBe('Start when ready. D is watching.');
     expect(status(h.state, 'd').text).toContain('The table is full');
     h.act({ type: 'update-settings', edition: '2019' });
-    expect(status(h.state, HOST, true).text).toBe(
-      'Everyone is seated. Press Start when your friends are ready!',
-    );
+    expect(status(h.state, HOST, true).text).toBe('Start when ready.');
   });
 
   it('leaves a late joiner’s next-game note to the watching banner, saying it once', () => {

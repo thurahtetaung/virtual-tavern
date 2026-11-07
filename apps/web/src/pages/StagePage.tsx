@@ -62,11 +62,11 @@ export function StagePage() {
           line={
             roomId
               ? 'This screen is paired with the room. Start the show when everyone can see it.'
-              : 'The host finds a code under 👥 Players → 📺 Table screen. Type it here.'
+              : "The host taps the 👥 button in the room's header, then 📺 Table screen, and reads you a code. Type it here."
           }
           footer={{
             icon: 'tv',
-            text: 'A table screen shows the room to everyone. It never plays, and the phones keep their own secrets.',
+            text: 'A table screen shows the table to everyone but never takes a seat, and the phones keep their own secrets.',
           }}
           footerEnd={<ThemeSwitch theme={theme} setTheme={setTheme} />}
         >

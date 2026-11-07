@@ -339,14 +339,14 @@ test('a Codenames playtest lobby fits a phone with the playtest bar', async ({ b
     });
     expect(lines, 'settings summary lines').toBeGreaterThanOrEqual(2);
     await expect(ana.getByRole('button', { name: 'Start game' })).toBeVisible();
-    await expect(ana.getByRole('button', { name: /2-minute guide/ })).toBeVisible();
+    await expect(ana.getByRole('button', { name: 'Read the guide' })).toBeVisible();
     // Nothing scrolls: the bar's height comes out of the frame's gaps, not the lobby.
     await expect
       .poll(() => ana.evaluate(() => document.scrollingElement!.scrollHeight))
       .toBeLessThanOrEqual(phone.height);
     const size = await ana.evaluate(() => {
       const guide = [...document.querySelectorAll('button')].find((b) =>
-        b.textContent?.includes('2-minute guide'),
+        b.textContent?.includes('Read the guide'),
       )!;
       return {
         h: document.scrollingElement!.scrollHeight,

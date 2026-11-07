@@ -3,6 +3,7 @@ import {
   Button,
   ChoicePicker,
   Countdown,
+  GuideLink,
   Hint,
   Input,
   Modal,
@@ -119,8 +120,9 @@ export function ReverieGame({
   if (view.phase === 'lobby') {
     return (
       <div className="space-y-4">
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
+        <GuideLink title={room.gameName ?? 'Reverie'} onClick={showGuide} />
         <LobbySettings
           editable={room.isHost}
           summary={[
@@ -130,7 +132,6 @@ export function ReverieGame({
           ]}
           className="space-y-4"
         >
-          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <ChoicePicker
             selectedIds={view.settings.sets}
             choices={choices}
@@ -196,16 +197,6 @@ export function ReverieGame({
             </div>
           </StickyBar>
         )}
-        <p className="text-center text-sm text-ink-muted">
-          New here?{' '}
-          <button
-            type="button"
-            className="font-semibold text-accent-text underline"
-            onClick={showGuide}
-          >
-            Read the guide
-          </button>
-        </p>
       </div>
     );
   }
@@ -290,7 +281,7 @@ function Seats({
         {playing.length === 0 && <li className="text-ink-muted italic">Nobody seated yet</li>}
       </ul>
       {me && recolor && (
-        <p className="text-xs text-ink-muted">Tap your name to change your colour.</p>
+        <p className="text-xs text-ink-muted">Pick your name to change your colour.</p>
       )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
         <span className="font-semibold">Watching:</span>
@@ -308,7 +299,7 @@ function Seats({
           variant={me.playing ? 'ghost' : 'primary'}
           onClick={() => void sit(!me.playing)}
         >
-          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
+          {me.playing ? 'Watch instead' : 'Take a seat'}
         </Button>
       )}
       {note && (
@@ -762,12 +753,6 @@ function Play({
               <p>{waitingForHost(room, 'start the next game')}</p>
             )}
           </Panel>
-        )}
-
-        {canTell && storyPick === null && (
-          <p className="text-center text-ink-muted">
-            Tap a card in your hand below, then write your clue.
-          </p>
         )}
 
         {!phoneEnd && tableSection}
