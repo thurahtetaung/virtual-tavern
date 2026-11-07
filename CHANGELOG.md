@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.99.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.3...v0.99.0) (2026-11-07)
+
+
+### Features
+
+* **ui:** timed back-room games on the new design ([#552](https://github.com/thurahtetaung/virtual-tavern/issues/552)) ([7881585](https://github.com/thurahtetaung/virtual-tavern/commit/78815854ad06e2df3ba737171001871fb39a10db))
+
 ## [0.98.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.98.2...v0.98.3) (2026-11-07)
 
 
