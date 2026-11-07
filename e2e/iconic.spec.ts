@@ -189,7 +189,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await openSettings(hana);
   await expect(hana.getByText('Iconic: Easy').first()).toBeVisible();
   await shoot(pages[1]!, 'lobby');
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
 
   const giver = await giverOf(pages);
   const [first, second] = pages.filter((p) => p !== giver) as [Page, Page];
@@ -282,7 +282,7 @@ test('a short game, one word each, to the final standings', async ({ browser }) 
     'aria-pressed',
     'true',
   );
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
   const seen = new Set<Page>();
   for (let round = 1; round <= 3; round++) {
     const giver = await giverOf(pages);

@@ -1,6 +1,8 @@
 import {
   type GameRoomInfo,
   type GameUiProps,
+  lobbyStatus,
+  playersNeeded,
   storageKey,
   waitingFor,
   waitingForHost,
@@ -12,6 +14,7 @@ import {
   EndTabs,
   FitArea,
   Fold,
+  GuideLink,
   Hint,
   Input,
   LobbySettings,
@@ -324,31 +327,24 @@ function Lobby({
   const pair = s.givers === 2 || (s.givers === 'auto' && seated.length >= 5);
   const blocker =
     seated.length < MIN_PLAYERS
-      ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
+      ? playersNeeded(MIN_PLAYERS, seated.length)
       : null;
   const listsOf = (level: Level) => view.wordLists.filter((l) => s.lists[level].includes(l.id));
   const noWords = LEVELS.find((l) => listsOf(l).length === 0);
+  // The shared lobby line; a host who can't start yet reads why under Start game.
+  const lobbyLine = !me
+    ? { text: 'Watching the table.', me: false }
+    : !me.playing
+      ? { text: 'You’re watching. Take a seat to play.', me: false }
+      : lobbyStatus(room, blocker);
   return (
     <>
-      <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : room.isHost
-                ? 'Everyone’s here? Start the game.'
-                : waitingForHost(room)}
-      </Hint>
+      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => showGuide()}>
-            📖 Rules
-          </Button>
         </div>
         <div className="flex gap-3">
           {art.box && (
@@ -399,6 +395,7 @@ function Lobby({
           {pair ? 'Two clue givers' : 'One clue giver'} per word.
         </p>
       </Panel>
+      <GuideLink title={room.gameName ?? 'Iconic'} onClick={showGuide} />
       <LobbySettings
         editable={room.isHost}
         summary={[
@@ -493,9 +490,10 @@ function Lobby({
                 unit: 'words',
                 noun: 'list',
                 change: `Change ${LEVEL_LABELS[level]} lists`,
-                summary: (chosen, total) =>
+                // The word count is on the list's chip: the line doesn't repeat it.
+                summary: (chosen) =>
                   chosen.length
-                    ? `Each card has three ${LEVEL_LABELS[level]} words from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
+                    ? `Each card has three ${LEVEL_LABELS[level]} words from ${chosen.length === 1 ? 'this list' : 'these lists'}.`
                     : 'No list chosen yet.',
               }}
               onSave={(ids) =>
@@ -519,8 +517,9 @@ function Lobby({
             disabled={!!blocker}
             onClick={() => void act({ type: 'start' }, { anchor: 'ic-start' })}
           >
-            Start the game
+            Start game
           </Button>
+          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
           <RefusalSlot anchor="ic-start" />
         </StickyBar>
       )}
