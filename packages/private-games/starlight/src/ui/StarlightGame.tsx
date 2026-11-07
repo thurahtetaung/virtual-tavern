@@ -404,7 +404,7 @@ function Play({
         >
           <ul
             // Three lines of cards fit the screen's height on any desktop.
-            style={{ maxWidth: 'min(48rem, 68dvh)' }}
+            style={{ maxWidth: 'min(48rem, 62dvh)' }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (

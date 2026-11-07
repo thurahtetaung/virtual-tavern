@@ -2,6 +2,7 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  FitArea,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
@@ -565,15 +566,17 @@ function Play({
       </div>
 
       {recruiting && placedCard && (
-        <Placing
-          recruiting={recruiting}
-          card={placedCard}
-          hand={shownHand}
-          art={art}
-          owner={ownerName}
-          twoPlayer={g.twoPlayer}
-          onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
-        />
+        <FitArea phone plain min={64}>
+          <Placing
+            recruiting={recruiting}
+            card={placedCard}
+            hand={shownHand}
+            art={art}
+            owner={ownerName}
+            twoPlayer={g.twoPlayer}
+            onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
+          />
+        </FitArea>
       )}
 
       {g.hand ? (
