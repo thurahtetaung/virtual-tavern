@@ -177,7 +177,7 @@ export function Hand({
   label = 'Your hand',
   className,
 }: HandProps) {
-  const strip = useScrollEnds(cards.map((c) => c.id).join(','));
+  const { ref: stripRef, ends: stripEnds } = useScrollEnds(cards.map((c) => c.id).join(','));
   const segs = segments(cards);
   const segOf = (i: number) => segs.find((s) => s.from <= i && i <= s.to);
   // Preserve card order and readable faces; long rows scroll instead of shrinking tap targets.
@@ -186,14 +186,14 @@ export function Hand({
   return (
     <ol
       aria-label={label}
-      ref={strip.ref}
+      ref={stripRef}
       className={cn(
         'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-2 pb-2',
         onGap && 'pr-11',
         className,
       )}
       style={{
-        ...scrollFadeMask(strip.ends),
+        ...scrollFadeMask(stripEnds),
         gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : '3.6rem'})`,
       }}
     >

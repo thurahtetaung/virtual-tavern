@@ -551,7 +551,7 @@ function Hand({
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(360);
-  const strip = useScrollEnds(view.hand.map((c) => c.id).join(','));
+  const { ref: stripRef, ends: stripEnds } = useScrollEnds(view.hand.map((c) => c.id).join(','));
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -583,8 +583,8 @@ function Hand({
         <p className="py-6 text-center text-sm text-ink-muted">No cards in hand.</p>
       ) : (
         <ul
-          ref={strip.ref}
-          style={scrollFadeMask(strip.ends)}
+          ref={stripRef}
+          style={scrollFadeMask(stripEnds)}
           className={cn(
             'flex pt-3 pb-1',
             scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',

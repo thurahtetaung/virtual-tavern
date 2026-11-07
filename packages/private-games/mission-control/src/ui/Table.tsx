@@ -388,7 +388,7 @@ export function PlayTable({
   const showLast = !a.current.length && last && last.no === a.trickCount;
   const canHold = !a.signalBlock && !a.current.length && !a.holds.includes(me) && a.turn !== me;
   const order = a.crew.map((c) => c.id);
-  const seatsStrip = useScrollEnds(order.join(','));
+  const { ref: seatsRef, ends: seatsEnds } = useScrollEnds(order.join(','));
   // The viewer's signal is spent (their own token, or the shared ones): show the used side.
   const tokenUsed =
     a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
@@ -402,8 +402,8 @@ export function PlayTable({
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
       </p>
       <ul
-        ref={seatsStrip.ref}
-        style={scrollFadeMask(seatsStrip.ends)}
+        ref={seatsRef}
+        style={scrollFadeMask(seatsEnds)}
         className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible"
       >
         {order.map((seat) => (

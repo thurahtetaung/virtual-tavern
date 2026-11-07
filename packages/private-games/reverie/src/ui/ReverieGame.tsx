@@ -1,6 +1,7 @@
 import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -563,7 +564,7 @@ function Play({
   const tableSection = turn && turn.table.length > 0 && (
     <section aria-label="Table">
       <h3 className="mb-2 font-bold">On the table</h3>
-      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]">
+      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(8rem,11rem))]">
         {turn.table.map((t, i) => (
           <li key={i} className="space-y-1">
             <Card
@@ -750,9 +751,14 @@ function Play({
           </Panel>
         )}
 
-        {!phoneEnd && tableSection}
-
-        {!phoneEnd && results}
+        {!phoneEnd && (tableSection || results) && (
+          <FitArea phone plain min={128}>
+            <div className="space-y-3">
+              {tableSection}
+              {results}
+            </div>
+          </FitArea>
+        )}
 
         {showHand && (
           <StickyBar fixed refusal={canTell ? TELL_ANCHOR : undefined}>
