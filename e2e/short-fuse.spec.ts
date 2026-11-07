@@ -133,6 +133,17 @@ test('a Short Fuse turn and a Nope window fit one phone screen, the actions in t
   await expect(host.getByRole('tablist', { name: 'Short Fuse' })).toBeVisible();
   await expect(host.getByTestId('draw')).toBeVisible();
   await expectPhoneFit(host, 'Short Fuse turn');
+  // The first turn with its first-time tip open still fits, the hand's hint above the bar.
+  await host.addInitScript(() =>
+    localStorage.setItem('vt.short-fuse.tips', JSON.stringify(['nope', 'owed', 'pile', 'pairs'])),
+  );
+  await host.reload();
+  const gotIt = host.getByRole('button', { name: 'Got it' });
+  await expect(gotIt).toBeVisible();
+  await expect(host.getByTestId('draw')).toBeVisible();
+  await expectPhoneFit(host, 'Short Fuse turn, tip open');
+  await gotIt.click();
+  await expect(gotIt).toHaveCount(0);
   // A Nope holder in the window: the countdown above, the Nope button in the bar.
   await host.getByTestId('hand').locator('[data-card="skip"]').click();
   await host.getByTestId('play').click();

@@ -4,6 +4,7 @@ import {
   Button,
   Countdown,
   EndTabs,
+  FitArea,
   Hint,
   NameDot,
   Panel,
@@ -517,25 +518,28 @@ export function Ready({
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {role && (
         <Panel className="flex flex-col items-center gap-3">
-          <Peek
-            key={deal}
-            what="your card"
-            onReveal={() => setSeenDeal(deal)}
-            cover={
-              <span className="flex flex-col items-center gap-2 font-semibold">
-                <CardBack deck={deck} size="lg" />
-                Hold to see your card
-              </span>
-            }
-          >
-            <div className="flex flex-col items-center gap-3">
-              <CardFace role={role} deck={deck} size="lg" />
-              <p className="text-lg">
-                You are the <RoleChip role={role} deck={deck} />
-              </p>
-              <p className="text-sm text-ink-muted">{deck.text(role)}</p>
-            </div>
-          </Peek>
+          {/* Phones: the card scrolls inside when it is shown, so the host's buttons stay above Ready. */}
+          <FitArea phone resetKey={deal}>
+            <Peek
+              key={deal}
+              what="your card"
+              onReveal={() => setSeenDeal(deal)}
+              cover={
+                <span className="flex flex-col items-center gap-2 font-semibold">
+                  <CardBack deck={deck} size="lg" />
+                  Hold to see your card
+                </span>
+              }
+            >
+              <div className="flex flex-col items-center gap-3">
+                <CardFace role={role} deck={deck} size="lg" />
+                <p className="text-lg">
+                  You are the <RoleChip role={role} deck={deck} />
+                </p>
+                <p className="text-sm text-ink-muted">{deck.text(role)}</p>
+              </div>
+            </Peek>
+          </FitArea>
           {!view.meReady ? (
             // Phones keep Ready in the bar at the foot of the screen.
             <StickyBar fixed className="flex flex-col items-center gap-1">

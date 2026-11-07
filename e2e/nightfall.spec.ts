@@ -5,6 +5,12 @@ import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './creden
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
 import { expectSummariesWhole, openSettings } from './lobby-settings.ts';
 
+/** Card text as long as a real deck's longest (four lines on a phone). */
+const LONG_CARD_TEXT =
+  'Wake up and do as this card says, then close your eyes again. If nobody else wakes with you, ' +
+  'the others are in the centre, and you may look at one centre card. Keep it to yourself until ' +
+  'the day.';
+
 const pageErrors: string[] = [];
 test.afterEach(() => {
   const errors = pageErrors.splice(0);
@@ -112,6 +118,33 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     ).toHaveAttribute('aria-pressed', 'true');
     await host.getByRole('button', { name: 'Deal the cards' }).click();
 
+    // The host's seat on a phone with the card shown: the card, Start the night now and its note
+    // above the Ready bar, on one screen, with card text as long as a real deck's.
+    const manifest = '**/api/backroom/manifest/nightfall*';
+    await host.route(manifest, (route) =>
+      route.fulfill({
+        json: {
+          roles: Object.fromEntries(
+            [
+              'doppelganger',
+              'werewolf',
+              'seer',
+              'robber',
+              'troublemaker',
+              'drunk',
+              'insomniac',
+            ].map((id) => [id, { text: LONG_CARD_TEXT }]),
+          ),
+        },
+      }),
+    );
+    await host.reload();
+    await host.getByRole('button', { name: '👁️ Show your card' }).click();
+    await expect(host.locator('[data-role]').first()).toBeVisible();
+    await expect(host.getByText(LONG_CARD_TEXT)).toBeVisible();
+    await expectPhoneFit(host, 'nightfall ready, card shown');
+    await host.unroute(manifest);
+    await host.reload();
     const roles = await getReady(players);
     expect(roles.length).toBe(5);
     await expect(host.getByTestId(/night-(idle|acting)/)).toBeVisible({ timeout: 15_000 });
