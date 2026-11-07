@@ -10,7 +10,9 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
-  useReservedHeight,
+  TabBar,
+  type TabBarItem,
+  tabPanelProps,
   useWideScreen,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,58 +55,12 @@ export type HydraUiProps = GameUiProps<HydraView, HydraAction> & {
   edition?: string;
 };
 type Act = HydraUiProps['act'];
-function TabBar({
-  tab,
-  onChange,
-  alert,
-}: {
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  alert: Tab | null;
-}) {
-  const bar = useRef<HTMLElement>(null);
-  const wide = useWideScreen();
-  useReservedHeight('--vt-tabbar-h', bar, !wide);
-  const items: { id: Tab; icon: string; label: string }[] = [
-    { id: 'table', icon: '🏛️', label: 'Table' },
-    { id: 'log', icon: '📜', label: 'Log' },
-    { id: 'me', icon: '🎭', label: 'Me' },
-  ];
-  return (
-    <nav
-      ref={bar}
-      aria-label="Game sections"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-panel pb-[env(safe-area-inset-bottom)] shadow-vt-2 lg:hidden"
-    >
-      {items.map((it) => {
-        const on = tab === it.id;
-        return (
-          <button
-            key={it.id}
-            type="button"
-            aria-current={on ? 'page' : undefined}
-            onClick={() => onChange(it.id)}
-            className={cn(
-              'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-semibold transition-colors duration-[180ms]',
-              'focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-focus',
-              on
-                ? 'text-accent-text before:absolute before:inset-x-[24%] before:top-0 before:h-0.5 before:rounded-b before:bg-accent'
-                : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            <span className="flex items-center gap-1 text-xl leading-none">
-              {it.icon}
-              {alert === it.id && !on && (
-                <span className="size-2.5 rounded-full bg-accent" aria-label="needs you" />
-              )}
-            </span>
-            {it.label}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
+const TABS_ID = 'hydra-sections';
+const TABS: readonly Omit<TabBarItem<Tab>, 'badge'>[] = [
+  { id: 'table', icon: 'castle', label: 'Table' },
+  { id: 'log', icon: 'scroll-text', label: 'Log' },
+  { id: 'me', icon: 'hand', label: 'Me' },
+];
 
 /** Always on top: both tracks, the tracker, who's next, the clock, sound and your role. */
 function HeaderStrip({
@@ -726,7 +682,10 @@ export function HydraGame({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1.3fr)]">
         <div className="min-w-0 space-y-2">
           {view.stage === 'reveal' && inGame ? (
-            <div className={cn('space-y-3', onTab('me'))}>
+            <div
+              className={cn('space-y-3', onTab('me'))}
+              {...(!wide && tabPanelProps(TABS_ID, 'me'))}
+            >
               <MeTab
                 view={view}
                 c={c}
@@ -741,7 +700,10 @@ export function HydraGame({
             </div>
           ) : (
             <>
-              <div className={cn('space-y-2', onTab('table'))}>
+              <div
+                className={cn('space-y-2', onTab('table'))}
+                {...(!wide && tabPanelProps(TABS_ID, 'table'))}
+              >
                 <div className="lg:hidden">
                   <BoardCarousel view={view} c={c} />
                   <DeckChip g={g} c={c} className="mt-1" />
@@ -761,7 +723,10 @@ export function HydraGame({
                   <DeckChip g={g} c={c} className="mt-2" />
                 </div>
               </div>
-              <div className={phoneTabPanel(tab, 'me')}>
+              <div
+                className={phoneTabPanel(tab, 'me')}
+                {...(!wide && tabPanelProps(TABS_ID, 'me'))}
+              >
                 <MeTab
                   view={view}
                   c={c}
@@ -815,7 +780,10 @@ export function HydraGame({
             onShowSeats={showSeats}
           />
         </div>
-        <aside className={cn('min-w-0 space-y-3', onTab('log'))}>
+        <aside
+          className={cn('min-w-0 space-y-3', onTab('log'))}
+          {...(!wide && tabPanelProps(TABS_ID, 'log'))}
+        >
           {view.stage !== 'reveal' && (
             <div className="hidden lg:block">
               <MeTab
@@ -833,7 +801,16 @@ export function HydraGame({
           <Timeline view={view} c={c} />
         </aside>
       </div>
-      <TabBar tab={tab} onChange={setTab} alert={alert} />
+      {!wide && (
+        <TabBar
+          id={TABS_ID}
+          label="Game sections"
+          value={tab}
+          onChange={setTab}
+          // The "needs you" dot: on the tab holding your move, while another tab is open.
+          items={TABS.map((t) => ({ ...t, badge: alert === t.id && tab !== t.id ? 'dot' : 0 }))}
+        />
+      )}
       <TaskSheet
         view={view}
         c={c}
