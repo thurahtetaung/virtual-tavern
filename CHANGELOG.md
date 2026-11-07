@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.3...v0.100.4) (2026-11-07)
+
+
+### Bug Fixes
+
+* **ui:** game areas keep their scroll position when the screen updates ([#562](https://github.com/thurahtetaung/virtual-tavern/issues/562)) ([1442409](https://github.com/thurahtetaung/virtual-tavern/commit/144240975b6dbb927a4f709596b75fb0236873f4))
+
 ## [0.100.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.2...v0.100.3) (2026-11-07)
 
 
