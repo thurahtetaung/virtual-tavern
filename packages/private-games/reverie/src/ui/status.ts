@@ -1,7 +1,9 @@
 import {
   type PresencePlayer,
   listNames,
+  lobbyStatus,
   namesWithPresence,
+  playersNeeded,
   waitingFor,
   waitingForHost,
 } from '@vt/game-sdk';
@@ -26,7 +28,7 @@ const name = (view: ReverieView, id: string) =>
 /** Why the game can't start yet, or null if it can. */
 export function startBlocker(view: ReverieView, cardCount: number): string | null {
   const seated = view.seats.filter((s) => s.playing).length;
-  if (seated < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed (${seated} seated).`;
+  if (seated < MIN_PLAYERS) return playersNeeded(MIN_PLAYERS, seated);
   if (cardCount < cardsNeededFor(seated))
     return 'The chosen card sets are too small for this many players.';
   return null;
@@ -55,10 +57,12 @@ export function statusFor(
     ) || 'Waiting for the others';
   if (view.phase === 'lobby') {
     if (!me?.playing) return { text: 'Take a seat to play, or just watch.', yourMove: !!me };
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
-    return isHost
-      ? { text: 'Everyone is seated. Press Start when your friends are ready!', yourMove: true }
-      : { text: `All set. ${host('start')}`, yourMove: false };
+    // The shared lobby line; a host who can't start yet reads why under Start game.
+    const s = lobbyStatus(
+      { isHost, hostId: room?.hostId ?? '', players: room?.players ?? [] },
+      blocker,
+    );
+    return { text: s?.text ?? '', yourMove: s?.me ?? false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => name(view, id));
@@ -104,7 +108,7 @@ export function statusFor(
       : '';
     return isStory
       ? {
-          text: `${skipped}You are the storyteller. Pick a card and give a clue for it.`,
+          text: `${skipped}You are the storyteller. Pick a card from your hand below, then write your clue.`,
           yourMove: true,
         }
       : { text: `${skipped}${stLive} is choosing a card and a clue…`, yourMove: false };
