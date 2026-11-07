@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.101.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.8...v0.101.0) (2026-11-07)
+
+
+### Features
+
+* **web:** theme switch in the room's Players sheet on phones ([#572](https://github.com/thurahtetaung/virtual-tavern/issues/572)) ([a37534f](https://github.com/thurahtetaung/virtual-tavern/commit/a37534f9d04733414669e023fdf9e07712d3efb3))
+
 ## [0.100.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.7...v0.100.8) (2026-11-07)
 
 
