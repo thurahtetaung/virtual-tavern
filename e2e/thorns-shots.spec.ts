@@ -40,7 +40,7 @@ for (const [label, viewport, colorScheme] of [
     const [hana] = pages;
     const nameOf = new Map(pages.map((p, i) => [p, ['Hana', 'Ana', 'Ben'][i]!]));
     await shot(hana, '01-lobby');
-    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await hana.getByRole('button', { name: 'Start game' }).click();
     await expect(hana.getByText(/Put your first disc face down/)).toBeVisible();
     await shot(hana, '02-first-disc');
 
@@ -110,7 +110,7 @@ test('thorns remove control (phone-dark)', async ({ browser }) => {
     Page,
     Page,
   ];
-  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await hana.getByRole('button', { name: 'Start game' }).click();
   await Promise.all([hana, ana, ben].map((p) => putDown(p)));
   await leaveRoom(ben);
   await expect(hana.getByRole('button', { name: 'Remove Ben' })).toBeVisible();
