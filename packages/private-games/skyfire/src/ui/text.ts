@@ -85,12 +85,12 @@ export function statusFor(
   if (!playing)
     return { text: `Watching: ${name(g.current)} is on turn.${lastNote}`, yourMove: false };
   if (mine) {
-    const options = [
-      ...(g.clues > 0 ? ['give a clue'] : []),
-      'play',
-      ...(g.clues < 8 ? ['discard'] : []),
-    ];
-    const text = `Your turn: ${options.join(', ').replace(/, ([^,]*)$/, ' or $1')}.`;
+    // Says how: a clue starts on a teammate's card, a play or discard on one of yours.
+    const own = g.clues < 8 ? 'play or discard' : 'play';
+    const text =
+      g.clues > 0
+        ? `Your turn: tap a teammate’s card to give a clue, or one of yours to ${own}.`
+        : `Your turn: tap one of your cards to ${own}.`;
     return { text: text + lastNote, yourMove: true };
   }
   return {
