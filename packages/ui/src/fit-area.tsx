@@ -25,8 +25,12 @@ function capPart(el: HTMLElement, max: number | null) {
   el.style.overscrollBehavior = max === null ? '' : 'contain';
 }
 
-/** Fits `el` to what the page has left (no less than `min`); a hidden part is left alone. */
-function fitPart(el: HTMLElement, min: number) {
+/**
+ * Fits `el` to what the page has left (no less than `min`); a hidden part is left alone. Measuring
+ * takes the cap off for a moment, which throws away the part's own scroll, so the reader's place
+ * (`top`) is put back once it is capped again: a re-fit never moves what they are looking at.
+ */
+function fitPart(el: HTMLElement, min: number, top: number) {
   capPart(el, null);
   if (el.offsetParent === null) return;
   const page = document.scrollingElement ?? document.documentElement;
@@ -34,6 +38,7 @@ function fitPart(el: HTMLElement, min: number) {
   if (over <= 0) return;
   // Fractional heights round up in the page's height, so a pixel more comes off.
   capPart(el, Math.max(min, Math.floor(el.getBoundingClientRect().height - over - 1)));
+  el.scrollTop = top;
 }
 
 /**
@@ -44,14 +49,22 @@ function fitPart(el: HTMLElement, min: number) {
  */
 export function useFitToScreen(
   part: RefObject<HTMLElement | null>,
-  { on = true, phone = false, min = MIN_PART_PX, content }: FitOptions = {},
+  { on = true, phone = false, min = MIN_PART_PX, resetKey = '', content }: FitOptions = {},
 ) {
   const isPhone = usePhone();
   const active = on && (!phone || isPhone);
+  // Where the reader had scrolled the part to, kept across re-renders; a new `resetKey` (a new
+  // stage or tab) starts again at the top.
+  const place = useRef({ key: resetKey, top: 0 });
   useLayoutEffect(() => {
     const el = part.current;
     if (!active || !el) return;
-    const fit = () => fitPart(el, min);
+    if (place.current.key !== resetKey) place.current = { key: resetKey, top: 0 };
+    const fit = () => {
+      // While capped, the part's own scroll is the reader's place; read it before re-fitting.
+      if (el.style.maxHeight) place.current.top = el.scrollTop;
+      fitPart(el, min, place.current.top);
+    };
     // Observers measure on the next frame, so a change they cause never loops back the same frame.
     let frame = 0;
     const later = () => {
@@ -78,6 +91,7 @@ export function useFitToScreen(
       added.disconnect();
       bars.disconnect();
       window.removeEventListener('resize', later);
+      if (el.style.maxHeight) place.current.top = el.scrollTop;
       capPart(el, null);
     };
     // No dependencies: it measures afresh after every render, so a part that mounts later (a tab's
