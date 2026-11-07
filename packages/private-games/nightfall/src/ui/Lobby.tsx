@@ -1,7 +1,17 @@
 import { type ActOptions, type GameRoomInfo, narrationLengths } from '@vt/game-sdk';
 import { useMemo } from 'react';
 import { NightfallLobbySound } from './Sound.tsx';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
+import {
+  Button,
+  GuideLink,
+  Hint,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  LobbySettings,
+} from '@vt/ui';
 import { nightEstimateMs } from '../logic/narration.ts';
 import { buildNightPlan, epicPossible, usesMarks } from '../logic/plan.ts';
 import {
@@ -278,8 +288,7 @@ function AlienOptions({
         summary={[changed ? 'the host changed the odds' : 'the usual odds']}
         className="space-y-2"
       >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          {editable && <h3 className="font-bold">Alien options</h3>}
+        <div className="flex flex-wrap items-baseline justify-end gap-2">
           {editable && (
             <Button
               size="sm"
@@ -293,7 +302,7 @@ function AlienOptions({
         </div>
         <p className="text-sm text-ink-muted">
           With these cards the narrator draws some instructions at random, like a hidden deck. These
-          are the odds of each{editable ? '; tap − or + to change them' : ''}. The narrator says
+          are the odds of each{editable ? '; use − or + to change them' : ''}. The narrator says
           what came up out loud for everyone, as it does the ripples, but never who acts on it.
         </p>
         {tables.map((t) => {
@@ -403,7 +412,7 @@ export function Lobby({
     .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <h3 className="font-bold">
           Players ({seated.length}/{MAX_PLAYERS})
@@ -411,7 +420,7 @@ export function Lobby({
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {seated.map((p, i) => (
             <li key={p.id} className="inline-flex items-center gap-1">
-              {numbers ? <PlayerNumber n={i + 1} deck={deck} /> : <span aria-hidden>🕯️</span>}
+              {numbers && <PlayerNumber n={i + 1} deck={deck} />}
               <PlayerTag
                 name={p.name}
                 host={p.id === room.hostId}
@@ -448,6 +457,7 @@ export function Lobby({
           </Button>
         )}
       </Panel>
+      <GuideLink title={room.gameName ?? 'Nightfall'} onClick={showGuide} />
 
       <LobbySettings
         editable={editable}
@@ -456,7 +466,6 @@ export function Lobby({
         className="space-y-3"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          {editable && <h3 className="font-bold">The cards</h3>}
           <span
             data-testid="card-count"
             className={cn(
@@ -464,14 +473,16 @@ export function Lobby({
               s.roles.length === need ? 'text-success-ink' : 'text-danger-ink',
             )}
           >
-            {s.roles.length} of {need} cards
+            {s.roles.length === need
+              ? `${need} of ${need} cards`
+              : `${s.roles.length} cards picked, ${need} needed for ${seated.length} players`}
             {s.roles.includes('alpha-wolf') ? ' (with the centre werewolf)' : ''}
             {usesMarks(s.roles) ? ` · ${seated.length} Marks` : ''}
           </span>
         </div>
         <p className="text-sm text-ink-muted">
           One card per player, three in the centre
-          {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}. Tap a
+          {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}. Select a
           card to read it.
         </p>
         {usesMarks(s.roles) && (
@@ -607,7 +618,6 @@ export function Lobby({
         ]}
         className="space-y-3"
       >
-        {editable && <h3 className="font-bold">Settings</h3>}
         <Segmented
           label="Time for each role at night"
           value={s.stepSeconds}
@@ -720,10 +730,8 @@ export function Lobby({
               Deal the cards
             </Button>
           )}
-          <Button variant="ghost" onClick={showGuide}>
-            How to play
-          </Button>
         </div>
+        {editable && blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
         <RefusalSlot anchor="nightfall-deal" />
       </StickyBar>
     </div>

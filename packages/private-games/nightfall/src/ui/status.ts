@@ -1,8 +1,8 @@
-import { type GameRoomInfo, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { setupProblem } from '../logic/game.ts';
 import { ARTIFACTS, hostileGroupsIn } from '../logic/roles.ts';
 import { type NightfallView, VOTE_APP } from '../logic/types.ts';
-import { listNames, nameOfView } from './text.ts';
+import { nameOfView } from './text.ts';
 
 export interface Status {
   text: string;
@@ -65,17 +65,9 @@ export function statusFor(view: NightfallView, room: Room): Status {
   switch (view.phase) {
     case 'lobby': {
       if (!view.me?.playing) return { text: 'You’re watching this game.', yourMove: false };
-      const blocker = startBlocker(view);
-      if (blocker)
-        return {
-          text: isHost
-            ? `Almost ready: ${blocker}`
-            : `The host is picking the cards. Almost ready: ${blocker}`,
-          yourMove: false,
-        };
-      return isHost
-        ? { text: 'Everyone is in. Press Deal the cards when you’re ready!', yourMove: true }
-        : { text: `All set. ${waitingForHost(room, 'deal')}`, yourMove: false };
+      // The host's blocker shows under Deal the cards, so their line is empty then.
+      const line = lobbyStatus(room, startBlocker(view));
+      return line ? { text: line.text, yourMove: line.me } : { text: '', yourMove: false };
     }
     case 'ready':
       if (!playing)
@@ -132,12 +124,17 @@ export function statusFor(view: NightfallView, room: Room): Status {
       };
     }
     case 'reveal': {
-      const result = view.reveal?.result;
-      const nameOf = nameOfView(view);
-      const names = (result?.winners ?? []).map((id) => (id === view.me?.id ? 'You' : nameOf(id)));
-      const text = names.length
-        ? `${listNames(names)} ${names.length > 1 || names[0] === 'You' ? 'win' : 'wins'}!`
-        : 'Nobody wins this time.';
+      // The team lines below say who won; the status line only says how it went for you.
+      const winners = view.reveal?.result.winners ?? [];
+      const text = !view.me?.playing
+        ? winners.length
+          ? 'Game over.'
+          : 'Nobody wins this time.'
+        : winners.includes(view.me.id)
+          ? 'You win!'
+          : winners.length
+            ? 'You lose.'
+            : 'Nobody wins this time.';
       // Guests are told who deals again once, at the foot of the reveal (`waiting-host`).
       return { text: isHost ? `${text} Play again when you’re ready.` : text, yourMove: false };
     }

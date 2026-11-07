@@ -106,15 +106,15 @@ describe('waiting', () => {
     expect(statusFor(h.view('B'), roomOf(false)).text).toMatch(/eyes closed/i);
   });
 
-  it('tells guests the host is picking the cards', () => {
+  it('gives guests the blocker and leaves it under Deal the cards for the host', () => {
     const h = table({ players: [W, V, V] });
     const lobby = {
       ...h.view('B'),
       phase: 'lobby',
       settings: { ...h.view('B').settings, roles: [W] },
     } as NightfallView;
-    expect(statusFor(lobby, roomOf(false)).text).toMatch(/^The host is picking the cards/);
-    expect(statusFor(lobby, roomOf(true)).text).toMatch(/^Almost ready/);
+    expect(statusFor(lobby, roomOf(false)).text).toMatch(/needed|card/i);
+    expect(statusFor(lobby, roomOf(true)).text).toBe('');
   });
 });
 

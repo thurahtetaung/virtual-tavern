@@ -117,7 +117,7 @@ const rules: AwardRule[] = [
     copy: {
       cheeky: [
         '{who} voted against their own new teammate',
-        '{who} switched sides, then voted out a new friend',
+        '{who} switched sides, then voted against a new friend',
       ],
       wholesome: [
         '{who} was in the dark, through no fault of their own',
