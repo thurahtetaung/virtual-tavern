@@ -1,4 +1,4 @@
-import { type PresencePlayer, lobbyStatus, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, lobbyStatus } from '@vt/game-sdk';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
@@ -153,8 +153,6 @@ export function statusFor(
 ): Status {
   const online = (id: string) => room?.players.find((p) => p.id === id)?.connected !== false;
   const me = view.me;
-  const waitHost = (what: string) =>
-    room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     if (!me || me.team === null) {
       return {

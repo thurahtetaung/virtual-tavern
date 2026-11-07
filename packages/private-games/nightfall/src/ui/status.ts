@@ -1,4 +1,4 @@
-import { type GameRoomInfo, lobbyStatus, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type GameRoomInfo, lobbyStatus, waitingFor } from '@vt/game-sdk';
 import { setupProblem } from '../logic/game.ts';
 import { ARTIFACTS, hostileGroupsIn } from '../logic/roles.ts';
 import { type NightfallView, VOTE_APP } from '../logic/types.ts';

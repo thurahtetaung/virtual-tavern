@@ -1,10 +1,4 @@
-import {
-  type PresencePlayer,
-  listNames,
-  lobbyStatus,
-  waitingFor,
-  waitingForHost,
-} from '@vt/game-sdk';
+import { type PresencePlayer, listNames, lobbyStatus, waitingFor } from '@vt/game-sdk';
 import { MAX_REJECTIONS, type EndReason, type RoundTableView } from '../logic/types.ts';
 
 export interface Status {
@@ -70,8 +64,6 @@ export function currentQuest(view: RoundTableView) {
 /** Plain-language guidance for whoever is looking at the screen: what to do right now. */
 export function statusFor(view: RoundTableView, isHost: boolean, people?: People): Status {
   const me = view.me;
-  const host = (what: string) =>
-    people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`;
   const waiting = (ids: string[]) => {
     if (!people) return '';
     const text = waitingFor(ids, people.players, { you: me?.id });
