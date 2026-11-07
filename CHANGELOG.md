@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.100.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.100.0...v0.100.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **web:** clearer invite field on home, and How to play no longer opens rooms ([#556](https://github.com/thurahtetaung/virtual-tavern/issues/556)) ([c303353](https://github.com/thurahtetaung/virtual-tavern/commit/c3033532afe88c1134a311cd4b0081099b851223))
+
 ## [0.100.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.99.0...v0.100.0) (2026-11-07)
 
 
