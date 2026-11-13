@@ -458,21 +458,22 @@ export function MiniWall({ wall }: { wall: (TileKind | null)[][] }) {
 const CSS = `
 .mo-tile { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 18%; line-height: 1; font-weight: 800; box-shadow: 0 0 0 1px rgba(28,25,23,.35), 0 1px 2px rgba(28,25,23,.25); user-select: none; }
 [data-theme='dark'] .mo-tile { box-shadow: 0 0 0 1px rgba(245,245,244,.4), 0 1px 2px rgba(0,0,0,.5); }
-.mo-c-blue { background: #2361b8; color: #fff; }
-.mo-c-yellow { background: #e9b824; color: #3b2a00; }
-.mo-c-red { background: #c4362c; color: #fff; }
-.mo-c-black { background: #26262a; color: #f5f5f4; }
-.mo-c-aqua { background: #8fd0dc; color: #0f3940; }
+.mo-c-blue { --mo-bg: #2361b8; background: #2361b8; color: #fff; }
+.mo-c-yellow { --mo-bg: #e9b824; background: #e9b824; color: #3b2a00; }
+.mo-c-red { --mo-bg: #c4362c; background: #c4362c; color: #fff; }
+.mo-c-black { --mo-bg: #26262a; background: #26262a; color: #f5f5f4; }
+.mo-c-aqua { --mo-bg: #8fd0dc; background: #8fd0dc; color: #0f3940; }
 .mo-first { background: #f4efe6; color: #1c1917; }
 .mo-gold { box-shadow: 0 0 0 2px #c8961e, 0 0 8px rgba(200,150,30,.45); }
-.mo-c-joker { background: #f6f1e7; color: #9a3412; }
+.mo-c-joker { --mo-bg: #f6f1e7; background: #f6f1e7; color: #9a3412; }
 .mo-grey-slot { border-style: solid; background: rgba(120,113,108,.12); }
 .mo-shield-slot { border: 1px dashed rgba(180,130,20,.8); border-radius: 50%; background: rgba(234,179,8,.08); }
 .mo-space { display: inline-flex; outline: 2px dashed rgba(234,138,0,.8); outline-offset: 0; }
 .mo-sym { position: relative; pointer-events: none; }
 .mo-sym-corner { position: absolute; right: 1px; bottom: 0; padding: 0 2px; border-radius: 4px; background: rgba(255,255,255,.82); color: #1c1917; line-height: 1.15; }
-.mo-ghost { opacity: .22; box-shadow: none; }
-[data-theme='dark'] .mo-ghost { opacity: .28; box-shadow: none; }
+/* The wall's guide: a faint wash of the colour, but its symbol in full page ink so colour-blind players can read it. */
+.mo-ghost { background: color-mix(in srgb, var(--mo-bg) 30%, transparent); color: var(--vt-ink); box-shadow: none; }
+[data-theme='dark'] .mo-ghost { background: color-mix(in srgb, var(--mo-bg) 32%, transparent); box-shadow: none; }
 .mo-slot { display: inline-block; border-radius: 18%; border: 1px dashed rgba(120,113,108,.55); }
 .mo-floor-slot { border-style: solid; background: rgba(190,60,50,.07); }
 .mo-dot { display: inline-block; }
