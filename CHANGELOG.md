@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.102.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.4...v0.102.0) (2026-11-13)
+
+
+### Features
+
+* **seance:** calmer ghost screen, one psychic at a time; guesses wait for a vision ([#584](https://github.com/thurahtetaung/virtual-tavern/issues/584)) ([9e88547](https://github.com/thurahtetaung/virtual-tavern/commit/9e8854718f649a3151c8dbcbcfcf1db73a95143a))
+
 ## [0.101.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.3...v0.101.4) (2026-11-13)
 
 
