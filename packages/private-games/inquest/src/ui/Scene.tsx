@@ -1,4 +1,4 @@
-import { Button, Hint, RefusalSlot, StickyBar, cn, useFitToScreen } from '@vt/ui';
+import { Button, FoldSummary, Hint, RefusalSlot, StickyBar, cn, useFitToScreen } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
@@ -446,11 +446,11 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         )}
         {g.bullets.length > 0 && <Timeline g={g} content={content} />}
         {g.removed.length > 0 && (
-          <details className="rounded-xl bg-sunk p-2 text-sm">
-            <summary className="cursor-pointer font-semibold">
+          <details className="group rounded-xl bg-sunk text-sm">
+            <FoldSummary className="px-3 font-semibold">
               Removed tiles ({g.removed.length})
-            </summary>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            </FoldSummary>
+            <div className="grid grid-cols-2 gap-1.5 px-2 pb-2 sm:grid-cols-3">
               {g.removed.map((s, i) => (
                 <Tile key={i} tile={s.tile} bullet={s.bullet} content={content} dim />
               ))}
@@ -458,9 +458,9 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
           </details>
         )}
         {g.bullets.length > 0 && (
-          <details className="rounded-xl bg-sunk p-2">
-            <summary className="cursor-pointer text-sm font-semibold">Full bullet timeline</summary>
-            <div className="mt-2">
+          <details className="group rounded-xl bg-sunk">
+            <FoldSummary className="px-3 font-semibold">Full bullet timeline</FoldSummary>
+            <div className="px-2 pb-2">
               <Timeline g={g} content={content} full />
             </div>
           </details>

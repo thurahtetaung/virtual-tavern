@@ -8,6 +8,7 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  EndHero,
   EndTabs,
   Superlatives,
   cn,
@@ -687,38 +688,41 @@ export function OverScreen({
   );
   return (
     <div className="space-y-3">
-      <Panel
-        className={cn(
-          'space-y-2 text-center',
-          r.winner === 'investigators' ? 'ring-2 ring-success' : 'ring-2 ring-danger',
-        )}
+      <EndHero
+        tone={r.winner === 'investigators' ? 'success' : 'loss'}
+        emblem={r.winner === 'investigators' ? '🕵️' : '🩸'}
+        title={r.winner === 'investigators' ? 'The Investigators win' : 'The Murderer’s side wins'}
+        superlatives={wide ? room.superlatives : undefined}
+        art={
+          s && (
+            <>
+              {/* Large on wide screens; smaller on phones, so the end and Play again fit. */}
+              <div className="w-20 sm:w-28 lg:w-48">
+                <ArtCard deck="clue" n={s.clue} content={content} key_ />
+              </div>
+              <div className="w-20 sm:w-28 lg:w-48">
+                <ArtCard deck="means" n={s.means} content={content} key_ />
+              </div>
+            </>
+          )
+        }
       >
-        <p className="text-3xl">{r.winner === 'investigators' ? '🕵️' : '🩸'}</p>
-        <p className="font-semibold">{resultLine(view)}</p>
+        <p>{resultLine(view)}</p>
         {s && (
-          <div className="mx-auto flex max-w-xs items-center justify-center gap-3">
-            {/* Smaller on phones, so the end and Play again fit the screen. */}
-            <div className="w-28 max-lg:w-20">
-              <ArtCard deck="clue" n={s.clue} content={content} key_ />
-            </div>
-            <div className="w-28 max-lg:w-20">
-              <ArtCard deck="means" n={s.means} content={content} key_ />
-            </div>
-          </div>
-        )}
-        {s && (
-          <p className="text-sm">
-            The Murderer was <b>{nameOf(view, s.murderer)}</b>.
+          <p className="mt-1">
+            The Murderer was <b className="text-ink">{nameOf(view, s.murderer)}</b>.
           </p>
         )}
-      </Panel>
+      </EndHero>
       {wide ? (
-        <>
-          <Superlatives lines={room.superlatives} />
-          {whoWasWho}
-          {attempts}
+        // Wide screens: the roles and attempts beside the bullet timeline.
+        <div className="grid items-start gap-3 xl:grid-cols-2">
+          <div className="space-y-3">
+            {whoWasWho}
+            {attempts}
+          </div>
           {bullets}
-        </>
+        </div>
       ) : (
         // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
         // and Play again fit the screen.

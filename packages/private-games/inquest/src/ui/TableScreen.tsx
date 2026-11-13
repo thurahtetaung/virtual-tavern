@@ -6,7 +6,7 @@ import { eventText } from '../logic/names.ts';
 import type { InquestView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { orderOf } from './Scene.tsx';
-import { accuserOf, nameOf, statusFor } from './status.ts';
+import { accuserOf, nameOf, resultLine, statusFor } from './status.ts';
 import { suspectsOf } from './Suspects.tsx';
 
 /**
@@ -138,6 +138,66 @@ export function TableScreen({
             .join(' · '),
         }}
         footerEnd={{ icon: 'tv', text: 'The suspects’ cards are on the phones.' }}
+      />
+    </PosterOverlay>
+  );
+}
+
+/**
+ * The table screen once the case ends: the result at poster size and who was who (names and
+ * roles only; the crime's cards stay on the phones, as during play).
+ */
+export function TableEndScreen({
+  view,
+  content,
+  onExit,
+}: {
+  view: InquestView;
+  content: Content;
+  onExit: () => void;
+}) {
+  const g = view.game!;
+  const r = g.result!;
+  const roles = g.roles ?? {};
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onExit();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onExit]);
+  return (
+    <PosterOverlay>
+      <Poster
+        label="Table screen"
+        meta="Game over"
+        corner={
+          <Button variant="secondary" size="lg" className="text-[24px]" onClick={onExit}>
+            Leave table screen
+          </Button>
+        }
+        eyebrow={r.winner === 'investigators' ? '🕵️ Case closed' : '🩸 The culprits got away'}
+        headline={
+          <span data-testid="inquest-tv-winner">
+            {r.winner === 'investigators' ? 'The Investigators win' : 'The Murderer’s side wins'}
+          </span>
+        }
+        line={resultLine(view)}
+        choices={g.players.map((p) => (
+          <PosterSlate
+            key={p.id}
+            state={r.winners.includes(p.id) ? 'won' : 'open'}
+            className="w-[240px] content-start gap-1"
+          >
+            <span className="block text-[32px] font-bold text-balance">{p.name}</span>
+            <span className="block text-[24px] text-ink-muted">
+              {content.roleName(roles[p.id]!)}
+            </span>
+          </PosterSlate>
+        ))}
+        footer={{ icon: 'tv', text: 'The crime, the attempts and the bullets are on the phones.' }}
       />
     </PosterOverlay>
   );

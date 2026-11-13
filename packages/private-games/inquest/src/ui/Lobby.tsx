@@ -65,7 +65,7 @@ function Choice({
         'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
           ? 'bg-accent text-accent-fg ring-accent'
-          : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:opacity-60',
+          : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:cursor-default disabled:hover:bg-card',
       )}
     >
       {children}
@@ -126,7 +126,7 @@ export function Lobby({
   const max = maxPlayersOf(s);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
+    <div className="mx-auto max-w-3xl space-y-3">
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <div className="flex items-center justify-between gap-2">
@@ -146,7 +146,9 @@ export function Lobby({
               key={p.id}
               className={cn(
                 'flex items-center gap-1 rounded-full px-3 py-1 text-sm ring-1',
-                p.playing ? 'bg-card ring-line-strong' : 'opacity-60 ring-dashed ring-line-strong',
+                p.playing
+                  ? 'bg-card ring-line-strong'
+                  : 'text-ink-muted ring-dashed ring-line-strong',
               )}
             >
               <PlayerTag
