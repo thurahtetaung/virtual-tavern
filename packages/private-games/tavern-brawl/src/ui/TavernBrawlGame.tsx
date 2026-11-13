@@ -167,28 +167,8 @@ function End({
       </EndHero>
       <Panel className="flex flex-col gap-3">
         <EndTabs
+          columns
           tabs={[
-            kos.length > 0 && {
-              id: 'knockouts',
-              label: '💥 KOs',
-              content: (
-                <section aria-label="Knockouts">
-                  <h3 className="text-sm font-semibold">Knockouts</h3>
-                  <ol className="text-sm">
-                    {kos.map((k) => (
-                      <li key={`${k.player}-${k.turn}`}>
-                        💥 {name(k.player)}, turn {k.turn}
-                        {k.removed
-                          ? ' (removed)'
-                          : k.by === k.player
-                            ? `: ${card(k.card) ?? 'their own card'} (their own)`
-                            : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ),
-            },
             {
               id: 'players',
               label: '❤️ Players',
@@ -222,6 +202,27 @@ function End({
                       </li>
                     ))}
                 </ul>
+              ),
+            },
+            kos.length > 0 && {
+              id: 'knockouts',
+              label: '💥 KOs',
+              content: (
+                <section aria-label="Knockouts">
+                  <h3 className="text-sm font-semibold">Knockouts</h3>
+                  <ol className="text-sm">
+                    {kos.map((k) => (
+                      <li key={`${k.player}-${k.turn}`}>
+                        💥 {name(k.player)}, turn {k.turn}
+                        {k.removed
+                          ? ' (removed)'
+                          : k.by === k.player
+                            ? `: ${card(k.card) ?? 'their own card'} (their own)`
+                            : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
               ),
             },
             !wide &&

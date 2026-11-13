@@ -5,6 +5,7 @@ import {
   FitArea,
   TAP_BAND,
   useScrollEnds,
+  useWideScreen,
   scrollFadeMask,
   Hint,
   NameDot,
@@ -382,10 +383,13 @@ const Resolution = memo(function Resolution({
     (lastPlay?.kind === 'play'
       ? { id: lastPlay.inst, card: lastPlay.card, owner: lastPlay.owner }
       : null);
+  // Wide screens: the card in play is shown large, the table's centrepiece.
+  const big = useWideScreen();
+  const cardWidth = big ? 120 : 76;
   return (
     <section
       aria-label="Table"
-      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line"
+      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line lg:gap-5 lg:p-4"
     >
       {showing ? (
         <button
@@ -393,15 +397,18 @@ const Resolution = memo(function Resolution({
           onClick={() => onZoom(showing)}
           aria-label={`Zoom ${art.card(showing.card)}`}
         >
-          <Card card={showing.card} art={art} width={76} />
+          <Card card={showing.card} art={art} width={cardWidth} />
         </button>
       ) : (
-        <div className="flex aspect-[400/630] w-[76px] items-center justify-center rounded-[7%] border-2 border-dashed border-line text-xs text-ink-muted">
+        <div
+          style={{ width: cardWidth }}
+          className="flex aspect-[400/630] shrink-0 items-center justify-center rounded-[7%] border-2 border-dashed border-line text-center text-xs text-ink-muted"
+        >
           No card yet
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <ol className="flex flex-col gap-0.5 text-sm" aria-live="polite">
+        <ol className="flex flex-col gap-0.5 text-sm lg:gap-1 lg:text-body" aria-live="polite">
           {lines.map((l, i) => (
             <li
               key={l.id}
@@ -426,7 +433,7 @@ const Resolution = memo(function Resolution({
                 onClick={() => onZoom(r)}
                 aria-label={art.card(r.card)}
               >
-                <Card card={r.card} art={art} width={34} />
+                <Card card={r.card} art={art} width={big ? 52 : 34} />
               </button>
             ))}
           </div>
@@ -564,7 +571,10 @@ function Hand({
   // that the row scrolls sideways.
   const n = view.hand.length;
   const GAP = 6;
-  const full = room >= 700 ? 132 : 108;
+  // Wide screens size the cards by the window's height too (about a sixth of it), so the hand
+  // reads from across the table instead of a strip of thumbnails.
+  const full =
+    room >= 700 ? Math.max(132, Math.min(184, Math.round(window.innerHeight * 0.165))) : 108;
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
   const width = Math.max(92, Math.min(full, fit));
   const scrolls = n * width + GAP * (n - 1) > room;
