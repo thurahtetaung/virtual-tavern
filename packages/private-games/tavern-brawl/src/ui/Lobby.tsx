@@ -7,16 +7,18 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
-  StickyBar,
   TimerSettings,
   cn,
   LobbySettings,
   usePhone,
   timersLine,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import { memo, useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
-import { FACE_ZOOM, powersOf } from '../logic/guide.ts';
+import { FACE_ZOOM, guide, powersOf } from '../logic/guide.ts';
 import {
   type HeroId,
   MAX_PLAYERS,
@@ -157,6 +159,8 @@ export function Lobby({
   showGuide: () => void;
 }) {
   const me = view.me;
+  // The first set in play with box art is the pitch's picture.
+  const box = (view.settings.sets ?? [...SET_IDS]).map((id) => art.box(id)).find(Boolean) ?? null;
   const seated = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const takenBy = new Map(seated.flatMap((s) => (s.hero ? [[s.hero, s] as const] : [])));
@@ -181,9 +185,82 @@ export function Lobby({
         ? { text: 'Pick your hero below, or 🎲 for a random one.', me: true }
         : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      className="max-sm:gap-3"
+      pitch={
+        // Phones skip the pitch: the heroes and Start must fit the first screen.
+        <LobbyPitch
+          className="max-sm:hidden"
+          title={room.gameName ?? 'Tavern Brawl'}
+          emblem="🥊"
+          art={
+            box && <ProtectedImage src={box} alt="" className="w-full rounded-lg object-cover" />
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              setsLine(view, art),
+              timersLine(
+                {
+                  clueSeconds: view.settings.seconds,
+                  guessSeconds: null,
+                  timerMode: view.settings.timerMode,
+                },
+                { clue: 'decisions', guess: null },
+              ),
+            ]}
+          >
+            <SetFilter view={view} room={room} act={act} art={art} />
+            {room.isHost && <h3 className="mt-3 mb-2 font-bold">Timer</h3>}
+            <div className={room.isHost ? undefined : 'mt-3'}>
+              <TimerSettings
+                values={{
+                  clueSeconds: view.settings.seconds,
+                  guessSeconds: null,
+                  timerMode: view.settings.timerMode,
+                }}
+                editable={room.isHost}
+                clueLabel="Decision timer"
+                clueHelp="Time for each card to play and each choice to make."
+                strictHelp="a random card is played (or a random choice made) for whoever is slow"
+                onChange={(p) =>
+                  void act({
+                    type: 'update-settings',
+                    ...(p.clueSeconds !== undefined && { seconds: p.clueSeconds }),
+                    ...(p.timerMode !== undefined && { timerMode: p.timerMode }),
+                  })
+                }
+              />
+            </div>
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            label="Start the brawl"
+            // A player still picking reads why in the status line above, so the phone lobby fits.
+            blocker={
+              blocker && me?.playing && !me.hero ? (
+                <span className="sr-only">{blocker}</span>
+              ) : (
+                blocker
+              )
+            }
+            onStart={() => void act({ type: 'start' }, { anchor: 'tb-start' })}
+            refusal="tb-start"
+          />
+        )
+      }
+    >
+      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
-
       <Panel className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
@@ -251,7 +328,6 @@ export function Lobby({
         onClick={showGuide}
         className="max-sm:hidden"
       />
-
       <Panel className="flex flex-col gap-2" id="tb-heroes">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">Heroes</h2>
@@ -376,7 +452,6 @@ export function Lobby({
           })}
         </ul>
       </Panel>
-
       <HeroSheet
         hero={details}
         art={art}
@@ -397,61 +472,6 @@ export function Lobby({
           ) : undefined
         }
       />
-
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          setsLine(view, art),
-          timersLine(
-            {
-              clueSeconds: view.settings.seconds,
-              guessSeconds: null,
-              timerMode: view.settings.timerMode,
-            },
-            { clue: 'decisions', guess: null },
-          ),
-        ]}
-      >
-        <SetFilter view={view} room={room} act={act} art={art} />
-        {room.isHost && <h3 className="mt-3 mb-2 font-bold">Timer</h3>}
-        <div className={room.isHost ? undefined : 'mt-3'}>
-          <TimerSettings
-            values={{
-              clueSeconds: view.settings.seconds,
-              guessSeconds: null,
-              timerMode: view.settings.timerMode,
-            }}
-            editable={room.isHost}
-            clueLabel="Decision timer"
-            clueHelp="Time for each card to play and each choice to make."
-            strictHelp="a random card is played (or a random choice made) for whoever is slow"
-            onChange={(p) =>
-              void act({
-                type: 'update-settings',
-                ...(p.clueSeconds !== undefined && { seconds: p.clueSeconds }),
-                ...(p.timerMode !== undefined && { timerMode: p.timerMode }),
-              })
-            }
-          />
-        </div>
-      </LobbySettings>
-
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'tb-start' })}
-          >
-            Start the brawl
-          </Button>
-          {blocker && !(me?.playing && !me.hero) && (
-            <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>
-          )}
-          <RefusalSlot anchor="tb-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

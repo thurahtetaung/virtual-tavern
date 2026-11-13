@@ -1,16 +1,18 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   type Choice,
   ChoicePicker,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   Panel,
-  StickyBar,
   TimerSettings,
   cn,
-  LobbySettings,
 } from '@vt/ui';
+import { guide } from '../logic/guide.ts';
 import { type HoodwinkAction, type HoodwinkView, ROUND_COUNTS } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { settingsSummary, timerSummary } from './summary.ts';
@@ -42,95 +44,92 @@ export function Lobby({
 }) {
   const editable = room.isHost;
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch title={room.gameName ?? 'Hoodwink'} emblem="🤥">
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
+          <ChoicePicker
+            selectedIds={view.settings.deckIds}
+            editable={editable}
+            onSave={(ids) => act({ type: 'update-settings', deckIds: ids })}
+            choices={view.decks.map((d) => ({
+              id: d.id,
+              name: d.adult ? `${d.name} (18+)` : d.name,
+              description: d.description,
+              count: d.questionCount,
+            }))}
+            labels={{
+              title: 'Question decks',
+              unit: 'questions',
+              noun: 'deck',
+              change: 'Change decks',
+              summary: decksSummary,
+            }}
+          />
+          <fieldset>
+            <legend className="text-sm font-semibold">Rounds</legend>
+            {editable ? (
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {ROUND_COUNTS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={view.settings.rounds === n}
+                    onClick={() => void act({ type: 'update-settings', rounds: n })}
+                    className={cn(
+                      'h-11 rounded-lg font-semibold ring-1 transition',
+                      view.settings.rounds === n
+                        ? 'bg-accent-soft ring-2 ring-accent'
+                        : 'ring-line hover:bg-sunk',
+                    )}
+                  >
+                    {n} rounds
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm">{view.settings.rounds} rounds</p>
+            )}
+          </fieldset>
+          {/* Folded away so the Start button stays on a phone's first screen. */}
+          <details className="group">
+            <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="font-semibold">Timers</span>
+                <span className="text-ink-muted"> · {timerSummary(view.settings)}</span>
+              </span>
+              <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
+                ▸
+              </span>
+            </summary>
+            <div className="pt-2">
+              <TimerSettings
+                values={view.settings}
+                editable={editable}
+                onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+                clueLabel="Writing timer"
+                guessLabel="Voting timer"
+                clueHelp="Time for everyone to write their lie."
+                guessHelp="Time for everyone to vote."
+                strictHelp="anyone without a lie gets a ready-made one worth half (if the question has some), and missing votes score nothing"
+              />
+            </div>
+          </details>
+        </LobbySettings>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
       <GuideLink title={room.gameName ?? 'Hoodwink'} onClick={showGuide} />
-      <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
-        <ChoicePicker
-          selectedIds={view.settings.deckIds}
-          editable={editable}
-          onSave={(ids) => act({ type: 'update-settings', deckIds: ids })}
-          choices={view.decks.map((d) => ({
-            id: d.id,
-            name: d.adult ? `${d.name} (18+)` : d.name,
-            description: d.description,
-            count: d.questionCount,
-          }))}
-          labels={{
-            title: 'Question decks',
-            unit: 'questions',
-            noun: 'deck',
-            change: 'Change decks',
-            summary: decksSummary,
-          }}
-        />
-        <fieldset>
-          <legend className="text-sm font-semibold">Rounds</legend>
-          {editable ? (
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {ROUND_COUNTS.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  aria-pressed={view.settings.rounds === n}
-                  onClick={() => void act({ type: 'update-settings', rounds: n })}
-                  className={cn(
-                    'h-11 rounded-lg font-semibold ring-1 transition',
-                    view.settings.rounds === n
-                      ? 'bg-accent-soft ring-2 ring-accent'
-                      : 'ring-line hover:bg-sunk',
-                  )}
-                >
-                  {n} rounds
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm">{view.settings.rounds} rounds</p>
-          )}
-        </fieldset>
-        {/* Folded away so the Start button stays on a phone's first screen. */}
-        <details className="group">
-          <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="font-semibold">Timers</span>
-              <span className="text-ink-muted"> · {timerSummary(view.settings)}</span>
-            </span>
-            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
-              ▸
-            </span>
-          </summary>
-          <div className="pt-2">
-            <TimerSettings
-              values={view.settings}
-              editable={editable}
-              onChange={(patch) => void act({ type: 'update-settings', ...patch })}
-              clueLabel="Writing timer"
-              guessLabel="Voting timer"
-              clueHelp="Time for everyone to write their lie."
-              guessHelp="Time for everyone to vote."
-              strictHelp="anyone without a lie gets a ready-made one worth half (if the question has some), and missing votes score nothing"
-            />
-          </div>
-        </details>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

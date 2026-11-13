@@ -1,6 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   Fold,
   GuideLink,
   Hint,
@@ -8,13 +7,16 @@ import {
   Notice,
   Panel,
   PlayerTag,
-  StickyBar,
   Switch,
   TimerSettings,
   cn,
   LobbySettings,
   timersLine,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
+import { guide } from '../logic/guide.ts';
 import { ROLES, ROLE_ORDER } from '../logic/roles.ts';
 import { PRESETS, evilCount, goodCount } from '../logic/setup.ts';
 import {
@@ -194,158 +196,178 @@ export function Lobby({
   };
   const blocker = view.setup.errors[0] ?? null;
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Round Table'}
+          artClassName="w-auto sm:w-auto lg:w-auto"
+          art={
+            <span aria-hidden className="flex -space-x-3">
+              <Emblem role="servant" className="size-14 lg:size-20" />
+              <Emblem role="minion" className="size-14 lg:size-20" />
+            </span>
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            title="Roles"
+            summary={[
+              PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up',
+              `${good} Good vs ${evil} Evil`,
+            ]}
+            className="space-y-4"
+          >
+            <fieldset>
+              <legend className="text-small font-semibold">Ready-made line-ups</legend>
+              <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={s.preset === p.id}
+                    disabled={!editable}
+                    onClick={() => void act({ type: 'update-settings', preset: p.id })}
+                    className={choice(s.preset === p.id, editable)}
+                  >
+                    <span className="block text-small font-semibold">{p.name}</span>
+                    <span className="block text-caption text-ink-muted">{p.blurb}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-caption text-ink-muted">
+                {s.preset
+                  ? 'Suggested line-ups follow the table size. Tap a role below to make your own.'
+                  : 'Your own line-up: tap roles on or off.'}
+              </p>
+            </fieldset>
+            <div
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-center text-small font-semibold ring-1 ring-inset',
+                ticked
+                  ? 'bg-success-soft text-success-ink ring-success-line'
+                  : balanced
+                    ? 'bg-panel text-ink-2 ring-line'
+                    : 'bg-danger-soft text-danger-ink ring-danger-line',
+              )}
+              data-testid="balance"
+            >
+              <span className={SIDE_TEXT.good}>{good} Good</span> vs{' '}
+              <span className={SIDE_TEXT.evil}>{evil} Evil</span>
+              {ticked
+                ? ` ✓ right for ${size} players`
+                : balanced
+                  ? ` · right for ${size} players`
+                  : ` · ${size} players need ${goodCount(size)} vs ${evilCount(size)}`}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <RoleColumn
+                side="good"
+                view={view}
+                editable={editable}
+                onToggle={toggle}
+                size={size}
+              />
+              <RoleColumn
+                side="evil"
+                view={view}
+                editable={editable}
+                onToggle={toggle}
+                size={size}
+              />
+            </div>
+            {(panelErrors.length > 0 || view.setup.notes.length > 0) && (
+              <ul className="space-y-1.5" aria-label="Setup notes">
+                {panelErrors.map((e) => (
+                  <li key={e}>
+                    <Notice tone="danger" className="font-semibold">
+                      ⚠️ {e}
+                    </Notice>
+                  </li>
+                ))}
+                {view.setup.notes.map((n) => (
+                  <li key={n} className="text-small text-ink-muted">
+                    ℹ️ {n}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </LobbySettings>
+          <LobbySettings
+            editable={editable}
+            title="Settings"
+            summary={[
+              s.lady && 'Lady of the Lake',
+              s.targeting && 'Targeting',
+              timersLine(
+                { clueSeconds: s.pickSeconds, guessSeconds: s.voteSeconds, timerMode: s.timerMode },
+                { clue: 'leader', guess: 'votes' },
+              ),
+            ]}
+            className="space-y-4"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Switch
+                on={s.lady}
+                editable={editable}
+                title="🌊 Lady of the Lake"
+                help="After quests 2, 3 and 4, her holder secretly checks one player’s loyalty. Best from 7 players."
+                onChange={(on) => void act({ type: 'update-settings', lady: on })}
+              />
+              <Switch
+                on={s.targeting}
+                editable={editable}
+                title="🎯 Targeting"
+                help="Leaders choose which quest to attempt; quest 5 opens after two successes."
+                onChange={(on) => void act({ type: 'update-settings', targeting: on })}
+              />
+            </div>
+            <TimerSettings
+              values={{
+                clueSeconds: s.pickSeconds,
+                guessSeconds: s.voteSeconds,
+                timerMode: s.timerMode,
+              }}
+              editable={editable}
+              onChange={(patch) =>
+                void act({
+                  type: 'update-settings',
+                  ...(patch.clueSeconds !== undefined ? { pickSeconds: patch.clueSeconds } : {}),
+                  ...(patch.guessSeconds !== undefined ? { voteSeconds: patch.guessSeconds } : {}),
+                  ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
+                })
+              }
+              clueLabel="Leader timer"
+              clueHelp="Choosing a team, the talk before the vote, the Lady’s check and the assassination."
+              guessLabel="Vote and quest timer"
+              guessHelp="Voting on a team, and playing quest cards."
+              strictHelp="the vote opens on an announced team, a missing vote approves, a missing card is Success, and picks are made at random"
+            />
+            <Fold summary={<span className="font-semibold">Advanced</span>}>
+              <Switch
+                on={s.oberonHidden}
+                editable={editable}
+                title="Oberon: the FAQ reading"
+                help="Off (rulebook): Merlin sees Oberon as Evil, and the Lady shows him as Evil. On (FAQ): Merlin doesn’t see Oberon, and the Lady shows him as Good."
+                onChange={(on) => void act({ type: 'update-settings', oberonHidden: on })}
+              />
+            </Fold>
+          </LobbySettings>
+        </>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
       <GuideLink title={room.gameName ?? 'Round Table'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        title="Roles"
-        summary={[
-          PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up',
-          `${good} Good vs ${evil} Evil`,
-        ]}
-        className="space-y-4"
-      >
-        <fieldset>
-          <legend className="text-small font-semibold">Ready-made line-ups</legend>
-          <div className="mt-1 grid gap-2 sm:grid-cols-3">
-            {PRESETS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={s.preset === p.id}
-                disabled={!editable}
-                onClick={() => void act({ type: 'update-settings', preset: p.id })}
-                className={choice(s.preset === p.id, editable)}
-              >
-                <span className="block text-small font-semibold">{p.name}</span>
-                <span className="block text-caption text-ink-muted">{p.blurb}</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-1 text-caption text-ink-muted">
-            {s.preset
-              ? 'Suggested line-ups follow the table size. Tap a role below to make your own.'
-              : 'Your own line-up: tap roles on or off.'}
-          </p>
-        </fieldset>
-        <div
-          className={cn(
-            'rounded-lg px-3 py-1.5 text-center text-small font-semibold ring-1 ring-inset',
-            ticked
-              ? 'bg-success-soft text-success-ink ring-success-line'
-              : balanced
-                ? 'bg-panel text-ink-2 ring-line'
-                : 'bg-danger-soft text-danger-ink ring-danger-line',
-          )}
-          data-testid="balance"
-        >
-          <span className={SIDE_TEXT.good}>{good} Good</span> vs{' '}
-          <span className={SIDE_TEXT.evil}>{evil} Evil</span>
-          {ticked
-            ? ` ✓ right for ${size} players`
-            : balanced
-              ? ` · right for ${size} players`
-              : ` · ${size} players need ${goodCount(size)} vs ${evilCount(size)}`}
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <RoleColumn side="good" view={view} editable={editable} onToggle={toggle} size={size} />
-          <RoleColumn side="evil" view={view} editable={editable} onToggle={toggle} size={size} />
-        </div>
-        {(panelErrors.length > 0 || view.setup.notes.length > 0) && (
-          <ul className="space-y-1.5" aria-label="Setup notes">
-            {panelErrors.map((e) => (
-              <li key={e}>
-                <Notice tone="danger" className="font-semibold">
-                  ⚠️ {e}
-                </Notice>
-              </li>
-            ))}
-            {view.setup.notes.map((n) => (
-              <li key={n} className="text-small text-ink-muted">
-                ℹ️ {n}
-              </li>
-            ))}
-          </ul>
-        )}
-      </LobbySettings>
-      <LobbySettings
-        editable={editable}
-        title="Settings"
-        summary={[
-          s.lady && 'Lady of the Lake',
-          s.targeting && 'Targeting',
-          timersLine(
-            { clueSeconds: s.pickSeconds, guessSeconds: s.voteSeconds, timerMode: s.timerMode },
-            { clue: 'leader', guess: 'votes' },
-          ),
-        ]}
-        className="space-y-4"
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Switch
-            on={s.lady}
-            editable={editable}
-            title="🌊 Lady of the Lake"
-            help="After quests 2, 3 and 4, her holder secretly checks one player’s loyalty. Best from 7 players."
-            onChange={(on) => void act({ type: 'update-settings', lady: on })}
-          />
-          <Switch
-            on={s.targeting}
-            editable={editable}
-            title="🎯 Targeting"
-            help="Leaders choose which quest to attempt; quest 5 opens after two successes."
-            onChange={(on) => void act({ type: 'update-settings', targeting: on })}
-          />
-        </div>
-        <TimerSettings
-          values={{
-            clueSeconds: s.pickSeconds,
-            guessSeconds: s.voteSeconds,
-            timerMode: s.timerMode,
-          }}
-          editable={editable}
-          onChange={(patch) =>
-            void act({
-              type: 'update-settings',
-              ...(patch.clueSeconds !== undefined ? { pickSeconds: patch.clueSeconds } : {}),
-              ...(patch.guessSeconds !== undefined ? { voteSeconds: patch.guessSeconds } : {}),
-              ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
-            })
-          }
-          clueLabel="Leader timer"
-          clueHelp="Choosing a team, the talk before the vote, the Lady’s check and the assassination."
-          guessLabel="Vote and quest timer"
-          guessHelp="Voting on a team, and playing quest cards."
-          strictHelp="the vote opens on an announced team, a missing vote approves, a missing card is Success, and picks are made at random"
-        />
-        <Fold summary={<span className="font-semibold">Advanced</span>}>
-          <Switch
-            on={s.oberonHidden}
-            editable={editable}
-            title="Oberon: the FAQ reading"
-            help="Off (rulebook): Merlin sees Oberon as Evil, and the Lady shows him as Evil. On (FAQ): Merlin doesn’t see Oberon, and the Lady shows him as Good."
-            onChange={(on) => void act({ type: 'update-settings', oberonHidden: on })}
-          />
-        </Fold>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="space-y-1.5">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

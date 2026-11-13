@@ -12,6 +12,7 @@ import {
   PlayerDot,
   PlayerTag,
   EndHero,
+  EndLayout,
   EndTabs,
   Standings,
   StickyBar,
@@ -28,6 +29,10 @@ import {
   NameDot,
   timersLine,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  ProtectedImage,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -38,7 +43,8 @@ import {
   TARGET_SCORES,
   cardsIn,
 } from '../logic/types.ts';
-import { useManifest } from './assets.ts';
+import { guide } from '../logic/guide.ts';
+import { GAME_ID, useManifest } from './assets.ts';
 import { Card } from './Card.tsx';
 import { cardSetChoices } from './sets.ts';
 import {
@@ -120,86 +126,103 @@ export function ReverieGame({
   }, [setYourMove, tabAlert]);
 
   if (view.phase === 'lobby') {
+    const backUrl =
+      manifest && manifest !== 'unavailable' && manifest.back
+        ? `/api/backroom/assets/${GAME_ID}/${manifest.back}`
+        : null;
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
+      <LobbyLayout
+        pitch={
+          <LobbyPitch
+            title={room.gameName ?? 'Reverie'}
+            emblem="🐇"
+            art={
+              backUrl && (
+                <ProtectedImage
+                  src={backUrl}
+                  alt=""
+                  className="aspect-[2/3] w-full -rotate-3 rounded-lg object-cover shadow-vt-2"
+                />
+              )
+            }
+          >
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <>
+            <LobbySettings
+              editable={room.isHost}
+              summary={[
+                `play to ${view.settings.targetScore}`,
+                `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
+                timersLine(view.settings, { clue: 'storyteller', guess: 'cards and votes' }),
+              ]}
+              className="space-y-4"
+            >
+              <ChoicePicker
+                selectedIds={view.settings.sets}
+                choices={choices}
+                editable={room.isHost}
+                onSave={(ids) => act({ type: 'update-settings', sets: ids })}
+                labels={{
+                  title: 'Card sets',
+                  unit: 'cards',
+                  noun: 'set',
+                  change: 'Change card sets',
+                  summary: (chosen, total) =>
+                    `Playing with ${chosen.length === 1 ? 'this set' : 'these sets'} (${total} cards).`,
+                }}
+              />
+              {room.isHost ? (
+                <fieldset>
+                  <legend className="text-sm font-semibold">Play to</legend>
+                  <div className="mt-1 flex gap-2">
+                    {TARGET_SCORES.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-pressed={view.settings.targetScore === t}
+                        onClick={() => void act({ type: 'update-settings', targetScore: t })}
+                        className={cn(
+                          'min-h-11 rounded-lg px-4 py-2 font-semibold ring-1 transition',
+                          view.settings.targetScore === t
+                            ? 'bg-accent-soft ring-2 ring-accent'
+                            : 'ring-line hover:bg-sunk',
+                        )}
+                      >
+                        {t} points
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : (
+                <p>
+                  <span className="block text-sm font-semibold">Play to</span>
+                  <span className="mt-1 block">{view.settings.targetScore} points</span>
+                </p>
+              )}
+              <TimerSettings
+                values={view.settings}
+                editable={room.isHost}
+                onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+                clueHelp="Time for the storyteller to pick a card and a clue."
+                guessHelp="Time to give a card, and again to vote."
+                strictHelp="a slow storyteller is skipped, late cards are played for you and late votes are lost"
+              />
+            </LobbySettings>
+          </>
+        }
+        start={
+          room.isHost && (
+            <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+          )
+        }
+      >
         {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
         <GuideLink title={room.gameName ?? 'Reverie'} onClick={showGuide} />
-        <LobbySettings
-          editable={room.isHost}
-          summary={[
-            `play to ${view.settings.targetScore}`,
-            `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
-            timersLine(view.settings, { clue: 'storyteller', guess: 'cards and votes' }),
-          ]}
-          className="space-y-4"
-        >
-          <ChoicePicker
-            selectedIds={view.settings.sets}
-            choices={choices}
-            editable={room.isHost}
-            onSave={(ids) => act({ type: 'update-settings', sets: ids })}
-            labels={{
-              title: 'Card sets',
-              unit: 'cards',
-              noun: 'set',
-              change: 'Change card sets',
-              summary: (chosen, total) =>
-                `Playing with ${chosen.length === 1 ? 'this set' : 'these sets'} (${total} cards).`,
-            }}
-          />
-          {room.isHost ? (
-            <fieldset>
-              <legend className="text-sm font-semibold">Play to</legend>
-              <div className="mt-1 flex gap-2">
-                {TARGET_SCORES.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={view.settings.targetScore === t}
-                    onClick={() => void act({ type: 'update-settings', targetScore: t })}
-                    className={cn(
-                      'min-h-11 rounded-lg px-4 py-2 font-semibold ring-1 transition',
-                      view.settings.targetScore === t
-                        ? 'bg-accent-soft ring-2 ring-accent'
-                        : 'ring-line hover:bg-sunk',
-                    )}
-                  >
-                    {t} points
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ) : (
-            <p>
-              <span className="block text-sm font-semibold">Play to</span>
-              <span className="mt-1 block">{view.settings.targetScore} points</span>
-            </p>
-          )}
-          <TimerSettings
-            values={view.settings}
-            editable={room.isHost}
-            onChange={(patch) => void act({ type: 'update-settings', ...patch })}
-            clueHelp="Time for the storyteller to pick a card and a clue."
-            guessHelp="Time to give a card, and again to vote."
-            strictHelp="a slow storyteller is skipped, late cards are played for you and late votes are lost"
-          />
-        </LobbySettings>
-        {room.isHost && (
-          <StickyBar>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-            </div>
-          </StickyBar>
-        )}
-      </div>
+      </LobbyLayout>
     );
   }
 
@@ -551,8 +574,8 @@ function Play({
     return undefined;
   })();
 
-  // Phones: the scores, the awards and the last turn one at a time, so the end fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
+  // The end: the scores, the awards, the last turn and the players one at a time, so it fits.
+  const over = view.phase === 'over';
   const endTitle = winnersTitle(view.seats, me?.id) || 'Game over';
   const storyCard = turn?.table.find((t) => t.isStory) ?? null;
   const seats = (
@@ -653,7 +676,9 @@ function Play({
   const shown: PlayTab | null = tabbed ? tab : null;
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+    <div
+      className={cn(!over && 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6')}
+    >
       <div
         className={cn('min-w-0 space-y-3', shown === 'players' && 'hidden')}
         {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
@@ -680,67 +705,70 @@ function Play({
           </div>
         )}
 
-        {!phoneEnd && clueLine}
+        {!over && clueLine}
 
-        {view.phase === 'over' && (
-          <>
-            <EndHero
-              title={endTitle}
-              eyebrow={endTitle === 'Game over' ? null : undefined}
-              // The last story card and its clue: the night's final picture.
-              emblem={storyCard ? null : '🏆'}
-              art={
-                storyCard && (
-                  <figure className="flex w-28 flex-col items-center gap-1.5 lg:w-40">
-                    <Card
-                      card={storyCard.card}
-                      eager
-                      onClick={() => setViewing({ card: storyCard.card, from: 'table' })}
-                      className="shadow-vt-2 ring-4 ring-success"
-                    />
-                    {turn?.clue && (
-                      <figcaption className="font-serif text-small text-ink-2 italic lg:text-body">
-                        “{turn.clue}”
-                      </figcaption>
-                    )}
-                  </figure>
-                )
-              }
-              superlatives={wide ? room.superlatives : undefined}
-              actions={
-                room.isHost ? (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Button
-                      size="lg"
-                      onClick={() =>
-                        void (async () => {
-                          if (
-                            await confirm({
-                              title: 'Start a new game with the same players?',
-                              body: 'Scores go back to 0.',
-                              confirmLabel: 'Play again',
-                            })
-                          ) {
-                            void act({ type: 'start' });
-                          }
-                        })()
-                      }
-                    >
-                      Play again
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="lg"
-                      onClick={() => void act({ type: 'back-to-lobby' })}
-                    >
-                      Change setup
-                    </Button>
-                  </div>
-                ) : (
-                  <p>{waitingForHost(room, 'start the next game')}</p>
-                )
-              }
-            />
+        {over && (
+          <EndLayout
+            hero={
+              <EndHero
+                title={endTitle}
+                eyebrow={endTitle === 'Game over' ? null : undefined}
+                // The last story card and its clue: the night's final picture.
+                emblem={storyCard ? null : '🏆'}
+                art={
+                  storyCard && (
+                    <figure className="flex w-28 flex-col items-center gap-1.5 lg:w-40">
+                      <Card
+                        card={storyCard.card}
+                        eager
+                        onClick={() => setViewing({ card: storyCard.card, from: 'table' })}
+                        className="shadow-vt-2 ring-4 ring-success"
+                      />
+                      {turn?.clue && (
+                        <figcaption className="font-serif text-small text-ink-2 italic lg:text-body">
+                          “{turn.clue}”
+                        </figcaption>
+                      )}
+                    </figure>
+                  )
+                }
+                superlatives={wide ? room.superlatives : undefined}
+                actions={
+                  room.isHost ? (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button
+                        size="lg"
+                        onClick={() =>
+                          void (async () => {
+                            if (
+                              await confirm({
+                                title: 'Start a new game with the same players?',
+                                body: 'Scores go back to 0.',
+                                confirmLabel: 'Play again',
+                              })
+                            ) {
+                              void act({ type: 'start' });
+                            }
+                          })()
+                        }
+                      >
+                        Play again
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        onClick={() => void act({ type: 'back-to-lobby' })}
+                      >
+                        Change setup
+                      </Button>
+                    </div>
+                  ) : (
+                    <p>{waitingForHost(room, 'start the next game')}</p>
+                  )
+                }
+              />
+            }
+          >
             <Panel className="space-y-3 text-center max-lg:p-3">
               <EndTabs
                 tabs={[
@@ -763,26 +791,25 @@ function Play({
                       label: '✨ Awards',
                       content: <Superlatives lines={room.superlatives} />,
                     },
-                  phoneEnd &&
-                    !!turn && {
-                      id: 'turn',
-                      label: '🃏 Turn',
-                      content: (
-                        <div className="space-y-3 text-left">
-                          {clueLine}
-                          {tableSection}
-                          {results}
-                        </div>
-                      ),
-                    },
-                  phoneEnd && { id: 'players', label: '👥 Players', content: seats },
+                  !!turn && {
+                    id: 'turn',
+                    label: '🃏 Turn',
+                    content: (
+                      <div className="space-y-3 text-left">
+                        {clueLine}
+                        {tableSection}
+                        {results}
+                      </div>
+                    ),
+                  },
+                  { id: 'players', label: '👥 Players', content: seats },
                 ]}
               />
             </Panel>
-          </>
+          </EndLayout>
         )}
 
-        {!phoneEnd && (tableSection || results) && (
+        {!over && (tableSection || results) && (
           <FitArea phone plain min={128}>
             <div className="space-y-3">
               {tableSection}
@@ -916,8 +943,8 @@ function Play({
         className={cn(
           'space-y-3',
           shown === 'table' && 'hidden',
-          phoneEnd && 'hidden',
-          !tabbed && !phoneEnd && 'max-lg:mt-3',
+          over && 'hidden',
+          !tabbed && !over && 'max-lg:mt-3',
         )}
         {...(shown === 'players' && tabPanelProps(PLAY_TABS_ID, 'players'))}
       >

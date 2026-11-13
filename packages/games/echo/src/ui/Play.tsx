@@ -5,7 +5,21 @@ import {
   sameClue,
   waitingForHost,
 } from '@vt/game-sdk';
-import { Button, EndHero, FoldSummary, Input, NameDot, Row, Rows, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  EndHero,
+  EndLayout,
+  EndTabs,
+  FoldSummary,
+  Input,
+  NameDot,
+  Row,
+  Rows,
+  StickyBar,
+  Superlatives,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -495,32 +509,53 @@ export function CardWall({ history }: { history: ResolvedCard[] }) {
   );
 }
 
-/** `details`: on phones, the awards, cards and players as tabs, in place of the awards. */
-export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
+/**
+ * The end: the score and verdict as the finale; the cards and the players (and, on phones, the
+ * awards) as its parts, beside it on wide screens.
+ */
+export function GameOver({ view, act, room, players }: Props & { players: ReactNode }) {
   const deck = view.settings.deckSize;
   const verdict = rating(view.score, deck);
+  const wide = useWideScreen();
   return (
-    <>
-      <EndHero
-        title={verdict}
-        // The score is the emblem: everyone played together, so it is the whole result.
-        emblem={
-          <span className="font-black tabular-nums">
-            {view.score}
-            <span className="text-heading text-ink-muted"> / {deck}</span>
-          </span>
-        }
-        tone={verdict === 'Not this time' ? 'loss' : 'success'}
-        superlatives={details ? undefined : room.superlatives}
-        art={!details && <CardWall history={view.history} />}
-        actions={<EndButtons view={view} act={act} room={room} />}
-      >
-        <p className="sr-only">
-          Score: {view.score} of {deck}.
-        </p>
-      </EndHero>
-      {details}
-    </>
+    <EndLayout
+      hero={
+        <EndHero
+          title={verdict}
+          // The score is the emblem: everyone played together, so it is the whole result.
+          emblem={
+            <span className="font-black tabular-nums">
+              {view.score}
+              <span className="text-heading text-ink-muted"> / {deck}</span>
+            </span>
+          }
+          tone={verdict === 'Not this time' ? 'loss' : 'success'}
+          superlatives={wide ? room.superlatives : undefined}
+          actions={<EndButtons view={view} act={act} room={room} />}
+        >
+          <p className="sr-only">
+            Score: {view.score} of {deck}.
+          </p>
+        </EndHero>
+      }
+    >
+      <EndTabs
+        tabs={[
+          !wide &&
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+          view.history.length > 0 && {
+            id: 'cards',
+            label: '🃏 Cards',
+            content: <CardWall history={view.history} />,
+          },
+          { id: 'players', label: '👥 Players', content: players },
+        ]}
+      />
+    </EndLayout>
   );
 }
 

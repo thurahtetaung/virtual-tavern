@@ -2,6 +2,7 @@ import { type ActOptions, type GameRoomInfo, waitingForHost, winnersTitle } from
 import {
   Button,
   EndHero,
+  EndLayout,
   EndTabs,
   Input,
   NameDot,
@@ -500,83 +501,88 @@ export function GameOver({
   const heroAwards = wide && !!room.superlatives?.length;
   return (
     <>
-      <EndHero
-        title={title}
-        eyebrow={title === 'Game over' ? null : undefined}
-        emblem="🎭"
-        superlatives={heroAwards ? room.superlatives : undefined}
-        actions={
-          isHost ? (
-            <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-              <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                Play again
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </StickyBar>
-          ) : (
-            <p>{waitingForHost(room, 'start the next game')}</p>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem="🎭"
+            superlatives={heroAwards ? room.superlatives : undefined}
+            actions={
+              isHost ? (
+                <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+                  <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </StickyBar>
+              ) : (
+                <p>{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
+          >
+            {view.endReason === 'too-few' && (
+              <p className="font-semibold">Too few players left: final scores so far.</p>
+            )}
+          </EndHero>
         }
       >
-        {view.endReason === 'too-few' && (
-          <p className="font-semibold">Too few players left: final scores so far.</p>
-        )}
-      </EndHero>
-      <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={ranked.map((s) => ({
-                    id: s.id,
-                    name: s.left ? `${s.name} (left)` : s.name,
-                    score: s.score,
-                  }))}
-                  you={view.me?.id}
-                  scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
-                  className="text-left"
-                />
-              ),
-            },
-            !heroAwards && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: room.superlatives?.length ? (
-                <Superlatives lines={room.superlatives} />
-              ) : (
-                <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                  <div className="rounded-xl bg-danger-soft px-3 py-2">
-                    <dt className="font-semibold">🎭 Best liar</dt>
-                    <dd>
-                      {bestLiar.length > 0
-                        ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
-                        : 'Nobody fooled anyone!'}
-                    </dd>
-                  </div>
-                  <div className="rounded-xl bg-success-soft px-3 py-2">
-                    <dt className="font-semibold">🔎 Truth seeker</dt>
-                    <dd>
-                      {truthSeeker.length > 0
-                        ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
-                        : 'Nobody found the truth!'}
-                    </dd>
-                  </div>
-                </dl>
-              ),
-            },
-            !!players && { id: 'players', label: '👥 Players', content: players },
-          ]}
-        />
-      </Panel>
+        <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={ranked.map((s) => ({
+                      id: s.id,
+                      name: s.left ? `${s.name} (left)` : s.name,
+                      score: s.score,
+                    }))}
+                    you={view.me?.id}
+                    scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
+                    className="text-left"
+                  />
+                ),
+              },
+              !heroAwards && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: room.superlatives?.length ? (
+                  <Superlatives lines={room.superlatives} />
+                ) : (
+                  <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="rounded-xl bg-danger-soft px-3 py-2">
+                      <dt className="font-semibold">🎭 Best liar</dt>
+                      <dd>
+                        {bestLiar.length > 0
+                          ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
+                          : 'Nobody fooled anyone!'}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl bg-success-soft px-3 py-2">
+                      <dt className="font-semibold">🔎 Truth seeker</dt>
+                      <dd>
+                        {truthSeeker.length > 0
+                          ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
+                          : 'Nobody found the truth!'}
+                      </dd>
+                    </div>
+                  </dl>
+                ),
+              },
+              !!players && { id: 'players', label: '👥 Players', content: players },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
     </>
   );
 }

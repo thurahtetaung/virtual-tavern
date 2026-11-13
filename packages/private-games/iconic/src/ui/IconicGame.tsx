@@ -13,6 +13,7 @@ import {
   ChoicePicker,
   Countdown,
   EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   Fold,
@@ -37,6 +38,9 @@ import {
   usePhone,
   useSpectatorPrompt,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -119,7 +123,7 @@ export function IconicGame({
     <div
       className={cn(
         'mx-auto flex w-full flex-col gap-3',
-        view.phase === 'playing' ? 'max-w-7xl' : 'max-w-5xl',
+        view.phase === 'playing' ? 'max-w-7xl' : view.phase === 'over' ? 'max-w-5xl' : 'max-w-6xl',
       )}
     >
       <IconicStyles />
@@ -340,7 +344,149 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <>
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Iconic'}
+          emblem="💡"
+          art={
+            art.box && (
+              <ProtectedImage src={art.box} alt="" className="w-full rounded-lg object-contain" />
+            )
+          }
+        >
+          Clue givers describe a secret word with pieces on a board of icons; everyone else guesses.{' '}
+          {pair ? 'Two clue givers' : 'One clue giver'} per word.
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              pair ? 'two clue givers' : 'one clue giver',
+              LENGTHS.find(([k]) => k === s.length)![1].toLowerCase(),
+              s.scoring ? (s.bonus ? 'scored, level bonus' : 'scored') : 'no score',
+              s.roundMinutes === null
+                ? 'no round clock'
+                : `${s.roundMinutes} min ${s.timerMode === 'strict' ? 'strict clock' : 'reminder'}`,
+            ]}
+            className="space-y-4"
+          >
+            <Choice
+              label="Clue givers per word"
+              help="Two give clues together (the first pick is a proposal the partner agrees to or vetoes)."
+              value={s.givers}
+              options={[
+                ['auto', 'Two from 5 players'],
+                [1, 'One'],
+                [2, 'Two'],
+              ]}
+              editable={room.isHost}
+              onChange={(givers) => set({ givers })}
+              testId="ic-givers"
+            />
+            <Choice
+              label="Game length"
+              help={
+                s.length === 'twelve'
+                  ? `Ends once ${WORDS_TO_END} words have been guessed.`
+                  : s.length === 'each'
+                    ? 'Ends once every player has had a word of theirs guessed.'
+                    : 'Goes on until the host ends it.'
+              }
+              value={s.length}
+              options={LENGTHS}
+              editable={room.isHost}
+              onChange={(length) => set({ length })}
+              testId="ic-length"
+            />
+            <Switch
+              on={s.scoring}
+              editable={room.isHost}
+              title="Scoring"
+              help="First right guess 2 points, each clue giver 1. Off: just count the words each player guessed."
+              onChange={(scoring) => set({ scoring })}
+              testId="ic-scoring"
+            />
+            {s.scoring && (
+              <Switch
+                on={s.bonus}
+                editable={room.isHost}
+                title="Difficulty bonus"
+                help="+1 for a Hard word and +2 for a Challenging one, to the guesser and each clue giver."
+                onChange={(bonus) => set({ bonus })}
+                testId="ic-bonus"
+              />
+            )}
+            <Choice
+              label="Round clock"
+              help="A reminder by default: when it runs out the clue givers can invite a helper or pass."
+              value={s.roundMinutes}
+              options={[[null, 'Off'], ...ROUND_MINUTES.map((m) => [m, `${m} min`] as const)]}
+              editable={room.isHost}
+              onChange={(roundMinutes) => set({ roundMinutes })}
+              testId="ic-clock"
+            />
+            {s.roundMinutes !== null && (
+              <Switch
+                on={s.timerMode === 'strict'}
+                editable={room.isHost}
+                title="Strict clock"
+                help="The word is dropped when time runs out, and nobody scores."
+                onChange={(v) => set({ timerMode: v ? 'strict' : 'soft' })}
+                testId="ic-strict"
+              />
+            )}
+            <div className="flex flex-col gap-3">
+              {LEVELS.map((level) => (
+                <ChoicePicker
+                  key={level}
+                  selectedIds={s.lists[level]}
+                  editable={room.isHost}
+                  choices={view.wordLists.map((l) => ({
+                    id: l.id,
+                    name: l.name,
+                    ...(l.description && { description: l.description }),
+                    count: l.wordCount,
+                  }))}
+                  labels={{
+                    title: `${LEVEL_LABELS[level]} words`,
+                    unit: 'words',
+                    noun: 'list',
+                    change: `Change ${LEVEL_LABELS[level]} lists`,
+                    // The word count is on the list's chip: the line doesn't repeat it.
+                    summary: (chosen) =>
+                      chosen.length
+                        ? `Each card has three ${LEVEL_LABELS[level]} words from ${chosen.length === 1 ? 'this list' : 'these lists'}.`
+                        : 'No list chosen yet.',
+                  }}
+                  onSave={(ids) =>
+                    act({ type: 'update-settings', lists: { level, ids } }, { anchor: 'ic-lobby' })
+                  }
+                />
+              ))}
+              {noWords && (
+                <p className="text-sm text-warn-ink">
+                  No word list is tagged for this game yet: an admin can add some.
+                </p>
+              )}
+            </div>
+            <RefusalSlot anchor="ic-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'ic-start' })}
+            refusal="ic-start"
+          />
+        )
+      }
+    >
+      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -349,13 +495,6 @@ function Lobby({
           </h2>
         </div>
         <div className="flex gap-3">
-          {art.box && (
-            <ProtectedImage
-              src={art.box}
-              alt=""
-              className="hidden h-28 w-auto shrink-0 rounded-lg object-contain sm:block"
-            />
-          )}
           <ul className="flex flex-1 flex-col gap-1.5" aria-label="Seats">
             {seated.map((x) => (
               <li key={x.id} className="flex items-center gap-2">
@@ -392,140 +531,9 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="text-sm text-ink-muted">
-          Clue givers describe a secret word with pieces on a board of icons; everyone else guesses.{' '}
-          {pair ? 'Two clue givers' : 'One clue giver'} per word.
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Iconic'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          pair ? 'two clue givers' : 'one clue giver',
-          LENGTHS.find(([k]) => k === s.length)![1].toLowerCase(),
-          s.scoring ? (s.bonus ? 'scored, level bonus' : 'scored') : 'no score',
-          s.roundMinutes === null
-            ? 'no round clock'
-            : `${s.roundMinutes} min ${s.timerMode === 'strict' ? 'strict clock' : 'reminder'}`,
-        ]}
-        className="space-y-4"
-      >
-        <Choice
-          label="Clue givers per word"
-          help="Two give clues together (the first pick is a proposal the partner agrees to or vetoes)."
-          value={s.givers}
-          options={[
-            ['auto', 'Two from 5 players'],
-            [1, 'One'],
-            [2, 'Two'],
-          ]}
-          editable={room.isHost}
-          onChange={(givers) => set({ givers })}
-          testId="ic-givers"
-        />
-        <Choice
-          label="Game length"
-          help={
-            s.length === 'twelve'
-              ? `Ends once ${WORDS_TO_END} words have been guessed.`
-              : s.length === 'each'
-                ? 'Ends once every player has had a word of theirs guessed.'
-                : 'Goes on until the host ends it.'
-          }
-          value={s.length}
-          options={LENGTHS}
-          editable={room.isHost}
-          onChange={(length) => set({ length })}
-          testId="ic-length"
-        />
-        <Switch
-          on={s.scoring}
-          editable={room.isHost}
-          title="Scoring"
-          help="First right guess 2 points, each clue giver 1. Off: just count the words each player guessed."
-          onChange={(scoring) => set({ scoring })}
-          testId="ic-scoring"
-        />
-        {s.scoring && (
-          <Switch
-            on={s.bonus}
-            editable={room.isHost}
-            title="Difficulty bonus"
-            help="+1 for a Hard word and +2 for a Challenging one, to the guesser and each clue giver."
-            onChange={(bonus) => set({ bonus })}
-            testId="ic-bonus"
-          />
-        )}
-        <Choice
-          label="Round clock"
-          help="A reminder by default: when it runs out the clue givers can invite a helper or pass."
-          value={s.roundMinutes}
-          options={[[null, 'Off'], ...ROUND_MINUTES.map((m) => [m, `${m} min`] as const)]}
-          editable={room.isHost}
-          onChange={(roundMinutes) => set({ roundMinutes })}
-          testId="ic-clock"
-        />
-        {s.roundMinutes !== null && (
-          <Switch
-            on={s.timerMode === 'strict'}
-            editable={room.isHost}
-            title="Strict clock"
-            help="The word is dropped when time runs out, and nobody scores."
-            onChange={(v) => set({ timerMode: v ? 'strict' : 'soft' })}
-            testId="ic-strict"
-          />
-        )}
-        <div className="flex flex-col gap-3">
-          {LEVELS.map((level) => (
-            <ChoicePicker
-              key={level}
-              selectedIds={s.lists[level]}
-              editable={room.isHost}
-              choices={view.wordLists.map((l) => ({
-                id: l.id,
-                name: l.name,
-                ...(l.description && { description: l.description }),
-                count: l.wordCount,
-              }))}
-              labels={{
-                title: `${LEVEL_LABELS[level]} words`,
-                unit: 'words',
-                noun: 'list',
-                change: `Change ${LEVEL_LABELS[level]} lists`,
-                // The word count is on the list's chip: the line doesn't repeat it.
-                summary: (chosen) =>
-                  chosen.length
-                    ? `Each card has three ${LEVEL_LABELS[level]} words from ${chosen.length === 1 ? 'this list' : 'these lists'}.`
-                    : 'No list chosen yet.',
-              }}
-              onSave={(ids) =>
-                act({ type: 'update-settings', lists: { level, ids } }, { anchor: 'ic-lobby' })
-              }
-            />
-          ))}
-          {noWords && (
-            <p className="text-sm text-warn-ink">
-              No word list is tagged for this game yet: an admin can add some.
-            </p>
-          )}
-        </div>
-        <RefusalSlot anchor="ic-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'ic-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="ic-start" />
-        </StickyBar>
-      )}
-    </>
+    </LobbyLayout>
   );
 }
 
@@ -1465,100 +1473,105 @@ function End({
   const title = winnersTitle(entries, room.you) || 'Game over';
   return (
     <div className="flex flex-col gap-3">
-      <EndHero
-        title={title}
-        eyebrow={title === 'Game over' ? null : undefined}
-        emblem={art.box ? null : '💡'}
-        art={
-          art.box && (
-            <ProtectedImage
-              src={art.box}
-              alt=""
-              className="h-36 w-auto rounded-xl object-contain shadow-vt-2 lg:h-52"
-            />
-          )
-        }
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          <>
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  size="lg"
-                  onClick={() => void act({ type: 'play-again' }, { anchor: 'ic-end' })}
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'ic-end' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-            )}
-            <RefusalSlot anchor="ic-end" />
-          </>
-        }
-      />
-      <Panel className="ic-reveal flex flex-col gap-3 max-lg:p-3">
-        <EndTabs
-          columns
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={g.players.map((p) => ({
-                    id: p.id,
-                    name: p.name,
-                    score: scoring ? p.score : p.guessed,
-                    note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
-                  }))}
-                  you={room.you}
-                  {...(!scoring && {
-                    scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
-                  })}
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={art.box ? null : '💡'}
+            art={
+              art.box && (
+                <ProtectedImage
+                  src={art.box}
+                  alt=""
+                  className="h-36 w-auto rounded-xl object-contain shadow-vt-2 lg:h-52"
                 />
-              ),
-            },
-            {
-              id: 'words',
-              label: '💬 Every word',
-              content: (
-                <section aria-label="Every word" className="flex flex-col gap-1 text-small">
-                  <h3 className="font-semibold">Every word</h3>
-                  <ol className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-1.5">
-                    {g.history.map((h) => (
-                      <li
-                        key={h.no}
-                        className="flex flex-wrap gap-x-2 lg:rounded-lg lg:bg-sunk lg:px-3 lg:py-2"
-                      >
-                        <span className="font-semibold">“{h.word}”</span>
-                        <span className="text-ink-muted">
-                          {h.outcome === 'guessed'
-                            ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
-                            : `dropped (clues by ${andList(h.givers.map(name))})`}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ),
-            },
-            !wide &&
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'ic-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'ic-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+                <RefusalSlot anchor="ic-end" />
+              </>
+            }
+          />
+        }
+      >
+        <Panel className="ic-reveal flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            columns
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={g.players.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      score: scoring ? p.score : p.guessed,
+                      note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
+                    }))}
+                    you={room.you}
+                    {...(!scoring && {
+                      scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
+                    })}
+                  />
+                ),
               },
-          ]}
-        />
-      </Panel>
+              {
+                id: 'words',
+                label: '💬 Every word',
+                content: (
+                  <section aria-label="Every word" className="flex flex-col gap-1 text-small">
+                    <h3 className="font-semibold">Every word</h3>
+                    <ol className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-1.5">
+                      {g.history.map((h) => (
+                        <li
+                          key={h.no}
+                          className="flex flex-wrap gap-x-2 lg:rounded-lg lg:bg-sunk lg:px-3 lg:py-2"
+                        >
+                          <span className="font-semibold">“{h.word}”</span>
+                          <span className="text-ink-muted">
+                            {h.outcome === 'guessed'
+                              ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
+                              : `dropped (clues by ${andList(h.givers.map(name))})`}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
     </div>
   );
 }

@@ -8,12 +8,16 @@ import {
   LobbySettings,
   Panel,
   RefusalSlot,
-  StickyBar,
   Switch,
   cn,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  ProtectedImage,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { KINDS, type PackKind } from '../logic/content.ts';
+import { makeGuide } from '../logic/guide.ts';
 import {
   ACT_ALTS,
   FILM_PRESETS,
@@ -357,7 +361,7 @@ export function Lobby({
   showGuide: () => void;
   sound: ReactNode;
 }) {
-  const { names } = useArt();
+  const { names, faceoff } = useArt();
   const title = room.gameName ?? names.title;
   const editable = room.isHost;
   const s = view.settings;
@@ -398,199 +402,215 @@ export function Lobby({
     set({ mixStyles: on ? s.mixStyles.filter((x) => x !== id) : [...s.mixStyles, id] });
   };
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={title}
+          emblem="📼"
+          art={
+            faceoff.card && (
+              <ProtectedImage
+                src={faceoff.card}
+                alt=""
+                className="w-full -rotate-3 rounded-lg object-cover shadow-vt-2"
+              />
+            )
+          }
+        >
+          {makeGuide(names).tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
+            <Pills
+              label="Deck"
+              value={s.deck}
+              editable={editable}
+              onPick={(deck) => set({ deck })}
+              options={[
+                { id: 'films', name: '🎬 Films' },
+                { id: 'tv', name: '📺 TV shows', help: 'One of each of 8 genres' },
+              ]}
+              testId="setting-deck"
+            />
+            <Pills
+              label="How are you playing?"
+              value={s.mode}
+              editable={editable}
+              onPick={(mode) => set({ mode })}
+              options={MODE_IDS.map((id) => ({
+                id,
+                name: MODES[id].name,
+                help: modeBlurb(id, s.actAlt),
+              }))}
+              testId="setting-mode"
+            />
+            {(s.mode !== 'mix' || s.mixStyles.includes('act')) && (
+              <Pills
+                label={
+                  s.mode === 'voice'
+                    ? 'Instead of Act It (the third square)'
+                    : 'Instead of Act It, for anyone on a call'
+                }
+                value={s.actAlt ?? 'describe-badly'}
+                editable={editable}
+                onPick={(actAlt) => set({ actAlt })}
+                options={ACT_ALTS.map((id) => ({
+                  id,
+                  name: `${STYLES[id].emoji} ${names.styles[id]}`,
+                  help: id === 'cast' ? 'Name actors who are in it' : 'A terrible but true plot',
+                }))}
+                testId="setting-act-alt"
+              />
+            )}
+            {s.mode === 'mix' && (
+              <fieldset>
+                <legend className="text-sm font-semibold">Styles in the mix</legend>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {STYLE_IDS.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={s.mixStyles.includes(id)}
+                      disabled={!editable}
+                      onClick={() => toggleStyle(id)}
+                      className={cn(
+                        'min-h-11 rounded-lg px-3 text-sm ring-1',
+                        s.mixStyles.includes(id)
+                          ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                          : 'ring-line',
+                      )}
+                    >
+                      {STYLES[id].emoji} {names.styles[id]}
+                    </button>
+                  ))}
+                </div>
+                <Switch
+                  on={s.mixFresh}
+                  editable={editable}
+                  title="Fresh styles each round"
+                  help="Deal three of the ticked styles anew every round."
+                  onChange={(v) => set({ mixFresh: v })}
+                />
+              </fieldset>
+            )}
+            <GenrePicker view={view} editable={editable} act={act} />
+            {picker(kinds.cards, s.deck === 'tv' ? 'Shows' : 'Films', noun)}
+            {picker(kinds.categories, 'Face-off categories', 'categories')}
+            <details className="group">
+              <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="font-semibold">Clocks and extra rules</span>
+                  <span className="text-ink-muted">
+                    {' '}
+                    · {s.answerSeconds} s / {s.turnSeconds} s
+                  </span>
+                </span>
+                <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
+                  ▸
+                </span>
+              </summary>
+              <div className="space-y-3 pt-2">
+                <Pills
+                  label="Face-off answer clock"
+                  value={s.answerSeconds}
+                  editable={editable}
+                  onPick={(answerSeconds) => set({ answerSeconds })}
+                  options={ANSWER_SECONDS.map((n) => ({ id: n, name: `${n} s` }))}
+                />
+                <Pills
+                  label="Describing turn"
+                  value={s.turnSeconds}
+                  editable={editable}
+                  onPick={(turnSeconds) => set({ turnSeconds })}
+                  options={TURN_SECONDS.map((n) => ({ id: n, name: `${n} s` }))}
+                />
+                <Switch
+                  on={s.noSequels}
+                  editable={editable}
+                  title="No sequels"
+                  help="In the face-off, once a film from a series is said, the rest of that series is off the table."
+                  tag="extra rule"
+                  tagTone="special"
+                  onChange={(v) => set({ noSequels: v })}
+                  testId="setting-no-sequels"
+                />
+                <Switch
+                  on={s.newWordsOnly}
+                  editable={editable}
+                  title="New words only"
+                  help="In One Word and Quote It, no word from the title."
+                  tag="extra rule"
+                  tagTone="special"
+                  onChange={(v) => set({ newWordsOnly: v })}
+                  testId="setting-new-words"
+                />
+                <Switch
+                  on={s.noAdvantage}
+                  editable={editable}
+                  title="No advantage"
+                  help="Both face-off players get five and keep three."
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => set({ noAdvantage: v })}
+                />
+                <Switch
+                  on={s.comebackPick}
+                  editable={editable}
+                  title="Comeback pick"
+                  help="The team with fewer genres picks the face-off category from two."
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => set({ comebackPick: v })}
+                />
+                <Switch
+                  on={s.suddenDeath}
+                  editable={editable}
+                  title="Sudden death"
+                  help="Both teams one genre away: the next face-off wins the game."
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => set({ suddenDeath: v })}
+                />
+                <Switch
+                  on={s.openingClock}
+                  editable={editable}
+                  title="Opening clock"
+                  help="Someone must answer within 15 s of the flip, or a new category comes up."
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => set({ openingClock: v })}
+                />
+                <Switch
+                  on={s.timerMode === 'strict'}
+                  editable={editable}
+                  title="Strict decisions"
+                  help="The category pick and the 3-for-1 steal decide by themselves when their clock ends."
+                  onChange={(v) => set({ timerMode: v ? 'strict' : 'soft' })}
+                />
+              </div>
+            </details>
+          </LobbySettings>
+          {sound}
+        </>
+      }
+      start={
+        editable && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'cl-start' })}
+            refusal="cl-start"
+            testId="start"
+          />
+        )
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Teams view={view} room={room} act={act} online={online} />
       </Panel>
       <GuideLink title={title} onClick={showGuide} />
-      <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
-        <Pills
-          label="Deck"
-          value={s.deck}
-          editable={editable}
-          onPick={(deck) => set({ deck })}
-          options={[
-            { id: 'films', name: '🎬 Films' },
-            { id: 'tv', name: '📺 TV shows', help: 'One of each of 8 genres' },
-          ]}
-          testId="setting-deck"
-        />
-        <Pills
-          label="How are you playing?"
-          value={s.mode}
-          editable={editable}
-          onPick={(mode) => set({ mode })}
-          options={MODE_IDS.map((id) => ({
-            id,
-            name: MODES[id].name,
-            help: modeBlurb(id, s.actAlt),
-          }))}
-          testId="setting-mode"
-        />
-        {(s.mode !== 'mix' || s.mixStyles.includes('act')) && (
-          <Pills
-            label={
-              s.mode === 'voice'
-                ? 'Instead of Act It (the third square)'
-                : 'Instead of Act It, for anyone on a call'
-            }
-            value={s.actAlt ?? 'describe-badly'}
-            editable={editable}
-            onPick={(actAlt) => set({ actAlt })}
-            options={ACT_ALTS.map((id) => ({
-              id,
-              name: `${STYLES[id].emoji} ${names.styles[id]}`,
-              help: id === 'cast' ? 'Name actors who are in it' : 'A terrible but true plot',
-            }))}
-            testId="setting-act-alt"
-          />
-        )}
-        {s.mode === 'mix' && (
-          <fieldset>
-            <legend className="text-sm font-semibold">Styles in the mix</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {STYLE_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={s.mixStyles.includes(id)}
-                  disabled={!editable}
-                  onClick={() => toggleStyle(id)}
-                  className={cn(
-                    'min-h-11 rounded-lg px-3 text-sm ring-1',
-                    s.mixStyles.includes(id)
-                      ? 'bg-accent-soft font-semibold ring-2 ring-accent'
-                      : 'ring-line',
-                  )}
-                >
-                  {STYLES[id].emoji} {names.styles[id]}
-                </button>
-              ))}
-            </div>
-            <Switch
-              on={s.mixFresh}
-              editable={editable}
-              title="Fresh styles each round"
-              help="Deal three of the ticked styles anew every round."
-              onChange={(v) => set({ mixFresh: v })}
-            />
-          </fieldset>
-        )}
-        <GenrePicker view={view} editable={editable} act={act} />
-        {picker(kinds.cards, s.deck === 'tv' ? 'Shows' : 'Films', noun)}
-        {picker(kinds.categories, 'Face-off categories', 'categories')}
-        <details className="group">
-          <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="font-semibold">Clocks and extra rules</span>
-              <span className="text-ink-muted">
-                {' '}
-                · {s.answerSeconds} s / {s.turnSeconds} s
-              </span>
-            </span>
-            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
-              ▸
-            </span>
-          </summary>
-          <div className="space-y-3 pt-2">
-            <Pills
-              label="Face-off answer clock"
-              value={s.answerSeconds}
-              editable={editable}
-              onPick={(answerSeconds) => set({ answerSeconds })}
-              options={ANSWER_SECONDS.map((n) => ({ id: n, name: `${n} s` }))}
-            />
-            <Pills
-              label="Describing turn"
-              value={s.turnSeconds}
-              editable={editable}
-              onPick={(turnSeconds) => set({ turnSeconds })}
-              options={TURN_SECONDS.map((n) => ({ id: n, name: `${n} s` }))}
-            />
-            <Switch
-              on={s.noSequels}
-              editable={editable}
-              title="No sequels"
-              help="In the face-off, once a film from a series is said, the rest of that series is off the table."
-              tag="extra rule"
-              tagTone="special"
-              onChange={(v) => set({ noSequels: v })}
-              testId="setting-no-sequels"
-            />
-            <Switch
-              on={s.newWordsOnly}
-              editable={editable}
-              title="New words only"
-              help="In One Word and Quote It, no word from the title."
-              tag="extra rule"
-              tagTone="special"
-              onChange={(v) => set({ newWordsOnly: v })}
-              testId="setting-new-words"
-            />
-            <Switch
-              on={s.noAdvantage}
-              editable={editable}
-              title="No advantage"
-              help="Both face-off players get five and keep three."
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => set({ noAdvantage: v })}
-            />
-            <Switch
-              on={s.comebackPick}
-              editable={editable}
-              title="Comeback pick"
-              help="The team with fewer genres picks the face-off category from two."
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => set({ comebackPick: v })}
-            />
-            <Switch
-              on={s.suddenDeath}
-              editable={editable}
-              title="Sudden death"
-              help="Both teams one genre away: the next face-off wins the game."
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => set({ suddenDeath: v })}
-            />
-            <Switch
-              on={s.openingClock}
-              editable={editable}
-              title="Opening clock"
-              help="Someone must answer within 15 s of the flip, or a new category comes up."
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => set({ openingClock: v })}
-            />
-            <Switch
-              on={s.timerMode === 'strict'}
-              editable={editable}
-              title="Strict decisions"
-              help="The category pick and the 3-for-1 steal decide by themselves when their clock ends."
-              onChange={(v) => set({ timerMode: v ? 'strict' : 'soft' })}
-            />
-          </div>
-        </details>
-      </LobbySettings>
-      {sound}
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              data-testid="start"
-              onClick={() => void act({ type: 'start' }, { anchor: 'cl-start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-          <RefusalSlot anchor="cl-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

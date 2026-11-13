@@ -15,4 +15,4 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Assets
 
-Starlight shows the same cards from Reverie's folder and needs no upload of its own; its printed words go in as a word list in `/tavern-keeper` tagged only for Starlight, one card per entry, `Top / Bottom` for a card with a second word printed upside down (each side is played as a word of its own).
+Starlight shows the same cards from Reverie's folder and needs no upload of its own; its printed words go in as a word list in `/tavern-keeper` tagged only for Starlight, one card per entry, `Top / Bottom` for a card with a second word printed upside down (each side is played as a word of its own). The guide's first two steps show Reverie's `cards/003.jpg` and `cards/004.jpg` at those fixed paths (the emoji while they can't load), and the lobby's pitch shows `components.firstScout`.

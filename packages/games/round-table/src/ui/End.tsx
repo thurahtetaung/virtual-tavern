@@ -2,7 +2,9 @@ import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   EndHero,
+  EndLayout,
   EndTabs,
+  FitArea,
   NameDot,
   Panel,
   StickyBar,
@@ -23,12 +25,15 @@ export function End({
   room,
   act,
   quests,
+  history,
 }: {
   view: RoundTableView;
   room: GameRoomInfo;
   act: Act;
-  /** Phones: the quest track, shown in the finale (wide screens show it above). */
+  /** The quest track, shown in the finale. */
   quests?: ReactNode;
+  /** Wide screens: the history, as one of the end's parts (phones keep its tab). */
+  history?: ReactNode;
 }) {
   const wide = useWideScreen();
   const g = view.game!;
@@ -45,139 +50,151 @@ export function End({
   );
   return (
     <div className="space-y-3">
-      <EndHero
-        title={
-          <span className={good ? 'text-team-b-ink' : 'text-team-a-ink'}>
-            {good ? 'Good wins' : 'Evil wins'}
-          </span>
-        }
-        titleTestId="winner"
-        // The winning side's own emblem: Percival's shield or the Assassin's dagger.
-        emblem={<Emblem role={good ? 'percival' : 'assassin'} className="size-20 lg:size-24" />}
-        art={quests && <div className="w-full max-w-sm">{quests}</div>}
-        tone={mySide ? (mySide === end.winner ? 'win' : 'loss') : 'neutral'}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          room.isHost ? (
-            <StickyBar>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            </StickyBar>
-          ) : (
-            <p className="text-center text-small text-ink-2">
-              {waitingForHost(room, 'start the next game')}
-            </p>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              <span className={good ? 'text-team-b-ink' : 'text-team-a-ink'}>
+                {good ? 'Good wins' : 'Evil wins'}
+              </span>
+            }
+            titleTestId="winner"
+            // The winning side's own emblem: Percival's shield or the Assassin's dagger.
+            emblem={<Emblem role={good ? 'percival' : 'assassin'} className="size-20 lg:size-24" />}
+            art={quests && <div className="w-full max-w-sm">{quests}</div>}
+            tone={mySide ? (mySide === end.winner ? 'win' : 'loss') : 'neutral'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              room.isHost ? (
+                <StickyBar>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                </StickyBar>
+              ) : (
+                <p className="text-center text-small text-ink-2">
+                  {waitingForHost(room, 'start the next game')}
+                </p>
+              )
+            }
+          >
+            <p>{END_LINE[end.reason]}</p>
+            {end.assassin && end.target && (
+              <p className="mt-1">
+                {who(view, end.assassin, 'You')} {end.assassin === view.me?.id ? 'were' : 'was'} the
+                Assassin{end.designated ? ' (standing in: no Assassin card)' : ''} and named{' '}
+                <b>{who(view, end.target)}</b>
+                {end.autoTarget ? ' (picked by the timer)' : ''}
+                {merlin && merlin !== end.target && (
+                  <>
+                    ; Merlin was <b>{who(view, merlin)}</b>
+                  </>
+                )}
+                .
+              </p>
+            )}
+          </EndHero>
         }
       >
-        <p>{END_LINE[end.reason]}</p>
-        {end.assassin && end.target && (
-          <p className="mt-1">
-            {who(view, end.assassin, 'You')} {end.assassin === view.me?.id ? 'were' : 'was'} the
-            Assassin{end.designated ? ' (standing in: no Assassin card)' : ''} and named{' '}
-            <b>{who(view, end.target)}</b>
-            {end.autoTarget ? ' (picked by the timer)' : ''}
-            {merlin && merlin !== end.target && (
-              <>
-                ; Merlin was <b>{who(view, merlin)}</b>
-              </>
-            )}
-            .
-          </p>
-        )}
-      </EndHero>
-      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
-        {/* Phones: the roles, the Lady's checks and the awards one at a time, so the end fits. */}
-        <EndTabs
-          tabs={[
-            {
-              id: 'roles',
-              label: '🎭 Roles',
-              content: (
-                <section aria-label="Everyone’s role">
-                  <h3 className="mb-2 font-bold">Who was who</h3>
-                  {/* Role cards: two to a row, each banded in its side's colour. */}
-                  <ul className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-                    {order.map((p) => {
-                      const r = end.roles[p.id]!;
-                      const def = ROLES[r];
-                      const saw = end.knowledge[p.id] ?? [];
-                      return (
-                        <li
-                          key={p.id}
-                          className={cn(
-                            'flex flex-col items-center gap-1.5 rounded-xl border-t-4 bg-card p-2 text-center shadow-vt-1 ring-1 ring-line',
-                            def.loyalty === 'good' ? 'border-team-b' : 'border-team-a',
-                          )}
-                        >
-                          <Emblem role={r} className="size-12 lg:size-14" />
-                          <span className="w-full min-w-0 text-small">
-                            <span className="flex items-center justify-center gap-1 font-semibold">
-                              <span className="truncate">{p.name}</span>
-                              <NameDot name={p.name} className="order-first" />
-                              {p.id === view.me?.id && (
-                                <span className="shrink-0 font-normal text-ink-muted">(you)</span>
+        <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+          {/* Phones: the roles, the Lady's checks and the awards one at a time, so the end fits. */}
+          <EndTabs
+            tabs={[
+              {
+                id: 'roles',
+                label: '🎭 Roles',
+                content: (
+                  <section aria-label="Everyone’s role">
+                    <h3 className="mb-2 font-bold">Who was who</h3>
+                    {/* Role cards: two to a row, each banded in its side's colour. Phones get them
+                        slimmer (emblem beside the words) in an area fitted to the screen. */}
+                    <FitArea on={!wide} min={160}>
+                      <ul className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+                        {order.map((p) => {
+                          const r = end.roles[p.id]!;
+                          const def = ROLES[r];
+                          const saw = end.knowledge[p.id] ?? [];
+                          return (
+                            <li
+                              key={p.id}
+                              className={cn(
+                                'flex items-center gap-2 rounded-xl border-t-4 bg-card p-1.5 text-left shadow-vt-1 ring-1 ring-line lg:flex-col lg:gap-1.5 lg:p-2 lg:text-center',
+                                def.loyalty === 'good' ? 'border-team-b' : 'border-team-a',
                               )}
-                            </span>
-                            <span className={cn('block font-semibold', SIDE_TEXT[def.loyalty])}>
-                              {def.name} · {SIDE_LABEL[def.loyalty]}
-                            </span>
-                            {saw.length > 0 && (
-                              <span className="block text-caption text-ink-muted">
-                                Saw{' '}
-                                {namesFor(
-                                  view,
-                                  saw.map((k) => k.id),
+                            >
+                              <Emblem role={r} className="size-9 lg:size-14" />
+                              <span className="w-full min-w-0 text-small">
+                                <span className="flex items-center gap-1 font-semibold lg:justify-center">
+                                  <span className="truncate">{p.name}</span>
+                                  <NameDot name={p.name} className="order-first" />
+                                  {p.id === view.me?.id && (
+                                    <span className="shrink-0 font-normal text-ink-muted">
+                                      (you)
+                                    </span>
+                                  )}
+                                </span>
+                                <span className={cn('block font-semibold', SIDE_TEXT[def.loyalty])}>
+                                  {def.name} · {SIDE_LABEL[def.loyalty]}
+                                </span>
+                                {saw.length > 0 && (
+                                  <span className="block text-caption text-ink-muted">
+                                    Saw{' '}
+                                    {namesFor(
+                                      view,
+                                      saw.map((k) => k.id),
+                                    )}
+                                  </span>
                                 )}
                               </span>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ),
-            },
-            end.ladyChecks.length > 0 && {
-              id: 'lady',
-              label: '🌊 The Lady',
-              content: (
-                <section aria-label="Lady of the Lake">
-                  <h3 className="mb-1 font-bold">🌊 The Lady of the Lake</h3>
-                  <ul className="text-small">
-                    {end.ladyChecks.map((c) => (
-                      <li key={c.round}>
-                        After quest {c.round}: {nameOf(view, c.holder)} saw {nameOf(view, c.target)}{' '}
-                        as <b className={SIDE_TEXT[c.loyalty]}>{SIDE_LABEL[c.loyalty]}</b>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ),
-            },
-            !wide &&
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </FitArea>
+                  </section>
+                ),
               },
-          ]}
-        />
-        <p className="text-center text-caption text-ink-muted">
-          Play again keeps the same roles and settings. The full history is under History.
-        </p>
-      </Panel>
+              end.ladyChecks.length > 0 && {
+                id: 'lady',
+                label: '🌊 The Lady',
+                content: (
+                  <section aria-label="Lady of the Lake">
+                    <h3 className="mb-1 font-bold">🌊 The Lady of the Lake</h3>
+                    <ul className="text-small">
+                      {end.ladyChecks.map((c) => (
+                        <li key={c.round}>
+                          After quest {c.round}: {nameOf(view, c.holder)} saw{' '}
+                          {nameOf(view, c.target)} as{' '}
+                          <b className={SIDE_TEXT[c.loyalty]}>{SIDE_LABEL[c.loyalty]}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!history && { id: 'history', label: '📜 History', content: history },
+            ]}
+          />
+          <p className="text-center text-caption text-ink-muted">
+            Play again keeps the same roles and settings. The full history is under History.
+          </p>
+        </Panel>
+      </EndLayout>
     </div>
   );
 }

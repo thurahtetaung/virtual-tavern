@@ -1,5 +1,16 @@
+import type { ReactNode } from 'react';
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndHero, EndTabs, StickyBar, Superlatives, cn, useWideScreen } from '@vt/ui';
+import {
+  Button,
+  EndHero,
+  EndLayout,
+  EndTabs,
+  Panel,
+  StickyBar,
+  Superlatives,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import { progress } from '../logic/genres.ts';
 import { genreName } from '../logic/manifest.ts';
 import {
@@ -40,7 +51,17 @@ function Collection({ view, team }: { view: CliffhangerView; team: TeamId }) {
 }
 
 /** The game's end: who won and how, both collections, the awards, the log, and play again. */
-export function End({ view, room, act }: { view: CliffhangerView; room: GameRoomInfo; act: Act }) {
+export function End({
+  view,
+  room,
+  act,
+  board,
+}: {
+  view: CliffhangerView;
+  room: GameRoomInfo;
+  act: Act;
+  board?: ReactNode;
+}) {
   const wide = useWideScreen();
   const w = view.winner;
   const goal = view.target;
@@ -72,81 +93,96 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
   const won = w ? view.collections[w].slice(-4) : [];
   return (
     <div className="space-y-4">
-      <EndHero
-        title={
-          w
-            ? w === view.myTeam
-              ? 'Your team wins!'
-              : `${teamName(w)} win!`
-            : 'No winner this time.'
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              w
+                ? w === view.myTeam
+                  ? 'Your team wins!'
+                  : `${teamName(w)} win!`
+                : 'No winner this time.'
+            }
+            titleTestId="winner"
+            emblem={won.length ? null : w ? `🏆${TEAM_EMOJI[w]}` : '🎬'}
+            // The winners' last tapes: what they filled their shelf with.
+            art={
+              won.length > 0 && (
+                <ul
+                  aria-label="The winning tapes"
+                  className="flex flex-wrap justify-center gap-2 lg:gap-3"
+                >
+                  {won.map((c) => (
+                    <li key={c.id}>
+                      <Tape
+                        card={c}
+                        deck={view.settings.deck}
+                        className="h-16 shadow-vt-2 lg:h-24"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+            // The viewer's team lights the card: ember for a win, danger for a loss, quiet otherwise.
+            tone={!w || !view.myTeam ? 'neutral' : w === view.myTeam ? 'win' : 'loss'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={actions}
+          >
+            {w &&
+              (view.endReason === 'sudden-death'
+                ? 'Decided in sudden death.'
+                : `${
+                    progress(
+                      view.collections[w].map((c) => c.genre),
+                      goal,
+                    ).have
+                  } of ${goal.genres.length * goal.each} filled first.`)}
+          </EndHero>
         }
-        titleTestId="winner"
-        emblem={won.length ? null : w ? `🏆${TEAM_EMOJI[w]}` : '🎬'}
-        // The winners' last tapes: what they filled their shelf with.
-        art={
-          won.length > 0 && (
-            <ul
-              aria-label="The winning tapes"
-              className="flex flex-wrap justify-center gap-2 lg:gap-3"
-            >
-              {won.map((c) => (
-                <li key={c.id}>
-                  <Tape card={c} deck={view.settings.deck} className="h-16 shadow-vt-2 lg:h-24" />
-                </li>
-              ))}
-            </ul>
-          )
-        }
-        // The viewer's team lights the card: ember for a win, danger for a loss, quiet otherwise.
-        tone={!w || !view.myTeam ? 'neutral' : w === view.myTeam ? 'win' : 'loss'}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={actions}
       >
-        {w &&
-          (view.endReason === 'sudden-death'
-            ? 'Decided in sudden death.'
-            : `${
-                progress(
-                  view.collections[w].map((c) => c.genre),
-                  goal,
-                ).have
-              } of ${goal.genres.length * goal.each} filled first.`)}
-      </EndHero>
-      <EndTabs
-        tabs={[
-          {
-            id: 'tapes',
-            label: '📼 Tapes',
-            content: (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {ordered.map((t) => (
-                  <Collection key={t} view={view} team={t} />
-                ))}
-              </div>
-            ),
-          },
-          !wide &&
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '🏅 Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-          !!view.log.length && {
-            id: 'log',
-            label: '📜 Story',
-            content: (
-              <ol className="space-y-1 text-sm" data-testid="end-log">
-                {view.log.map((e, i) => (
-                  <li key={i} className={cn(i > 0 && view.log[i - 1]!.round !== e.round && 'pt-2')}>
-                    <span className="mr-2 text-xs text-ink-muted tabular-nums">R{e.round}</span>
-                    {e.text}
-                  </li>
-                ))}
-              </ol>
-            ),
-          },
-        ]}
-      />
+        <Panel>
+          <EndTabs
+            tabs={[
+              {
+                id: 'tapes',
+                label: '📼 Tapes',
+                content: (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {ordered.map((t) => (
+                      <Collection key={t} view={view} team={t} />
+                    ))}
+                  </div>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '🏅 Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!view.log.length && {
+                id: 'log',
+                label: '📜 Story',
+                content: (
+                  <ol className="space-y-1 text-sm" data-testid="end-log">
+                    {view.log.map((e, i) => (
+                      <li
+                        key={i}
+                        className={cn(i > 0 && view.log[i - 1]!.round !== e.round && 'pt-2')}
+                      >
+                        <span className="mr-2 text-xs text-ink-muted tabular-nums">R{e.round}</span>
+                        {e.text}
+                      </li>
+                    ))}
+                  </ol>
+                ),
+              },
+              !!board && { id: 'board', label: '🎞️ Board', content: board },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   Button,
   Countdown,
   EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   Hint,
@@ -1899,128 +1900,133 @@ export function Reveal({
   return (
     <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
       <Hint>{status.text}</Hint>
-      <EndHero
-        title={
-          wonLines.length
-            ? wonLines.map((t) => teamOutcome(t.team, true)).join(' · ')
-            : 'Nobody wins'
-        }
-        emblem={result.winners.length ? null : '🌑'}
-        // The winners' cards as they ended the night: the result in the game's own art.
-        art={
-          result.winners.length > 0 &&
-          view
-            .table!.filter((p) => result.winners.includes(p.id))
-            .map((p) => (
-              <figure
-                key={p.id}
-                className="flex flex-col items-center gap-1"
-                data-testid="end-winner-card"
-              >
-                <CardFace
-                  role={reveal.cards[p.id]!.role}
-                  deck={deck}
-                  size={wide ? 'lg' : 'sm'}
-                  // Many winners (a whole village) get smaller cards, so the finale stays one or two rows.
-                  className={
-                    result.winners.length > 4
-                      ? wide
-                        ? 'w-28'
-                        : 'w-12'
-                      : wide
-                        ? 'w-36'
-                        : 'w-[4.5rem]'
-                  }
-                />
-                <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">
-                  {p.name}
-                </figcaption>
-              </figure>
-            ))
-        }
-        // The viewer's own result lights the card; watchers get the quiet lamp.
-        tone={!meSeated ? 'neutral' : result.winners.includes(me) ? 'win' : 'loss'}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          <>
-            {room.isHost && blocker && seatedNow >= 3 && (
-              <p className="text-sm" data-testid="play-again-blocker">
-                {blocker} The table changed since the deal.
-              </p>
-            )}
-            {room.isHost && (
-              <StickyBar className="flex flex-wrap gap-2">
-                {blocker && seatedNow >= 3 ? (
-                  <Button
-                    size="lg"
-                    onClick={() =>
-                      void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
-                        (ok) => ok && act({ type: 'play-again' }),
-                      )
-                    }
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              wonLines.length
+                ? wonLines.map((t) => teamOutcome(t.team, true)).join(' · ')
+                : 'Nobody wins'
+            }
+            emblem={result.winners.length ? null : '🌑'}
+            // The winners' cards as they ended the night: the result in the game's own art.
+            art={
+              result.winners.length > 0 &&
+              view
+                .table!.filter((p) => result.winners.includes(p.id))
+                .map((p) => (
+                  <figure
+                    key={p.id}
+                    className="flex flex-col items-center gap-1"
+                    data-testid="end-winner-card"
                   >
-                    Play again with the recommended cards for {seatedNow}
-                  </Button>
-                ) : (
-                  <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-                    Play again
-                  </Button>
+                    <CardFace
+                      role={reveal.cards[p.id]!.role}
+                      deck={deck}
+                      size={wide ? 'lg' : 'sm'}
+                      // Many winners (a whole village) get smaller cards, so the finale stays one or two rows.
+                      className={
+                        result.winners.length > 4
+                          ? wide
+                            ? 'w-28'
+                            : 'w-12'
+                          : wide
+                            ? 'w-36'
+                            : 'w-[4.5rem]'
+                      }
+                    />
+                    <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">
+                      {p.name}
+                    </figcaption>
+                  </figure>
+                ))
+            }
+            // The viewer's own result lights the card; watchers get the quiet lamp.
+            tone={!meSeated ? 'neutral' : result.winners.includes(me) ? 'win' : 'loss'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost && blocker && seatedNow >= 3 && (
+                  <p className="text-sm" data-testid="play-again-blocker">
+                    {blocker} The table changed since the deal.
+                  </p>
                 )}
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </StickyBar>
-            )}
-            {!room.isHost && (
-              <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
-                {waitingForHost(room, 'play again or change the setup')}
-              </p>
-            )}
-          </>
+                {room.isHost && (
+                  <StickyBar className="flex flex-wrap gap-2">
+                    {blocker && seatedNow >= 3 ? (
+                      <Button
+                        size="lg"
+                        onClick={() =>
+                          void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
+                            (ok) => ok && act({ type: 'play-again' }),
+                          )
+                        }
+                      >
+                        Play again with the recommended cards for {seatedNow}
+                      </Button>
+                    ) : (
+                      <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+                        Play again
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </StickyBar>
+                )}
+                {!room.isHost && (
+                  <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
+                    {waitingForHost(room, 'play again or change the setup')}
+                  </p>
+                )}
+              </>
+            }
+          />
         }
-      />
-      {wide ? (
-        <>
-          {resultPanel}
-          <div role="tablist" className="flex gap-1 rounded-xl bg-sunk p-1">
-            {(['cards', 'night'] as const).map((t) => (
-              <button
-                key={t}
-                role="tab"
-                type="button"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={cn(
-                  'h-9 flex-1 rounded-lg text-sm font-semibold',
-                  tab === t && 'bg-card shadow',
-                )}
-              >
-                {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
-              </button>
-            ))}
+      >
+        {wide ? (
+          <div className="space-y-3">
+            {resultPanel}
+            <div role="tablist" className="flex gap-1 rounded-xl bg-sunk p-1">
+              {(['cards', 'night'] as const).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={cn(
+                    'h-9 flex-1 rounded-lg text-sm font-semibold',
+                    tab === t && 'bg-card shadow',
+                  )}
+                >
+                  {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
+                </button>
+              ))}
+            </div>
+            {tab === 'cards' ? cardsPanel : nightPanel}
           </div>
-          {tab === 'cards' ? cardsPanel : nightPanel}
-        </>
-      ) : (
-        // Phones: the result, the awards, everyone's cards and the night one at a time, with Play
-        // again always below, so the end fits the screen.
-        <EndTabs
-          tabs={[
-            { id: 'result', label: '🏆 Result', content: resultPanel },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            { id: 'cards', label: '🃏 Cards', content: cardsPanel },
-            { id: 'night', label: '🌙 Night', content: nightPanel },
-          ]}
-        />
-      )}
+        ) : (
+          // Phones: the result, the awards, everyone's cards and the night one at a time, with Play
+          // again always below, so the end fits the screen.
+          <EndTabs
+            tabs={[
+              { id: 'result', label: '🏆 Result', content: resultPanel },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              { id: 'cards', label: '🃏 Cards', content: cardsPanel },
+              { id: 'night', label: '🌙 Night', content: nightPanel },
+            ]}
+          />
+        )}
+      </EndLayout>
     </div>
   );
 }

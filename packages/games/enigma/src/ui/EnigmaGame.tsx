@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   Hint,
@@ -272,7 +273,7 @@ export function EnigmaGame({
       {waitingForHost(room, 'start the next game')}
     </p>
   );
-  const hero = (showdown: boolean) => (
+  const hero = (
     <EndHero
       title={winnerTitle}
       emblem={endEmblem}
@@ -282,21 +283,12 @@ export function EnigmaGame({
     >
       {/* Why, said once here: the hint above is hidden once the game is over. */}
       {reason && <p>{reason}</p>}
-      {showdown && (
-        <div className="mt-3 space-y-3">
-          <ShowdownPanel view={view} act={act} />
-          {tokenLines}
-          <p className="text-small text-ink-muted">Everyone's keywords are revealed under Clues.</p>
-        </div>
-      )}
     </EndHero>
   );
-  const overPanel = hero(true);
-  // Phones: who won and Play again, then the tokens, the awards and each team's last code one at
-  // a time, so the end fits the screen.
-  const phoneEnd = (
-    <>
-      {hero(false)}
+  // The end: who won and Play again as the finale; the tokens, the awards (phones), each team's
+  // last code and, on wide screens, every clue sheet and the teams as its parts, fitted beside it.
+  const endView = (
+    <EndLayout hero={hero}>
       <EndTabs
         tabs={[
           {
@@ -312,20 +304,82 @@ export function EnigmaGame({
               </Panel>
             ),
           },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
+          !wide &&
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+          ...(wide
+            ? lastReveal.length > 0
+              ? [
+                  {
+                    id: 'last',
+                    label: '📡 Last round',
+                    content: (
+                      <section aria-label="The last round" className="space-y-2">
+                        <h3 className="text-center text-small font-semibold text-ink-muted">
+                          Round {view.round}, the last round
+                        </h3>
+                        <div
+                          className={cn('grid gap-4', lastReveal.length > 1 && 'xl:grid-cols-2')}
+                        >
+                          {lastReveal.map((tx) => (
+                            <TransmissionCard
+                              key={`last-${tx.team}`}
+                              view={view}
+                              tx={tx}
+                              act={act}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ),
+                  },
+                ]
+              : []
+            : lastReveal.map((tx) => ({
+                id: tx.team,
+                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+                content: <TransmissionCard view={view} tx={tx} act={act} />,
+              }))),
+          wide && {
+            id: 'clues',
+            label: '🗝️ Clues',
+            content: (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {sheetTeams.map((team) =>
+                  view.teams[team].keywords ? (
+                    <OwnSheet key={team} view={view} team={team} />
+                  ) : (
+                    <OpponentSheet key={team} view={view} team={team} act={act} />
+                  ),
+                )}
+              </div>
+            ),
           },
-          ...lastReveal.map((tx) => ({
-            id: tx.team,
-            label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
-            content: <TransmissionCard view={view} tx={tx} act={act} />,
-          })),
+          wide && {
+            id: 'teams',
+            label: '👥 Teams',
+            content: (
+              <Panel>
+                <h3 className="mb-2 font-bold">Teams</h3>
+                <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
+              </Panel>
+            ),
+          },
         ]}
       />
-    </>
+    </EndLayout>
   );
+
+  if (wide && view.phase === 'over')
+    return (
+      <div className="space-y-4">
+        <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {endView}
+      </div>
+    );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
@@ -349,19 +403,7 @@ export function EnigmaGame({
               {status.text}
             </Hint>
           )}
-          {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
-          {view.phase === 'over' && wide && lastReveal.length > 0 && (
-            <section aria-label="The last round" className="space-y-2">
-              <h3 className="text-center text-small font-semibold text-ink-muted">
-                Round {view.round}, the last round
-              </h3>
-              <div className={cn('grid gap-4', lastReveal.length > 1 && 'md:grid-cols-2')}>
-                {lastReveal.map((tx) => (
-                  <TransmissionCard key={`last-${tx.team}`} view={view} tx={tx} act={act} />
-                ))}
-              </div>
-            </section>
-          )}
+          {view.phase === 'over' && endView}
           {/* On wide screens the play panel keeps its height (it holds the move); the clue sheets
               below it take what is left and scroll. */}
           <FitArea

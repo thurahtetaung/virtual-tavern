@@ -12,6 +12,7 @@ import {
   useConfirm,
   useSecondsLeft,
   EndHero,
+  EndLayout,
   EndTabs,
   useWideScreen,
 } from '@vt/ui';
@@ -507,76 +508,81 @@ export function GameOver(props: Props) {
       : `${listNames(view.winners.map((id) => who(view, id)))} ${view.winners.length > 1 ? 'win' : 'wins'}!`;
   return (
     <div className="space-y-4">
-      <EndHero
-        title={title}
-        eyebrow={won ? undefined : null}
-        emblem="🐄"
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          room.isHost ? (
-            <StickyBar>
-              <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-                <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            </StickyBar>
-          ) : (
-            <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={won ? undefined : null}
+            emblem="🐄"
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              room.isHost ? (
+                <StickyBar>
+                  <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+                    <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                </StickyBar>
+              ) : (
+                <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
+          >
+            {view.endReason === 'too-few' && (
+              <p className="font-semibold">Too few players left: the game ended with no winner.</p>
+            )}
+          </EndHero>
         }
       >
-        {view.endReason === 'too-few' && (
-          <p className="font-semibold">Too few players left: the game ended with no winner.</p>
-        )}
-      </EndHero>
-      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={view.scores.map((s) => ({
-                    id: s.id,
-                    name: s.left ? `${s.name} (left)` : s.name,
-                    score: s.cows,
-                    ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
-                  }))}
-                  you={view.me?.id}
-                  scoreLabel={(n) => cowCount(names, n)}
-                />
-              ),
-            },
-            !wide &&
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
+        <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={view.scores.map((s) => ({
+                      id: s.id,
+                      name: s.left ? `${s.name} (left)` : s.name,
+                      score: s.cows,
+                      ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
+                    }))}
+                    you={view.me?.id}
+                    scoreLabel={(n) => cowCount(names, n)}
+                  />
+                ),
               },
-            !wide &&
-              !!view.round?.result && {
-                id: 'question',
-                label: '❓ Last question',
-                content: <Reveal {...props} final />,
-              },
-          ]}
-        />
-      </Panel>
-      {wide && view.round?.result && (
-        <Panel>
-          <h3 className="mb-2 font-bold">The last question</h3>
-          <Reveal {...props} final />
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !wide &&
+                !!view.round?.result && {
+                  id: 'question',
+                  label: '❓ Last question',
+                  content: <Reveal {...props} final />,
+                },
+            ]}
+          />
         </Panel>
-      )}
+        {wide && view.round?.result && (
+          <Panel>
+            <h3 className="mb-2 font-bold">The last question</h3>
+            <Reveal {...props} final />
+          </Panel>
+        )}
+      </EndLayout>
     </div>
   );
 }

@@ -7,11 +7,15 @@ import {
   Panel,
   PlayerTag,
   RefusalSlot,
-  StickyBar,
+  ProtectedImage,
   Switch,
   cn,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import type { MissionControlAction, MissionControlView, Settings } from '../logic/types.ts';
+import { guide } from '../logic/guide.ts';
 import { type Art, useArt } from './assets.tsx';
 import { Logbook } from './Logbook.tsx';
 import { type Status, missionLabel, startBlocker } from './status.ts';
@@ -55,7 +59,119 @@ export function Lobby({
   const next = view.campaign?.next ?? view.voyage?.missions[0]?.n ?? 1;
   const picked = view.chosen ?? next;
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Mission Control'}
+          emblem="🌊"
+          art={
+            art.box && (
+              <ProtectedImage src={art.box} alt="" className="w-full rounded-lg object-cover" />
+            )
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={settingsSummary(view, art)}
+            className="space-y-4"
+          >
+            {view.voyages.length > 1 && (
+              <fieldset>
+                <legend className="text-sm font-semibold">Campaign</legend>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {view.voyages.map((v) => (
+                    <button
+                      data-testid={`mc-voyage-${v.key}`}
+                      key={v.key}
+                      type="button"
+                      disabled={!editable}
+                      aria-pressed={s.voyageKey === v.key}
+                      onClick={() => set({ voyageKey: v.key })}
+                      className={cn(
+                        'h-11 rounded-lg px-3 text-sm font-semibold ring-1 ring-line',
+                        s.voyageKey === v.key && 'bg-accent-soft ring-2 ring-accent',
+                      )}
+                    >
+                      {art.campaignName(v)}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <Switch
+              on={s.playedCards}
+              editable={editable}
+              title="Show all played cards"
+              help="Look back at every trick. Off: the last trick only."
+              onChange={(playedCards) => set({ playedCards })}
+              testId="mc-played-cards"
+            />
+            <Switch
+              on={s.realTime}
+              editable={editable}
+              title="Real-time missions"
+              help="Off: timed missions play their printed alternative."
+              onChange={(realTime) => set({ realTime })}
+            />
+            <Switch
+              on={s.openTable}
+              editable={editable}
+              title="Open table (house rule)"
+              help="For groups who talk freely: no silence banners."
+              onChange={(openTable) => set({ openTable })}
+            />
+            {view.voyage?.taskSet === 'cards' && (
+              <Switch
+                on={s.challenge}
+                editable={editable && seated.length === 3}
+                title="Challenge for Three"
+                help="Three players only: no green cards and no trump 1, so ten cards each."
+                onChange={(challenge) => set({ challenge })}
+                testId="mc-challenge"
+              />
+            )}
+            {seated.length === 2 && (
+              <fieldset>
+                <legend className="text-sm font-semibold">{art.say('Where {dummy} sits')}</legend>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {([0, 1] as const).map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={!editable}
+                      aria-pressed={s.dummyAfter === i}
+                      onClick={() => set({ dummyAfter: i })}
+                      className={cn(
+                        'h-11 rounded-lg px-3 text-sm ring-1 ring-line',
+                        s.dummyAfter === i && 'bg-accent-soft ring-2 ring-accent',
+                      )}
+                    >
+                      After {seated[i]!.name}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+          </LobbySettings>
+          <RefusalSlot anchor={ANCHOR} />
+        </>
+      }
+      start={
+        editable && (
+          <LobbyStart
+            label={`Start ${missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}`}
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: ANCHOR })}
+            testId="mc-start"
+          />
+        )
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       {view.notice && (
         <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line">
@@ -117,101 +233,6 @@ export function Lobby({
           </p>
         </Panel>
       )}
-      <LobbySettings editable={editable} summary={settingsSummary(view, art)} className="space-y-4">
-        {view.voyages.length > 1 && (
-          <fieldset>
-            <legend className="text-sm font-semibold">Campaign</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {view.voyages.map((v) => (
-                <button
-                  data-testid={`mc-voyage-${v.key}`}
-                  key={v.key}
-                  type="button"
-                  disabled={!editable}
-                  aria-pressed={s.voyageKey === v.key}
-                  onClick={() => set({ voyageKey: v.key })}
-                  className={cn(
-                    'h-11 rounded-lg px-3 text-sm font-semibold ring-1 ring-line',
-                    s.voyageKey === v.key && 'bg-accent-soft ring-2 ring-accent',
-                  )}
-                >
-                  {art.campaignName(v)}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        )}
-        <Switch
-          on={s.playedCards}
-          editable={editable}
-          title="Show all played cards"
-          help="Look back at every trick. Off: the last trick only."
-          onChange={(playedCards) => set({ playedCards })}
-          testId="mc-played-cards"
-        />
-        <Switch
-          on={s.realTime}
-          editable={editable}
-          title="Real-time missions"
-          help="Off: timed missions play their printed alternative."
-          onChange={(realTime) => set({ realTime })}
-        />
-        <Switch
-          on={s.openTable}
-          editable={editable}
-          title="Open table (house rule)"
-          help="For groups who talk freely: no silence banners."
-          onChange={(openTable) => set({ openTable })}
-        />
-        {view.voyage?.taskSet === 'cards' && (
-          <Switch
-            on={s.challenge}
-            editable={editable && seated.length === 3}
-            title="Challenge for Three"
-            help="Three players only: no green cards and no trump 1, so ten cards each."
-            onChange={(challenge) => set({ challenge })}
-            testId="mc-challenge"
-          />
-        )}
-        {seated.length === 2 && (
-          <fieldset>
-            <legend className="text-sm font-semibold">{art.say('Where {dummy} sits')}</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {([0, 1] as const).map((i) => (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={!editable}
-                  aria-pressed={s.dummyAfter === i}
-                  onClick={() => set({ dummyAfter: i })}
-                  className={cn(
-                    'h-11 rounded-lg px-3 text-sm ring-1 ring-line',
-                    s.dummyAfter === i && 'bg-accent-soft ring-2 ring-accent',
-                  )}
-                >
-                  After {seated[i]!.name}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        )}
-      </LobbySettings>
-      <RefusalSlot anchor={ANCHOR} />
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' }, { anchor: ANCHOR })}
-              data-testid="mc-start"
-            >
-              Start {missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

@@ -6,6 +6,7 @@ import {
   Panel,
   RefusalSlot,
   EndHero,
+  EndLayout,
   EndTabs,
   Superlatives,
   useAbandonGame,
@@ -117,124 +118,129 @@ function End({
       style={heroVars(hero)}
     >
       {/* The finale: the winner's hero large in their own colour, the line under it. */}
-      <EndHero
-        // The portrait is the emblem, so the status line's trophy stays out of the title.
-        title={status.text.replace(/^🏆\s*/u, '')}
-        emblem={
-          hero ? (
-            <Portrait
-              hero={hero}
-              art={art}
-              size={wide ? 144 : 88}
-              className="mx-auto shadow-vt-2 ring-4"
-            />
-          ) : (
-            '🤝'
-          )
-        }
-        tone={winner ? 'win' : 'neutral'}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          <>
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  size="lg"
-                  onClick={() => void act({ type: 'play-again' }, { anchor: 'tb-end' })}
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'tb-end' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <Hint>{waitingForHost(room, 'start the next brawl')}</Hint>
+      <EndLayout
+        hero={
+          <EndHero
+            // The portrait is the emblem, so the status line's trophy stays out of the title.
+            title={status.text.replace(/^🏆\s*/u, '')}
+            emblem={
+              hero ? (
+                <Portrait
+                  hero={hero}
+                  art={art}
+                  size={wide ? 144 : 88}
+                  className="mx-auto shadow-vt-2 ring-4"
+                />
+              ) : (
+                '🤝'
+              )
+            }
+            tone={winner ? 'win' : 'neutral'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'tb-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'tb-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next brawl')}</Hint>
+                )}
+                <RefusalSlot anchor="tb-end" />
+              </>
+            }
+          >
+            {hero && (
+              <p>
+                {art.hero(hero)} is the last one standing after {g.turn.number} turns.
+              </p>
             )}
-            <RefusalSlot anchor="tb-end" />
-          </>
+          </EndHero>
         }
       >
-        {hero && (
-          <p>
-            {art.hero(hero)} is the last one standing after {g.turn.number} turns.
-          </p>
-        )}
-      </EndHero>
-      <Panel className="flex flex-col gap-3">
-        <EndTabs
-          columns
-          tabs={[
-            {
-              id: 'players',
-              label: '❤️ Players',
-              content: (
-                // Standings: who is still up first, each with their hero's portrait.
-                <ul className="grid gap-2 sm:grid-cols-2" aria-label="Final hit points">
-                  {[...g.players]
-                    .sort((a, b) => Number(a.out) - Number(b.out) || b.hp - a.hp)
-                    .map((p) => (
-                      <li
-                        key={p.id}
-                        className={cn(
-                          'flex items-center gap-2.5 rounded-xl bg-panel px-2.5 py-2 ring-1 ring-line dark:ring-0',
-                          p.out && 'opacity-75',
-                        )}
-                        style={heroVars(p.hero)}
-                      >
-                        <Portrait hero={p.hero} art={art} size={44} />
-                        <span className="min-w-0 flex-1 text-sm">
-                          <span className="flex items-center gap-1 font-semibold">
-                            <NameDot name={p.name} />
-                            {name(p.id)}
-                            {g.winners.includes(p.id) && <span aria-label="winner">🏆</span>}
+        <Panel className="flex flex-col gap-3">
+          <EndTabs
+            columns
+            tabs={[
+              {
+                id: 'players',
+                label: '❤️ Players',
+                content: (
+                  // Standings: who is still up first, each with their hero's portrait.
+                  <ul className="grid gap-2 sm:grid-cols-2" aria-label="Final hit points">
+                    {[...g.players]
+                      .sort((a, b) => Number(a.out) - Number(b.out) || b.hp - a.hp)
+                      .map((p) => (
+                        <li
+                          key={p.id}
+                          className={cn(
+                            'flex items-center gap-2.5 rounded-xl bg-panel px-2.5 py-2 ring-1 ring-line dark:ring-0',
+                            p.out && 'opacity-75',
+                          )}
+                          style={heroVars(p.hero)}
+                        >
+                          <Portrait hero={p.hero} art={art} size={44} />
+                          <span className="min-w-0 flex-1 text-sm">
+                            <span className="flex items-center gap-1 font-semibold">
+                              <NameDot name={p.name} />
+                              {name(p.id)}
+                              {g.winners.includes(p.id) && <span aria-label="winner">🏆</span>}
+                            </span>
+                            <span className="block text-ink-muted">
+                              {art.hero(p.hero)}
+                              {!p.out && ` · ${p.hp} hit points left`}
+                            </span>
                           </span>
-                          <span className="block text-ink-muted">
-                            {art.hero(p.hero)}
-                            {!p.out && ` · ${p.hp} hit points left`}
-                          </span>
-                        </span>
-                        <HpDial hp={p.hp} size={34} out={p.out} />
-                      </li>
-                    ))}
-                </ul>
-              ),
-            },
-            kos.length > 0 && {
-              id: 'knockouts',
-              label: '💥 KOs',
-              content: (
-                <section aria-label="Knockouts">
-                  <h3 className="text-sm font-semibold">Knockouts</h3>
-                  <ol className="text-sm">
-                    {kos.map((k) => (
-                      <li key={`${k.player}-${k.turn}`}>
-                        💥 {name(k.player)}, turn {k.turn}
-                        {k.removed
-                          ? ' (removed)'
-                          : k.by === k.player
-                            ? `: ${card(k.card) ?? 'their own card'} (their own)`
-                            : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ),
-            },
-            !wide &&
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
+                          <HpDial hp={p.hp} size={34} out={p.out} />
+                        </li>
+                      ))}
+                  </ul>
+                ),
               },
-            !!table && { id: 'table', label: '🍺 Table', content: table },
-          ]}
-        />
-      </Panel>
+              kos.length > 0 && {
+                id: 'knockouts',
+                label: '💥 KOs',
+                content: (
+                  <section aria-label="Knockouts">
+                    <h3 className="text-sm font-semibold">Knockouts</h3>
+                    <ol className="text-sm">
+                      {kos.map((k) => (
+                        <li key={`${k.player}-${k.turn}`}>
+                          💥 {name(k.player)}, turn {k.turn}
+                          {k.removed
+                            ? ' (removed)'
+                            : k.by === k.player
+                              ? `: ${card(k.card) ?? 'their own card'} (their own)`
+                              : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '🍺 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
     </div>
   );
 }

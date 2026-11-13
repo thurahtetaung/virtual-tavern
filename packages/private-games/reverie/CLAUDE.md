@@ -11,4 +11,4 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Assets
 
-For Reverie the folder holds `cards/000.jpg…`, `back.jpg` and `manifest.json` (set names and the card back); the card-number ranges per set are fixed in the game's `CARD_SETS`.
+For Reverie the folder holds `cards/000.jpg…`, `back.jpg` and `manifest.json` (set names and the card back); the card-number ranges per set are fixed in the game's `CARD_SETS`. The guide's first steps show `cards/001.jpg`, `cards/002.jpg` and `back.jpg` at those fixed paths (the emoji while they can't load), and the lobby's pitch shows the manifest's card back.

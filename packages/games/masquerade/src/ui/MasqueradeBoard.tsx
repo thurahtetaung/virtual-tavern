@@ -24,6 +24,7 @@ import {
   Peek,
   ProtectedImage,
   EndHero,
+  EndLayout,
   EndTabs,
   FoldSummary,
   Standings,
@@ -636,8 +637,9 @@ function Podium({
   act: Act;
   room: GameRoomInfo;
   display: LocationDisplay;
-  /** Phones: the last round and the players, as tabs beside the scores. */
-  details?: { round: ReactNode; players: ReactNode };
+  /** The last round's reveal and the players (and on wide screens the round scores and the
+   * locations), as the end's parts beside the scores. */
+  details?: { round: ReactNode; players: ReactNode; scores?: ReactNode; locations?: ReactNode };
 }) {
   const wide = useWideScreen();
   const entries = view.seats
@@ -666,59 +668,63 @@ function Podium({
   const spyWon = got > 0;
   const tone = !result || !meIn ? 'neutral' : meSpy === spyWon ? 'win' : 'loss';
   return (
-    <>
-      <EndHero
-        title={title}
-        eyebrow={result ? undefined : null}
-        emblem={result ? (spyWon ? '🎭' : '🔍') : '🏆'}
-        tone={tone}
-        superlatives={wide ? room.superlatives : undefined}
-        art={
-          result && (
-            <LocationPicture
-              id={result.location}
-              display={display}
-              className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
-              artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-72"
-            />
-          )
-        }
-        actions={
-          room.isHost ? (
-            <StickyBar>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            </StickyBar>
-          ) : (
-            <p className="text-center text-small text-ink-2">
-              {waitingForHost(room, 'start the next game')}
+    <EndLayout
+      hero={
+        <EndHero
+          title={title}
+          eyebrow={result ? undefined : null}
+          // Phones: the location's picture stands in for the emblem, so the end fits the screen.
+          emblem={result ? (wide ? (spyWon ? '🎭' : '🔍') : null) : '🏆'}
+          tone={tone}
+          superlatives={wide ? room.superlatives : undefined}
+          art={
+            result && (
+              <LocationPicture
+                id={result.location}
+                display={display}
+                className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
+                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-72"
+              />
+            )
+          }
+          actions={
+            room.isHost ? (
+              <StickyBar>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </div>
+              </StickyBar>
+            ) : (
+              <p className="text-center text-small text-ink-2">
+                {waitingForHost(room, 'start the next game')}
+              </p>
+            )
+          }
+        >
+          {result && (
+            <p>
+              The location was <b>{display.name(result.location)}</b>.
             </p>
-          )
-        }
-      >
-        {result && (
-          <p>
-            The location was <b>{display.name(result.location)}</b>.
-          </p>
-        )}
-        {leaders.length > 0 && (
-          <p>
-            {listNames(leaders.map((l) => (l.id === view.me?.id ? 'You' : l.name)))}{' '}
-            {leaders.length > 1 || leaders[0]!.id === view.me?.id ? 'win' : 'wins'} with {top}{' '}
-            {top === 1 ? 'point' : 'points'}.
-          </p>
-        )}
-      </EndHero>
+          )}
+          {leaders.length > 0 && (
+            <p>
+              {listNames(leaders.map((l) => (l.id === view.me?.id ? 'You' : l.name)))}{' '}
+              {leaders.length > 1 || leaders[0]!.id === view.me?.id ? 'win' : 'wins'} with {top}{' '}
+              {top === 1 ? 'point' : 'points'}.
+            </p>
+          )}
+        </EndHero>
+      }
+    >
       <Panel aria-label="Final scores" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         <EndTabs
           tabs={[
@@ -734,11 +740,17 @@ function Podium({
                 content: <Superlatives lines={room.superlatives} />,
               },
             !!details?.round && { id: 'round', label: '🎭 Reveal', content: details.round },
+            !!details?.scores && { id: 'rounds', label: '📊 Rounds', content: details.scores },
             !!details && { id: 'players', label: '👥 Players', content: details.players },
+            !!details?.locations && {
+              id: 'locations',
+              label: '📍 Locations',
+              content: details.locations,
+            },
           ]}
         />
       </Panel>
-    </>
+    </EndLayout>
   );
 }
 
@@ -1050,9 +1062,8 @@ export function MasqueradeBoard({
   );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wide = useWideScreen();
-  const phoneEnd = view.phase === 'over' && !wide;
-  // Wide screens at the end: the finale and the standings take the left, the round's reveal and
-  // the players the right, and the locations fold away (the game no longer needs them).
+  // Wide screens at the end: the finale on the left; the standings, the round's reveal, the
+  // players and the folded locations (the game no longer needs them) on the right.
   const wideEnd = view.phase === 'over' && wide;
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -1095,6 +1106,35 @@ export function MasqueradeBoard({
     { id: 'ideas', label: 'Ideas', icon: 'lightbulb', badge: dot('ideas') },
   ];
 
+  const endDetails = {
+    round: round?.stage === 'reveal' && (
+      <Reveal view={view} display={display} act={act} room={room} />
+    ),
+    players: (
+      <Panel>
+        <Players view={view} online={online} hostId={room.hostId} />
+      </Panel>
+    ),
+    scores: wide && <Scores view={view} />,
+    locations: wide && (
+      <details className="group rounded-xl bg-panel ring-1 ring-line">
+        <FoldSummary className="font-semibold">📍 Every location</FoldSummary>
+        <div className="px-3 pb-3">
+          <LocationsBoard view={view} display={display} act={act} />
+        </div>
+      </details>
+    ),
+  };
+  if (wideEnd)
+    return (
+      <div className="space-y-3">
+        <TopBar view={view} room={room} />
+        <Nudge view={view} room={room} />
+        <StatusHint view={view} room={room} />
+        <Podium view={view} act={act} room={room} display={display} details={endDetails} />
+      </div>
+    );
+
   return (
     <div className="space-y-3">
       <TopBar view={view} room={room} />
@@ -1114,26 +1154,7 @@ export function MasqueradeBoard({
               </p>
             )}
             {view.phase === 'over' && (
-              <Podium
-                view={view}
-                act={act}
-                room={room}
-                display={display}
-                details={
-                  phoneEnd
-                    ? {
-                        round: round?.stage === 'reveal' && (
-                          <Reveal view={view} display={display} act={act} room={room} />
-                        ),
-                        players: (
-                          <Panel>
-                            <Players view={view} online={online} hostId={room.hostId} />
-                          </Panel>
-                        ),
-                      }
-                    : undefined
-                }
-              />
+              <Podium view={view} act={act} room={room} display={display} details={endDetails} />
             )}
             {round && round.stage === 'reveal' && view.phase === 'playing' && (
               <Reveal view={view} display={display} act={act} room={room} />
@@ -1164,48 +1185,29 @@ export function MasqueradeBoard({
             )}
           </FitArea>
         </div>
-        {wideEnd && (
-          <div className="min-w-0 space-y-3">
-            {round?.stage === 'reveal' && (
-              <Reveal view={view} display={display} act={act} room={room} />
-            )}
-            <Scores view={view} />
-            <Panel>
-              <Players view={view} online={online} hostId={room.hostId} />
-            </Panel>
-            <details className="group rounded-xl bg-panel ring-1 ring-line">
-              <FoldSummary className="font-semibold">📍 Every location</FoldSummary>
-              <div className="px-3 pb-3">
-                <LocationsBoard view={view} display={display} act={act} />
-              </div>
-            </details>
-          </div>
-        )}
         {/* Wide screens: the board and the ideas below it share one scroller that fits the screen. */}
-        {!wideEnd && (
-          <FitArea
-            on={view.phase === 'playing' && wide}
-            resetKey={stepKey}
-            className="min-w-0 space-y-4"
-          >
-            <div {...panel('locations')}>
-              <FitArea
-                on={view.phase === 'playing' && !wide && fit && tab === 'locations'}
-                resetKey={stepKey}
-              >
-                <LocationsBoard view={view} display={display} act={act} />
-              </FitArea>
-            </div>
-            <div {...panel('ideas')}>
-              <FitArea
-                on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
-                resetKey={stepKey}
-              >
-                <IdeasBoard view={view} display={display} />
-              </FitArea>
-            </div>
-          </FitArea>
-        )}
+        <FitArea
+          on={view.phase === 'playing' && wide}
+          resetKey={stepKey}
+          className="min-w-0 space-y-4"
+        >
+          <div {...panel('locations')}>
+            <FitArea
+              on={view.phase === 'playing' && !wide && fit && tab === 'locations'}
+              resetKey={stepKey}
+            >
+              <LocationsBoard view={view} display={display} act={act} />
+            </FitArea>
+          </div>
+          <div {...panel('ideas')}>
+            <FitArea
+              on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
+              resetKey={stepKey}
+            >
+              <IdeasBoard view={view} display={display} />
+            </FitArea>
+          </div>
+        </FitArea>
       </div>
       {tabbed && (
         <TabBar

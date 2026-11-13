@@ -231,13 +231,13 @@ export function RoundTableGame({
       }
     />
   );
-  // Phones: the quest track is one of the end's tabs, so the end fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
+  // The end shows the quest track in its finale, and on wide screens takes the whole page.
+  const over = view.phase === 'over';
 
   return (
     <div className="space-y-3">
       <TopBar view={view} room={room} onRole={() => setRoleOpen(true)} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className={cn('grid gap-4', !over && 'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
         <div {...panel('table')} className={cn('min-w-0 space-y-3', panel('table').className)}>
           {tabbed && view.phase === 'playing' && stage !== 'reveal' ? (
             // Phones in play: the quests and the rejected teams share one 44 px strip.
@@ -248,7 +248,7 @@ export function RoundTableGame({
           ) : (
             <>
               {/* Wide screens show the quests from the start, above the role card. */}
-              {(stage !== 'reveal' || wide) && !phoneEnd && quests}
+              {(stage !== 'reveal' || wide) && !over && quests}
               {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
             </>
           )}
@@ -262,7 +262,13 @@ export function RoundTableGame({
           >
             {tip && <Tip onDismiss={() => dismiss(tip[0])}>{tip[1]}</Tip>}
             {view.phase === 'over' && (
-              <End view={view} room={room} act={act} quests={phoneEnd ? quests : null} />
+              <End
+                view={view}
+                room={room}
+                act={act}
+                quests={quests}
+                history={wide && <History view={view} shown />}
+              />
             )}
             {view.phase === 'playing' && (
               <>
@@ -292,7 +298,10 @@ export function RoundTableGame({
             )}
           </FitArea>
         </div>
-        <div {...panel('history')} className={cn('min-w-0', panel('history').className)}>
+        <div
+          {...panel('history')}
+          className={cn('min-w-0', panel('history').className, over && 'lg:hidden')}
+        >
           <FitArea on={tabbed && view.phase === 'playing' && tab === 'history'} resetKey={stageKey}>
             <History view={view} shown={known || view.phase === 'over'} />
           </FitArea>

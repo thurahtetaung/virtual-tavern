@@ -1,6 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   Chip,
   Chips,
   Field,
@@ -10,10 +9,12 @@ import {
   PlayerTag,
   ProtectedImage,
   Select,
-  StickyBar,
   Switch,
   cn,
   LobbySettings,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import {
   MAX_ROUNDS,
@@ -23,6 +24,7 @@ import {
   ROUND_SECONDS_OPTIONS,
   TWO_SPIES_MIN,
 } from '../logic/types.ts';
+import { guide } from '../logic/guide.ts';
 import type { LocationDisplay } from './display.ts';
 import type { Status } from './status.ts';
 import { startBlocker } from './status.ts';
@@ -118,25 +120,143 @@ export function Lobby({
   const preview = view.locations
     .map((id) => display.art(id))
     .filter((src): src is string => !!src)
-    .slice(0, 6);
+    .slice(0, 7);
+  // The first place is the pitch's picture; the next few line up under the players.
+  const [cover, ...places] = preview;
   const toggleEdition = (id: string) => {
     const next = s.editions.includes(id) ? s.editions.filter((e) => e !== id) : [...s.editions, id];
     if (next.length > 0) void act({ type: 'update-settings', editions: next });
   };
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Masquerade'}
+          emblem="🎭"
+          art={
+            cover && (
+              <ProtectedImage
+                src={cover}
+                alt=""
+                className="aspect-[5/3] w-full rounded-lg object-cover shadow-vt-1"
+              />
+            )
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={[
+              `${s.roundSeconds / 60} min rounds`,
+              s.rounds === null
+                ? 'a round each'
+                : `${s.rounds} ${s.rounds === 1 ? 'round' : 'rounds'}`,
+              `${view.locations.length} locations`,
+              s.twoSpies && 'two spies',
+            ]}
+            className="space-y-4"
+          >
+            <fieldset>
+              <legend className="text-small font-semibold">
+                {view.editions.length > 1 ? 'Editions' : 'Locations'}
+              </legend>
+              <Chips
+                label={view.editions.length > 1 ? 'Editions' : 'Locations'}
+                className="mt-1 flex-wrap"
+              >
+                {view.editions.map((e) => (
+                  <Chip
+                    key={e.id}
+                    pressed={s.editions.includes(e.id)}
+                    disabled={!editable || view.editions.length === 1}
+                    onClick={() => toggleEdition(e.id)}
+                  >
+                    {display.editionLabel(e.id, e.label)}
+                    <span className="font-normal opacity-80">· {e.count} locations</span>
+                  </Chip>
+                ))}
+              </Chips>
+              {view.editions.length > 1 && (
+                <p className="mt-1 text-caption text-ink-muted">
+                  Pick one edition or both: {view.locations.length} locations in play.
+                </p>
+              )}
+            </fieldset>
+            <fieldset>
+              <legend className="text-small font-semibold">Round length</legend>
+              <div className="mt-1 grid grid-cols-3 gap-2">
+                {ROUND_SECONDS_OPTIONS.map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    aria-pressed={s.roundSeconds === sec}
+                    disabled={!editable}
+                    onClick={() => void act({ type: 'update-settings', roundSeconds: sec })}
+                    className={cn(
+                      choice(s.roundSeconds === sec, editable),
+                      'h-11 text-center font-semibold',
+                    )}
+                  >
+                    {sec / 60} min
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Rounds">
+                <Select
+                  value={s.rounds === null ? 'auto' : String(s.rounds)}
+                  disabled={!editable}
+                  onChange={(e) =>
+                    void act({
+                      type: 'update-settings',
+                      rounds: e.target.value === 'auto' ? null : Number(e.target.value),
+                    })
+                  }
+                >
+                  <option value="auto">As many as players ({Math.max(seated, 1)})</option>
+                  {roundPresets(s.rounds).map((n) => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? 'round' : 'rounds'}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Switch
+                on={s.twoSpies}
+                editable={editable}
+                title="Two spies"
+                help={`From ${TWO_SPIES_MIN} players. The spies don’t know each other.${
+                  s.twoSpies && seated < TWO_SPIES_MIN
+                    ? ` (One spy until ${TWO_SPIES_MIN} play.)`
+                    : ''
+                }`}
+                onChange={(on) => void act({ type: 'update-settings', twoSpies: on })}
+              />
+            </div>
+          </LobbySettings>
+        </>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
       {/* An edition with pictures shows a few of its places: where the night might take you. */}
-      {preview.length > 0 && (
+      {places.length > 0 && (
         <ul
           aria-hidden
           className="grid grid-cols-4 gap-2 sm:grid-cols-6"
           data-testid="lobby-places"
         >
-          {preview.map((src, i) => (
+          {places.map((src, i) => (
             <li key={src} className={cn(i >= 4 && 'max-sm:hidden')}>
               <ProtectedImage
                 src={src}
@@ -148,107 +268,6 @@ export function Lobby({
         </ul>
       )}
       <GuideLink title={room.gameName ?? 'Masquerade'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={[
-          `${s.roundSeconds / 60} min rounds`,
-          s.rounds === null ? 'a round each' : `${s.rounds} ${s.rounds === 1 ? 'round' : 'rounds'}`,
-          `${view.locations.length} locations`,
-          s.twoSpies && 'two spies',
-        ]}
-        className="space-y-4"
-      >
-        <fieldset>
-          <legend className="text-small font-semibold">
-            {view.editions.length > 1 ? 'Editions' : 'Locations'}
-          </legend>
-          <Chips
-            label={view.editions.length > 1 ? 'Editions' : 'Locations'}
-            className="mt-1 flex-wrap"
-          >
-            {view.editions.map((e) => (
-              <Chip
-                key={e.id}
-                pressed={s.editions.includes(e.id)}
-                disabled={!editable || view.editions.length === 1}
-                onClick={() => toggleEdition(e.id)}
-              >
-                {display.editionLabel(e.id, e.label)}
-                <span className="font-normal opacity-80">· {e.count} locations</span>
-              </Chip>
-            ))}
-          </Chips>
-          {view.editions.length > 1 && (
-            <p className="mt-1 text-caption text-ink-muted">
-              Pick one edition or both: {view.locations.length} locations in play.
-            </p>
-          )}
-        </fieldset>
-        <fieldset>
-          <legend className="text-small font-semibold">Round length</legend>
-          <div className="mt-1 grid grid-cols-3 gap-2">
-            {ROUND_SECONDS_OPTIONS.map((sec) => (
-              <button
-                key={sec}
-                type="button"
-                aria-pressed={s.roundSeconds === sec}
-                disabled={!editable}
-                onClick={() => void act({ type: 'update-settings', roundSeconds: sec })}
-                className={cn(
-                  choice(s.roundSeconds === sec, editable),
-                  'h-11 text-center font-semibold',
-                )}
-              >
-                {sec / 60} min
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Rounds">
-            <Select
-              value={s.rounds === null ? 'auto' : String(s.rounds)}
-              disabled={!editable}
-              onChange={(e) =>
-                void act({
-                  type: 'update-settings',
-                  rounds: e.target.value === 'auto' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="auto">As many as players ({Math.max(seated, 1)})</option>
-              {roundPresets(s.rounds).map((n) => (
-                <option key={n} value={n}>
-                  {n} {n === 1 ? 'round' : 'rounds'}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Switch
-            on={s.twoSpies}
-            editable={editable}
-            title="Two spies"
-            help={`From ${TWO_SPIES_MIN} players. The spies don’t know each other.${
-              s.twoSpies && seated < TWO_SPIES_MIN ? ` (One spy until ${TWO_SPIES_MIN} play.)` : ''
-            }`}
-            onChange={(on) => void act({ type: 'update-settings', twoSpies: on })}
-          />
-        </div>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="space-y-1.5">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import { Button, EndHero, Panel, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import { Button, EndHero, EndLayout, Panel, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { type CardId, sortCards } from '../logic/cards.ts';
 import {
@@ -130,131 +130,139 @@ export function Debrief({
   }, [thumbs]);
   const failed = r.task !== null ? a.tasks[r.task] : null;
   const log = a.mission.n !== EPILOGUE ? campaign?.log[a.mission.n] : null;
+  const hero = (
+    <EndHero
+      eyebrow="Debrief"
+      title={
+        r.success ? `${missionLabel(a.mission.n, a.mission.label)} accomplished!` : 'Mission lost'
+      }
+      // The box art stands in for the emblem, so the debrief fits a desktop window.
+      emblem={box ? null : r.success ? '🏅' : '🫧'}
+      tone={r.success ? 'success' : 'loss'}
+      superlatives={room.superlatives}
+      art={
+        // The voyage's box art, as on the briefing.
+        box && (
+          <ProtectedImage
+            src={box}
+            alt=""
+            className="w-28 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-40"
+          />
+        )
+      }
+      actions={
+        <div className="space-y-3">
+          {decide && (
+            <div className="grid grid-cols-2 gap-2 max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-12 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-base">
+              {r.success ? (
+                <Button
+                  size="lg"
+                  className="col-span-2"
+                  onClick={() => send({ type: 'next' })}
+                  data-testid="mc-next"
+                >
+                  {art.say('Next mission')}
+                </Button>
+              ) : (
+                <>
+                  {!a.mission.cardTasks && (
+                    <Button
+                      size="lg"
+                      onClick={() => send({ type: 'retry', same: true })}
+                      data-testid="mc-retry-same"
+                    >
+                      🔁 Retry same tasks
+                    </Button>
+                  )}
+                  <Button
+                    size="lg"
+                    variant={a.mission.cardTasks ? 'primary' : 'secondary'}
+                    onClick={() => send({ type: 'retry', same: false })}
+                    data-testid="mc-retry-new"
+                  >
+                    {a.mission.cardTasks ? '🔁 Try again (new tasks)' : '🎲 New tasks'}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap justify-center gap-2 max-lg:flex-nowrap max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-11 max-lg:[&>*]:min-w-0 max-lg:[&>*]:flex-1 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-sm">
+            <Button
+              variant="secondary"
+              onClick={() => setReplay(!replay)}
+              data-testid="mc-replay-open"
+            >
+              {replay ? 'Hide the replay' : '🔍 Replay: every hand, trick by trick'}
+            </Button>
+            {room.isHost && (
+              <Button size="lg" variant="secondary" onClick={() => send({ type: 'lobby' })}>
+                Change setup
+              </Button>
+            )}
+          </div>
+          <RefusalSlot anchor={ANCHOR} />
+        </div>
+      }
+    >
+      {r.success ? (
+        <div className="space-y-2">
+          <p
+            className="inline-block -rotate-2 rounded-lg px-3 py-1 font-black uppercase tracking-wider text-success-ink ring-2 ring-success-line"
+            data-testid="mc-stamp"
+          >
+            Logbook:{' '}
+            {a.mission.practice
+              ? 'practice'
+              : `done in ${log?.attempts ?? a.number} ${log?.attempts === 1 ? 'attempt' : 'attempts'}`}
+            {log?.distress ? (
+              <TokenIcon
+                kind="distress-used"
+                label={art.say('{Distress} used (+1)')}
+                className="ml-1 inline-flex h-5 w-3.5 align-middle"
+              />
+            ) : null}
+          </p>
+          {a.mission.n === EPILOGUE && (
+            <p className="text-sm">Next dive: difficulty {(a.mission.difficulty ?? 0) + 1}.</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p data-testid="mc-why">
+            {r.timedOut ? (
+              '⏱️ Time ran out.'
+            ) : (
+              <Rich text={r.why ?? 'A task could no longer be met.'} name={name} />
+            )}
+          </p>
+          {failed && (
+            <div className="text-left">
+              <TaskChip task={failed} name={name} showOwner you={me} />
+            </div>
+          )}
+          <p className="text-sm text-ink-muted">
+            Attempt {a.number}
+            {a.mission.practice ? ' (practice)' : ''}. Tricks played: {r.tricks}.
+          </p>
+        </div>
+      )}
+    </EndHero>
+  );
   return (
     <div
-      className="mx-auto max-w-2xl space-y-3 lg:max-w-4xl"
+      className={cn('mx-auto max-w-2xl space-y-3', replay ? 'lg:max-w-6xl' : 'lg:max-w-4xl')}
       data-testid="mc-debrief"
       data-result={r.success ? 'success' : 'failure'}
     >
-      <EndHero
-        eyebrow="Debrief"
-        title={
-          r.success ? `${missionLabel(a.mission.n, a.mission.label)} accomplished!` : 'Mission lost'
-        }
-        emblem={r.success ? '🏅' : '🫧'}
-        tone={r.success ? 'success' : 'loss'}
-        superlatives={room.superlatives}
-        art={
-          // The voyage's box art, as on the briefing.
-          box && (
-            <ProtectedImage
-              src={box}
-              alt=""
-              className="w-28 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-48"
-            />
-          )
-        }
-        actions={
-          <div className="space-y-3">
-            {decide && (
-              <div className="grid grid-cols-2 gap-2 max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-12 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-base">
-                {r.success ? (
-                  <Button
-                    size="lg"
-                    className="col-span-2"
-                    onClick={() => send({ type: 'next' })}
-                    data-testid="mc-next"
-                  >
-                    {art.say('Next mission')}
-                  </Button>
-                ) : (
-                  <>
-                    {!a.mission.cardTasks && (
-                      <Button
-                        size="lg"
-                        onClick={() => send({ type: 'retry', same: true })}
-                        data-testid="mc-retry-same"
-                      >
-                        🔁 Retry same tasks
-                      </Button>
-                    )}
-                    <Button
-                      size="lg"
-                      variant={a.mission.cardTasks ? 'primary' : 'secondary'}
-                      onClick={() => send({ type: 'retry', same: false })}
-                      data-testid="mc-retry-new"
-                    >
-                      {a.mission.cardTasks ? '🔁 Try again (new tasks)' : '🎲 New tasks'}
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
-            <div className="flex flex-wrap justify-center gap-2 max-lg:flex-nowrap max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-11 max-lg:[&>*]:min-w-0 max-lg:[&>*]:flex-1 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-sm">
-              <Button
-                variant="secondary"
-                onClick={() => setReplay(!replay)}
-                data-testid="mc-replay-open"
-              >
-                {replay ? 'Hide the replay' : '🔍 Replay: every hand, trick by trick'}
-              </Button>
-              {room.isHost && (
-                <Button size="lg" variant="secondary" onClick={() => send({ type: 'lobby' })}>
-                  Change setup
-                </Button>
-              )}
-            </div>
-            <RefusalSlot anchor={ANCHOR} />
-          </div>
-        }
-      >
-        {r.success ? (
-          <div className="space-y-2">
-            <p
-              className="inline-block -rotate-2 rounded-lg px-3 py-1 font-black uppercase tracking-wider text-success-ink ring-2 ring-success-line"
-              data-testid="mc-stamp"
-            >
-              Logbook:{' '}
-              {a.mission.practice
-                ? 'practice'
-                : `done in ${log?.attempts ?? a.number} ${log?.attempts === 1 ? 'attempt' : 'attempts'}`}
-              {log?.distress ? (
-                <TokenIcon
-                  kind="distress-used"
-                  label={art.say('{Distress} used (+1)')}
-                  className="ml-1 inline-flex h-5 w-3.5 align-middle"
-                />
-              ) : null}
-            </p>
-            {a.mission.n === EPILOGUE && (
-              <p className="text-sm">Next dive: difficulty {(a.mission.difficulty ?? 0) + 1}.</p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p data-testid="mc-why">
-              {r.timedOut ? (
-                '⏱️ Time ran out.'
-              ) : (
-                <Rich text={r.why ?? 'A task could no longer be met.'} name={name} />
-              )}
-            </p>
-            {failed && (
-              <div className="text-left">
-                <TaskChip task={failed} name={name} showOwner you={me} />
-              </div>
-            )}
-            <p className="text-sm text-ink-muted">
-              Attempt {a.number}
-              {a.mission.practice ? ' (practice)' : ''}. Tricks played: {r.tricks}.
-            </p>
-          </div>
-        )}
-      </EndHero>
-      {replay && a.replay && (
-        <Panel>
-          <Replay a={a} name={name} />
-        </Panel>
+      {/* Wide screens: the replay opens beside the debrief, so both fit the window. */}
+      {replay && a.replay ? (
+        <EndLayout hero={hero}>
+          <Panel>
+            <Replay a={a} name={name} />
+          </Panel>
+        </EndLayout>
+      ) : (
+        hero
       )}
     </div>
   );

@@ -10,6 +10,7 @@ import {
 import {
   Button,
   EndHero,
+  EndLayout,
   EndTabs,
   Fold,
   GuideLink,
@@ -20,7 +21,6 @@ import {
   ProtectedImage,
   RefusalSlot,
   Standings,
-  StickyBar,
   Superlatives,
   Switch,
   TimerSettings,
@@ -29,6 +29,9 @@ import {
   usePhone,
   useSpectatorPrompt,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -112,9 +115,9 @@ export function JewellerGame({
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {!wide && view.phase === 'playing' && inGame && <Tips />}
           {view.phase === 'over' && (
-            <End view={view} room={room} act={act} art={art} table={wide ? null : table} />
+            <End view={view} room={room} act={act} art={art} table={table} />
           )}
-          {(wide || view.phase !== 'over') && table}
+          {view.phase !== 'over' && table}
         </>
       )}
     </div>
@@ -206,7 +209,132 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Jeweller'}
+          emblem="💎"
+          art={
+            (art.box ?? art.logo) && (
+              <ProtectedImage
+                src={(art.box ?? art.logo)!}
+                alt=""
+                className="w-full rounded-lg object-cover"
+              />
+            )
+          }
+        >
+          <span className="mr-1.5 inline-flex gap-1 align-middle">
+            <TokenChip token="red" art={art} size={22} />
+            <TokenChip token="gold" art={art} size={22} />
+          </span>
+          Take gems, buy cards for lasting discounts, and{' '}
+          {cities
+            ? 'meet a City to end the game.'
+            : `win the nobles over. First to ${target} points ends the game.`}
+          {strongholds ? ' Strongholds guard cards.' : ''}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              cities ? 'Cities' : `first to ${target}`,
+              ...(strongholds ? ['Strongholds'] : []),
+              showReserved ? 'reserved cards shown' : 'reserved cards hidden',
+              timersLine(timers, { clue: 'turns', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <Switch
+              on={cities}
+              editable={room.isHost}
+              title="Cities"
+              help="Cities replace the nobles and the target: meet a City’s points and cards to end the game, and only players who meet one can win."
+              onChange={(v) =>
+                void act({ type: 'update-settings', cities: v }, { anchor: 'jw-lobby' })
+              }
+              testId="jw-cities"
+            />
+            <Switch
+              on={strongholds}
+              editable={room.isHost}
+              title="Strongholds"
+              help="Three strongholds each. Every purchase places or moves one on a face-up card (or sends a lone opponent’s back): only you can buy a card you hold, and with all three on it you may buy it on top of your action."
+              onChange={(v) =>
+                void act({ type: 'update-settings', strongholds: v }, { anchor: 'jw-lobby' })
+              }
+              testId="jw-strongholds"
+            />
+            <div className={cities ? 'hidden' : 'flex flex-col gap-1.5'}>
+              <label htmlFor="jw-target" className="text-sm font-semibold">
+                Points to end the game: {target}
+                {target === DEFAULT_TARGET ? ' (the usual)' : ''}
+              </label>
+              <input
+                id="jw-target"
+                type="range"
+                min={MIN_TARGET}
+                max={MAX_TARGET}
+                value={target}
+                disabled={!room.isHost}
+                onChange={(e) =>
+                  void act(
+                    { type: 'update-settings', target: Number(e.target.value) },
+                    { anchor: 'jw-lobby' },
+                  )
+                }
+                // A 44 px tall row, so the slider is easy to catch on a phone.
+                className="h-11 w-full accent-accent"
+                data-testid="jw-target"
+              />
+              <span className="text-xs text-ink-muted">
+                Higher makes a longer game. The round is still finished once someone reaches it.
+              </span>
+            </div>
+            <Switch
+              on={showReserved}
+              editable={room.isHost}
+              title="Show reserved cards"
+              help="Cards reserved from the rows stay face up for everyone (cards reserved from a deck stay hidden). Off is the usual rule: others see how many and their level."
+              onChange={(v) =>
+                void act({ type: 'update-settings', showReserved: v }, { anchor: 'jw-lobby' })
+              }
+              testId="jw-show-reserved"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Turn timer"
+              clueHelp="Time for each turn."
+              strictHelp="a safe move is made for them (gems from the fullest piles)"
+              onChange={(patch) =>
+                void act(
+                  {
+                    type: 'update-settings',
+                    ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                    ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                  },
+                  { anchor: 'jw-lobby' },
+                )
+              }
+            />
+            <RefusalSlot anchor="jw-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'jw-start' })}
+            refusal="jw-start"
+          />
+        )
+      }
+    >
+      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -214,13 +342,6 @@ function Lobby({
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
         </div>
-        {(art.box ?? art.logo) && (
-          <ProtectedImage
-            src={(art.box ?? art.logo)!}
-            alt=""
-            className="max-h-40 w-full rounded-xl object-cover"
-          />
-        )}
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -256,115 +377,9 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <TokenChip token="red" art={art} size={22} />
-          <TokenChip token="gold" art={art} size={22} />
-          Take gems, buy cards for lasting discounts, and{' '}
-          {cities
-            ? 'meet a City to end the game.'
-            : `win the nobles over. First to ${target} points ends the game.`}
-          {strongholds ? ' Strongholds guard cards.' : ''}
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Jeweller'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          cities ? 'Cities' : `first to ${target}`,
-          ...(strongholds ? ['Strongholds'] : []),
-          showReserved ? 'reserved cards shown' : 'reserved cards hidden',
-          timersLine(timers, { clue: 'turns', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <Switch
-          on={cities}
-          editable={room.isHost}
-          title="Cities"
-          help="Cities replace the nobles and the target: meet a City’s points and cards to end the game, and only players who meet one can win."
-          onChange={(v) => void act({ type: 'update-settings', cities: v }, { anchor: 'jw-lobby' })}
-          testId="jw-cities"
-        />
-        <Switch
-          on={strongholds}
-          editable={room.isHost}
-          title="Strongholds"
-          help="Three strongholds each. Every purchase places or moves one on a face-up card (or sends a lone opponent’s back): only you can buy a card you hold, and with all three on it you may buy it on top of your action."
-          onChange={(v) =>
-            void act({ type: 'update-settings', strongholds: v }, { anchor: 'jw-lobby' })
-          }
-          testId="jw-strongholds"
-        />
-        <div className={cities ? 'hidden' : 'flex flex-col gap-1.5'}>
-          <label htmlFor="jw-target" className="text-sm font-semibold">
-            Points to end the game: {target}
-            {target === DEFAULT_TARGET ? ' (the usual)' : ''}
-          </label>
-          <input
-            id="jw-target"
-            type="range"
-            min={MIN_TARGET}
-            max={MAX_TARGET}
-            value={target}
-            disabled={!room.isHost}
-            onChange={(e) =>
-              void act(
-                { type: 'update-settings', target: Number(e.target.value) },
-                { anchor: 'jw-lobby' },
-              )
-            }
-            // A 44 px tall row, so the slider is easy to catch on a phone.
-            className="h-11 w-full accent-accent"
-            data-testid="jw-target"
-          />
-          <span className="text-xs text-ink-muted">
-            Higher makes a longer game. The round is still finished once someone reaches it.
-          </span>
-        </div>
-        <Switch
-          on={showReserved}
-          editable={room.isHost}
-          title="Show reserved cards"
-          help="Cards reserved from the rows stay face up for everyone (cards reserved from a deck stay hidden). Off is the usual rule: others see how many and their level."
-          onChange={(v) =>
-            void act({ type: 'update-settings', showReserved: v }, { anchor: 'jw-lobby' })
-          }
-          testId="jw-show-reserved"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Turn timer"
-          clueHelp="Time for each turn."
-          strictHelp="a safe move is made for them (gems from the fullest piles)"
-          onChange={(patch) =>
-            void act(
-              {
-                type: 'update-settings',
-                ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-              },
-              { anchor: 'jw-lobby' },
-            )
-          }
-        />
-        <RefusalSlot anchor="jw-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'jw-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="jw-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
@@ -379,7 +394,7 @@ function End({
   room: GameRoomInfo;
   act: Act;
   art: Art;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The finished table, as one of the end's parts. */
   table: ReactNode;
 }) {
   const g = view.game!;
@@ -415,123 +430,128 @@ function End({
     'Game over';
   return (
     <div className="flex flex-col gap-3">
-      <EndHero
-        title={title}
-        eyebrow={title === 'Game over' ? null : undefined}
-        emblem={winnerArt.length ? null : '💎'}
-        // The winners' nobles (or, without any, the last cards they bought): the game's own art.
-        art={winnerArt}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          <>
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  size="lg"
-                  onClick={() => void act({ type: 'play-again' }, { anchor: 'jw-end' })}
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'jw-end' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-            )}
-            <RefusalSlot anchor="jw-end" />
-          </>
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={winnerArt.length ? null : '💎'}
+            // The winners' nobles (or, without any, the last cards they bought): the game's own art.
+            art={winnerArt}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'jw-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'jw-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+                <RefusalSlot anchor="jw-end" />
+              </>
+            }
+          />
         }
-      />
-      <Panel className="jw-rise flex flex-col gap-3 max-lg:p-3">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <>
-                  <Standings
-                    entries={g.players.map((p) => ({
-                      id: p.id,
-                      name: p.name,
-                      score: score(p.id),
-                      note: p.removed
-                        ? 'removed after leaving'
-                        : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'}${cities ? (p.cities.length ? ' · 🏙 met a City' : ' · no City') : ` · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}`}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
-                    }))}
-                    you={room.you}
-                    scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
-                    // Phones: the table alone (the podium repeats it), so the end fits the screen.
-                    phoneTable
-                  />
-                </>
-              ),
-            },
-            {
-              id: 'hands',
-              label: '🃏 Hands',
-              content: (
-                <>
-                  <section aria-label="Every hand" className="flex flex-col gap-1 text-sm">
-                    <h3 className="font-semibold">What everyone had in hand</h3>
-                    <ul className="flex flex-col gap-1">
-                      {g.players.map((p) => (
-                        <li key={p.id} className="flex flex-wrap items-center gap-2">
-                          <span className="w-24 truncate">{p.name}</span>
-                          <span className="flex items-center gap-1">
-                            {/* The "none" dash only for an empty row: nobles follow the cards. */}
-                            {p.reserved.length === 0
-                              ? p.nobles.length === 0 && <span className="text-ink-muted">—</span>
-                              : p.reserved.map((r, i) =>
-                                  r.card ? (
-                                    <CardTile
-                                      key={i}
-                                      id={r.card}
-                                      art={art}
-                                      className="!w-20 lg:!w-24"
-                                    />
-                                  ) : (
-                                    <CardBack
-                                      key={i}
-                                      level={r.level}
-                                      art={art}
-                                      className="h-24 w-16 lg:h-28 lg:w-20"
-                                    />
-                                  ),
-                                )}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            {p.nobles.map((n) => (
-                              <NobleTile
-                                key={n}
-                                id={n}
-                                art={art}
-                                className="!size-14 lg:!size-16"
-                              />
-                            ))}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                </>
-              ),
-            },
-            !wide &&
-              !!room.superlatives?.length && {
-                id: 'awards',
-                label: '✨ Awards',
-                content: <Superlatives lines={room.superlatives} />,
+      >
+        <Panel className="jw-rise flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <>
+                    <Standings
+                      entries={g.players.map((p) => ({
+                        id: p.id,
+                        name: p.name,
+                        score: score(p.id),
+                        note: p.removed
+                          ? 'removed after leaving'
+                          : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'}${cities ? (p.cities.length ? ' · 🏙 met a City' : ' · no City') : ` · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}`}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
+                      }))}
+                      you={room.you}
+                      scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
+                      // Phones: the table alone (the podium repeats it), so the end fits the screen.
+                      phoneTable
+                    />
+                  </>
+                ),
               },
-            !!table && { id: 'table', label: '💎 Table', content: table },
-          ]}
-        />
-      </Panel>
+              {
+                id: 'hands',
+                label: '🃏 Hands',
+                content: (
+                  <>
+                    <section aria-label="Every hand" className="flex flex-col gap-1 text-sm">
+                      <h3 className="font-semibold">What everyone had in hand</h3>
+                      <ul className="flex flex-col gap-1">
+                        {g.players.map((p) => (
+                          <li key={p.id} className="flex flex-wrap items-center gap-2">
+                            <span className="w-24 truncate">{p.name}</span>
+                            <span className="flex items-center gap-1">
+                              {/* The "none" dash only for an empty row: nobles follow the cards. */}
+                              {p.reserved.length === 0
+                                ? p.nobles.length === 0 && <span className="text-ink-muted">—</span>
+                                : p.reserved.map((r, i) =>
+                                    r.card ? (
+                                      <CardTile
+                                        key={i}
+                                        id={r.card}
+                                        art={art}
+                                        className="!w-20 lg:!w-24"
+                                      />
+                                    ) : (
+                                      <CardBack
+                                        key={i}
+                                        level={r.level}
+                                        art={art}
+                                        className="h-24 w-16 lg:h-28 lg:w-20"
+                                      />
+                                    ),
+                                  )}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {p.nobles.map((n) => (
+                                <NobleTile
+                                  key={n}
+                                  id={n}
+                                  art={art}
+                                  className="!size-14 lg:!size-16"
+                                />
+                              ))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  </>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '💎 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
     </div>
   );
 }

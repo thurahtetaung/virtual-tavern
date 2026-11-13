@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   EndHero,
+  EndLayout,
   EndTabs,
   GuideLink,
   Fold,
@@ -22,12 +23,16 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  LobbyLayout,
+  LobbyPitch,
   LobbySettings,
+  LobbyStart,
   wordListsLine,
   timersLine,
   useWideScreen,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
+import { guide } from '../logic/guide.ts';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
@@ -100,59 +105,58 @@ export function CodenamesGame({
 
   if (view.phase === 'lobby') {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
-        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
-        <Teams view={view} online={online} act={act} hostId={room.hostId} />
-        <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />
-        <p className="text-center text-small">
-          <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
-          this game and has 9 agents to find; the other team has 8.
-        </p>
-        <LobbySettings
-          editable={room.isHost}
-          summary={[
-            wordListsLine(view.settings.wordListIds, room.wordLists),
-            timersLine(view.settings),
-          ]}
-          className="space-y-4"
-        >
-          <Settings
-            settings={view.settings}
-            wordLists={room.wordLists}
+      <LobbyLayout
+        pitch={
+          // Phones skip the pitch: the teams and Start must fit the first screen.
+          <LobbyPitch className="max-sm:hidden" title={room.gameName ?? 'Codenames'} emblem="🕵️">
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <LobbySettings
             editable={room.isHost}
-            act={act}
-          />
-        </LobbySettings>
-        {room.isHost && (
-          <StickyBar>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
+            summary={[
+              wordListsLine(view.settings.wordListIds, room.wordLists),
+              timersLine(view.settings),
+            ]}
+            className="space-y-4"
+          >
+            <Settings
+              settings={view.settings}
+              wordLists={room.wordLists}
+              editable={room.isHost}
+              act={act}
+            />
+          </LobbySettings>
+        }
+        start={
+          room.isHost && (
+            <LobbyStart
+              blocker={blocker}
+              onStart={() => void act({ type: 'start' })}
+              secondary={
                 <Button
-                  size="lg"
-                  disabled={blocker !== null}
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Start game
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
+                  variant="ghost"
+                  size="sm"
                   title="Shuffling keeps anyone who chose to be a Spymaster."
                   onClick={() => void act({ type: 'randomize-teams' })}
                 >
                   <Icon name="shuffle" />
                   Shuffle teams
                 </Button>
-              </div>
-              {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-              {/* Phones keep it as the button's tooltip, so the lobby fits the screen. */}
-              <p className="hidden text-caption text-ink-muted sm:block">
-                Shuffling keeps anyone who chose to be a Spymaster.
-              </p>
-            </div>
-          </StickyBar>
-        )}
-      </div>
+              }
+            />
+          )
+        }
+      >
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
+        <Teams view={view} online={online} act={act} hostId={room.hostId} />
+        <p className="text-center text-small">
+          <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
+          this game and has 9 agents to find; the other team has 8.
+        </p>
+        <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />
+      </LobbyLayout>
     );
   }
 
@@ -250,6 +254,7 @@ function InGame({
       }
       eyebrow={view.winner ? undefined : null}
       tone={tone}
+      superlatives={wide ? room.superlatives : undefined}
       actions={endButtons}
     >
       {/* Wide screens fold the last guess's banner ("It's the assassin!") into the finale. */}
@@ -301,6 +306,51 @@ function InGame({
       />
     </>
   );
+
+  // Wide screens: the finale and awards beside the revealed key, then the log and the teams, all
+  // fitted to the window.
+  if (wide && view.phase === 'over')
+    return (
+      <div className="space-y-3">
+        {confirmDialog}
+        <EndLayout className="grid-cols-[minmax(0,22rem)_minmax(0,1fr)]" hero={hero}>
+          <ScoreBar view={view} clockOffset={room.clockOffset} />
+          <EndTabs
+            tabs={[
+              {
+                id: 'board',
+                label: '🗝️ Key',
+                content: (
+                  <Board
+                    view={view}
+                    selected={null}
+                    lastGuessed={result?.card ?? null}
+                    onPick={null}
+                  />
+                ),
+              },
+              {
+                id: 'log',
+                label: '📜 Log',
+                content: (
+                  <Panel>
+                    <h3 className="mb-1 font-bold">Game log</h3>
+                    <GameLog view={view} />
+                  </Panel>
+                ),
+              },
+              {
+                id: 'teams',
+                label: '👥 Teams',
+                content: (
+                  <TeamsSection view={view} online={online} act={act} hostId={room.hostId} />
+                ),
+              },
+            ]}
+          />
+        </EndLayout>
+      </div>
+    );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
@@ -444,12 +494,6 @@ function InGame({
         )}
         {...(shown && shown !== 'board' && tabPanelProps(PLAY_TABS_ID, shown))}
       >
-        {wide && view.phase === 'over' && (
-          <>
-            {hero}
-            {!!room.superlatives?.length && <Superlatives lines={room.superlatives} />}
-          </>
-        )}
         {shown !== 'teams' && (
           <Panel>
             <h3 className="mb-1 font-bold">Game log</h3>

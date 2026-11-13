@@ -10,6 +10,7 @@ import {
 import {
   Button,
   EndHero,
+  EndLayout,
   EndTabs,
   Fold,
   GuideLink,
@@ -20,7 +21,6 @@ import {
   ProtectedImage,
   RefusalSlot,
   Standings,
-  StickyBar,
   Superlatives,
   Switch,
   TimerSettings,
@@ -29,6 +29,9 @@ import {
   usePhone,
   useSpectatorPrompt,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { fullRows } from '../logic/rules.ts';
@@ -227,7 +230,100 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Mosaic'}
+          emblem="🧩"
+          art={
+            art.box && (
+              <ProtectedImage src={art.box} alt="" className="w-full rounded-lg object-cover" />
+            )
+          }
+        >
+          <span className="mr-1 inline-flex gap-0.5 align-middle">
+            {COLOURS.map((c) => (
+              <Tile key={c} colour={c} art={art} size={20} />
+            ))}
+          </span>
+          <span>
+            Take tiles of one colour, fill your lines, and tile a wall that scores in runs.{' '}
+            {FACTORIES_FOR[n]} factories for {n} players.
+          </span>
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              ...(options.length ? [options.join(', ')] : []),
+              timersLine(timers, { clue: 'turns', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <Switch
+              on={!!view.settings.grey}
+              editable={room.isHost}
+              title="Grey wall"
+              help="The blank side of the board: a full line’s tile goes on any free space of its row that you choose, but no colour may appear twice in a row or a column. A line with no such space falls to the floor."
+              onChange={(v) =>
+                void act({ type: 'update-settings', grey: v }, { anchor: 'mo-lobby' })
+              }
+              testId="mo-grey"
+            />
+            <Switch
+              on={!!view.settings.jokers}
+              editable={room.isHost}
+              title="Jokers"
+              help="Jokers replace a few tiles of each colour. Taking a place’s jokers, you may take one other colour there too; a line holds one colour plus jokers, and a joker goes to the wall in its place. Jokers count for rows and columns, never for a colour."
+              onChange={(v) =>
+                void act({ type: 'update-settings', jokers: v }, { anchor: 'mo-lobby' })
+              }
+              testId="mo-jokers"
+            />
+            <Switch
+              on={!!view.settings.specials}
+              editable={room.isHost}
+              title="Special factories"
+              help="Each round, one factory per player turns special at random: +1 tile, gathers its colour from its neighbours, keeps its leftovers, sends them to its neighbours, or becomes a floor shield."
+              onChange={(v) =>
+                void act({ type: 'update-settings', specials: v }, { anchor: 'mo-lobby' })
+              }
+              testId="mo-specials"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Turn timer"
+              clueHelp="Time for each turn. By default it only nudges."
+              strictHelp="the safe move is made for them (the take that costs least)"
+              onChange={(patch) =>
+                void act(
+                  {
+                    type: 'update-settings',
+                    ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                    ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                  },
+                  { anchor: 'mo-lobby' },
+                )
+              }
+            />
+            <RefusalSlot anchor="mo-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'mo-start' })}
+            refusal="mo-start"
+          />
+        )
+      }
+    >
+      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -235,13 +331,6 @@ function Lobby({
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
         </div>
-        {art.box && (
-          <ProtectedImage
-            src={art.box}
-            alt=""
-            className="max-h-40 w-full rounded-xl object-cover"
-          />
-        )}
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -277,85 +366,9 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="flex flex-wrap items-center gap-1 text-sm text-ink-muted">
-          {COLOURS.map((c) => (
-            <Tile key={c} colour={c} art={art} size={20} />
-          ))}
-          <span className="ml-1">
-            Take tiles of one colour, fill your lines, and tile a wall that scores in runs.{' '}
-            {FACTORIES_FOR[n]} factories for {n} players.
-          </span>
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Mosaic'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          ...(options.length ? [options.join(', ')] : []),
-          timersLine(timers, { clue: 'turns', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <Switch
-          on={!!view.settings.grey}
-          editable={room.isHost}
-          title="Grey wall"
-          help="The blank side of the board: a full line’s tile goes on any free space of its row that you choose, but no colour may appear twice in a row or a column. A line with no such space falls to the floor."
-          onChange={(v) => void act({ type: 'update-settings', grey: v }, { anchor: 'mo-lobby' })}
-          testId="mo-grey"
-        />
-        <Switch
-          on={!!view.settings.jokers}
-          editable={room.isHost}
-          title="Jokers"
-          help="Jokers replace a few tiles of each colour. Taking a place’s jokers, you may take one other colour there too; a line holds one colour plus jokers, and a joker goes to the wall in its place. Jokers count for rows and columns, never for a colour."
-          onChange={(v) => void act({ type: 'update-settings', jokers: v }, { anchor: 'mo-lobby' })}
-          testId="mo-jokers"
-        />
-        <Switch
-          on={!!view.settings.specials}
-          editable={room.isHost}
-          title="Special factories"
-          help="Each round, one factory per player turns special at random: +1 tile, gathers its colour from its neighbours, keeps its leftovers, sends them to its neighbours, or becomes a floor shield."
-          onChange={(v) =>
-            void act({ type: 'update-settings', specials: v }, { anchor: 'mo-lobby' })
-          }
-          testId="mo-specials"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Turn timer"
-          clueHelp="Time for each turn. By default it only nudges."
-          strictHelp="the safe move is made for them (the take that costs least)"
-          onChange={(patch) =>
-            void act(
-              {
-                type: 'update-settings',
-                ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-              },
-              { anchor: 'mo-lobby' },
-            )
-          }
-        />
-        <RefusalSlot anchor="mo-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'mo-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="mo-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
@@ -407,60 +420,61 @@ function End({
   const winners = g.players.filter((p) => g.winners.includes(p.id));
   const top = winners[0]?.score ?? 0;
   return (
-    <div className="flex flex-col gap-2 lg:mx-auto lg:w-full lg:max-w-6xl lg:gap-4">
-      <EndHero
-        title={
-          winTitle(
-            winners.map((p) => p.id),
-            (id) => g.players.find((p) => p.id === id)?.name ?? '',
-            room.you,
-          ) || 'Game over'
-        }
-        eyebrow={winners.length ? undefined : null}
-        emblem={!wide && winners[0] ? null : undefined}
-        // Phones: the winner's wall in the finale (wide screens show every wall beside it).
-        art={
-          !wide &&
-          winners[0] && (
-            <BoardView
-              board={winners[0]}
-              art={art}
-              size="sm"
-              owner={winners[0].id}
-              grey={!!view.settings.grey}
-            />
-          )
-        }
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          <>
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  size="lg"
-                  onClick={() => void act({ type: 'play-again' }, { anchor: 'mo-end' })}
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'mo-end' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-            )}
-            <RefusalSlot anchor="mo-end" />
-          </>
+    <div className="flex flex-col gap-2 lg:mx-auto lg:w-full lg:max-w-6xl">
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              winTitle(
+                winners.map((p) => p.id),
+                (id) => g.players.find((p) => p.id === id)?.name ?? '',
+                room.you,
+              ) || 'Game over'
+            }
+            eyebrow={winners.length ? undefined : null}
+            emblem={winners[0] ? null : undefined}
+            // The winner's wall in the finale; every wall is one of the end's parts.
+            art={
+              winners[0] && (
+                <BoardView
+                  board={winners[0]}
+                  art={art}
+                  size={wide ? 'md' : 'sm'}
+                  owner={winners[0].id}
+                  grey={!!view.settings.grey}
+                />
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'mo-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'mo-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+                <RefusalSlot anchor="mo-end" />
+              </>
+            }
+          >
+            {winners.length > 0 && `${top} ${top === 1 ? 'point' : 'points'} on the wall.`}
+          </EndHero>
         }
       >
-        {winners.length > 0 && `${top} ${top === 1 ? 'point' : 'points'} on the wall.`}
-      </EndHero>
-      {/* Wide screens: the standings beside every final wall, shown large. */}
-      <div className="flex flex-col gap-2 lg:mx-auto lg:grid lg:w-full lg:max-w-6xl lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
         <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
           <EndTabs
             tabs={[
@@ -494,7 +508,7 @@ function End({
                   label: '✨ Awards',
                   content: <Superlatives lines={room.superlatives} />,
                 },
-              !wide && {
+              {
                 id: 'walls',
                 label: '🧱 Walls',
                 content: <Tiling view={view} room={room} act={act} art={art} />,
@@ -502,8 +516,7 @@ function End({
             ]}
           />
         </Panel>
-        {wide && <Tiling view={view} room={room} act={act} art={art} size="md" />}
-      </div>
+      </EndLayout>
     </div>
   );
 }

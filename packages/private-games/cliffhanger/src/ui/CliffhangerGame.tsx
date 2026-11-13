@@ -237,7 +237,7 @@ function Game(props: CliffhangerUiProps) {
   return (
     <div className="space-y-3">
       {profile !== 'stage' && <MomentOverlay view={view} clockOffset={room.clockOffset} />}
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+      <div className={cn('grid gap-4', view.phase !== 'over' && 'lg:grid-cols-[1fr_22rem]')}>
         <div
           className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}
           {...(!wide && tab === 'play' && tabPanelProps(TABS_ID, 'play'))}
@@ -261,9 +261,13 @@ function Game(props: CliffhangerUiProps) {
           {/* Never between a player on the clock and their buttons. */}
           {view.phase === 'playing' && !status.yourMove && <Tips view={view} />}
           {view.phase === 'over' ? (
-            <Panel>
-              <End view={view} room={room} act={act} />
-            </Panel>
+            <End
+              view={view}
+              room={room}
+              act={act}
+              // Wide screens: the board is one of the end's parts, so the end fills the page.
+              board={wide && <Board view={view} room={room} act={act} online={online} />}
+            />
           ) : (
             <>
               <Panel>
@@ -273,7 +277,11 @@ function Game(props: CliffhangerUiProps) {
           )}
         </div>
         <aside
-          className={cn('min-w-0', tab !== 'board' && 'hidden lg:block')}
+          className={cn(
+            'min-w-0',
+            tab !== 'board' && 'hidden lg:block',
+            view.phase === 'over' && 'lg:hidden',
+          )}
           {...(!wide && tab === 'board' && tabPanelProps(TABS_ID, 'board'))}
         >
           <Board view={view} room={room} act={act} online={online} />
