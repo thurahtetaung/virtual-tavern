@@ -12,10 +12,11 @@ import {
   type TabBarItem,
   cn,
   tabPanelProps,
+  useFreeHeight,
   useWideScreen,
   FoldSummary,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type HandCard,
   type Strength,
@@ -41,6 +42,12 @@ import { type NameOf, endLine, logLine, poss } from './text.ts';
 export type Act = (action: EncoreAction, options?: { anchor?: string }) => Promise<boolean>;
 
 export const TIPS_KEY = 'encore.tips';
+
+/**
+ * The free band (px) a phone needs from the hand's top to the bars to show the bigger cards: the
+ * grown hand panel and the "What beats what?" line under it.
+ */
+const HAND_GROW_ROOM = 240;
 
 export function tipsSeen(): boolean {
   try {
@@ -426,6 +433,10 @@ function Play({
   const turnKey = `${g.round}:${view.log.at(-1)?.id ?? 0}:${g.current}`;
   const [recruiting, setRecruiting] = useState<Recruiting | null>(null);
   const wide = useWideScreen();
+  // Phones: the hand's cards grow only when the band from the hand down to the bars has room.
+  const handRef = useRef<HTMLDivElement>(null);
+  const free = useFreeHeight(handRef, !wide && !!g.hand);
+  const roomyHand = free !== null && free >= HAND_GROW_ROOM;
   const [picking, setPicking] = useState<{ double: boolean } | null>(null);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -587,9 +598,15 @@ function Play({
             )}
           </>
         ) : (
-          <p className="text-center text-sm text-ink-muted">
-            {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
-            The table is empty: the next player shows anything.
+          // An empty place on the felt, a show's height, waiting for the next one.
+          <p
+            data-testid="en-table-empty"
+            className="flex min-h-24 w-full max-w-md items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-sunk px-4 py-3 text-center text-sm text-ink-2 sm:min-h-28 lg:min-h-36"
+          >
+            <span>
+              {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
+              The table is empty: the next player shows anything.
+            </span>
           </p>
         )}
       </div>
@@ -609,7 +626,10 @@ function Play({
       )}
 
       {g.hand ? (
-        <div className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line">
+        <div
+          ref={handRef}
+          className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line"
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold">Your hand · {plural(hand.length, 'card')}</h3>
             <span className="text-xs text-ink-muted">
@@ -629,6 +649,9 @@ function Play({
             }
             // Wide screens: cards about 104 × 146 px.
             cardMax={wide && !recruiting ? '6.5rem' : undefined}
+            // Phones with room under the hand: about 70 × 98 px, so both numbers on each card read;
+            // the lane scrolls.
+            cardMin={!wide && roomyHand ? '4.4rem' : undefined}
             turning={turning}
             art={art}
             selected={choosingShow ? sel : null}

@@ -155,6 +155,8 @@ export interface HandProps {
   columns?: number;
   /** The widest a card gets (default 6rem). */
   cardMax?: string;
+  /** The narrowest a card gets before the lane scrolls (default 3.6rem). */
+  cardMin?: string;
   /** Each card plays its half-turn in place (the hand was just turned round). */
   turning?: boolean;
   label?: string;
@@ -176,6 +178,7 @@ export function Hand({
   onGap,
   columns,
   cardMax = '6rem',
+  cardMin = '3.6rem',
   turning,
   label = 'Your hand',
   className,
@@ -198,9 +201,9 @@ export function Hand({
       style={{
         ...scrollFadeMask(stripEnds),
         // Cards take the width there is, up to `cardMax` (6rem unless the screen asks for more),
-        // and never below 3.6rem: past that the lane scrolls (the order can't change, so it
+        // and never below `cardMin`: past that the lane scrolls (the order can't change, so it
         // never wraps).
-        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : `minmax(3.6rem, ${cardMax})`})`,
+        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : `minmax(${cardMin}, ${cardMax})`})`,
       }}
     >
       {cards.map((c, i) => {
