@@ -347,7 +347,12 @@ function InGame({
     return (
       <div className="space-y-3">
         {confirmDialog}
-        <EndLayout className="grid-cols-[minmax(0,22rem)_minmax(0,1fr)]" hero={hero}>
+        <EndLayout
+          className="grid-cols-[minmax(0,22rem)_minmax(0,1fr)]"
+          hero={hero}
+          // The revealed key stays beside the finale (a banner would drop it under, at half size).
+          banner={false}
+        >
           <ScoreBar view={view} clockOffset={room.clockOffset} />
           <EndTabs
             tabs={[
