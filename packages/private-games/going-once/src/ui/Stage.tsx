@@ -1,10 +1,17 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { ProtectedImage, usePlayerColor } from '@vt/ui';
+import {
+  type IconName,
+  ProtectedImage,
+  usePlayerColor,
+  useSecondsLeft as useSecondsTo,
+} from '@vt/ui';
 import {
   Label,
   Layer,
   type LoadedRig,
   Poster,
+  PosterClock,
+  PosterSlate,
   RigArt,
   Scene,
   ShowTargetsProvider,
@@ -361,6 +368,22 @@ function Plain({
             {g.winners.map(name).join(' & ')} {g.winners.length === 1 ? 'wins' : 'share the win'}!
           </span>
         }
+        line="Final count: cash plus art, less any loans."
+        // The final standings at poster size, best first.
+        choices={[...g.final]
+          .sort((a, b) => b.score - a.score)
+          .map((f, i) => (
+            <PosterSlate
+              key={f.id}
+              state={g.winners.includes(f.id) ? 'won' : 'open'}
+              className="min-w-[240px]"
+            >
+              <span className="text-[24px] text-ink-muted">{i + 1}.</span>
+              <span className="block text-[32px]">{name(f.id)}</span>
+              <span className="block font-display text-[44px] tabular-nums">{money(f.score)}</span>
+            </PosterSlate>
+          ))}
+        footer={{ icon: 'hand', text: 'Every lot and award is on your phone.' }}
       />
     );
   if (lot)
@@ -389,18 +412,68 @@ function Plain({
               house={lot.picture.house}
               art={art}
               label="The lot"
+              tv
             />
           </div>
           {line && <div className="max-w-[640px] text-left [&_p]:text-[28px]">{line}</div>}
         </div>
       </Poster>
     );
+  const more = STAGE_MORE[g.stage];
   return (
-    <Poster testId="go-stage-plain" headline={STAGE_WORDS[g.stage]}>
+    <Poster
+      testId="go-stage-plain"
+      eyebrow={more?.eyebrow}
+      headline={STAGE_WORDS[g.stage]}
+      line={more?.line}
+      clock={more?.clock && <StageClock view={view} offset={host} label={more.clock} />}
+      footer={more?.footer}
+    >
       {line && <div className="max-w-[1200px] [&_p]:text-[28px]">{line}</div>}
     </Poster>
   );
 }
+
+/** The stage's own clock, once it runs (drawing's starts after the instructions, as on phones). */
+function StageClock({
+  view,
+  offset,
+  label,
+}: {
+  view: GoingOnceView;
+  offset: number;
+  label: string;
+}) {
+  const g = view.game!;
+  const startsIn = useSecondsTo(g.stage === 'draw' ? g.drawFrom : null, offset);
+  if ((startsIn ?? 0) > 0 || !g.until) return null;
+  return <PosterClock deadline={g.until} clockOffset={offset} label={label} />;
+}
+
+/** What the poster adds per stage: the moment, one sentence, its clock and what phones do. */
+const STAGE_MORE: Record<
+  string,
+  { eyebrow: string; line: string; clock?: string; footer: { icon: IconName; text: string } }
+> = {
+  draw: {
+    eyebrow: 'Drawing time',
+    line: 'Everyone draws two pictures from secret titles. They go up for auction next.',
+    clock: 'to draw',
+    footer: { icon: 'hand', text: 'Draw on your phone.' },
+  },
+  halftime: {
+    eyebrow: 'Half-time',
+    line: 'Everyone has one screw for the rest of the game: force a player to bid $100 more.',
+    clock: 'until the next lot',
+    footer: { icon: 'hand', text: 'Press Screw on your phone during a lot.' },
+  },
+  bank: {
+    eyebrow: 'Loans',
+    line: 'Someone is low on cash, so the bank offers everyone a loan.',
+    clock: 'until it closes',
+    footer: { icon: 'hand', text: 'Answer the bank on your phone.' },
+  },
+};
 
 const STAGE_WORDS: Record<string, string> = {
   intro: 'How the auction works',

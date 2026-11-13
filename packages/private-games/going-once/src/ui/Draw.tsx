@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag, useSecondsLeft } from '@vt/ui';
+import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag, cn, useSecondsLeft } from '@vt/ui';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
@@ -16,10 +16,11 @@ const SEND_EARLY_MS = 1200;
  */
 const AROUND_PX = { quiet: 315, full: 410 };
 /**
- * Desktops: what the page has around the pad (the room's header, the status, the title, the
- * pens, the clock and Send), so all of it fits a 900 px window with the pad.
+ * Desktops: what the page has around the pad (the room's header, the status, the auctioneer's
+ * words, the title and the note; the pens, the clock and Send sit beside it), so all of it fits a
+ * 900 px window with the pad.
  */
-const AROUND_DESKTOP_PX = 490;
+const AROUND_DESKTOP_PX = 400;
 
 export function Draw({
   view,
@@ -50,7 +51,7 @@ export function Draw({
   const index = mine.prompts.findIndex((p) => !p.sent);
   const todo = index >= 0 ? mine.prompts[index]! : null;
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+    <div className={cn('mx-auto flex w-full max-w-md flex-col gap-3', todo && 'lg:max-w-4xl')}>
       {todo ? (
         <Panel className="flex flex-col gap-2 p-3">
           {/* Phones: the status line above says what to draw and which of the two it is. */}
@@ -66,7 +67,7 @@ export function Draw({
           <div
             style={{
               ['--sheet' as string]: `max(13rem, calc((100svh - ${quiet ? AROUND_PX.quiet : AROUND_PX.full}px) * 0.8))`,
-              ['--sheet-lg' as string]: `max(12rem, calc((100svh - ${AROUND_DESKTOP_PX}px) * 0.8))`,
+              ['--sheet-lg' as string]: `min(34rem, max(12rem, calc((100svh - ${AROUND_DESKTOP_PX}px) * 0.8)))`,
             }}
           >
             <PadFrame>
@@ -81,6 +82,7 @@ export function Draw({
                 submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
                 refusal="go-draw"
                 bar
+                beside
                 footer={
                   clock && (
                     <span className="flex items-center gap-1.5">

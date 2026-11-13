@@ -3,6 +3,7 @@ import {
   type Drawing,
   type GameRoomInfo,
   type GameUiProps,
+  listNames,
   lobbyStatus,
   playersNeeded,
   waitingFor,
@@ -11,6 +12,7 @@ import {
 import {
   Button,
   Countdown,
+  EndHero,
   EndTabs,
   FitArea,
   GuideLink,
@@ -688,12 +690,17 @@ function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; a
 
 function Halftime({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
   return (
-    <Panel className="flex flex-col items-center gap-2 text-center" data-testid="go-halftime">
-      <p className="text-3xl" aria-hidden>
+    <Panel
+      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-2 text-center lg:mt-[6vh] lg:gap-3 lg:px-10 lg:py-10"
+      data-testid="go-halftime"
+    >
+      <p className="vt-end-pop text-5xl lg:text-6xl" aria-hidden>
         🔩
       </p>
-      <h2 className="text-xl font-bold">Half-time: screws are unlocked!</h2>
-      <p className="max-w-md text-sm">
+      <h2 className="font-display text-title font-semibold text-balance">
+        Half-time: screws are unlocked!
+      </h2>
+      <p className="max-w-md text-sm lg:text-body">
         Everyone has one screw for the rest of the game. Press Screw during a lot and pick a player:
         they must bid $100 more than the top bid ($400 if nobody has bid), the top bidder too.
         Nobody can screw again until someone makes a free bid.
@@ -728,13 +735,13 @@ function Bank({
   const f = (s: string) => fillNames(s, art.names);
   return (
     <Panel
-      className="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center"
+      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-3 text-center lg:mt-[6vh] lg:px-10 lg:py-10"
       data-testid="go-bank"
     >
-      <p className="text-3xl" aria-hidden>
+      <p className="vt-end-pop text-5xl lg:text-6xl" aria-hidden>
         🏦
       </p>
-      <h2 className="text-xl font-bold">{f('{Bank} is open')}</h2>
+      <h2 className="font-display text-title font-semibold text-balance">{f('{Bank} is open')}</h2>
       {mine && !mine.bankDone ? (
         mine.canLoan ? (
           <>
@@ -957,8 +964,40 @@ function End({
       </ul>
     </Panel>
   );
+  const ranked = [...final].sort((a, b) => b.score - a.score);
+  const best = ranked[0]?.score;
+  const champs = ranked.filter((f) => f.score === best);
+  // The priciest lot of the night, large, beside the result.
+  const star = [...g.results].filter((r) => r.buyer).sort((a, b) => b.price - a.price)[0];
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+      {g.ended !== 'no-drawings' && champs.length > 0 && (
+        <EndHero
+          className="lg:col-span-2"
+          emblem="🔨"
+          title={`${listNames(champs.map((f) => (f.id === room.you ? 'You' : name(f.id))))} ${champs.length > 1 || champs[0]!.id === room.you ? 'win' : 'wins'}!`}
+          art={
+            wide &&
+            star && (
+              <figure className="w-48 space-y-1 xl:w-56">
+                <Picture
+                  drawing={star.drawing ?? seen.get(star.item) ?? null}
+                  house={star.house}
+                  art={art}
+                  label={star.title}
+                  className="w-full shadow-vt-2 ring-1 ring-line"
+                />
+                <figcaption className="text-small text-ink-2">
+                  Top lot: <span className="font-semibold text-ink">{star.title}</span>,{' '}
+                  {money(star.price)}
+                </figcaption>
+              </figure>
+            )
+          }
+        >
+          {money(best ?? 0)} at the final count, after {g.results.length} lots.
+        </EndHero>
+      )}
       <EndTabs
         testId="go-end-tab"
         tabs={[
