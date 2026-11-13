@@ -256,7 +256,7 @@ function MenuStrip({
             key={t}
             type="button"
             onClick={() => showGuide(t)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-card px-2 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel"
             title={`${art.names.type(t)}: ${TYPES[t].short}`}
           >
             {tile ? (
@@ -320,7 +320,7 @@ function Moments({
                 )}
               </CardFace>
             </span>
-            <span className={cn('max-w-14 truncate text-[0.65rem]', p.by === you && 'font-bold')}>
+            <span className={cn('max-w-14 truncate text-xs', p.by === you && 'font-bold')}>
               {name(p.by)}
             </span>
           </li>
@@ -568,7 +568,7 @@ function TrayGroups({
                       </span>
                     )}
                     {typeOf(c.k) === 'wasabi' && c.filled && !c.flipped && (
-                      <span className="absolute right-0.5 bottom-0.5 text-[0.6rem] font-bold">
+                      <span className="absolute right-0.5 bottom-0.5 text-xs font-bold">
                         used
                       </span>
                     )}
@@ -577,7 +577,7 @@ function TrayGroups({
               );
             })}
           </span>
-          <span className="text-[0.65rem] text-ink-muted">
+          <span className="text-xs text-ink-muted">
             {t === 'flipped' ? 'face down' : art.names.type(t as TypeId)} ×{cards.length}
           </span>
         </li>
@@ -923,7 +923,7 @@ function Play({
                       {delta !== null && typeOf(c.k) !== 'order' && (
                         <span
                           className={cn(
-                            'rounded-full px-1.5 text-[0.65rem] font-bold tabular-nums',
+                            'rounded-full px-1.5 text-xs font-bold tabular-nums',
                             delta > 0
                               ? 'bg-success-soft text-success-ink'
                               : delta < 0
@@ -945,7 +945,7 @@ function Play({
           {chosen && (
             <button
               type="button"
-              className="self-start text-xs underline"
+              className="min-h-11 self-start text-sm underline"
               onClick={() => zoom(choices, choices.indexOf(chosen), title)}
             >
               🔍 See {art.names.card(chosen.k)} big

@@ -391,7 +391,7 @@ function MenuPicker({
           key={t}
           className={cn(
             'rounded-full bg-panel px-1.5 text-xs ring-1 ring-line',
-            !!count && !allowedAt(t, count) && 'line-through opacity-60',
+            !!count && !allowedAt(t, count) && 'text-ink-muted line-through',
           )}
         >
           {TYPES[t].emoji} {art.names.type(t)}
@@ -415,13 +415,15 @@ function MenuPicker({
                 className={cn(
                   'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line',
                   st.menu === p.id && 'ring-2 ring-accent',
-                  !ok && 'opacity-60',
+                  !ok && 'bg-sunk',
                 )}
               >
                 <span className="text-sm font-semibold">
                   {art.names.menu(p.id, p.name)}
                   {!ok && (
-                    <span className="ml-1 text-xs font-normal">(not for {count} players)</span>
+                    <span className="ml-1 text-xs font-normal text-ink-2">
+                      <span aria-hidden>🚫</span> not for {count} players
+                    </span>
                   )}
                 </span>
                 <span className="text-xs text-ink-muted">{p.blurb}</span>
