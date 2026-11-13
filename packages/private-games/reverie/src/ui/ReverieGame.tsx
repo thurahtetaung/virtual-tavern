@@ -837,7 +837,9 @@ function Play({
                     className="flex gap-2 overflow-x-auto px-1 py-1.5"
                   >
                     {view.hand.map((card) => (
-                      <li key={card} className="w-24 shrink-0 sm:w-36">
+                      // While cards are being chosen the hand is the screen's art, so it is as
+                      // large on phones as on wider screens.
+                      <li key={card} className={cn('shrink-0 sm:w-36', handNeeded ? 'w-36' : 'w-24')}>
                         <Card
                           card={card}
                           eager
