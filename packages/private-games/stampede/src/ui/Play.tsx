@@ -47,7 +47,9 @@ export function Question({ prompt, small = false }: { prompt: string; small?: bo
       data-testid="question"
       className={cn(
         'text-center leading-snug font-bold text-balance break-words',
-        small ? 'text-lg sm:text-xl' : 'font-display text-3xl sm:text-4xl lg:text-4xl',
+        small
+          ? 'text-lg sm:text-xl lg:text-2xl'
+          : 'font-display text-3xl sm:text-4xl lg:py-4 lg:text-5xl',
       )}
     >
       {prompt}
