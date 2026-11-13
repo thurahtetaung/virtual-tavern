@@ -652,20 +652,31 @@ export function TurnStage({
   }
   if (reveal.progress) {
     return (
-      <div className="space-y-3">
+      // Wide screens: the drawing on the left, the titles turning over beside it, so the whole
+      // reveal and Next drawing are in view.
+      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:space-y-0">
         {/* Mounted for the whole reveal (each step's moments find its parts), shown while it runs. */}
-        <PhoneCard shown />
+        <div className="lg:col-start-2 lg:row-start-1">
+          <PhoneCard shown />
+        </div>
         {/* A phone with the balloon card has no room for the drawing too (the card is the show). */}
-        <div className={cn(cardShown && 'max-lg:hidden')}>
+        <div
+          className={cn(
+            'lg:col-start-1 lg:row-span-2 lg:row-start-1',
+            cardShown && 'max-lg:hidden',
+          )}
+        >
           {drawing(36 * reveal.progress.step + 212, false)}
         </div>
-        <RevealSequence
-          view={view}
-          turn={turn}
-          reveal={reveal}
-          isHost={isHost}
-          onSkip={() => void act({ type: 'skip-reveal' })}
-        />
+        <div className="lg:col-start-2 lg:row-start-2 lg:mt-3">
+          <RevealSequence
+            view={view}
+            turn={turn}
+            reveal={reveal}
+            isHost={isHost}
+            onSkip={() => void act({ type: 'skip-reveal' })}
+          />
+        </div>
       </div>
     );
   }

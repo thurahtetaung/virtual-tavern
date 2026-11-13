@@ -16,8 +16,8 @@ import type { Act } from './act.ts';
 /** How long before a strict drawing clock ends the pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
 const DRAW_ANCHOR = 'sketchy-draw';
-/** The prompt's header (its label and a one-line prompt), in px, which the sheet's size allows for. */
-const ONE_LINE = 44;
+/** The prompt's row on a phone (a one-line prompt and New prompt), in px, which the sheet's size allows for. */
+const ONE_LINE = 36;
 
 /** How much taller than that the header is (0 while it fits). */
 function useExtraLines() {
@@ -109,31 +109,30 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
       <Panel className="flex flex-col gap-2 p-3 lg:p-5">
         {/* Desktops show the prompt beside the sheet (the pad's `aside`), phones above it. */}
         {!wide && (
-          <div ref={heading} className="flex flex-col gap-1">
-            <div className="flex min-h-9 items-center justify-between gap-2">
-              <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
-              {g.canReroll && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-9 shrink-0 px-3"
-                  disabled={busy}
-                  onClick={() => void reroll()}
-                >
-                  🎲 New prompt
-                </Button>
-              )}
-            </div>
-            {/* The whole width, so a long prompt wraps as little as it can. */}
+          // One row: the prompt, and New prompt beside it (the status line above already says
+          // nobody else sees it), so the sheet gets the height.
+          <div ref={heading} className="flex min-h-9 items-center justify-between gap-2">
+            <p className="sr-only">Draw this (only you see it):</p>
             <h2
               data-testid="sketchy-prompt"
               className={cn(
-                'leading-snug font-bold break-words',
+                'min-w-0 leading-snug font-bold break-words',
                 g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
               )}
             >
               {g.myPrompt}
             </h2>
+            {g.canReroll && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9 shrink-0 px-3"
+                disabled={busy}
+                onClick={() => void reroll()}
+              >
+                🎲 New prompt
+              </Button>
+            )}
           </div>
         )}
         <DrawingPad
@@ -173,12 +172,13 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
             )
           }
           // The sheet is as big as the screen allows with everything else in view (on a phone
-          // about 570 px of room, tabs, a one-line prompt, both rows of pens and Send around it, plus the
-          // prompt's extra lines; on a desktop, with the prompt, pens and Send beside it, about
+          // about 450 px of room, tabs, the prompt's row, both rows of pens and Send around it, plus
+          // the prompt's extra lines; on a desktop, with the prompt, pens and Send beside it, about
           // 340 px of site and room header, round line and the note under it), never too small.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_570px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_450px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
         />
-        <p className="text-xs text-ink-muted">
+        {/* Desktops only: on a phone the sheet needs the height (the guide says how scoring works). */}
+        <p className="text-xs text-ink-muted max-lg:hidden">
           Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.
         </p>
       </Panel>
