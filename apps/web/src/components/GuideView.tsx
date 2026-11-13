@@ -297,8 +297,17 @@ export function GuideView({
             open={setCard}
           />
         )}
-        {tab === 'rules' && <Rules guide={guide} ctx={ctx} inRoom={inRoom} />}
-        {tab === 'ref' && <Reference guide={guide} />}
+        {/* Prose keeps a reading width when the guide is wide. */}
+        {tab === 'rules' && (
+          <div className={cn(!compact && 'xl:mx-auto xl:max-w-3xl')}>
+            <Rules guide={guide} ctx={ctx} inRoom={inRoom} />
+          </div>
+        )}
+        {tab === 'ref' && (
+          <div className={cn(!compact && 'xl:mx-auto xl:max-w-3xl')}>
+            <Reference guide={guide} />
+          </div>
+        )}
       </div>
       {ready && !(rail && tab === 'learn') && <div className="mt-8">{ready}</div>}
 
@@ -645,7 +654,7 @@ export function Stepper({
                 'mb-3 flex items-center justify-center overflow-hidden rounded-lg',
                 // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
                 !step.art && 'bg-sunk',
-                compact ? 'h-28' : 'h-32 sm:h-40',
+                compact ? 'h-28' : 'h-32 sm:h-40 xl:h-64',
               )}
             >
               {step.art ? (
