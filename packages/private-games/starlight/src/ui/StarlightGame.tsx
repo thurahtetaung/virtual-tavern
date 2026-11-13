@@ -1,4 +1,4 @@
-import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import { Card, cardSetChoices, useManifest } from '@vt/private-reverie/card';
 import {
   Button,
@@ -20,6 +20,7 @@ import {
   type TabBarItem,
   tabPanelProps,
   usePhone,
+  EndHero,
   EndTabs,
   Superlatives,
   TimerSettings,
@@ -926,63 +927,76 @@ function Final({
   board?: ReactNode;
 }) {
   const you = view.me?.id;
+  const wide = useWideScreen();
+  const title = winnersTitle(view.seats, you) || 'Game over';
   return (
-    <Panel className="max-lg:p-3">
-      <div className="space-y-3 text-center">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={view.seats
-                    .filter((s) => s.playing || s.score > 0)
-                    .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-                  you={you}
-                  className="text-left"
-                />
-              ),
-            },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            !!board && { id: 'board', label: '🖼️ Last round', content: board },
-          ]}
-        />
-        {room.isHost ? (
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button
-              size="lg"
-              onClick={() =>
-                void (async () => {
-                  if (
-                    await confirm({
-                      title: 'Start a new game with the same players?',
-                      body: 'Scores go back to 0.',
-                      confirmLabel: 'Play again',
-                    })
-                  )
-                    void act({ type: 'start' });
-                })()
-              }
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        ) : (
-          <p>{waitingForHost(room, 'start the next game')}</p>
-        )}
-      </div>
-    </Panel>
+    <>
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="🌟"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          room.isHost ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                size="lg"
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Start a new game with the same players?',
+                        body: 'Scores go back to 0.',
+                        confirmLabel: 'Play again',
+                      })
+                    )
+                      void act({ type: 'start' });
+                  })()
+                }
+              >
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </div>
+          ) : (
+            <p>{waitingForHost(room, 'start the next game')}</p>
+          )
+        }
+      />
+      <Panel className="max-lg:p-3">
+        <div className="space-y-3 text-center">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={view.seats
+                      .filter((s) => s.playing || s.score > 0)
+                      .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                    you={you}
+                    className="text-left"
+                  />
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!board && { id: 'board', label: '🖼️ Last round', content: board },
+            ]}
+          />
+        </div>
+      </Panel>
+    </>
   );
 }
