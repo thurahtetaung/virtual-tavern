@@ -15,6 +15,11 @@ const SEND_EARLY_MS = 1200;
  * big as the screen allows with all of it in view, never too small to draw on.
  */
 const AROUND_PX = { quiet: 315, full: 410 };
+/**
+ * Desktops: what the page has around the pad (the room's header, the status, the title, the
+ * pens, the clock and Send), so all of it fits a 900 px window with the pad.
+ */
+const AROUND_DESKTOP_PX = 490;
 
 export function Draw({
   view,
@@ -61,12 +66,13 @@ export function Draw({
           <div
             style={{
               ['--sheet' as string]: `max(13rem, calc((100svh - ${quiet ? AROUND_PX.quiet : AROUND_PX.full}px) * 0.8))`,
+              ['--sheet-lg' as string]: `max(12rem, calc((100svh - ${AROUND_DESKTOP_PX}px) * 0.8))`,
             }}
           >
             <PadFrame>
               <DrawingPad
                 key={todo.item}
-                className="max-lg:[&>div:first-child]:max-w-(--sheet)"
+                className="max-lg:[&>div:first-child]:max-w-(--sheet) lg:[&>div:first-child]:max-w-(--sheet-lg)"
                 draftKey={`go.draft.${todo.item}`}
                 sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
                 onSubmit={(drawing) =>
