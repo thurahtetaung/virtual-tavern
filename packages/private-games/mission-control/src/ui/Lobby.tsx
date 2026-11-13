@@ -215,7 +215,8 @@ export function Lobby({
         </ul>
       </Panel>
       <GuideLink title={room.gameName ?? 'Mission Control'} onClick={showGuide} />
-      {view.voyage ? (
+      {/* Without a campaign, the reason under Start says so (once). */}
+      {view.voyage && (
         <Panel>
           <Logbook
             voyage={view.voyage}
@@ -225,12 +226,6 @@ export function Lobby({
               editable ? (n) => void act({ type: 'choose', mission: n }, { anchor: ANCHOR }) : null
             }
           />
-        </Panel>
-      ) : (
-        <Panel>
-          <p className="text-sm">
-            No campaign is loaded yet. An admin imports it as a content pack.
-          </p>
         </Panel>
       )}
     </LobbyLayout>

@@ -54,6 +54,11 @@ const SIZE = {
   lg: 'h-28 w-20 text-2xl',
   /** The hand: phone size, bigger on wide screens. */
   hand: 'h-16 w-11 text-base sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
+  /** Your own hand: on phones a cell of a six-across grid (about 52 × 76 px), else as `hand`. */
+  handFill:
+    'aspect-[11/16] w-full text-lg sm:aspect-auto sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
+  /** A phone hand seven across: the row's width at the hand's usual 64 px height. */
+  handFillLow: 'h-16 w-full text-base sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
 } as const;
 
 /** A playing card's face: art from the manifest when there is some, else its symbol and value. */

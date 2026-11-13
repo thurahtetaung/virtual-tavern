@@ -335,6 +335,8 @@ export function PlayTable({
   const inCrew = a.crew.some((c) => c.id === me);
   const myTurnSeat = a.stage === 'play' && a.controls.includes(a.turn) ? a.turn : null;
   const hand = a.hand ?? [];
+  // Phones: as many rows as seven to a row would take, the cards filling each row (six at least).
+  const handCols = Math.max(6, Math.ceil(hand.length / Math.max(1, Math.ceil(hand.length / 7))));
   const trickKey = `${a.trickCount}:${a.current.length}`;
   // A picked card counts only in the trick where it was picked.
   const [pick, setPick] = useState<{ at: string; card: CardId } | null>(null);
@@ -481,7 +483,14 @@ export function PlayTable({
 
       {inCrew && (
         <div className="space-y-2" data-testid="mc-hand">
-          <div className="flex flex-wrap justify-center gap-1.5 pt-2 sm:pt-0">
+          {/* Phones: the cards fill the row width in as many rows as seven to a row would take
+              (at least six across); wider screens wrap them centred. */}
+          <div
+            className="grid gap-1.5 pt-2 sm:flex sm:flex-wrap sm:justify-center sm:pt-0"
+            style={{
+              gridTemplateColumns: `repeat(${handCols}, minmax(0, 1fr))`,
+            }}
+          >
             {hand.map((c) => {
               const signalled = a.signals.some((s) => s.card === c && !s.played);
               const state =
@@ -500,7 +509,7 @@ export function PlayTable({
                 <CardFace
                   key={c}
                   card={c}
-                  size="hand"
+                  size={handCols > 6 ? 'handFillLow' : 'handFill'}
                   state={state}
                   onClick={() => tapHand(c)}
                   testId={`mc-card-${c}`}
