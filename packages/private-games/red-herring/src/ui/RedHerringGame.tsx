@@ -80,7 +80,8 @@ export function RedHerringGame({
       </div>
     );
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 sm:gap-3">
+    // Wide desktops use the window's width, so the laps and your hand grow into it.
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 sm:gap-3 xl:max-w-[88rem]">
       <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
         {status.text}
       </Hint>
