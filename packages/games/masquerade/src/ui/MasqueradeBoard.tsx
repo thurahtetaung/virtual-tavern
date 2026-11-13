@@ -23,6 +23,7 @@ import {
   tabPanelProps,
   Peek,
   ProtectedImage,
+  EndHero,
   EndTabs,
   Standings,
   Superlatives,
@@ -609,24 +610,105 @@ function Scores({ view }: { view: MasqueradeView }) {
   );
 }
 
-/** The end screen: the shared podium and full standings (the winner line is the status above). */
+/**
+ * The end screen: the last round's verdict on the spy as the finale, then the shared podium and
+ * full standings (the points winner is also the status above).
+ */
 function Podium({
   view,
   act,
   room,
+  display,
   details,
 }: {
   view: MasqueradeView;
   act: Act;
   room: GameRoomInfo;
+  display: LocationDisplay;
   /** Phones: the last round and the players, as tabs beside the scores. */
   details?: { round: ReactNode; players: ReactNode };
 }) {
+  const wide = useWideScreen();
   const entries = view.seats
     .filter((s) => s.playing || s.score > 0)
     .map((s) => ({ id: s.id, name: s.name, score: s.score }));
+  const top = Math.max(0, ...entries.map((e) => e.score));
+  const leaders = entries.filter((e) => e.score === top && top > 0);
+  const result = view.round?.result;
+  // Caught means the vote caught the spy and they missed the location.
+  const got = result?.spyResults.filter((s) => s.outcome !== 'caught').length ?? 0;
+  const spies = result?.spies.length ?? 0;
+  const title = !result
+    ? 'Game over'
+    : got === 0
+      ? spies > 1
+        ? 'The spies were caught'
+        : 'The spy was caught'
+      : got < spies
+        ? 'One spy got away'
+        : spies > 1
+          ? 'The spies got away'
+          : 'The spy got away';
+  // The viewer's role in the last round lights the card: the spy's side won if a spy got away.
+  const meSpy = !!view.me && !!result?.spies.includes(view.me.id);
+  const meIn = !!view.me && !!view.round?.players.some((p) => p.id === view.me?.id);
+  const spyWon = got > 0;
+  const tone = !result || !meIn ? 'neutral' : meSpy === spyWon ? 'win' : 'loss';
   return (
     <>
+      <EndHero
+        title={title}
+        eyebrow={result ? undefined : null}
+        emblem={result ? (spyWon ? '🎭' : '🔍') : '🏆'}
+        tone={tone}
+        superlatives={wide ? room.superlatives : undefined}
+        art={
+          wide &&
+          result && (
+            <LocationPicture
+              id={result.location}
+              display={display}
+              className="size-28 rounded-xl text-6xl shadow-vt-1"
+              artClassName="aspect-[5/3] w-56 rounded-xl shadow-vt-1 ring-1 ring-line"
+            />
+          )
+        }
+        actions={
+          room.isHost ? (
+            <StickyBar>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            </StickyBar>
+          ) : (
+            <p className="text-center text-small text-ink-2">
+              {waitingForHost(room, 'start the next game')}
+            </p>
+          )
+        }
+      >
+        {result && (
+          <p>
+            The location was <b>{display.name(result.location)}</b>.
+          </p>
+        )}
+        {leaders.length > 0 && (
+          <p>
+            {listNames(leaders.map((l) => (l.id === view.me?.id ? 'You' : l.name)))}{' '}
+            {leaders.length > 1 || leaders[0]!.id === view.me?.id ? 'win' : 'wins'} with {top}{' '}
+            {top === 1 ? 'point' : 'points'}.
+          </p>
+        )}
+      </EndHero>
       <Panel aria-label="Final scores" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         <EndTabs
           tabs={[
@@ -635,36 +717,17 @@ function Podium({
               label: '🏆 Scores',
               content: <Standings entries={entries} you={view.me?.id} />,
             },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
             !!details?.round && { id: 'round', label: '🎭 Reveal', content: details.round },
             !!details && { id: 'players', label: '👥 Players', content: details.players },
           ]}
         />
       </Panel>
-      {room.isHost ? (
-        <StickyBar>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={() => void act({ type: 'start' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <p className="text-center text-small text-ink-2">
-          {waitingForHost(room, 'start the next game')}
-        </p>
-      )}
     </>
   );
 }
@@ -1042,6 +1105,7 @@ export function MasqueradeBoard({
                 view={view}
                 act={act}
                 room={room}
+                display={display}
                 details={
                   phoneEnd
                     ? {
