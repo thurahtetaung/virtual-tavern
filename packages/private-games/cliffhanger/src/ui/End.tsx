@@ -34,12 +34,15 @@ function Collection({ view, team }: { view: CliffhangerView; team: TeamId }) {
       <GenreRace view={view} team={team} />
       <p className="text-xs text-ink-muted">{members.map((m) => nameOf(view, m.id)).join(', ')}</p>
       {cards.length ? (
-        // Two across the phone's full width, three in a desktop column: the titles on the labels
-        // stay readable at the end, when players look back at what they filled.
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        // Two across the phone's full width, three in a desktop column, each title also in plain
+        // type under its tape, so it reads at the site's size when players look back.
+        <ul className="grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3">
           {cards.map((c) => (
             <li key={c.id} title={`${c.title} · ${genreName(names, c.genre, view.settings.deck)}`}>
               <Tape card={c} deck={view.settings.deck} className="w-full" />
+              <p aria-hidden className="mt-1 truncate text-center text-caption text-ink-2">
+                {c.title}
+              </p>
             </li>
           ))}
         </ul>
@@ -108,17 +111,21 @@ export function End({
             // The winners' last tapes: what they filled their shelf with.
             art={
               won.length > 0 && (
+                // One row on phones (so the end's tabs keep the height), each title in plain type
+                // under its tape.
                 <ul
                   aria-label="The winning tapes"
-                  className="flex flex-wrap justify-center gap-2 lg:gap-3"
+                  className="flex flex-wrap justify-center gap-1.5 lg:gap-3"
                 >
                   {won.map((c) => (
-                    <li key={c.id}>
-                      <Tape
-                        card={c}
-                        deck={view.settings.deck}
-                        className="h-16 shadow-vt-2 lg:h-24"
-                      />
+                    <li key={c.id} className="w-[4.5rem] lg:w-[8.25rem]">
+                      <Tape card={c} deck={view.settings.deck} className="w-full shadow-vt-2" />
+                      <p
+                        aria-hidden
+                        className="mt-1 line-clamp-2 text-caption leading-tight text-ink-2"
+                      >
+                        {c.title}
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -144,17 +151,27 @@ export function End({
         <Panel>
           <EndTabs
             tabs={[
-              {
-                id: 'tapes',
-                label: '📼 Tapes',
-                content: (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {ordered.map((t) => (
-                      <Collection key={t} view={view} team={t} />
-                    ))}
-                  </div>
-                ),
-              },
+              // Wide screens show both shelves side by side; phones give each team its own tab
+              // (the winners first), so a shelf is a short scroll, not both at once.
+              ...(wide
+                ? [
+                    {
+                      id: 'tapes',
+                      label: '📼 Tapes',
+                      content: (
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          {ordered.map((t) => (
+                            <Collection key={t} view={view} team={t} />
+                          ))}
+                        </div>
+                      ),
+                    },
+                  ]
+                : ordered.map((t) => ({
+                    id: `tapes-${t}`,
+                    label: `${TEAM_EMOJI[t]} ${teamName(t)}`,
+                    content: <Collection view={view} team={t} />,
+                  }))),
               !wide &&
                 !!room.superlatives?.length && {
                   id: 'awards',
