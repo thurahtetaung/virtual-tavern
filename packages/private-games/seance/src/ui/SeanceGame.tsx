@@ -36,6 +36,7 @@ import { Lineup, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
 import { GhostReveal, GhostShared, GhostVote, LOCKED_BY } from './GhostStages.tsx';
 import { GhostVisions } from './GhostVisions.tsx';
 import { Lobby } from './Lobby.tsx';
+import { LookStep } from './Look.tsx';
 import { type CompareSpec, HourClock, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
 import {
   type Step,
@@ -806,9 +807,12 @@ function SeanceTable({
 
 export function SeanceGame(props: SeanceUiProps) {
   const readyNote = useReadyNote(props.view);
+  const g = props.view.game;
   return (
     <ReadyNoteContext.Provider value={readyNote}>
-      <SeanceTable {...props} />
+      <LookStep.Provider value={g ? `${g.stage}-${g.hour}` : ''}>
+        <SeanceTable {...props} />
+      </LookStep.Provider>
     </ReadyNoteContext.Provider>
   );
 }

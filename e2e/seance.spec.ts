@@ -111,7 +111,16 @@ test('a ghost and three psychics find everything, read the shared vision in stag
   // A psychic choosing is the tightest screen: the vision, the candidates and Ready in the bar.
   await expectPhoneFit(ana!.page, 'seance psychic');
   await ana!.page.getByRole('button', { name: 'Ready', exact: true }).click();
+  // Ben is still looking at a card full screen when the ghost reveals: it closes with the step.
+  await ben!.page
+    .getByRole('list', { name: 'Candidates' })
+    .locator('button[data-card]')
+    .first()
+    .click();
+  const bensLook = ben!.page.getByRole('dialog', { name: /on the table/ });
+  await expect(bensLook).toBeVisible();
   await reveal(ghost.page);
+  await expect(bensLook).toHaveCount(0);
   // The ghost's verdicts: a tile per psychic, the hand beside, Next hour in the turn line (the bar
   // on phones), all in the window. Checked at once: the clock moves on by itself.
   const answers = ghost.page.getByRole('region', { name: 'The ghost answers' });
