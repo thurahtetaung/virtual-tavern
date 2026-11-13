@@ -6,6 +6,7 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  TAP_BAND,
   TabBar,
   tabPanelProps,
   useWideScreen,
@@ -468,7 +469,7 @@ function Teammates({
                   className="min-w-0"
                 />
               </span>
-              <span className="text-[10px] text-ink-muted">
+              <span className="text-xs text-ink-muted">
                 {mine && g.clues > 0 ? '💡 clue' : 'what they know'}
               </span>
             </button>
@@ -635,7 +636,7 @@ function ClueSheet({
                       data-testid={`sf-clue-${c.colour}`}
                     >
                       <span>{suitLabel(c.colour!)}</span>
-                      <span className="text-[10px] font-semibold">
+                      <span className="text-xs font-semibold">
                         {n ? plural(n, 'card') : 'none'}
                       </span>
                     </button>
@@ -663,7 +664,7 @@ function ClueSheet({
                       data-testid={`sf-clue-${c.rank}`}
                     >
                       <span className="text-lg">{c.rank}</span>
-                      <span className="text-[10px] font-semibold">
+                      <span className="text-xs font-semibold">
                         {n ? plural(n, 'card') : 'none'}
                       </span>
                     </button>
@@ -1140,6 +1141,7 @@ function Reactions({
             onClick={() => void act({ type: 'react', emoji }, { anchor: 'sf-react' })}
             className={cn(
               'shrink-0 rounded-full bg-card px-1.5 py-0.5 text-base leading-tight ring-1 ring-line transition hover:scale-110',
+              TAP_BAND,
               mineNow === emoji && 'ring-2 ring-accent',
             )}
           >

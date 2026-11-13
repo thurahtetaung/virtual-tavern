@@ -35,14 +35,14 @@ const DIGIT: Record<CardSize, string> = {
   hand: 'text-[clamp(1.25rem,7vw,2.25rem)]',
   row: 'text-[clamp(1rem,5.5vw,1.9rem)]',
   stack: 'text-xl sm:text-2xl',
-  mini: 'text-[11px]',
+  mini: 'text-xs',
 };
 
 const SYMBOL: Record<CardSize, string> = {
   hand: 'text-[clamp(.7rem,3.4vw,1.05rem)]',
   row: 'text-[clamp(.6rem,2.8vw,.9rem)]',
-  stack: 'text-[10px] sm:text-xs',
-  mini: 'text-[7px]',
+  stack: 'text-xs',
+  mini: 'text-xs',
 };
 
 export const suitLabel = (suit: Suit) => `${SUIT_NAME[suit]} ${SUIT_SYMBOL[suit]}`;
@@ -88,7 +88,7 @@ export const CardFace = memo(function CardFace({
             aria-hidden
             className={cn(
               'absolute top-0 left-0 rounded-br-md px-[12%] leading-tight font-black tabular-nums shadow-sm',
-              size === 'mini' ? 'text-[9px]' : 'text-sm sm:text-base',
+              size === 'mini' ? 'text-xs' : 'text-sm sm:text-base',
             )}
             style={{ background: s.bg, color: s.fg, ...textShadow(card.suit) }}
           >
@@ -235,7 +235,7 @@ export function Marks({
   return (
     <span
       className={cn(
-        'flex min-h-4 flex-col items-center gap-px text-[10px] leading-tight sm:text-xs',
+        'flex min-h-4 flex-col items-center gap-px text-xs leading-tight',
         className,
       )}
       aria-hidden
