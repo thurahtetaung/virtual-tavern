@@ -18,6 +18,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  END_ART,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import type { RedHerringAction, RedHerringView } from '../logic/types.ts';
@@ -469,7 +470,7 @@ function End({ view, room, act, art, name }: PartProps) {
             }
             superlatives={wide ? room.superlatives : undefined}
             art={finale.map((f) => (
-              <figure key={f.key} className="w-24 space-y-1 sm:w-28 lg:w-36 xl:w-40">
+              <figure key={f.key} className={cn('space-y-1', END_ART[2])}>
                 <Card card={f.card} art={art} className="w-full shadow-vt-2" />
                 <figcaption className="text-caption text-ink-2 lg:text-small">
                   {f.caption}

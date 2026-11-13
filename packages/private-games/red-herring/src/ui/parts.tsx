@@ -411,7 +411,7 @@ export function HandStrip({
           canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
           // Desktops: as large as the window's height allows across the page (6 across).
           r.stage === 'card' || r.stage === 'play'
-            ? 'lg:mx-auto lg:max-w-[clamp(32rem,calc((100vh-44rem)*3.4),72rem)]'
+            ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
             : 'lg:max-w-xl',
         )}
       >
