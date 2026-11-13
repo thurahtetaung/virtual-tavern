@@ -249,9 +249,9 @@ test("the back-room lobby shows each game's cover, or its emblem without one", a
   await expect
     .poll(() => cover.evaluate((img) => getComputedStyle(img).filter))
     .toMatch(/brightness/);
-  // A cover that won't load gives way to the emblem, as a game without one shows.
+  // A cover that won't load gives way to the emblem; a game without one has no strip at all.
   await expect(card('Hoodwink').locator('[data-ui="game-card-emblem-strip"]')).toBeVisible();
-  await expect(card('Royal Post').locator('[data-ui="game-card-emblem-strip"]')).toBeVisible();
+  await expect(card('Royal Post').locator('[data-ui="game-card-emblem-strip"]')).toHaveCount(0);
   await expect(card('Royal Post').locator('img')).toHaveCount(0);
   // Leaving the back room takes its surfaces with it.
   await expect(page.locator('html')).toHaveAttribute('data-room', 'back');
