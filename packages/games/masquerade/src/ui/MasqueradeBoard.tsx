@@ -25,6 +25,7 @@ import {
   ProtectedImage,
   EndHero,
   EndTabs,
+  FoldSummary,
   Standings,
   Superlatives,
   TimeoutNote,
@@ -63,11 +64,9 @@ type Tab = 'play' | 'locations' | 'ideas';
 /** Where a refused location guess shows: with the Guess button (in the sticky bar on phones). */
 const GUESS_ANCHOR = 'masquerade-guess';
 
-/**
- * A face-down card: the same dark back in both themes, so a glance can't read what's under it.
- */
-// vt-palette: the face-down card back
-const CARD_BACK = 'rounded-xl bg-[#2A2420] text-[#F1E9DC] shadow-vt-2';
+/** Something held face down: the theme's card surface, marked by the accent edge. */
+const CARD_BACK =
+  'rounded-xl border-l-4 border-accent bg-card text-ink shadow-vt-1 ring-1 ring-line';
 
 // ---- Locations ----
 
@@ -185,14 +184,22 @@ function MyCard({ round, display }: { round: RoundView; display: LocationDisplay
         cover={
           <span
             data-testid="card-cover"
-            className={cn('flex min-h-24 items-center gap-3 p-3', CARD_BACK)}
+            className="flex min-h-24 w-full items-center gap-3 rounded-xl border-t-4 border-accent bg-card p-3 text-ink shadow-vt-2 ring-1 ring-line"
           >
-            <span aria-hidden className="text-4xl">
-              🎴
-            </span>
+            {display.back ? (
+              <ProtectedImage
+                src={display.back}
+                alt=""
+                className="aspect-[20/13] w-24 shrink-0 rounded-lg object-cover shadow-vt-1 ring-1 ring-line"
+              />
+            ) : (
+              <span aria-hidden className="text-4xl">
+                🎴
+              </span>
+            )}
             <span className="min-w-0">
               <span className="block font-bold">Hold to see your card</span>
-              <span className="block text-caption opacity-85">
+              <span className="block text-caption text-ink-2">
                 Or tap Show. Keep it hidden from your neighbours.
               </span>
             </span>
@@ -517,16 +524,20 @@ function Reveal({
   const noName = noNameReason(result);
   return (
     <Card aria-label="Round result" role="region" className="space-y-3">
-      <div className="flex items-center gap-3">
+      {/* The location, large: the round's answer is the moment everyone waited for. */}
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
         <LocationPicture
           id={result.location}
           display={display}
-          className="size-16 shrink-0 rounded-xl text-4xl"
-          artClassName="aspect-[5/3] w-28 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line"
+          className="size-24 shrink-0 rounded-2xl text-7xl shadow-vt-1 ring-1 ring-line"
+          artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56"
         />
         <div className="min-w-0">
           <p className="text-caption font-semibold text-ink-muted uppercase">The location was</p>
-          <p className="text-sub font-bold" data-testid="revealed-location">
+          <p
+            className="font-display text-title leading-tight font-bold"
+            data-testid="revealed-location"
+          >
             {display.name(result.location)}
           </p>
           <p className="text-small">🎭 {spyLine}</p>
@@ -663,13 +674,12 @@ function Podium({
         tone={tone}
         superlatives={wide ? room.superlatives : undefined}
         art={
-          wide &&
           result && (
             <LocationPicture
               id={result.location}
               display={display}
-              className="size-28 rounded-xl text-6xl shadow-vt-1"
-              artClassName="aspect-[5/3] w-56 rounded-xl shadow-vt-1 ring-1 ring-line"
+              className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
+              artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-72"
             />
           )
         }
@@ -1041,6 +1051,9 @@ export function MasqueradeBoard({
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wide = useWideScreen();
   const phoneEnd = view.phase === 'over' && !wide;
+  // Wide screens at the end: the finale and the standings take the left, the round's reveal and
+  // the players the right, and the locations fold away (the game no longer needs them).
+  const wideEnd = view.phase === 'over' && wide;
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {
@@ -1122,7 +1135,7 @@ export function MasqueradeBoard({
                 }
               />
             )}
-            {round && round.stage === 'reveal' && !phoneEnd && (
+            {round && round.stage === 'reveal' && view.phase === 'playing' && (
               <Reveal view={view} display={display} act={act} room={room} />
             )}
             {round && round.stage !== 'reveal' && view.phase === 'playing' && (
@@ -1141,7 +1154,7 @@ export function MasqueradeBoard({
                 )}
               </>
             )}
-            {!phoneEnd && (
+            {view.phase === 'playing' && (
               <>
                 <Scores view={view} />
                 <Panel>
@@ -1151,29 +1164,48 @@ export function MasqueradeBoard({
             )}
           </FitArea>
         </div>
+        {wideEnd && (
+          <div className="min-w-0 space-y-3">
+            {round?.stage === 'reveal' && (
+              <Reveal view={view} display={display} act={act} room={room} />
+            )}
+            <Scores view={view} />
+            <Panel>
+              <Players view={view} online={online} hostId={room.hostId} />
+            </Panel>
+            <details className="group rounded-xl bg-panel ring-1 ring-line">
+              <FoldSummary className="font-semibold">📍 Every location</FoldSummary>
+              <div className="px-3 pb-3">
+                <LocationsBoard view={view} display={display} act={act} />
+              </div>
+            </details>
+          </div>
+        )}
         {/* Wide screens: the board and the ideas below it share one scroller that fits the screen. */}
-        <FitArea
-          on={view.phase === 'playing' && wide}
-          resetKey={stepKey}
-          className="min-w-0 space-y-4"
-        >
-          <div {...panel('locations')}>
-            <FitArea
-              on={view.phase === 'playing' && !wide && fit && tab === 'locations'}
-              resetKey={stepKey}
-            >
-              <LocationsBoard view={view} display={display} act={act} />
-            </FitArea>
-          </div>
-          <div {...panel('ideas')}>
-            <FitArea
-              on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
-              resetKey={stepKey}
-            >
-              <IdeasBoard view={view} display={display} />
-            </FitArea>
-          </div>
-        </FitArea>
+        {!wideEnd && (
+          <FitArea
+            on={view.phase === 'playing' && wide}
+            resetKey={stepKey}
+            className="min-w-0 space-y-4"
+          >
+            <div {...panel('locations')}>
+              <FitArea
+                on={view.phase === 'playing' && !wide && fit && tab === 'locations'}
+                resetKey={stepKey}
+              >
+                <LocationsBoard view={view} display={display} act={act} />
+              </FitArea>
+            </div>
+            <div {...panel('ideas')}>
+              <FitArea
+                on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
+                resetKey={stepKey}
+              >
+                <IdeasBoard view={view} display={display} />
+              </FitArea>
+            </div>
+          </FitArea>
+        )}
       </div>
       {tabbed && (
         <TabBar

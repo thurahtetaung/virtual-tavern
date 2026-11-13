@@ -8,6 +8,7 @@ import {
   Hint,
   Panel,
   PlayerTag,
+  ProtectedImage,
   Select,
   StickyBar,
   Switch,
@@ -114,6 +115,10 @@ export function Lobby({
   const s = view.settings;
   const blocker = startBlocker(view);
   const seated = view.seats.filter((x) => x.playing).length;
+  const preview = view.locations
+    .map((id) => display.art(id))
+    .filter((src): src is string => !!src)
+    .slice(0, 6);
   const toggleEdition = (id: string) => {
     const next = s.editions.includes(id) ? s.editions.filter((e) => e !== id) : [...s.editions, id];
     if (next.length > 0) void act({ type: 'update-settings', editions: next });
@@ -124,6 +129,24 @@ export function Lobby({
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
+      {/* An edition with pictures shows a few of its places: where the night might take you. */}
+      {preview.length > 0 && (
+        <ul
+          aria-hidden
+          className="grid grid-cols-4 gap-2 sm:grid-cols-6"
+          data-testid="lobby-places"
+        >
+          {preview.map((src, i) => (
+            <li key={src} className={cn(i >= 4 && 'max-sm:hidden')}>
+              <ProtectedImage
+                src={src}
+                alt=""
+                className="aspect-[5/3] w-full rounded-lg object-cover shadow-vt-1 ring-1 ring-line"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
       <GuideLink title={room.gameName ?? 'Masquerade'} onClick={showGuide} />
       <LobbySettings
         editable={editable}
