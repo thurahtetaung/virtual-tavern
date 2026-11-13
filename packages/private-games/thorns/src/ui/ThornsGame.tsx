@@ -360,7 +360,35 @@ function End({
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="🌹"
+        emblem={g.winners.length ? null : '🌹'}
+        // The winner's mat, scored side up, with their rose on it: the set they won with.
+        art={g.winners.map((id) => {
+          const seat = g.players.findIndex((p) => p.id === id);
+          const set = art.set(seat);
+          const mat = set.matScored ?? set.mat;
+          return (
+            <figure key={id} className="flex flex-col items-center gap-1.5">
+              <span className="relative flex h-32 w-48 items-center justify-center overflow-hidden rounded-2xl bg-panel shadow-vt-2 ring-1 ring-line lg:h-44 lg:w-64">
+                {mat && (
+                  <ProtectedImage
+                    src={mat}
+                    alt=""
+                    className="absolute inset-0 size-full object-cover"
+                  />
+                )}
+                <DiscView
+                  face="rose"
+                  seat={seat}
+                  color={room.players.find((x) => x.id === id)?.color}
+                  art={art}
+                  size={wide ? 104 : 76}
+                  className="relative shadow-vt-2"
+                />
+              </span>
+              <figcaption className="text-small font-semibold text-ink">{name(id)}</figcaption>
+            </figure>
+          );
+        })}
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
@@ -422,7 +450,7 @@ function End({
                     {g.players.map((p, seat) => {
                       const stack = reveal.get(p.id)?.stack ?? [];
                       return (
-                        <li key={p.id} className="flex items-center gap-2">
+                        <li key={p.id} className="flex min-h-11 items-center gap-2">
                           <span className="w-24 truncate">{name(p.id)}</span>
                           <span className="flex items-center">
                             {stack.length === 0 ? (
@@ -435,8 +463,8 @@ function End({
                                   seat={seat}
                                   color={room.players.find((x) => x.id === p.id)?.color}
                                   art={art}
-                                  size={28}
-                                  className={i > 0 ? '-ml-2' : undefined}
+                                  size={40}
+                                  className={i > 0 ? '-ml-3' : undefined}
                                 />
                               ))
                             )}

@@ -79,6 +79,8 @@ function Mat({
   const bid = r.bids.findLast((b) => b.by === p.id);
   const waiting = g.clock?.who.includes(p.id) ?? false;
   const set = art.set(seat);
+  // Wide screens: the mats take the table's height and the discs are read across the room.
+  const wide = useWideScreen();
   const matArt = p.points > 0 ? (set.matScored ?? set.mat) : set.mat;
   const offline = room.players.find((x) => x.id === p.id)?.connected === false;
   const chip = p.out
@@ -122,7 +124,7 @@ function Mat({
       <div
         // Phones: the mat art takes the free height (up to 6rem), shorter on short screens
         // so six mats still fit.
-        className="relative flex min-h-[clamp(3.5rem,10dvh,6rem)] lg:min-h-32 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
+        className="relative flex min-h-[clamp(3.5rem,10dvh,6rem)] items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line lg:min-h-[clamp(9rem,24dvh,14rem)] dark:ring-0"
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
         {matArt && (
@@ -144,9 +146,9 @@ function Mat({
                 seat={seat}
                 color={color}
                 art={art}
-                size={48}
+                size={wide ? 88 : 48}
                 flip={d.up}
-                className={cn('lg:size-14!', i > 0 && '-ml-6', you && !d.up && 'opacity-80')}
+                className={cn(i > 0 && (wide ? '-ml-11' : '-ml-6'), you && !d.up && 'opacity-80')}
               />
             ))
           )}
@@ -284,6 +286,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
   const r = g.round;
   const mine = view.mine;
   const me = g.players.find((p) => p.id === room.you);
+  const disc = useWideScreen() ? 96 : 64;
   if (!mine || !me) return null;
   const seat = g.order.indexOf(room.you);
   const color = colorOf(room, room.you);
@@ -323,7 +326,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                   className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-panel focus-visible:outline-2 focus-visible:outline-accent"
                   onClick={() => void act({ type: 'lose', disc: d }, { anchor: 'th-play' })}
                 >
-                  <DiscView face={d} seat={seat} color={color} art={art} size={64} />
+                  <DiscView face={d} seat={seat} color={color} art={art} size={disc} />
                   <span className="text-sm font-semibold">Lose a {discName(names, d)}</span>
                 </button>
               ))}
@@ -367,7 +370,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       aria-label={`Put down a ${discName(names, d)}`}
                       data-place={d}
                     >
-                      <DiscView face={d} seat={seat} color={color} art={art} size={64} />
+                      <DiscView face={d} seat={seat} color={color} art={art} size={disc} />
                     </button>
                   ) : (
                     <DiscView
@@ -376,7 +379,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       seat={seat}
                       color={color}
                       art={art}
-                      size={64}
+                      size={disc}
                     />
                   ),
                 )
