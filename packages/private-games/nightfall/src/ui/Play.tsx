@@ -8,6 +8,7 @@ import {
   EndTabs,
   FitArea,
   Hint,
+  MoreBelow,
   NameDot,
   Panel,
   Peek,
@@ -18,6 +19,7 @@ import {
   cn,
   tabPanelProps,
   useFitToScreen,
+  useMarkMore,
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
@@ -1372,6 +1374,8 @@ export function Day({
   // Phones: a big table scrolls inside its panel rather than the page.
   const tablePanel = useRef<HTMLDivElement>(null);
   useFitToScreen(tablePanel, { phone: true, min: 160 });
+  // Fitted to a phone's screen, the table shows "More below" while some of it is under the fold.
+  useMarkMore(tablePanel, [tab]);
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
@@ -1430,131 +1434,137 @@ export function Day({
         className="lg:hidden"
       />
       <div {...panel('table')}>
-        <div ref={tablePanel} className="max-sm:overflow-y-auto max-sm:overscroll-contain">
-          <Panel className="space-y-3">
-            {playing && view.myRole && (
-              <MySecrets deck={deck} big={wide}>
-                <MyCardChip view={view} deck={deck} />
-                <MyMark view={view} deck={deck} />
-                {myArtifact?.kind === 'artifact' && (
-                  <span className="text-sm">
-                    Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-                  </span>
-                )}
-              </MySecrets>
-            )}
-            {(view.day?.centerUp?.length ?? 0) > 0 && (
-              <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
-                Face up in the centre:
-                {view.day!.centerUp!.map((c) => (
-                  <span key={c.center} className="inline-flex items-center gap-1">
-                    {centreName(c.center, view.day!.centerKinds)}
-                    <RoleChip role={c.role} deck={deck} />
-                  </span>
-                ))}
-              </p>
-            )}
-            {voting && playing && view.vote?.hands === 2 && (
-              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
-                <span>✌️ You vote with both hands:</span>
-                {([1, 2] as const).map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    aria-pressed={hand === h}
-                    onClick={() => setHand(h)}
-                    className={cn(
-                      'rounded-lg px-2 py-1 font-semibold ring-1 ring-line-strong',
-                      hand === h && 'bg-danger text-on-fill ring-danger',
-                    )}
-                  >
-                    {h === 1 ? 'First hand' : 'Second hand'}
-                    {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-            {voting && playing && protectPossible(view) && (
-              <Peek
-                what="what your pick does"
-                cover={
-                  <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
-                    <span aria-hidden>🙈</span> Hold to see what your pick does
-                  </span>
-                }
-              >
-                <p
-                  className="rounded-xl bg-sunk px-3 py-2 text-sm font-semibold"
-                  data-testid="vote-power"
-                >
-                  {votePowerText(votePower(view))}
+        <div className="relative min-w-0">
+          <div ref={tablePanel} className="peer max-sm:overflow-y-auto max-sm:overscroll-contain">
+            <Panel className="space-y-3">
+              {playing && view.myRole && (
+                <MySecrets deck={deck} big={wide}>
+                  <MyCardChip view={view} deck={deck} />
+                  <MyMark view={view} deck={deck} />
+                  {myArtifact?.kind === 'artifact' && (
+                    <span className="text-sm">
+                      Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+                    </span>
+                  )}
+                </MySecrets>
+              )}
+              {(view.day?.centerUp?.length ?? 0) > 0 && (
+                <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
+                  Face up in the centre:
+                  {view.day!.centerUp!.map((c) => (
+                    <span key={c.center} className="inline-flex items-center gap-1">
+                      {centreName(c.center, view.day!.centerKinds)}
+                      <RoleChip role={c.role} deck={deck} />
+                    </span>
+                  ))}
                 </p>
-              </Peek>
-            )}
-            <TableList
-              view={view}
-              deck={deck}
-              pick={
-                voting && playing
-                  ? (id) => void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
-                  : undefined
-              }
-              picked={view.vote?.myVote}
-              picked2={view.vote?.mySecond}
-              online={online}
-            />
-            {voting && playing && view.vote?.app && (
-              <Button
-                variant={
-                  view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
-                    ? 'primary'
-                    : 'secondary'
-                }
-                className="w-full"
-                data-testid="vote-app"
-                onClick={() =>
-                  void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
-                }
-              >
-                📱 Vote for the app (if it gets the most votes, nobody dies)
-                {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
-              </Button>
-            )}
-            {!voting && (playing || room.isHost) && (
-              // Phones keep the day's move in the bar at the foot of the Table tab, the host's
-              // Start the vote now beside it.
-              <StickyBar fixed off={!wide && tab !== 'table'} className="space-y-1 text-center">
-                <div className="flex gap-2">
-                  {playing && (
-                    <Button
-                      size="lg"
-                      className="flex-1"
-                      variant={view.day?.meReady ? 'secondary' : 'primary'}
-                      onClick={() => void act({ type: 'ready-to-vote', ready: !view.day?.meReady })}
+              )}
+              {voting && playing && view.vote?.hands === 2 && (
+                <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
+                  <span>✌️ You vote with both hands:</span>
+                  {([1, 2] as const).map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      aria-pressed={hand === h}
+                      onClick={() => setHand(h)}
+                      className={cn(
+                        'rounded-lg px-2 py-1 font-semibold ring-1 ring-line-strong',
+                        hand === h && 'bg-danger text-on-fill ring-danger',
+                      )}
                     >
-                      {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
-                    </Button>
-                  )}
-                  {room.isHost && (
-                    <Button
-                      variant="secondary"
-                      size="lg"
-                      className={playing ? 'px-3' : 'flex-1'}
-                      onClick={() => void act({ type: 'start-vote' })}
-                    >
-                      Start the vote now
-                    </Button>
-                  )}
+                      {h === 1 ? 'First hand' : 'Second hand'}
+                      {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
+                    </button>
+                  ))}
                 </div>
-                {room.isHost && (
-                  <p className="text-caption text-ink-muted">
-                    Opens the vote without waiting for everyone to be ready (someone dropped out,
-                    say).
+              )}
+              {voting && playing && protectPossible(view) && (
+                <Peek
+                  what="what your pick does"
+                  cover={
+                    <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+                      <span aria-hidden>🙈</span> Hold to see what your pick does
+                    </span>
+                  }
+                >
+                  <p
+                    className="rounded-xl bg-sunk px-3 py-2 text-sm font-semibold"
+                    data-testid="vote-power"
+                  >
+                    {votePowerText(votePower(view))}
                   </p>
-                )}
-              </StickyBar>
-            )}
-          </Panel>
+                </Peek>
+              )}
+              <TableList
+                view={view}
+                deck={deck}
+                pick={
+                  voting && playing
+                    ? (id) =>
+                        void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
+                    : undefined
+                }
+                picked={view.vote?.myVote}
+                picked2={view.vote?.mySecond}
+                online={online}
+              />
+              {voting && playing && view.vote?.app && (
+                <Button
+                  variant={
+                    view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
+                      ? 'primary'
+                      : 'secondary'
+                  }
+                  className="w-full"
+                  data-testid="vote-app"
+                  onClick={() =>
+                    void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
+                  }
+                >
+                  📱 Vote for the app (if it gets the most votes, nobody dies)
+                  {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
+                </Button>
+              )}
+              {!voting && (playing || room.isHost) && (
+                // Phones keep the day's move in the bar at the foot of the Table tab, the host's
+                // Start the vote now beside it.
+                <StickyBar fixed off={!wide && tab !== 'table'} className="space-y-1 text-center">
+                  <div className="flex gap-2">
+                    {playing && (
+                      <Button
+                        size="lg"
+                        className="flex-1"
+                        variant={view.day?.meReady ? 'secondary' : 'primary'}
+                        onClick={() =>
+                          void act({ type: 'ready-to-vote', ready: !view.day?.meReady })
+                        }
+                      >
+                        {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
+                      </Button>
+                    )}
+                    {room.isHost && (
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        className={playing ? 'px-3' : 'flex-1'}
+                        onClick={() => void act({ type: 'start-vote' })}
+                      >
+                        Start the vote now
+                      </Button>
+                    )}
+                  </div>
+                  {room.isHost && (
+                    <p className="text-caption text-ink-muted">
+                      Opens the vote without waiting for everyone to be ready (someone dropped out,
+                      say).
+                    </p>
+                  )}
+                </StickyBar>
+              )}
+            </Panel>
+          </div>
+          <MoreBelow column={tablePanel} compact />
         </div>
       </div>
       <div className="space-y-3">
