@@ -498,7 +498,8 @@ export function BombStrip({
       aria-live="assertive"
       data-testid="bomb-strip"
     >
-      <CardFace card={prompt.card} art={art} c={c} size="md" />
+      {/* Smaller on desktops, so the hand under it stays above the fold. */}
+      <CardFace card={prompt.card} art={art} c={c} size="md" className="lg:w-16" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-bold text-danger-ink">
           {prompt.twin

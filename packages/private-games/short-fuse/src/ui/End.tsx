@@ -161,10 +161,11 @@ export function End({
               end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'
             }
             titleTestId="winner"
-            // Phones: the winner's best card in place of the emblem (wide screens show the hand).
+            // Phones: the winner's best card, large, in place of the emblem (wide screens show
+            // the hand).
             emblem={
               !wide && firstCard ? (
-                <CardFace card={firstCard} art={g.art} c={c} size="sm" className="mx-auto" />
+                <CardFace card={firstCard} art={g.art} c={c} size="lg" className="mx-auto" />
               ) : end.winner ? (
                 '🏆'
               ) : (

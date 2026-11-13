@@ -96,8 +96,8 @@ export const CardFace = memo(function CardFace({
       )}
       {label && !tiny && (
         <span
-          // A name too long for one line takes two, never cut.
-          className="absolute inset-x-0.5 bottom-0.5 line-clamp-2 rounded-md bg-card/90 px-1 text-center text-xs leading-tight font-bold break-words text-ink shadow-sm ring-1 ring-line"
+          // A name too long for one line takes two, never cut; a long word breaks with a hyphen.
+          className="absolute inset-x-0.5 bottom-0.5 line-clamp-2 rounded-md bg-card/90 px-1 text-center text-xs leading-tight font-bold break-words hyphens-auto text-ink shadow-sm ring-1 ring-line"
         >
           {name}
         </span>
