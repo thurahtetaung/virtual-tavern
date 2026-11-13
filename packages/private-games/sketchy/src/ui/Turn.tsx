@@ -117,7 +117,7 @@ export function TableDrawing({
         {
           '--fit': pinned
             ? 'min(18rem, calc(36svh * 0.8))'
-            : `min(16rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
+            : `min(18rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
         } as CSSProperties
       }
     >
@@ -623,7 +623,8 @@ export function TurnStage({
   if (g.stage === 'write') {
     return (
       <div className="space-y-4">
-        {drawing(230)}
+        {/* The artist has no title to write: the drawing takes the room the form would. */}
+        {drawing(turn.writing ? 230 : 90)}
         {turn.mine && turn.prompt && (
           <p className="text-center text-sm">
             You drew <span className="font-semibold">“{turn.prompt}”</span>. Shh!

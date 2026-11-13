@@ -172,10 +172,10 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
             )
           }
           // The sheet is as big as the screen allows with everything else in view (on a phone
-          // about 500 px of room, tabs, the prompt's row, both rows of pens and Send around it, plus
+          // about 540 px of room, tabs, the prompt's row, both rows of pens and Send around it, plus
           // the prompt's extra lines; on a desktop, with the prompt, pens and Send beside it, about
           // 340 px of site and room header, round line and the note under it), never too small.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_500px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_540px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
         />
         {/* Desktops only: on a phone the sheet needs the height (the guide says how scoring works). */}
         <p className="text-xs text-ink-muted max-lg:hidden">
