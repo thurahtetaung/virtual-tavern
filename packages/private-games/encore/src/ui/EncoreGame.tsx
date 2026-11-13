@@ -5,9 +5,11 @@ import {
   playersNeeded,
   storageKey,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   Fold,
   GuideLink,
@@ -367,92 +369,108 @@ function End({
   table: ReactNode;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
   return (
-    <Panel className="en-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => {
-                  const ended = g.results.filter((r) => r.ender === p.id).length;
-                  return {
-                    id: p.id,
-                    name: p.name,
-                    score: p.total,
-                    ...(ended > 0 && {
-                      note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}`,
-                    }),
-                  };
-                })}
-                you={room.you}
-              />
-            ),
-          },
-          {
-            id: 'rounds',
-            label: '📋 Rounds',
-            content: <ScoreTable g={g} name={name} you={room.you} />,
-          },
-          !!g.finalHands && {
-            id: 'hands',
-            label: '🃏 Hands',
-            content: (
-              <details className="group text-sm">
-                <FoldSummary className="-my-1 px-0 font-semibold">
-                  What everyone held at the end
-                </FoldSummary>
-                <ul className="mt-2 flex flex-col gap-2">
-                  {g.players.map((p) => (
-                    <li key={p.id} className="flex flex-col gap-1">
-                      <span>{p.name}</span>
-                      {(g.finalHands![p.id] ?? []).length ? (
-                        <Hand
-                          cards={g.finalHands![p.id]!}
-                          art={art}
-                          columns={12}
-                          label={`${p.name}’s last hand`}
-                        />
-                      ) : (
-                        <span className="text-ink-muted">No cards left</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🎪 Table', content: table },
-        ]}
+    <div className="flex flex-col gap-3">
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="🎪"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' }, { anchor: 'en-end' })}
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'en-end' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+            )}
+            <RefusalSlot anchor="en-end" />
+          </>
+        }
       />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'en-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'en-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="en-end" />
-    </Panel>
+      <Panel className="en-rise flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={g.players.map((p) => {
+                    const ended = g.results.filter((r) => r.ender === p.id).length;
+                    return {
+                      id: p.id,
+                      name: p.name,
+                      score: p.total,
+                      ...(ended > 0 && {
+                        note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}`,
+                      }),
+                    };
+                  })}
+                  you={room.you}
+                />
+              ),
+            },
+            {
+              id: 'rounds',
+              label: '📋 Rounds',
+              content: <ScoreTable g={g} name={name} you={room.you} />,
+            },
+            !!g.finalHands && {
+              id: 'hands',
+              label: '🃏 Hands',
+              content: (
+                <details className="group text-sm">
+                  <FoldSummary className="-my-1 px-0 font-semibold">
+                    What everyone held at the end
+                  </FoldSummary>
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {g.players.map((p) => (
+                      <li key={p.id} className="flex flex-col gap-1">
+                        <span>{p.name}</span>
+                        {(g.finalHands![p.id] ?? []).length ? (
+                          <Hand
+                            cards={g.finalHands![p.id]!}
+                            art={art}
+                            columns={12}
+                            label={`${p.name}’s last hand`}
+                          />
+                        ) : (
+                          <span className="text-ink-muted">No cards left</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ),
+            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+            !!table && { id: 'table', label: '🎪 Table', content: table },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }
