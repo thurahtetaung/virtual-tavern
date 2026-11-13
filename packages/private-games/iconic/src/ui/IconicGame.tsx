@@ -570,10 +570,27 @@ function Play({
       ) : (
         // Phones: the stage takes the rest of the screen and scrolls inside when it must.
         <FitArea on={phone} resetKey={`${r.no}-${r.stage}`} className="flex flex-col gap-3">
-          {r.stage === 'choose' && <Choose view={view} room={room} act={act} name={name} />}
-          {r.stage === 'reveal' && <Reveal view={view} room={room} art={art} name={name} />}
-          <Scores view={view} room={room} />
-          {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+          {r.stage === 'choose' && (
+            <>
+              <Choose view={view} room={room} act={act} name={name} />
+              <Scores view={view} room={room} />
+              {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+            </>
+          )}
+          {r.stage === 'reveal' && (
+            <Reveal
+              view={view}
+              room={room}
+              art={art}
+              name={name}
+              aside={
+                <>
+                  <Scores view={view} room={room} />
+                  {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+                </>
+              }
+            />
+          )}
         </FitArea>
       )}
     </>
@@ -1307,11 +1324,14 @@ function Reveal({
   room,
   art,
   name,
+  aside,
 }: {
   view: IconicView;
   room: GameRoomInfo;
   art: Art;
   name: NameOf;
+  /** The scores (and the host's End now) that follow the result. */
+  aside: ReactNode;
 }) {
   const wide = useWide();
   const r = view.game!.round;
@@ -1367,14 +1387,22 @@ function Reveal({
   // its result beside it, so the reveal reads against the clues that led to it.
   if (wide)
     return (
-      <div className="grid grid-cols-[minmax(0,1fr)_22rem] items-start gap-3">
+      <FillWindow className="grid min-h-80 grid-cols-[minmax(0,1fr)_22rem] items-start gap-3">
         <Panel className="p-3">
           <BoardView board={r.board} art={art} active={null} />
         </Panel>
-        <div className="flex flex-col gap-2">{body}</div>
-      </div>
+        <div className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto">
+          {body}
+          {aside}
+        </div>
+      </FillWindow>
     );
-  return body;
+  return (
+    <>
+      {body}
+      {aside}
+    </>
+  );
 }
 
 function Scores({ view, room, open }: { view: IconicView; room: GameRoomInfo; open?: boolean }) {
