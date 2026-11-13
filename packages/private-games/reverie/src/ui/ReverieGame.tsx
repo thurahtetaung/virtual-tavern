@@ -591,7 +591,23 @@ function Play({
   const tableSection = turn && turn.table.length > 0 && (
     <section aria-label="Table">
       <h3 className="mb-2 font-bold">On the table</h3>
-      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(10rem,min(14rem,24dvh)))] lg:justify-center lg:gap-3">
+      <ul
+        className={cn(
+          'grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:justify-center lg:gap-3',
+          // Wide screens: a table of four or fewer stands in one row as tall as the window allows;
+          // a bigger table keeps two rows that still fit.
+          turn.table.length > 4 && 'lg:grid-cols-[repeat(auto-fit,minmax(10rem,min(14rem,24dvh)))]',
+        )}
+        style={
+          wide && turn.table.length <= 4
+            ? {
+                gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, min(16rem, ${
+                  turn.phase === 'reveal' ? 30 : 34
+                }dvh)))`,
+              }
+            : undefined
+        }
+      >
         {turn.table.map((t, i) => (
           <li key={i} className="space-y-1">
             <Card
@@ -686,7 +702,10 @@ function Play({
       >
         {confirmDialog}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        <RoundLine view={view} clockOffset={room.clockOffset} />
+        {/* Wide screens hold the round line in the rail, so the cards get the height. */}
+        {!(wide && view.phase === 'playing') && (
+          <RoundLine view={view} clockOffset={room.clockOffset} />
+        )}
         {turn?.reshuffled && view.phase === 'playing' && (
           <p className="text-xs text-ink-muted" data-testid="reshuffled">
             🔀 The draw pile ran out, so the used cards were shuffled back in.
@@ -855,7 +874,15 @@ function Play({
                   </Button>
                 </form>
               )}
-              <div className="flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
+              <div
+                className={cn(
+                  'flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted',
+                  // While the hand is the screen, wide screens drop the label row (the hint above
+                  // already says what to tap) so the cards get its height; giving two cards keeps
+                  // it for its button.
+                  handNeeded && !(canGive && view.cardsToGive === 2) && 'lg:hidden',
+                )}
+              >
                 <span>
                   Your hand
                   {handOpen && handMore && !handNeeded && (
@@ -907,7 +934,10 @@ function Play({
                             // choosing), the hand is two rows of three sized to the window's
                             // height; once cards are on the table, one row under them.
                             turn && turn.table.length === 0 && !(storyPick !== null && canTell)
-                              ? 'lg:max-w-[calc((100dvh-15.5rem)*0.98)] lg:gap-4'
+                              ? turn.clue
+                                ? // The clue line shares the height while cards are picked.
+                                  'lg:max-w-[calc((100dvh-14.25rem)*1.07)] lg:gap-3'
+                                : 'lg:max-w-[calc((100dvh-11.5rem)*1.07)] lg:gap-3'
                               : 'lg:max-w-none lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,13rem)] lg:justify-center',
                             'max-sm:overflow-y-auto',
                             // What else shares the phone's height: the clue form once the
@@ -959,6 +989,11 @@ function Play({
       >
         {view.phase === 'playing' && (
           <Panel>
+            {wide && (
+              <div className="mb-3">
+                <RoundLine view={view} clockOffset={room.clockOffset} />
+              </div>
+            )}
             <Scoreboard view={view} />
           </Panel>
         )}
