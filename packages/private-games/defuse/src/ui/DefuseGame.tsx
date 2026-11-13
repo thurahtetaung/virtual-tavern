@@ -474,13 +474,9 @@ function Expert({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <ExpertClock v={v} offset={offset} />
         {isHost && defuserHere && (
-          <button
-            type="button"
-            className="text-xs text-ink-muted underline"
-            onClick={() => setHand(true)}
-          >
+          <Button size="sm" variant="quiet" onClick={() => setHand(true)}>
             Hand the bomb over
-          </button>
+          </Button>
         )}
       </div>
       {!defuserHere && (
