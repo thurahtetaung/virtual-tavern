@@ -247,7 +247,8 @@ export function RoundTableGame({
             </div>
           ) : (
             <>
-              {stage !== 'reveal' && !phoneEnd && quests}
+              {/* Wide screens show the quests from the start, above the role card. */}
+              {(stage !== 'reveal' || wide) && !phoneEnd && quests}
               {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
             </>
           )}
@@ -267,7 +268,12 @@ export function RoundTableGame({
               <>
                 <LatestNews view={view} />
                 <LadyResult view={view} shown={known} />
-                {stage === 'reveal' && <RevealPanel view={view} act={act} showGuide={showGuide} />}
+                {stage === 'reveal' && (
+                  // Wide screens: the card sits in the middle of the free height, at a size to read.
+                  <div className="lg:mx-auto lg:flex lg:min-h-[calc(100dvh-24rem)] lg:max-w-xl lg:flex-col lg:justify-center">
+                    <RevealPanel view={view} act={act} showGuide={showGuide} />
+                  </div>
+                )}
                 {stage === 'vote' && <VotePanel view={view} act={act} />}
                 {stage === 'quest' && <QuestPanel view={view} act={act} />}
                 <WaitingChips view={view} room={room} act={act} />

@@ -27,7 +27,7 @@ export function End({
   view: RoundTableView;
   room: GameRoomInfo;
   act: Act;
-  /** Phones: the quest track, as one of the end's tabs. */
+  /** Phones: the quest track, shown in the finale (wide screens show it above). */
   quests?: ReactNode;
 }) {
   const wide = useWideScreen();
@@ -52,7 +52,9 @@ export function End({
           </span>
         }
         titleTestId="winner"
-        emblem={good ? '🛡️' : '🗡️'}
+        // The winning side's own emblem: Percival's shield or the Assassin's dagger.
+        emblem={<Emblem role={good ? 'percival' : 'assassin'} className="size-20 lg:size-24" />}
+        art={quests && <div className="w-full max-w-sm">{quests}</div>}
         tone={mySide ? (mySide === end.winner ? 'win' : 'loss') : 'neutral'}
         superlatives={wide ? room.superlatives : undefined}
         actions={
@@ -104,7 +106,8 @@ export function End({
               content: (
                 <section aria-label="Everyone’s role">
                   <h3 className="mb-2 font-bold">Who was who</h3>
-                  <ul className="grid gap-2 sm:grid-cols-2">
+                  {/* Role cards: two to a row, each banded in its side's colour. */}
+                  <ul className="grid grid-cols-2 gap-2 lg:grid-cols-3">
                     {order.map((p) => {
                       const r = end.roles[p.id]!;
                       const def = ROLES[r];
@@ -112,11 +115,14 @@ export function End({
                       return (
                         <li
                           key={p.id}
-                          className="flex items-center gap-2 rounded-xl bg-card p-2 ring-1 ring-line"
+                          className={cn(
+                            'flex flex-col items-center gap-1.5 rounded-xl border-t-4 bg-card p-2 text-center shadow-vt-1 ring-1 ring-line',
+                            def.loyalty === 'good' ? 'border-team-b' : 'border-team-a',
+                          )}
                         >
-                          <Emblem role={r} className="size-10" />
-                          <span className="min-w-0 text-small">
-                            <span className="flex items-center gap-1 font-semibold">
+                          <Emblem role={r} className="size-12 lg:size-14" />
+                          <span className="w-full min-w-0 text-small">
+                            <span className="flex items-center justify-center gap-1 font-semibold">
                               <span className="truncate">{p.name}</span>
                               <NameDot name={p.name} className="order-first" />
                               {p.id === view.me?.id && (
@@ -160,7 +166,6 @@ export function End({
                 </section>
               ),
             },
-            !!quests && { id: 'quests', label: '🏰 Quests', content: quests },
             !wide &&
               !!room.superlatives?.length && {
                 id: 'awards',
