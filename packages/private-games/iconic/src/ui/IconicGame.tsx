@@ -276,7 +276,7 @@ function Choice<T extends string | number | null>({
     <fieldset className="flex flex-col gap-1.5" data-testid={testId}>
       <legend className="text-sm font-semibold">{label}</legend>
       {help && <p className="text-xs text-ink-muted">{help}</p>}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {options.map(([v, text]) => (
           <button
             key={String(v)}
@@ -285,10 +285,11 @@ function Choice<T extends string | number | null>({
             disabled={!editable}
             onClick={() => onChange(v)}
             className={cn(
-              'rounded-full px-3 py-1 text-sm font-medium ring-1 transition-colors disabled:cursor-default',
+              // The lobbies' segmented choice: 44 px, the picked one ringed in the accent.
+              'min-h-11 flex-1 basis-auto rounded-lg px-3 text-sm font-semibold ring-1 transition-colors disabled:cursor-default',
               value === v
-                ? 'bg-accent-soft text-accent-text ring-accent-line'
-                : 'bg-panel text-ink-2 ring-line enabled:hover:bg-card',
+                ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+                : 'bg-panel text-ink ring-line enabled:hover:bg-sunk',
             )}
           >
             {text}
@@ -1312,6 +1313,7 @@ function Reveal({
   art: Art;
   name: NameOf;
 }) {
+  const wide = useWide();
   const r = view.game!.round;
   const res = r.result!;
   const points = Object.entries(res.points);
@@ -1321,7 +1323,7 @@ function Reveal({
     timer: 'Time ran out.',
     left: 'A clue giver left.',
   };
-  return (
+  const body = (
     <>
       <Panel
         className="ic-reveal flex flex-col items-center gap-2 text-center"
@@ -1330,7 +1332,7 @@ function Reveal({
         <p className="text-sm uppercase tracking-wide text-ink-muted">
           The word was · {LEVEL_LABELS[res.level]}
         </p>
-        <p className="text-3xl font-black">“{res.word}”</p>
+        <p className="font-display text-3xl font-black lg:text-5xl">“{res.word}”</p>
         {res.outcome === 'guessed' ? (
           <p>
             🎉 {res.guesser === room.you ? 'You' : name(res.guesser)} guessed it
@@ -1361,6 +1363,18 @@ function Reveal({
       <ClueStrip board={r.board} art={art} />
     </>
   );
+  // Wide screens: the finished board stays on the left as it was during the clues, the word and
+  // its result beside it, so the reveal reads against the clues that led to it.
+  if (wide)
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)_22rem] items-start gap-3">
+        <Panel className="p-3">
+          <BoardView board={r.board} art={art} active={null} />
+        </Panel>
+        <div className="flex flex-col gap-2">{body}</div>
+      </div>
+    );
+  return body;
 }
 
 function Scores({ view, room, open }: { view: IconicView; room: GameRoomInfo; open?: boolean }) {
