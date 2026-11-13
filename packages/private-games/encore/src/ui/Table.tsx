@@ -7,6 +7,7 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
+  TAP_BAND,
   TabBar,
   type TabBarItem,
   cn,
@@ -729,7 +730,7 @@ function Play({
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className="min-h-11 self-start text-sm text-ink-muted underline"
+          className={cn('self-start text-xs text-ink-muted underline', TAP_BAND)}
           onClick={() => showGuide('cards')}
         >
           What beats what?
