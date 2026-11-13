@@ -276,7 +276,7 @@ export function RoundTableGame({
                 <LadyResult view={view} shown={known} />
                 {stage === 'reveal' && (
                   // Wide screens: the card sits in the middle of the free height, at a size to read.
-                  <div className="lg:mx-auto lg:flex lg:min-h-[calc(100dvh-24rem)] lg:max-w-xl lg:flex-col lg:justify-center">
+                  <div className="lg:mx-auto lg:flex lg:min-h-[calc(100dvh-25rem)] lg:max-w-xl lg:flex-col lg:justify-center">
                     <RevealPanel view={view} act={act} showGuide={showGuide} />
                   </div>
                 )}

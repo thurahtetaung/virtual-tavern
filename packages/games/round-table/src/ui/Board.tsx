@@ -37,7 +37,9 @@ export function QuestTrack({
             <span
               className={cn(
                 'flex items-center justify-center rounded-full font-bold ring-2',
-                compact ? 'size-8 text-small' : 'aspect-square w-full max-w-16 text-lg sm:text-xl',
+                compact
+                  ? 'size-8 text-small'
+                  : 'aspect-square w-full max-w-16 text-lg sm:text-xl lg:max-w-[4.5rem] lg:text-2xl',
                 result?.success && 'bg-team-b text-on-fill ring-team-b',
                 result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
@@ -225,7 +227,7 @@ export function Seats({
               onClick={() => pick?.onPick(p.id)}
               className={cn(
                 // Wide screens: taller seats in larger type, so the table fills its column.
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1 lg:min-h-16 lg:gap-0.5 lg:pl-3.5',
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1 lg:min-h-24 lg:gap-1.5 lg:pl-4',
                 compact
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
@@ -238,7 +240,7 @@ export function Seats({
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:text-body">
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:font-display lg:text-sub">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
