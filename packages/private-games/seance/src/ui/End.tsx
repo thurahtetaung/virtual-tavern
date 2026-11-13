@@ -7,18 +7,21 @@ import type { Content } from './assets.ts';
 import { Avatar, Card } from './Card.tsx';
 import { Lineup, SharedRow } from './Final.tsx';
 import { type LookCard, useLook } from './Look.tsx';
-import { psychicByColor, resultLine, roman } from './status.ts';
+import { myPsychic, psychicByColor, resultLine, roman } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
 /**
  * "What the ghost meant": each psychic's three cards with the visions that pointed to them (each
- * with its hour) and the wrong guesses greyed out. One psychic at a time on phones.
+ * with its hour) and the wrong guesses greyed out. Each psychic folds open on a tap; desktops
+ * start with your own psychic (or the first) open, so the end is not one long column.
  */
 function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
   const g = view.game!;
   const { look, viewer } = useLook(content);
-  const [open, setOpen] = useState<string[]>([]);
+  const wide = useWideScreen();
+  const mine = myPsychic(view)?.color ?? g.psychics[0]?.color;
+  const [open, setOpen] = useState<string[]>(() => (wide && mine ? [mine] : []));
   return (
     <section aria-label="What the ghost meant" className="space-y-3">
       {viewer}
@@ -33,7 +36,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
               onClick={() =>
                 setOpen(expanded ? open.filter((c) => c !== p.color) : [...open, p.color])
               }
-              className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left text-sm font-semibold hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent lg:pointer-events-none lg:min-h-0"
+              className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left text-sm font-semibold hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
             >
               <Avatar color={p.color} content={content} name={p.name} size="sm" />
               <span className="min-w-0 flex-1">
@@ -46,11 +49,11 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                   </span>
                 )}
               </span>
-              <span aria-hidden className="text-ink-muted lg:hidden">
+              <span aria-hidden className="text-ink-muted">
                 {expanded ? '▴' : '▾'}
               </span>
             </button>
-            <ul className={cn('space-y-1.5', !expanded && 'hidden lg:block')}>
+            <ul className={cn('space-y-1.5', !expanded && 'hidden')}>
               {PILLARS.map((pillar, step) => {
                 const target = p.targets?.[step];
                 if (target === undefined) return null;
