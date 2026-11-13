@@ -398,7 +398,7 @@ export function HandStrip({
   const hand = g.hand;
   const items = useMemo(() => hand.map((c) => viewerItem(c)), [hand]);
   // Desktops while cards are laid: six across, as large as the height left under the table allows
-  // (the hand's caption and padding take about 3.5 rem), between 36 and 72 rem across.
+  // (the hand's caption and padding take about 2.5 rem), between 36 and 72 rem across.
   const box = useRef<HTMLElement>(null);
   const wide = useWideScreen();
   const laying = r.stage === 'card' || r.stage === 'play';
@@ -406,7 +406,7 @@ export function HandStrip({
   const across =
     free === null
       ? undefined
-      : Math.round(Math.min(1152, Math.max(576, (free - 64) * CARD_ASPECT * 6 + 30)));
+      : Math.round(Math.min(1152, Math.max(576, (free - 40) * CARD_ASPECT * 6 + 30)));
   return (
     <section
       ref={box}
