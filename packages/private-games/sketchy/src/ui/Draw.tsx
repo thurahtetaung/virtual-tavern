@@ -1,5 +1,14 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, DrawingPad, DrawingView, Panel, cn, useConfirm } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  DrawingPad,
+  DrawingView,
+  Panel,
+  cn,
+  useConfirm,
+  useWideScreen,
+} from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
@@ -40,6 +49,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   const [confirm, dialog] = useConfirm();
   const [busy, setBusy] = useState(false);
   const [heading, extra] = useExtraLines();
+  const wide = useWideScreen();
   const clock = (label: string) => (
     <Countdown
       deadline={g.deadline}
@@ -92,37 +102,40 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   const draftKey = `sketchy.draft.${g.round}.${g.myPrompt}`;
   return (
     <div
-      className="mx-auto flex w-full max-w-md flex-col gap-3"
+      className="mx-auto flex w-full max-w-md flex-col gap-3 lg:max-w-4xl"
       style={{ '--extra': `${extra}px` } as CSSProperties}
     >
       {dialog}
-      <Panel className="flex flex-col gap-2 p-3">
-        <div ref={heading} className="flex flex-col gap-1">
-          <div className="flex min-h-9 items-center justify-between gap-2">
-            <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
-            {g.canReroll && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-9 shrink-0 px-3"
-                disabled={busy}
-                onClick={() => void reroll()}
-              >
-                🎲 New prompt
-              </Button>
-            )}
+      <Panel className="flex flex-col gap-2 p-3 lg:p-5">
+        {/* Desktops show the prompt beside the sheet (the pad's `aside`), phones above it. */}
+        {!wide && (
+          <div ref={heading} className="flex flex-col gap-1">
+            <div className="flex min-h-9 items-center justify-between gap-2">
+              <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
+              {g.canReroll && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-9 shrink-0 px-3"
+                  disabled={busy}
+                  onClick={() => void reroll()}
+                >
+                  🎲 New prompt
+                </Button>
+              )}
+            </div>
+            {/* The whole width, so a long prompt wraps as little as it can. */}
+            <h2
+              data-testid="sketchy-prompt"
+              className={cn(
+                'leading-snug font-bold break-words',
+                g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
+              )}
+            >
+              {g.myPrompt}
+            </h2>
           </div>
-          {/* The whole width, so a long prompt wraps as little as it can. */}
-          <h2
-            data-testid="sketchy-prompt"
-            className={cn(
-              'leading-snug font-bold break-words',
-              g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
-            )}
-          >
-            {g.myPrompt}
-          </h2>
-        </div>
+        )}
         <DrawingPad
           key={draftKey}
           draftKey={draftKey}
@@ -134,11 +147,36 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
           footer={clock('to draw')}
           refusal={DRAW_ANCHOR}
           bar
+          beside
+          aside={
+            wide && (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
+                <p
+                  data-testid="sketchy-prompt"
+                  className="font-display text-heading leading-snug font-semibold break-words"
+                >
+                  {g.myPrompt}
+                </p>
+                {g.canReroll && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="self-start"
+                    disabled={busy}
+                    onClick={() => void reroll()}
+                  >
+                    🎲 New prompt
+                  </Button>
+                )}
+              </div>
+            )
+          }
           // The sheet is as big as the screen allows with everything else in view (on a phone
-          // about 515 px of room, tabs, a one-line prompt, pens and Send around it; on a desktop
-          // about 560 px with the site's header and the note under Send; plus the prompt's extra
-          // lines), never too small to draw.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_515px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_560px_-_var(--extra))_*_0.8))]"
+          // about 515 px of room, tabs, a one-line prompt, pens and Send around it, plus the
+          // prompt's extra lines; on a desktop, with the prompt, pens and Send beside it, about
+          // 340 px of site and room header, round line and the note under it), never too small.
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_515px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
         />
         <p className="text-xs text-ink-muted">
           Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.

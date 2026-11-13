@@ -86,6 +86,7 @@ export function TableDrawing({
   caption = true,
   least = '6rem',
   side = false,
+  pinned = false,
 }: {
   view: SketchyView;
   turn: TurnView;
@@ -95,6 +96,11 @@ export function TableDrawing({
   least?: string;
   /** Phones: the caption beside the drawing instead of under it, for a crowded board. */
   side?: boolean;
+  /**
+   * Phones: the drawing stays large and pinned at the top of the stage while the list under it
+   * (the titles to pick from) scrolls beneath it.
+   */
+  pinned?: boolean;
 }) {
   const artist = turn.artist ? nameOf(view, turn.artist) : null;
   const room = PHONE_CHROME + reserve + (caption && !side ? 44 : 0);
@@ -104,10 +110,14 @@ export function TableDrawing({
         'space-y-1',
         side &&
           'max-sm:flex max-sm:items-center max-sm:justify-center max-sm:gap-3 max-sm:space-y-0',
+        pinned &&
+          'max-sm:sticky max-sm:-top-3 max-sm:z-10 max-sm:-mx-3 max-sm:bg-panel max-sm:px-3 max-sm:pt-3 max-sm:pb-2',
       )}
       style={
         {
-          '--fit': `min(16rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
+          '--fit': pinned
+            ? 'min(18rem, calc(36svh * 0.8))'
+            : `min(16rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
         } as CSSProperties
       }
     >
@@ -627,10 +637,8 @@ export function TurnStage({
   if (g.stage === 'vote') {
     return (
       <div className="space-y-3 max-sm:space-y-2 lg:space-y-4">
-        {/* More than six titles: the board takes the room, so the drawing may get smaller. */}
-        {turn.options.length > 6
-          ? drawing(80 + turn.options.length * 64, true, '4rem', true)
-          : drawing(80 + turn.options.length * 64)}
+        {/* Phones: the drawing stays large and pinned while the titles scroll under it. */}
+        <TableDrawing view={view} turn={turn} pinned />
         {/* On a phone the status line just above says so already. */}
         {turn.mine && (
           <p className="text-center text-sm max-lg:hidden">

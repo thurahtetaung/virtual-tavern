@@ -3,6 +3,7 @@ import { type GameRoomInfo, type GameUiProps, listNames, waitingForHost } from '
 import {
   Button,
   Countdown,
+  EndHero,
   FitArea,
   Fold,
   Hint,
@@ -175,81 +176,93 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
   const liked = top((s) => s.likes);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const history = view.game?.history ?? [];
+  const lead = top((s) => s.score);
+  const wide = useWideScreen();
   return (
-    <Panel className="space-y-2 text-center max-lg:p-3 lg:space-y-4" data-testid="sketchy-over">
-      {view.endReason === 'too-few' && (
-        <p className="font-semibold">Too few players left: final scores so far.</p>
-      )}
-      <Standings
-        entries={ranked.map((s) => ({
-          id: s.id,
-          name: s.left ? `${s.name} (left)` : s.name,
-          score: s.score,
-        }))}
-        you={view.me?.id}
-        scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
-        // On a phone the podium alone (the full list is the Scores tab, a tap away); past 6 players
-        // Standings drops the podium there, so the table stays.
-        className={cn('text-left', ranked.length <= 6 && 'max-lg:[&>div]:hidden')}
-      />
-      {room.superlatives?.length ? (
-        <Superlatives lines={room.superlatives} />
-      ) : (
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-xl bg-danger-soft px-3 py-2">
-            <dt className="font-semibold">🎭 Best liar</dt>
-            <dd className="max-lg:line-clamp-2">
-              {liar ? `${names(liar.ids)}: fooled ${liar.best}` : 'Nobody fooled anyone!'}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-special-soft px-3 py-2">
-            <dt className="font-semibold">👍 Most liked</dt>
-            <dd className="max-lg:line-clamp-2">
-              {liked ? `${names(liked.ids)}: ${liked.best} likes` : 'No likes this game.'}
-            </dd>
-          </div>
-        </dl>
-      )}
-      {history.length > 0 && (
-        <Fold
-          summary={<span className="font-semibold">🖼️ Every drawing ({history.length})</span>}
-          className="text-left text-sm"
-          bodyClassName="px-3 pb-3"
-        >
-          <ul className="space-y-1" data-testid="sketchy-history">
-            {history.map((h, i) => (
-              <li key={i} className="flex justify-between gap-2">
-                <span className="min-w-0">
-                  <span className="font-semibold">{nameOf(view, h.artist)}</span> drew “{h.prompt}”
-                </span>
-                <span className="shrink-0 text-ink-muted tabular-nums">
-                  {h.found}/{h.voters} found
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Fold>
-      )}
-      {room.isHost ? (
-        <StickyBar fixed>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
-            <Button size="lg" className="max-lg:px-3" onClick={() => void act({ type: 'start' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              className="whitespace-nowrap max-lg:px-3"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <p>{waitingForHost(room, 'start the next game')}</p>
-      )}
-    </Panel>
+    <div className="space-y-3">
+      <EndHero
+        emblem="🖼️"
+        title={lead ? `${names(lead.ids)} ${lead.ids.length > 1 ? 'win' : 'wins'}!` : 'Game over'}
+        eyebrow={lead ? undefined : null}
+        superlatives={wide ? room.superlatives : undefined}
+      >
+        {view.endReason === 'too-few'
+          ? 'Too few players left: final scores so far.'
+          : lead && `${points(lead.best)} points after ${history.length} drawings.`}
+      </EndHero>
+      <Panel className="space-y-2 text-center max-lg:p-3 lg:space-y-4" data-testid="sketchy-over">
+        <Standings
+          entries={ranked.map((s) => ({
+            id: s.id,
+            name: s.left ? `${s.name} (left)` : s.name,
+            score: s.score,
+          }))}
+          you={view.me?.id}
+          scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
+          // On a phone the podium alone (the full list is the Scores tab, a tap away); past 6 players
+          // Standings drops the podium there, so the table stays.
+          className={cn('text-left', ranked.length <= 6 && 'max-lg:[&>div]:hidden')}
+        />
+        {room.superlatives?.length ? (
+          !wide && <Superlatives lines={room.superlatives} />
+        ) : (
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="rounded-xl bg-danger-soft px-3 py-2">
+              <dt className="font-semibold">🎭 Best liar</dt>
+              <dd className="max-lg:line-clamp-2">
+                {liar ? `${names(liar.ids)}: fooled ${liar.best}` : 'Nobody fooled anyone!'}
+              </dd>
+            </div>
+            <div className="rounded-xl bg-special-soft px-3 py-2">
+              <dt className="font-semibold">👍 Most liked</dt>
+              <dd className="max-lg:line-clamp-2">
+                {liked ? `${names(liked.ids)}: ${liked.best} likes` : 'No likes this game.'}
+              </dd>
+            </div>
+          </dl>
+        )}
+        {history.length > 0 && (
+          <Fold
+            summary={<span className="font-semibold">🖼️ Every drawing ({history.length})</span>}
+            className="text-left text-sm"
+            bodyClassName="px-3 pb-3"
+          >
+            <ul className="space-y-1" data-testid="sketchy-history">
+              {history.map((h, i) => (
+                <li key={i} className="flex justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="font-semibold">{nameOf(view, h.artist)}</span> drew “{h.prompt}
+                    ”
+                  </span>
+                  <span className="shrink-0 text-ink-muted tabular-nums">
+                    {h.found}/{h.voters} found
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Fold>
+        )}
+        {room.isHost ? (
+          <StickyBar fixed>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
+              <Button size="lg" className="max-lg:px-3" onClick={() => void act({ type: 'start' })}>
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="whitespace-nowrap max-lg:px-3"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </div>
+          </StickyBar>
+        ) : (
+          <p>{waitingForHost(room, 'start the next game')}</p>
+        )}
+      </Panel>
+    </div>
   );
 }
 
