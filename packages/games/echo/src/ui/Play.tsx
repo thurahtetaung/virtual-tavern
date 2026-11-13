@@ -5,18 +5,7 @@ import {
   sameClue,
   waitingForHost,
 } from '@vt/game-sdk';
-import {
-  Button,
-  FoldSummary,
-  Input,
-  NameDot,
-  Panel,
-  Row,
-  Rows,
-  StickyBar,
-  Superlatives,
-  cn,
-} from '@vt/ui';
+import { Button, EndHero, FoldSummary, Input, NameDot, Row, Rows, StickyBar, cn } from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -460,7 +449,10 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
 function CardWall({ history }: { history: ResolvedCard[] }) {
   if (history.length === 0) return null;
   return (
-    <ul aria-label="Cards played" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+    <ul
+      aria-label="Cards played"
+      className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4"
+    >
       {history.map((h, i) => (
         <li
           key={i}
@@ -496,24 +488,28 @@ function CardWall({ history }: { history: ResolvedCard[] }) {
 /** `details`: on phones, the awards, cards and players as tabs, in place of the awards. */
 export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
   const deck = view.settings.deckSize;
+  const verdict = rating(view.score, deck);
   return (
     <>
-      <Panel className="space-y-3 text-center max-lg:space-y-1 max-lg:p-3">
-        <p className="text-5xl font-black tabular-nums max-lg:text-display">
-          {view.score}
-          <span className="text-heading text-ink-muted"> / {deck}</span>
+      <EndHero
+        title={verdict}
+        // The score is the emblem: everyone played together, so it is the whole result.
+        emblem={
+          <span className="font-black tabular-nums">
+            {view.score}
+            <span className="text-heading text-ink-muted"> / {deck}</span>
+          </span>
+        }
+        tone={verdict === 'Not this time' ? 'loss' : 'success'}
+        superlatives={details ? undefined : room.superlatives}
+        art={!details && <CardWall history={view.history} />}
+        actions={<EndButtons view={view} act={act} room={room} />}
+      >
+        <p className="sr-only">
+          Score: {view.score} of {deck}.
         </p>
-        <p className="font-display text-title font-bold">{rating(view.score, deck)}</p>
-        {!details && <Superlatives lines={room.superlatives} />}
-        {!details && <EndButtons view={view} act={act} room={room} />}
-      </Panel>
-      {!details && <CardWall history={view.history} />}
-      {details && (
-        <>
-          {details}
-          <EndButtons view={view} act={act} room={room} />
-        </>
-      )}
+      </EndHero>
+      {details}
     </>
   );
 }
