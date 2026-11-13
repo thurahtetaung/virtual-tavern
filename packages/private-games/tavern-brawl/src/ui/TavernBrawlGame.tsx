@@ -187,16 +187,31 @@ function End({
                           key={p.id}
                           className={cn(
                             'flex items-center gap-2.5 rounded-xl bg-panel px-2.5 py-2 ring-1 ring-line dark:ring-0',
-                            p.out && 'opacity-75',
                           )}
                           style={heroVars(p.hero)}
                         >
-                          <Portrait hero={p.hero} art={art} size={44} />
+                          <span className={cn('shrink-0', p.out && 'opacity-60 grayscale')}>
+                            <Portrait hero={p.hero} art={art} size={44} />
+                          </span>
                           <span className="min-w-0 flex-1 text-sm">
-                            <span className="flex items-center gap-1 font-semibold">
+                            {/* Knocked out: muted ink (still ≥ 4.5:1) and the KO mark, not a faded row. */}
+                            <span
+                              className={cn(
+                                'flex items-center gap-1 font-semibold',
+                                p.out && 'text-ink-muted',
+                              )}
+                            >
                               <NameDot name={p.name} />
                               {name(p.id)}
                               {g.winners.includes(p.id) && <span aria-label="winner">🏆</span>}
+                              {p.out && (
+                                <span
+                                  className="text-caption font-semibold"
+                                  aria-label="knocked out"
+                                >
+                                  💥 KO
+                                </span>
+                              )}
                             </span>
                             <span className="block text-ink-muted">
                               {art.hero(p.hero)}

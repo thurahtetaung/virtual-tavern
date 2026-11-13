@@ -1,21 +1,22 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   Countdown,
   FitArea,
-  TAP_BAND,
-  useScrollEnds,
-  useWideScreen,
-  scrollFadeMask,
   Hint,
   NameDot,
   PlayerTag,
   RefusalSlot,
+  scrollFadeMask,
   StickyBar,
   TabBar,
   type TabBarItem,
-  cn,
   tabPanelProps,
+  TAP_BAND,
+  useFreeHeight,
+  useScrollEnds,
+  useWideScreen,
 } from '@vt/ui';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CARDS } from '../logic/cards.ts';
@@ -298,7 +299,7 @@ const PlayerRow = memo(function PlayerRow({
           data-seat-hero={p.hero}
         >
           <span className="relative">
-            <Portrait hero={p.hero} art={art} size={compact ? 36 : 40} />
+            <Portrait hero={p.hero} art={art} size={compact ? 36 : 48} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1">
@@ -322,7 +323,8 @@ const PlayerRow = memo(function PlayerRow({
                 </span>
               )}
             </span>
-            <span className="block truncate text-xs text-ink-2">
+            {/* Wraps to a second line rather than cutting off the counts. */}
+            <span className="block text-xs text-ink-2">
               {art.hero(p.hero)} · ✋ {p.handCount} in hand · 🂠 {p.deckCount} in deck
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
@@ -557,6 +559,7 @@ function Hand({
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(360);
+  const free = useFreeHeight(ref, room < 700);
   const { ref: stripRef, ends: stripEnds } = useScrollEnds(view.hand.map((c) => c.id).join(','));
   useLayoutEffect(() => {
     const el = ref.current;
@@ -577,8 +580,21 @@ function Hand({
       ? Math.max(132, Math.min(184, Math.round(window.innerHeight * 0.165)))
       : Math.max(108, Math.min(128, Math.round(window.innerHeight * 0.15)));
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
-  const width = Math.max(92, Math.min(full, fit));
-  const scrolls = n * width + GAP * (n - 1) > room;
+  const oneRow = Math.max(92, Math.min(full, fit));
+  // On a phone, four to eight cards go in two rows when the band above Play has the height: bigger
+  // cards, all in sight, no swipe. Card faces are 400 × 630.
+  const cols = Math.ceil(n / 2);
+  const twoRow =
+    room < 700 && n >= 4 && n <= 8 && free !== null
+      ? Math.min(
+          Math.floor((room - GAP * (cols - 1)) / cols),
+          Math.floor((((free - 20 - GAP) / 2) * 400) / 630),
+          184,
+        )
+      : 0;
+  const rows2 = twoRow >= 92 && twoRow > Math.min(oneRow, fit) + 8;
+  const width = rows2 ? twoRow : oneRow;
+  const scrolls = !rows2 && n * width + GAP * (n - 1) > room;
   const overlap = -GAP;
   const owners = new Map(g.players.map((p) => [p.id, p]));
   const onTap = useCallback(
@@ -595,11 +611,15 @@ function Hand({
       ) : (
         <ul
           ref={stripRef}
-          style={scrollFadeMask(stripEnds)}
           className={cn(
             'flex pt-3 pb-1',
             scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',
+            rows2 && 'mx-auto flex-wrap gap-y-1.5',
           )}
+          style={{
+            ...scrollFadeMask(stripEnds),
+            ...(rows2 ? { maxWidth: cols * width + GAP * (cols - 1) } : null),
+          }}
         >
           {view.hand.map((r, i) => {
             const borrowed = r.owner !== view.me?.id ? owners.get(r.owner) : undefined;
@@ -609,7 +629,7 @@ function Hand({
                 r={r}
                 art={art}
                 width={width}
-                index={i}
+                index={rows2 ? i % cols : i}
                 overlap={overlap}
                 selected={selected === r.id}
                 pickable={!!pickCard?.options.has(r.id)}
