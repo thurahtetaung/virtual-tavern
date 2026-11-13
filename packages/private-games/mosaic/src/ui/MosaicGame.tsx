@@ -417,6 +417,7 @@ function End({
           ) || 'Game over'
         }
         eyebrow={winners.length ? undefined : null}
+        emblem={!wide && winners[0] ? null : undefined}
         // Phones: the winner's wall in the finale (wide screens show every wall beside it).
         art={
           !wide &&
