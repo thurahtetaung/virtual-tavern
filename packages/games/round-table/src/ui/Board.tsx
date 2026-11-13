@@ -202,7 +202,10 @@ export function Seats({
   return (
     <ul
       aria-label="Seats"
-      className={cn('grid gap-1.5 sm:grid-cols-3', compact ? 'grid-cols-3' : 'grid-cols-2')}
+      className={cn(
+        'grid gap-1.5 sm:grid-cols-3 lg:gap-2.5',
+        compact ? 'grid-cols-3' : 'grid-cols-2',
+      )}
     >
       {g.players.map((p) => {
         const me = p.id === view.me?.id;
@@ -221,7 +224,8 @@ export function Seats({
               aria-label={pick ? pick.label(p.name) : p.name}
               onClick={() => pick?.onPick(p.id)}
               className={cn(
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left',
+                // Wide screens: taller seats in larger type, so the table fills its column.
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1 lg:min-h-16 lg:gap-0.5 lg:pl-3.5',
                 compact
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
@@ -234,7 +238,7 @@ export function Seats({
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold">
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:text-body">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
