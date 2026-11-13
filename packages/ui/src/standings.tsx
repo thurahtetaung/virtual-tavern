@@ -106,7 +106,7 @@ export function Standings({
                     STEP[step],
                     step === 0
                       ? 'border-accent-line bg-accent-soft text-accent-text shadow-vt-1'
-                      : 'border-line bg-sunk text-ink-2',
+                      : 'border-line-strong bg-card text-ink-2 shadow-vt-1',
                   )}
                 >
                   {scoreLabel(onPlace(place)[0]!.entry.score)}
