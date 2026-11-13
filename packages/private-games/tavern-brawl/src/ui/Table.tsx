@@ -573,11 +573,12 @@ function Hand({
   // that the row scrolls sideways.
   const n = view.hand.length;
   const GAP = 6;
-  // Cards size by the window's height too (about a sixth of it on wide screens, so the hand reads
-  // from across the table; a little less on phones, so a tall phone fills the band above Play).
+  // Cards size by the window's height too (about a fifth of it on wide screens, so the hand fills
+  // the play column and reads from across the table; a little less on phones, so a tall phone
+  // fills the band above Play).
   const full =
     room >= 700
-      ? Math.max(132, Math.min(184, Math.round(window.innerHeight * 0.165)))
+      ? Math.max(132, Math.min(200, Math.round(window.innerHeight * 0.21)))
       : Math.max(108, Math.min(128, Math.round(window.innerHeight * 0.15)));
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
   const oneRow = Math.max(92, Math.min(full, fit));
