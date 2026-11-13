@@ -1535,6 +1535,9 @@ function End({
                       note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
                     }))}
                     you={room.you}
+                    // Phones show the table without the podium (the finale already names the
+                    // winner), so the end fits the screen even when a tie adds the table.
+                    phoneTable
                     {...(!scoring && {
                       scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
                     })}
