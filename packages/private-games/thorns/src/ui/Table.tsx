@@ -2,6 +2,7 @@ import { type GameRoomInfo, type PlayerColor, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  PLAYER_DOT,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
@@ -88,6 +89,8 @@ function Mat({
   const set = art.set(seat);
   // Wide screens: the mats take the table's height and the discs are read across the room.
   const wide = useWideScreen();
+  // Three players while a disc is turned over: no move bar, so the mats take the free height.
+  const roomy = !ended && g.players.length <= 3 && (r.stage === 'flip' || r.stage === 'result');
   const matArt = p.points > 0 ? (set.matScored ?? set.mat) : set.mat;
   const offline = room.players.find((x) => x.id === p.id)?.connected === false;
   const chip = p.out
@@ -132,11 +135,15 @@ function Mat({
         // Phones: the mat art takes the free height (up to 6rem), shorter on short screens
         // so six mats still fit.
         className={cn(
-          'relative flex items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0',
-          // Up to four players sit in two rows on phones, so their mats take more of the height.
-          g.players.length <= 4
-            ? 'min-h-[clamp(3.5rem,13dvh,8rem)]'
-            : 'min-h-[clamp(3.5rem,10dvh,6rem)]',
+          // The mat is a seat at the table: the sunk surface, lit from above by the lamp.
+          'relative flex items-center justify-center rounded-xl bg-sunk bg-[radial-gradient(120%_80%_at_50%_0%,var(--vt-lamp),transparent_70%)] px-2 py-1.5 ring-1 ring-line dark:ring-0',
+          // Up to four players sit in two rows on phones, so their mats take more of the height;
+          // three take the most while a disc is turned over, when no move bar shares the screen.
+          roomy
+            ? 'min-h-[clamp(3.5rem,18dvh,10rem)]'
+            : g.players.length <= 4
+              ? 'min-h-[clamp(3.5rem,13dvh,8rem)]'
+              : 'min-h-[clamp(3.5rem,10dvh,6rem)]',
           ended
             ? 'lg:min-h-28'
             : // Wide screens: three mats a row; more than three players take two rows, so shorter.
@@ -165,10 +172,10 @@ function Mat({
                 seat={seat}
                 color={color}
                 art={art}
-                size={wide ? (ended ? 64 : 110) : 48}
+                size={wide ? (ended ? 64 : 110) : roomy ? 60 : 48}
                 flip={d.up}
                 className={cn(
-                  i > 0 && (wide ? (ended ? '-ml-8' : '-ml-14') : '-ml-6'),
+                  i > 0 && (wide ? (ended ? '-ml-8' : '-ml-14') : roomy ? '-ml-8' : '-ml-6'),
                   you && !d.up && 'opacity-80',
                 )}
               />
@@ -190,29 +197,39 @@ function Mat({
     </>
   );
   const box = cn(
-    'flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card/85 p-2 text-left shadow-sm ring-1 ring-line',
+    // A 4 px band of the player's colour along the top marks whose seat it is.
+    'relative flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-card/85 p-2 pt-2.5 text-left shadow-sm ring-1 ring-line',
     waiting && 'ring-2 ring-accent',
     p.out && 'opacity-50',
     you && 'bg-accent-soft/40',
+  );
+  const band = (
+    <span
+      aria-hidden
+      className={cn('absolute inset-x-0 top-0 h-1', color ? PLAYER_DOT[color] : 'bg-line-strong')}
+    />
   );
   return onFlip ? (
     <button
       type="button"
       className={cn(
         box,
+        'h-full',
         'th-rise cursor-pointer hover:bg-panel focus-visible:outline-2 focus-visible:outline-accent',
       )}
       onClick={onFlip}
       aria-label={`Turn over ${you ? 'your own' : `${p.name}’s`} top disc`}
       data-flip={p.id}
     >
+      {band}
       {body}
       <span className="rounded-lg bg-accent px-2 py-1 text-center text-xs font-bold text-accent-fg">
         Turn over the top disc
       </span>
     </button>
   ) : (
-    <div className={box} data-mat={p.id}>
+    <div className={cn(box, 'h-full')} data-mat={p.id}>
+      {band}
       {body}
     </div>
   );
@@ -530,7 +547,16 @@ export function Table(props: TableProps) {
           aria-label="The table"
         >
           {g.players.map((p, seat) => (
-            <li key={p.id} className="min-w-0">
+            <li
+              key={p.id}
+              className={cn(
+                'min-w-0',
+                // Phones: a lone last mat sits in the middle of its row, at a mat's width.
+                g.players.length % 2 === 1 &&
+                  seat === g.players.length - 1 &&
+                  'max-sm:col-span-2 max-sm:mx-auto max-sm:w-[calc(50%-0.25rem)]',
+              )}
+            >
               <Mat
                 p={p}
                 seat={seat}
