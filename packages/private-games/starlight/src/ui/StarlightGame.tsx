@@ -37,6 +37,8 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
@@ -275,9 +277,15 @@ function Seats({
   };
   return (
     <Panel className="space-y-2">
-      <h3 className="font-bold">
-        Players ({playing.length}/{MAX_PLAYERS})
-      </h3>
+      <SeatHeading title={`Players (${playing.length}/${MAX_PLAYERS})`}>
+        {me && (
+          <SeatToggle
+            id={SEAT_CONTROL_ID}
+            playing={me.playing}
+            onChange={(playing) => void act({ type: 'sit', playing })}
+          />
+        )}
+      </SeatHeading>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center">
@@ -295,16 +303,6 @@ function Seats({
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
-      {me && (
-        <Button
-          id={SEAT_CONTROL_ID}
-          size="sm"
-          variant={me.playing ? 'ghost' : 'primary'}
-          onClick={() => void act({ type: 'sit', playing: !me.playing })}
-        >
-          {me.playing ? 'Watch instead' : 'Take a seat'}
-        </Button>
-      )}
     </Panel>
   );
 }
@@ -481,7 +479,14 @@ function Play({
       <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <section
           aria-label="The cards"
-          className={cn('space-y-2', shown === 'stars' && 'hidden')}
+          className={cn(
+            'space-y-2',
+            // Phones fill five cards across their width; while the Scouts show, the board sits in
+            // the middle of the free height rather than over an empty band.
+            r.stage === 'reveal' &&
+              'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-18.5rem)] max-sm:flex-col max-sm:justify-center',
+            shown === 'stars' && 'hidden',
+          )}
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
@@ -496,7 +501,7 @@ function Play({
                     ? 'min(60rem, max(36rem, calc((100dvh - 15.5rem) * 1.18)))'
                     : 'min(48rem, 62dvh)',
             }}
-            className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
+            className="mx-auto grid w-full grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
               <GridCard
