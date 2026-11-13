@@ -215,7 +215,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await expect(ben!.getByText(/Red wins! Red intercepted 2 codes\./)).toBeVisible();
   await host.getByRole('button', { name: 'See results' }).click();
 
-  await expect(host.getByText('🏆 Red team wins!')).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Red team wins!' })).toBeVisible();
   await expect(ben!.getByText('Red intercepted 2 codes.', { exact: true })).toBeVisible();
   await expect(ben!.getByText('Red team wins!')).toHaveCount(1);
   // The last round's reveal stays on screen.
@@ -460,7 +460,7 @@ test('a level score goes to a showdown on the other team’s keywords', async ({
   await cy!.getByRole('button', { name: 'Hand in our guesses' }).click();
 
   for (const [i, p] of pages.entries()) {
-    await expect(p.getByText('🤝 A shared win!')).toBeVisible();
+    await expect(p.getByRole('heading', { name: 'A shared win!' })).toBeVisible();
     await expect(
       p.getByText(/In the showdown both teams named 0 keywords right, so they share the win\./),
     ).toBeVisible();
