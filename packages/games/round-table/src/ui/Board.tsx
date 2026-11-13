@@ -227,8 +227,9 @@ export function Seats({
               aria-label={pick ? pick.label(p.name) : p.name}
               onClick={() => pick?.onPick(p.id)}
               className={cn(
-                // Wide screens: taller seats in larger type, so the table fills its column.
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1 lg:min-h-24 lg:gap-1.5 lg:pl-4',
+                // Wide screens: seat cards (128 px tall, the name in the display face at title size,
+                // the badges at body size), so the table fills its column.
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1-edge lg:min-h-32 lg:gap-2 lg:pl-4',
                 compact
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
@@ -241,7 +242,7 @@ export function Seats({
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:font-display lg:text-sub">
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:gap-1.5 lg:font-display lg:text-title">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
@@ -281,7 +282,7 @@ export function Seats({
                   </span>
                 )}
               </span>
-              <span className="flex flex-wrap items-center gap-1 text-caption leading-tight">
+              <span className="flex flex-wrap items-center gap-1 text-caption leading-tight lg:gap-1.5 lg:text-small lg:[&>.rounded-full]:px-2.5 lg:[&>.rounded-full]:py-0.5">
                 {me && compact && <span className="text-ink-muted sm:hidden">you</span>}
                 {k === 'evil' && (
                   <span className="rounded-full bg-team-a px-1.5 font-bold text-on-fill">Evil</span>
