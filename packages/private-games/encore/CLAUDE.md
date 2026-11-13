@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `ENCORE_TEST_DECK` (e.g. `3:1/2 4/1 …`, each card up-number first) deals that order every round.
   - **Phones:** Table (with your hand), Log and Scores on the shared `TabBar`; the turn's actions and Ready sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
-- **UI:** Hand cards keep their width in an ordered horizontal scroll lane; insertion gaps reserve separate 44 px targets. Do not animate the ancestor of the fixed round-score actions with a transform.
+- **UI:** The recruit preview fits the phone height above the hand and action bar. Hand cards keep their width in an ordered horizontal scroll lane; insertion gaps reserve separate 44 px targets. Do not animate the ancestor of the fixed round-score actions with a transform.
 
 ## Assets
 

@@ -188,7 +188,7 @@ export function Hand({
       aria-label={label}
       ref={stripRef}
       className={cn(
-        'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-2 pb-2',
+        'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-3 pb-2',
         onGap && 'pr-11',
         className,
       )}
