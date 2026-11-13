@@ -291,7 +291,8 @@ function FlipStep({
         />
       </div>
       {hand && me ? (
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+        // Side by side on tablets; one above the other on a wide screen, so each whole hand shows.
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
           {[false, true].map((flip) => {
             const shown = flip ? flipHand(hand) : hand;
             const chosen = g.myFlip === flip;

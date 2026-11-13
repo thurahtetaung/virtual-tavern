@@ -194,7 +194,9 @@ export function Hand({
       )}
       style={{
         ...scrollFadeMask(stripEnds),
-        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : '3.6rem'})`,
+        // Cards take the width there is, up to a readable 6rem on a wide screen, and never below
+        // 3.6rem: past that the lane scrolls (the order can't change, so it never wraps).
+        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : 'minmax(3.6rem, 6rem)'})`,
       }}
     >
       {cards.map((c, i) => {
