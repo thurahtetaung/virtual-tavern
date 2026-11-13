@@ -66,10 +66,10 @@ export function Tile({
       {src && (
         <ProtectedImage src={src} alt="" className="absolute inset-0 size-full rounded-[inherit]" />
       )}
-      {size >= 14 && (
+      {size >= (src ? 28 : 14) && (
         <span
           className={cn('mo-sym', src && 'mo-sym-corner')}
-          style={{ fontSize: src ? Math.max(8, size * 0.3) : size * 0.5 }}
+          style={{ fontSize: Math.max(12, size * (src ? 0.3 : 0.5)) }}
         >
           {SYMBOL[colour]}
         </span>
@@ -381,7 +381,7 @@ function FloorLine({
             <span className="mo-slot mo-floor-slot" style={{ width: cell, height: cell }} />
           )}
           {cell >= 14 && (
-            <span className="text-[10px] leading-tight tabular-nums text-ink-muted">{n}</span>
+            <span className="text-xs leading-tight tabular-nums text-ink-muted">{n}</span>
           )}
         </span>
       ))}
@@ -398,7 +398,7 @@ function FloorLine({
           ) : (
             <span className="mo-slot mo-shield-slot" style={{ width: cell, height: cell }} />
           )}
-          {cell >= 14 && <span className="text-[10px] leading-tight text-ink-muted">🛡</span>}
+          {cell >= 14 && <span className="text-xs leading-tight text-ink-muted">🛡</span>}
         </span>
       )}
       <span

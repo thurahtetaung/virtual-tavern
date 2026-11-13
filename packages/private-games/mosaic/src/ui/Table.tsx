@@ -196,7 +196,7 @@ function Factory({
   if (special?.holder)
     return (
       <div
-        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-[10px] leading-tight text-ink-muted ring-1 ring-line ring-dashed"
+        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-xs leading-tight text-ink-muted ring-1 ring-line ring-dashed"
         role="group"
         aria-label={`Factory ${index + 1}: ${name(special.holder)}’s floor shield this round`}
         data-factory={index}
@@ -240,7 +240,7 @@ function Factory({
         <button
           type="button"
           onClick={() => onInfo(special)}
-          className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-special px-2 text-[11px] leading-[18px] font-bold whitespace-nowrap text-white shadow-sm ring-1 ring-white/70 sm:text-xs sm:leading-5 dark:ring-black/50"
+          className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-special px-2 text-xs leading-[18px] font-bold whitespace-nowrap text-white shadow-sm ring-1 ring-white/70 sm:leading-5 dark:ring-black/50"
           aria-label={`Special factory ${index + 1}: ${specialName(special)}. What does it do?`}
           data-testid="mo-special"
         >
@@ -430,7 +430,7 @@ function PlayerBoard({
         <PlayerTag name={p.name} you={p.id === room.you} className="font-semibold" />
         <span className="flex items-center gap-1.5">
           {(p.left || p.removed) && (
-            <span className="rounded-full bg-warn-soft px-1.5 text-[11px] text-warn-ink">
+            <span className="rounded-full bg-warn-soft px-1.5 text-xs text-warn-ink">
               {p.removed ? 'removed' : 'away'}
             </span>
           )}
@@ -749,7 +749,7 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           {hostTools}
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} ·{' '}
-            <button type="button" className="underline" onClick={() => showGuide()}>
+            <button type="button" className="min-h-11 px-2 underline" onClick={() => showGuide()}>
               rules
             </button>
           </p>
