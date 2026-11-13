@@ -1,5 +1,5 @@
 import { CardViewer, type ViewerItem, cn } from '@vt/ui';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, createContext, useCallback, useContext, useState } from 'react';
 import type { Kind } from '../logic/cards.ts';
 import type { Content } from './assets.ts';
 import { Card, CardPlaceholder } from './Card.tsx';
@@ -25,6 +25,12 @@ export const cardsOf = (kind: Kind, cards: readonly number[], captions?: Record<
   cards.map((n): LookCard => ({ kind, n, caption: captions?.[n] }));
 
 /**
+ * The game's current step (stage and hour). A card left open full screen closes when it moves on,
+ * so nobody is stuck looking at a card while the game goes to the verdicts or the next hour.
+ */
+export const LookStep = createContext('');
+
+/**
  * The full-screen viewer for one group of cards. `look(cards, start)` opens it; render `viewer`
  * somewhere in the component. `actions` (a Pick toggle) is drawn under the card shown, from the
  * current render, so it always reflects the latest state.
@@ -33,16 +39,21 @@ export function useLook(
   content: Content,
   actions?: (card: LookCard, close: () => void) => ReactNode,
 ) {
-  const [open, setOpen] = useState<{
+  const step = useContext(LookStep);
+  const [opened, setOpen] = useState<{
     cards: readonly LookCard[];
     start: number;
     title: string;
+    step: string;
   } | null>(null);
   const look = useCallback(
-    (cards: readonly LookCard[], start = 0, title = 'Cards') => setOpen({ cards, start, title }),
-    [],
+    (cards: readonly LookCard[], start = 0, title = 'Cards') =>
+      setOpen({ cards, start, title, step }),
+    [step],
   );
   const close = useCallback(() => setOpen(null), []);
+  // A card opened in an earlier step is closed: the game has moved on.
+  const open = opened?.step === step ? opened : null;
   const viewer = open && (
     <CardViewer
       items={open.cards.map((c) => lookItem(content, c))}
