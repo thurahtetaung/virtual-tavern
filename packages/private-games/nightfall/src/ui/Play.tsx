@@ -477,8 +477,9 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
  * so a phone left face up on the table says nothing about you.
  */
 /**
- * Your card and Mark behind a hold. At night (`big`) the cover is the card back itself, the art the
- * ready screen showed; by day it's a slim strip with a small back, on the theme's own card surface.
+ * Your card and Mark behind a hold. At night and on wide screens by day (`big`) the cover is the
+ * card back itself, the art the ready screen showed; on phones by day it's the card back at a
+ * smaller size beside the words, on the theme's own card surface.
  */
 function MySecrets({
   deck,
@@ -500,8 +501,8 @@ function MySecrets({
               Hold to see your card
             </span>
           ) : (
-            <span className="flex min-h-11 items-center justify-center gap-2.5 rounded-xl bg-card px-3 py-1.5 text-sm font-semibold text-ink shadow-vt-1 ring-1 ring-line">
-              <CardBack deck={deck} className="w-6 rounded-[3px] shadow-none" />
+            <span className="flex min-h-11 items-center justify-center gap-3 rounded-xl bg-card px-3 py-2 text-sm font-semibold text-ink shadow-vt-1 ring-1 ring-line">
+              <CardBack deck={deck} className="w-16 rounded-md shadow-vt-1" />
               Hold to see your card
             </span>
           )
@@ -1268,7 +1269,7 @@ function TableList({
                 aria-label={`Vote for ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
-                  'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
+                  'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition lg:min-h-20 lg:justify-center lg:px-4 lg:text-lg',
                   picked === p.id || picked2 === p.id
                     ? 'bg-danger text-white ring-danger'
                     : 'bg-card ring-line-strong hover:bg-danger-soft',
@@ -1287,7 +1288,9 @@ function TableList({
                 </span>
               </button>
             ) : (
-              <div className="flex min-h-12 flex-col rounded-lg bg-sunk px-3 py-1.5">{body}</div>
+              <div className="flex min-h-12 flex-col rounded-lg bg-sunk px-3 py-1.5 lg:min-h-20 lg:justify-center lg:px-4 lg:text-lg">
+                {body}
+              </div>
             )}
           </li>
         );
@@ -1399,7 +1402,7 @@ export function Day({
         <div ref={tablePanel} className="max-sm:overflow-y-auto max-sm:overscroll-contain">
           <Panel className="space-y-3">
             {playing && view.myRole && (
-              <MySecrets deck={deck}>
+              <MySecrets deck={deck} big={wide}>
                 <MyCardChip view={view} deck={deck} />
                 <MyMark view={view} deck={deck} />
                 {myArtifact?.kind === 'artifact' && (
