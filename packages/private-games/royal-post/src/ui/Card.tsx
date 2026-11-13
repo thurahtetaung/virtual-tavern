@@ -25,7 +25,8 @@ interface Props {
 const LONG_NAME = 8;
 
 const TEXT: Record<Size, { rank: string; emoji: string; name: string }> = {
-  xs: { rank: 'text-[0.6rem] top-0.5 left-1', emoji: 'text-sm', name: 'hidden' },
+  // The value never under 12 px, even on the smallest thumbnail.
+  xs: { rank: 'text-xs top-0.5 left-1', emoji: 'text-sm', name: 'hidden' },
   sm: { rank: 'text-xs top-1 left-1.5', emoji: 'mt-2 text-xl', name: 'text-[0.65rem]' },
   md: { rank: 'text-base top-1.5 left-2', emoji: 'mt-3 text-3xl', name: 'text-sm' },
   lg: { rank: 'text-3xl top-2 left-3', emoji: 'mt-6 text-6xl', name: 'text-xl' },

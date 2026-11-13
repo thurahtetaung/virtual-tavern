@@ -453,7 +453,7 @@ function Discards({
       <ul aria-label="Discards" className="flex min-w-0">
         {/* The newest cards matter most: show the last few, newest on top. */}
         {p.discards.slice(-5).map((role, i) => (
-          <li key={i} className={cn('w-11 shrink-0 sm:w-12 lg:w-16', i > 0 && '-ml-5 lg:-ml-6')}>
+          <li key={i} className={cn('w-11 shrink-0 sm:w-12 lg:w-20', i > 0 && '-ml-5 lg:-ml-10')}>
             <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
           </li>
         ))}
@@ -667,7 +667,7 @@ function Table({
                 </span>
                 <span
                   aria-hidden
-                  className="w-full text-center text-[0.7rem] leading-tight font-semibold break-words hyphens-auto text-ink-2"
+                  className="w-full text-center text-caption leading-tight font-semibold break-words hyphens-auto text-ink-2"
                 >
                   {deck.name(role)}
                 </span>
@@ -677,11 +677,11 @@ function Table({
         </div>
       )}
 
-      {/* Phones: the last card played, large, beside the moves since your turn, so the band above
-          the hand shows the table's latest card rather than empty space. */}
+      {/* Phones and desktops: the last card played, large, beside the moves since your turn, so
+          the band above the hand shows the table's latest card rather than empty space. */}
       {lastPlay && view.phase === 'playing' && round?.stage !== 'over' ? (
         <div className="flex items-start gap-3">
-          <figure className="w-30 shrink-0 space-y-1 sm:hidden">
+          <figure className="w-30 shrink-0 space-y-1 sm:hidden lg:block lg:w-40">
             <Card
               role={lastPlay.card}
               rank={rankIn(edition, lastPlay.card)}
@@ -690,7 +690,7 @@ function Table({
               reads
               onClick={() => read(lastPlay.card)}
             />
-            <figcaption className="text-center text-[0.7rem] leading-tight font-semibold text-ink-muted">
+            <figcaption className="text-center text-caption leading-tight font-semibold text-ink-muted">
               Last played by {lastPlay.by === me?.id ? 'you' : nameOf(view, lastPlay.by)}
             </figcaption>
           </figure>
