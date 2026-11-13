@@ -15,6 +15,11 @@ import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
 
+/**
+ * The smallest sheet on a phone. Low, so on a short screen the sheet shrinks before the tools or
+ * Send would have to scroll out of the play area.
+ */
+const PHONE_MIN = 120;
 /** How long before the drawing clock ends a pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
 
@@ -35,14 +40,14 @@ export function Draw({
   const deadline = g.until;
   // As the original, the clock shows only once it starts (after the voice's instructions), at
   // its full length; the pads open with it, when the auctioneer calls for the drawings (on the
-  // server's clock, as the clock itself).
+  // server's clock, as the clock itself). Until then a card lists your titles, with no board.
   const startsIn = useSecondsLeft(g.drawFrom, room.clockOffset);
   const clock = (startsIn ?? 0) <= 0;
   // The sheet is as big as the window allows with the tools, the clock and Send in view, never
   // too small to draw on (`useFitSize`; on a phone, within the play area).
   const wide = useWideScreen();
   const sheet = useRef<HTMLDivElement>(null);
-  useFitSize(sheet, { min: wide ? 192 : 176, max: wide ? 720 : 360 });
+  useFitSize(sheet, { min: wide ? 192 : PHONE_MIN, max: wide ? 720 : 360, step: 1 });
   if (!mine)
     return (
       <Panel className="flex flex-col items-center gap-2 text-center">
@@ -53,8 +58,24 @@ export function Draw({
   const index = mine.prompts.findIndex((p) => !p.sent);
   const todo = index >= 0 ? mine.prompts[index]! : null;
   return (
-    <div className={cn('mx-auto flex w-full max-w-md flex-col gap-3', todo && 'lg:max-w-none')}>
-      {todo ? (
+    <div
+      className={cn(
+        'mx-auto flex w-full max-w-md flex-col gap-3',
+        todo && clock && 'lg:max-w-none',
+      )}
+    >
+      {todo && !clock ? (
+        // Before the auctioneer calls for the drawings: the titles to come, no board yet.
+        <Panel className="flex flex-col gap-2 text-center" data-testid="go-waiting">
+          <h2 className="sr-only">
+            Draw: <span data-testid="go-title">{todo.title}</span>
+          </h2>
+          <p className="font-semibold">
+            {mine.prompts.map((p, i) => `${i + 1}. ${p.title}`).join(' · ')}
+          </p>
+          <p className="text-ink-muted">Listen — the auctioneer will call for the drawings.</p>
+        </Panel>
+      ) : todo ? (
         <div ref={sheet}>
           {/* The status line above says what to draw and which of the two it is. */}
           <h2 className="sr-only">
@@ -65,7 +86,6 @@ export function Draw({
             sheetClassName="max-w-(--vt-fit) lg:w-(--vt-fit)"
             draftKey={`go.draft.${todo.item}`}
             sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
-            locked={clock ? undefined : 'The auctioneer will call for the drawings.'}
             onSubmit={(drawing) =>
               act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
             }
@@ -79,14 +99,12 @@ export function Draw({
               </>
             }
             footer={
-              clock && (
-                <Countdown
-                  deadline={deadline}
-                  clockOffset={room.clockOffset}
-                  label="for both"
-                  atZero="whatever is drawn is sent"
-                />
-              )
+              <Countdown
+                deadline={deadline}
+                clockOffset={room.clockOffset}
+                label="for both"
+                atZero="whatever is drawn is sent"
+              />
             }
           />
         </div>

@@ -14,6 +14,11 @@ import { useRef, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 
+/**
+ * The smallest sheet on a phone. Low, so on a short screen the sheet shrinks before the tools or
+ * Send would have to scroll out of the play area.
+ */
+const PHONE_MIN = 120;
 /** How long before a strict drawing clock ends the pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
 const DRAW_ANCHOR = 'sketchy-draw';
@@ -30,7 +35,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   // The sheet is as big as the window allows with the prompt, the tools, the clock and Send in
   // view, never too small to draw on (`useFitSize`; on a phone, within the play area).
   const pad = useRef<HTMLDivElement>(null);
-  useFitSize(pad, { min: wide ? 192 : 176, max: wide ? 720 : 360 });
+  useFitSize(pad, { min: wide ? 192 : PHONE_MIN, max: wide ? 720 : 360, step: 1 });
   const clock = (label: string) => (
     <Countdown
       deadline={g.deadline}
@@ -82,13 +87,13 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   // A new prompt is a new sheet: the draft is kept per prompt.
   const draftKey = `sketchy.draft.${g.round}.${g.myPrompt}`;
   return (
-    <div ref={pad} className="mx-auto flex w-full max-w-md flex-col gap-2 lg:max-w-none lg:gap-3">
+    <div ref={pad} className="mx-auto flex w-full max-w-md flex-col gap-1.5 lg:max-w-none lg:gap-3">
       {dialog}
       {/* Desktops show the prompt in the tool column (the pad's `aside`), phones above the sheet. */}
       {!wide && (
         // One row: the prompt, and New prompt beside it (the status line above already says
         // nobody else sees it), so the sheet gets the height.
-        <div className="flex min-h-9 items-center justify-between gap-2">
+        <div className="flex min-h-9 items-center justify-between gap-2 max-[380px]:min-h-8">
           <p className="sr-only">Draw this (only you see it):</p>
           <h2
             data-testid="sketchy-prompt"
@@ -103,7 +108,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 min-h-9 shrink-0 px-3"
+              className="h-9 min-h-9 shrink-0 px-3 max-[380px]:h-8 max-[380px]:min-h-8"
               disabled={busy}
               onClick={() => void reroll()}
             >

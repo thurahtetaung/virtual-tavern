@@ -333,17 +333,19 @@ export interface DrawingPadProps {
   aside?: ReactNode;
   /** A line about the drawing: at the foot of the tool column on desktops, under the tools on phones. */
   note?: ReactNode;
-  /**
-   * The pad is closed for now (it opens by itself when this goes): nothing can be drawn or sent,
-   * and this line shows over the sheet.
-   */
-  locked?: ReactNode;
   /** Classes for the sheet, for its size (`useFitSize`'s `--vt-fit`). */
   sheetClassName?: string;
   /** Desktops: a tighter tool column, for a column that also holds the prompt (`aside`). */
   dense?: boolean;
   className?: string;
 }
+
+/**
+ * A pen or width chip's size: 40 px, 36 px on narrow phones (where the sheet needs the height),
+ * with an invisible band keeping a 44 px target on touch screens.
+ */
+const CHIP =
+  "relative size-10 max-[380px]:size-9 pointer-coarse:after:absolute pointer-coarse:after:-inset-1 pointer-coarse:after:content-['']";
 
 /** A labelled group of the pad's tools: "PEN · Ink". */
 function ToolGroup({
@@ -360,7 +362,13 @@ function ToolGroup({
   children: ReactNode;
 }) {
   return (
-    <div className={cn('flex flex-col gap-1 lg:gap-2', dense && 'lg:gap-1.5', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-1 max-[380px]:gap-0.5 lg:gap-2',
+        dense && 'lg:gap-1.5',
+        className,
+      )}
+    >
       <span className="text-caption leading-none font-semibold tracking-wide text-ink-muted uppercase">
         {label}
         {value && (
@@ -393,12 +401,10 @@ export function DrawingPad({
   bar = false,
   aside,
   note,
-  locked,
   sheetClassName,
   dense = false,
   className,
 }: DrawingPadProps) {
-  const closed = disabled || locked != null;
   const [strokes, setStrokes] = useState<Stroke[]>(() => readDraft(draftKey));
   const [loadedKey, setLoadedKey] = useState(draftKey);
   if (loadedKey !== draftKey) {
@@ -458,7 +464,7 @@ export function DrawingPad({
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (closed || sending) return;
+    if (disabled || sending) return;
     const isTouch = e.pointerType === 'touch';
     if (isTouch && (e.width > PALM_PX || e.height > PALM_PX)) return;
     // A pen on the sheet: resting fingers and palms are ignored.
@@ -490,7 +496,7 @@ export function DrawingPad({
   const moveRing = (e: React.PointerEvent<HTMLDivElement> | null) => {
     const el = ring.current;
     if (!el) return;
-    if (!e || e.pointerType === 'touch' || closed) {
+    if (!e || e.pointerType === 'touch' || disabled) {
       el.setAttribute('visibility', 'hidden');
       return;
     }
@@ -597,10 +603,10 @@ export function DrawingPad({
 
   // Before a strict deadline, whatever is on the page goes by itself.
   useEffect(() => {
-    if (sendBy === null || closed) return;
+    if (sendBy === null || disabled) return;
     const id = setTimeout(() => void submit(true), Math.max(0, sendBy - Date.now()));
     return () => clearTimeout(id);
-  }, [sendBy, closed, submit]);
+  }, [sendBy, disabled, submit]);
 
   // The clock and Send: side by side in a phone's bar, Send under the clock in the column.
   const send = (
@@ -609,7 +615,7 @@ export function DrawingPad({
         <div className="min-w-0 flex-1">{footer}</div>
         <Button
           onClick={() => void submit()}
-          disabled={closed || sending || !hasInk(strokes)}
+          disabled={disabled || sending || !hasInk(strokes)}
           className="lg:w-full"
           data-testid="drawing-send"
         >
@@ -629,7 +635,7 @@ export function DrawingPad({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-2 lg:flex-row lg:items-stretch lg:justify-center lg:gap-6',
+        'flex flex-col items-center gap-1.5 lg:flex-row lg:items-stretch lg:justify-center lg:gap-6',
         className,
       )}
     >
@@ -637,7 +643,7 @@ export function DrawingPad({
         ref={sheet}
         className={cn(
           'relative aspect-[4/5] w-full shrink-0 touch-none select-none self-center overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line-strong [-webkit-touch-callout:none] [-webkit-user-select:none] lg:self-start',
-          closed ? 'cursor-not-allowed' : erasing ? 'cursor-none' : 'cursor-crosshair',
+          disabled ? 'cursor-not-allowed' : erasing ? 'cursor-none' : 'cursor-crosshair',
           sheetClassName,
         )}
         onPointerDown={onPointerDown}
@@ -676,17 +682,6 @@ export function DrawingPad({
             />
           )}
         </svg>
-        {locked != null && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-            <p
-              role="status"
-              className="rounded-xl bg-panel px-4 py-3 text-center font-semibold text-ink shadow-vt-1 ring-1 ring-line"
-              data-testid="drawing-locked"
-            >
-              {locked}
-            </p>
-          </div>
-        )}
       </div>
       <div
         className={cn(
@@ -697,7 +692,7 @@ export function DrawingPad({
         {aside && <div className="max-lg:hidden">{aside}</div>}
         <div
           className={cn(
-            'grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-xl bg-panel px-3 py-2 ring-1 ring-line lg:flex lg:flex-col lg:gap-3.5 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0',
+            'grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-xl bg-panel px-3 py-2 ring-1 max-[380px]:gap-y-1 max-[380px]:py-1.5 ring-line lg:flex lg:flex-col lg:gap-3.5 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0',
             dense && 'lg:gap-2.5',
           )}
         >
@@ -713,7 +708,8 @@ export function DrawingPad({
                   title={c.name}
                   onClick={() => setColor(i)}
                   className={cn(
-                    'size-10 rounded-full border-3 ring-offset-2 ring-offset-panel transition-shadow',
+                    CHIP,
+                    'rounded-full border-3 ring-offset-2 ring-offset-panel transition-shadow',
                     dense && 'lg:size-9',
                     color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
                   )}
@@ -729,7 +725,8 @@ export function DrawingPad({
                 title="Eraser: rub out what you drew"
                 onClick={() => setColor(ERASER)}
                 className={cn(
-                  'flex size-10 items-center justify-center rounded-full ring-offset-2 ring-offset-panel transition-shadow',
+                  CHIP,
+                  'flex items-center justify-center rounded-full ring-offset-2 ring-offset-panel transition-shadow',
                   dense && 'lg:size-9',
                   erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
                 )}
@@ -757,7 +754,8 @@ export function DrawingPad({
                   title={w.name}
                   onClick={() => setWidth(i)}
                   className={cn(
-                    'flex size-10 items-center justify-center rounded-lg ring-offset-2 ring-offset-panel transition-shadow',
+                    CHIP,
+                    'flex items-center justify-center rounded-lg ring-offset-2 ring-offset-panel transition-shadow',
                     dense && 'lg:size-9',
                     width === i
                       ? 'ring-3 ring-accent'
@@ -786,13 +784,13 @@ export function DrawingPad({
               variant="secondary"
               size="sm"
               className={cn(
-                'h-10 min-h-10 gap-1 px-2 lg:gap-1.5 lg:px-3',
+                'h-10 min-h-10 gap-1 px-2 max-[380px]:h-9 max-[380px]:min-h-9 lg:gap-1.5 lg:px-3',
                 dense && 'lg:h-9 lg:min-h-9',
               )}
               aria-label="Undo"
               title="Undo (or tap with two fingers)"
               onClick={undo}
-              disabled={!strokes.length || closed}
+              disabled={!strokes.length || disabled}
             >
               <span aria-hidden className="text-lg leading-none">
                 ↶
@@ -803,13 +801,13 @@ export function DrawingPad({
               variant="secondary"
               size="sm"
               className={cn(
-                'h-10 min-h-10 gap-1 px-2 lg:gap-1.5 lg:px-3',
+                'h-10 min-h-10 gap-1 px-2 max-[380px]:h-9 max-[380px]:min-h-9 lg:gap-1.5 lg:px-3',
                 dense && 'lg:h-9 lg:min-h-9',
               )}
               aria-label="Clear the page"
               title="Clear"
               onClick={() => void clear()}
-              disabled={!strokes.length || closed}
+              disabled={!strokes.length || disabled}
             >
               <span aria-hidden className="text-lg leading-none">
                 🗑

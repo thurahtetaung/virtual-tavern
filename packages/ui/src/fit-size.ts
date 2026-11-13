@@ -15,6 +15,8 @@ export interface FitSizeOptions {
    * top, whatever else scrolls: for a part inside areas that fit themselves, as the end's columns.
    */
   inView?: () => Element | null;
+  /** How close to the largest size that fits the search gets, in px (default 4). */
+  step?: number;
 }
 
 /**
@@ -45,7 +47,7 @@ function fits(el: HTMLElement, inView?: () => Element | null): boolean {
  */
 export function useFitSize(
   part: RefObject<HTMLElement | null>,
-  { on = true, min, max, inView }: FitSizeOptions,
+  { on = true, min, max, inView, step = 4 }: FitSizeOptions,
 ) {
   useLayoutEffect(() => {
     const el = part.current;
@@ -65,7 +67,7 @@ export function useFitSize(
       if (!fits(el, inView)) {
         set(lo);
         if (fits(el, inView)) {
-          while (hi - lo > 4) {
+          while (hi - lo > step) {
             const mid = Math.floor((lo + hi) / 2);
             set(mid);
             if (fits(el, inView)) lo = mid;
