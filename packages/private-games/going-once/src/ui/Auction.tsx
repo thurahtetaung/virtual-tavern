@@ -373,10 +373,10 @@ function Hints({ view, name, art }: { view: GoingOnceView; name: NameOf; art: Ar
           >
             <SenderIcon from={m.from} art={art} />
             <span className={cn('min-w-0', tip ? 'font-semibold' : 'italic opacity-70')}>
-              {!tip && <span className="mr-1 text-[11px] uppercase not-italic">Gossip ·</span>}
+              {!tip && <span className="mr-1 text-xs uppercase not-italic">Gossip ·</span>}
               {m.text}
               {why && <span className="mt-0.5 block text-xs font-normal opacity-80">{why}</span>}
-              <span className="mt-0.5 block text-[11px] opacity-60">Before lot {m.lot + 1}</span>
+              <span className="mt-0.5 block text-xs">Before lot {m.lot + 1}</span>
             </span>
           </li>
         );

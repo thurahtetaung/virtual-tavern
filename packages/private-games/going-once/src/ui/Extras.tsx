@@ -220,7 +220,7 @@ export function PsstBubble({
       >
         <span className="block text-xs">
           <b className={cn(!tip && 'font-semibold')}>{senderName(message.from, art)}</b>
-          <span className="opacity-70">{tip ? ' · psst' : ' · gossip'}</span>
+          <span>{tip ? ' · psst' : ' · gossip'}</span>
         </span>
         <span className={cn('block', tip ? 'font-semibold' : 'italic')}>{message.text}</span>
         {why && big && <span className="mt-0.5 block text-xs font-normal opacity-80">{why}</span>}
@@ -489,7 +489,8 @@ export function BidLadder({
               key={`${r.by}-${r.amount}`}
               className={cn(
                 'flex items-center gap-2 text-sm motion-safe:animate-[go-rise_0.25s_ease-out]',
-                i === 0 ? 'opacity-80' : 'opacity-50',
+                // Older bids step back in colour, not opacity, so they stay readable.
+                i === 0 ? 'text-ink-2' : 'text-ink-muted',
               )}
             >
               <Paddle
