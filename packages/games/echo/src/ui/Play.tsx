@@ -28,7 +28,7 @@ function SecretWord({ word, label = 'The word' }: { word: string; label?: string
       <span className="block text-small text-ink-muted">{label}</span>
       <span
         data-testid="secret-word"
-        className="block font-display text-title lg:text-[44px] font-bold tracking-wide break-words uppercase"
+        className="block font-display text-display font-bold tracking-wide break-words uppercase lg:text-[clamp(56px,6vw,88px)] lg:leading-tight"
       >
         {word}
       </span>
@@ -60,7 +60,7 @@ function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act
 /** Five face-down words: the guesser taps one, everyone else sees them waiting. */
 function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolean }) {
   return (
-    <div className="mx-auto grid max-w-lg grid-cols-5 gap-2">
+    <div className="mx-auto grid max-w-lg grid-cols-5 gap-2 lg:max-w-3xl lg:gap-4">
       {Array.from({ length: turn.cardSize }, (_, i) => (
         <button
           key={i}
@@ -69,7 +69,7 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
           aria-label={`Pick word ${i + 1}`}
           onClick={() => void act({ type: 'pick', index: i })}
           className={cn(
-            'flex aspect-[3/4] min-h-11 items-center justify-center rounded-xl text-3xl font-black ring-1 transition',
+            'flex aspect-[3/4] min-h-16 items-center justify-center rounded-xl font-display text-4xl font-black ring-1 transition lg:text-6xl',
             // Waiting on the guesser, the cards turn to the soft accent (never faded, so the
             // numbers stay readable in a bright room).
             mine
@@ -162,18 +162,18 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
     return <p className="text-center text-small text-ink-muted italic">No clues were given.</p>;
   }
   return (
-    <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:gap-3">
       {clues.map((c, i) => (
         <li
           key={`${c.by}-${i}`}
           className={cn(
-            'min-w-0 rounded-xl px-3 py-2 ring-1',
-            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft ring-accent-line',
+            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:px-4 lg:py-3',
+            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft shadow-vt-1 ring-accent-line',
           )}
         >
           <span
             className={cn(
-              'block truncate text-sub font-bold',
+              'block truncate font-display text-sub font-bold lg:text-heading',
               c.cancelled && 'text-ink-muted line-through',
             )}
           >
@@ -207,7 +207,7 @@ function GuesserClues({ turn }: { turn: TurnView }) {
               // In the display face, larger on wide screens: the clues are the guesser's stage.
               <Row
                 key={i}
-                className="justify-center font-display text-heading font-bold lg:min-h-16 lg:text-title"
+                className="min-h-12 justify-center font-display text-heading font-bold lg:min-h-20 lg:text-display"
               >
                 {c.text}
               </Row>
@@ -445,9 +445,13 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   );
 }
 
-/** Wide screens' end: every card played as a tile, coloured by how it went. */
-function CardWall({ history }: { history: ResolvedCard[] }) {
+/** The end: every card played as a tile, coloured by how it went (the result's art on wide screens, the Cards tab on phones). */
+export function CardWall({ history }: { history: ResolvedCard[] }) {
   if (history.length === 0) return null;
+  // As in `History`: the won card a forfeit gave back is marked, not shown as won.
+  const givenBack = history.flatMap((h, i) =>
+    h.forfeit ? [history.findLastIndex((w, j) => j < i && w.outcome === 'right')] : [],
+  );
   return (
     <ul
       aria-label="Cards played"
@@ -466,9 +470,15 @@ function CardWall({ history }: { history: ResolvedCard[] }) {
           )}
         >
           <p className="font-display text-sub font-bold tracking-wide uppercase">
-            <span aria-label={h.outcome} className="mr-1.5 text-body">
-              {RESULT_ICON[h.outcome]}
-            </span>
+            {givenBack.includes(i) ? (
+              <span aria-label="given back" className="mr-1.5 text-body">
+                ↩️
+              </span>
+            ) : (
+              <span aria-label={h.outcome} className="mr-1.5 text-body">
+                {RESULT_ICON[h.outcome]}
+              </span>
+            )}
             {h.word}
           </p>
           <p className="truncate text-caption opacity-90">

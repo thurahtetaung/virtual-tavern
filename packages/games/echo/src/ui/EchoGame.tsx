@@ -13,7 +13,7 @@ import {
 import { useEffect } from 'react';
 import { type EchoAction, type EchoView, MAX_PLAYERS, type TurnView } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
-import { GameOver, History, Stage } from './Play.tsx';
+import { CardWall, GameOver, History, Stage } from './Play.tsx';
 import { nameOf, startBlocker, statusFor } from './status.ts';
 import { Table } from './Table.tsx';
 
@@ -150,7 +150,7 @@ export function EchoGame({
                     view.history.length > 0 && {
                       id: 'cards',
                       label: '🃏 Cards',
-                      content: <History history={view.history} open />,
+                      content: <CardWall history={view.history} />,
                     },
                     {
                       id: 'players',
@@ -164,7 +164,8 @@ export function EchoGame({
           />
         ) : (
           view.turn && (
-            <Panel>
+            // Wide screens: the card sits in the middle of the free height, not a strip at the top.
+            <Panel className="lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10">
               <Stage view={view} act={act} room={room} />
             </Panel>
           )
