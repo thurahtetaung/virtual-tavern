@@ -16,6 +16,7 @@ export * from './protected-image.tsx';
 export * from './choice-picker.tsx';
 export * from './card-viewer.tsx';
 export * from './people.tsx';
+export * from './seat-toggle.tsx';
 export * from './refusal.tsx';
 export * from './end-tabs.tsx';
 export * from './end-hero.tsx';
