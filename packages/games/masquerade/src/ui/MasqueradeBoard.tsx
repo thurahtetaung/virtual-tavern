@@ -98,8 +98,17 @@ function LocationPicture({
     );
   }
   return (
-    <span aria-hidden className={cn('flex items-center justify-center bg-sunk', className)}>
-      {display.emoji(id) ?? '📍'}
+    <span
+      aria-hidden
+      className={cn(
+        'flex items-center justify-center bg-sunk ring-1 ring-line ring-inset',
+        className,
+      )}
+    >
+      {/* In light mode a thin dark outline keeps pale emoji (a tooth, a lift) off the pale well. */}
+      <span className="drop-shadow-[0_0_1px_rgb(42_36_32/0.6)] dark:drop-shadow-none">
+        {display.emoji(id) ?? '📍'}
+      </span>
     </span>
   );
 }
@@ -271,7 +280,7 @@ function CardFace({ round, display }: { round: RoundView; display: LocationDispl
             <LocationPicture
               id={location}
               display={display}
-              className="size-20 shrink-0 rounded-xl text-5xl"
+              className="size-28 shrink-0 rounded-2xl bg-[radial-gradient(80%_80%_at_50%_0%,var(--vt-lamp),transparent_80%)] text-7xl shadow-vt-1-edge lg:size-36 lg:text-8xl"
               artClassName="aspect-[5/3] w-full basis-full rounded-lg shadow-vt-1 ring-1 ring-line"
             />
           )
@@ -280,7 +289,10 @@ function CardFace({ round, display }: { round: RoundView; display: LocationDispl
           <p className="text-caption font-semibold tracking-wide text-ink-muted uppercase">
             {spy ? 'Your card' : 'The location'}
           </p>
-          <p className="text-heading leading-tight font-bold" data-testid="card-title">
+          <p
+            className="font-display text-heading leading-tight font-bold lg:text-title"
+            data-testid="card-title"
+          >
             {spy ? 'You’re the spy' : location ? display.name(location) : ''}
           </p>
           <p className="text-caption text-ink-2">
@@ -558,14 +570,15 @@ function Reveal({
   return (
     <Card aria-label="Round result" role="region" className="space-y-3">
       {/* The location, large: the round's answer is the moment everyone waited for. */}
-      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
+      {/* Wide screens: the place's picture leads the column at its full width. */}
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left lg:flex-col lg:items-start">
         {/* At the end the finale already shows the location's picture: once is enough. */}
         {view.phase !== 'over' && (
           <LocationPicture
             id={result.location}
             display={display}
             className="size-24 shrink-0 rounded-2xl text-7xl shadow-vt-1 ring-1 ring-line"
-            artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56"
+            artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56 lg:w-full lg:max-w-none"
           />
         )}
         <div className="min-w-0">
@@ -937,7 +950,13 @@ function LocationsBoard({
                       {name}
                     </span>
                     {view.played.includes(id) && (
-                      <span className="absolute top-1 left-1 rounded-full bg-ink px-1.5 py-0.5 text-caption leading-none font-bold text-page shadow-vt-1">
+                      // Over a picture, at its foot: the art prints the place's name along its top.
+                      <span
+                        className={cn(
+                          'absolute rounded-full bg-ink px-1.5 py-0.5 text-caption leading-none font-bold text-page shadow-vt-1',
+                          display.art(id) ? 'bottom-3 left-3' : 'top-1 left-1',
+                        )}
+                      >
                         Played
                       </span>
                     )}
