@@ -45,11 +45,12 @@ export function AdminNav({
   current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
-  const items: { id: string; to: string; label: string; icon: IconName }[] = [
+  const items: { id: string; to: string; label: string; short?: string; icon: IconName }[] = [
     {
       id: 'lists',
       to: '/tavern-keeper',
       label: 'Content & back room',
+      short: 'Content',
       icon: 'list-ordered',
     },
     { id: 'games', to: '/tavern-keeper/games', label: 'Games', icon: 'gamepad-2' },
@@ -77,8 +78,16 @@ export function AdminNav({
           )}
         >
           <Icon name={item.icon} className="hidden lg:block" />
-          {/* Tabs size to their labels, so the long one wraps to two lines on a phone, not three. */}
-          <span className="lg:whitespace-nowrap">{item.label}</span>
+          {/* One line each in the phone strip (a short label where the full one is long); the side
+              navigation on desktop has room for the full label. */}
+          {item.short ? (
+            <>
+              <span className="whitespace-nowrap lg:hidden">{item.short}</span>
+              <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
+            </>
+          ) : (
+            <span className="whitespace-nowrap">{item.label}</span>
+          )}
         </Link>
       ))}
     </nav>
