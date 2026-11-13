@@ -54,7 +54,8 @@ export const KEY_TINT: Record<CardKind, string> = {
 
 /** A face-down card nobody's key colours: a card lit from above, with its printed edge. */
 export const FACE_DOWN =
-  'bg-gradient-to-b from-card to-panel text-ink ring-1 ring-line shadow-vt-1-edge';
+  // Lit from above: in the dark the card's top catches the lamp (a lighter top, a brighter edge).
+  'bg-gradient-to-b from-card to-panel text-ink ring-1 ring-line shadow-vt-1-edge dark:from-line-strong/70 dark:via-card dark:to-card dark:shadow-[var(--vt-shadow-1),inset_0_1px_0_rgb(255_240_220/0.14)]';
 
 export const KIND_LABEL: Record<CardKind, string> = {
   red: 'Red agent',
