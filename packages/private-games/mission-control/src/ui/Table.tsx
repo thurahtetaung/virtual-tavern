@@ -1,7 +1,7 @@
 import { storageKey } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
 import { Button, Modal, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
 import type { Trick } from '../logic/checks.ts';
 import {
@@ -381,8 +381,6 @@ export function PlayTable({
   // The viewer's signal is spent (their own token, or the shared ones): show the used side.
   const tokenUsed =
     a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
-  // Phones keep the hand on one row, overlapping the cards as much as it takes (a w-11 card each).
-  const overlap = `min(0.375rem, calc((100% - ${hand.length} * 2.75rem) / ${Math.max(hand.length - 1, 1)}))`;
 
   return (
     <div className="space-y-3">
@@ -468,10 +466,7 @@ export function PlayTable({
 
       {inCrew && (
         <div className="space-y-2" data-testid="mc-hand">
-          <div
-            className="flex justify-center pt-2 max-sm:[&>*+*]:ml-(--mc-overlap) sm:flex-wrap sm:gap-1.5 sm:pt-0"
-            style={{ '--mc-overlap': overlap } as CSSProperties}
-          >
+          <div className="flex flex-wrap justify-center gap-1.5 pt-2 sm:pt-0">
             {hand.map((c) => {
               const signalled = a.signals.some((s) => s.card === c && !s.played);
               const state =

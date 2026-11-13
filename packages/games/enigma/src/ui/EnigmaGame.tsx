@@ -285,7 +285,7 @@ export function EnigmaGame({
     <Panel className="space-y-3 text-center">
       {winnerLine}
       {/* Why, said once here: the hint above is hidden once the game is over. */}
-      {reason && <p className="font-semibold">{reason}</p>}
+      {reason && <p className="text-small text-ink-2">{reason}</p>}
       <ShowdownPanel view={view} act={act} />
       {tokenLines}
       <p className="text-small text-ink-muted">Everyone's keywords are revealed under Clues.</p>
@@ -299,7 +299,7 @@ export function EnigmaGame({
     <>
       <Panel className="space-y-1 text-center max-lg:p-3">
         {winnerLine}
-        {reason && <p className="text-small font-semibold">{reason}</p>}
+        {reason && <p className="text-small text-ink-2">{reason}</p>}
       </Panel>
       <EndTabs
         tabs={[
@@ -367,7 +367,11 @@ export function EnigmaGame({
               </div>
             </section>
           )}
-          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-4">
+          <FitArea
+            on={view.phase === 'playing' && (wide || (fit && tab === 'play'))}
+            resetKey={stepKey}
+            className="space-y-4"
+          >
             {view.stage === 'showdown' && view.phase === 'playing' && (
               <ShowdownPanel view={view} act={act} />
             )}
@@ -407,7 +411,11 @@ export function EnigmaGame({
         </div>
 
         <div {...panel('clues')} className={cn('space-y-4', panel('clues').className)}>
-          <FitArea on={fit && tab === 'clues'} resetKey={stepKey} className="space-y-4">
+          <FitArea
+            on={view.phase === 'playing' && (wide || (fit && tab === 'clues'))}
+            resetKey={stepKey}
+            className="space-y-4"
+          >
             {sheetTeams.map((team) =>
               view.teams[team].keywords && (team === myTeam || view.phase === 'over') ? (
                 <OwnSheet key={team} view={view} team={team} />
@@ -420,7 +428,11 @@ export function EnigmaGame({
       </div>
 
       <aside {...panel('chat')} className={cn('space-y-4', panel('chat').className)}>
-        <FitArea on={fit && tab === 'chat'} resetKey={stepKey} className="space-y-4">
+        <FitArea
+          on={view.phase === 'playing' && (wide || (fit && tab === 'chat'))}
+          resetKey={stepKey}
+          className="space-y-4"
+        >
           <TeamChat view={view} act={act} />
           <Panel>
             <h3 className="mb-2 font-bold">Teams</h3>

@@ -13,6 +13,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `SKYFIRE_TEST_DECK` (e.g. `r1 y1 g5 m3 k5 …`, top first) tops the deck.
   - **Phones:** Table, Discards and Log on the shared `TabBar`; your hand stays pinned above it.
 
+- **UI:** Discard counts on completed fireworks retain full-opacity secondary text.
+
 ## Assets
 
 **Skyfire** (`node scripts/r2-upload.mjs skyfire <folder>`, dry-run first): card faces in `cards/<suit>-<number>.webp` (suits `red`, `yellow`, `green`, `blue`, `white`, `multi` and `black`, numbers 1–5, each with an optional small `thumb` for the hands and an optional sharper `zoom` for the card sheet), the card back (`back`, `backThumb`), the clue token (`tokens.clue`), the three fuse tiles (`tokens.fuse`, a list of `{ "unused", "used" }` in order), a picture per firework (`suits.<suit>`, the empty stacks' backdrop and the guide's tiles), `box` and `lobby`, and a `manifest.json` of the form `{ "cards": { "red-1": "cards/red-1.webp" | { "art": "…", "thumb": "…" }, … }, "back": "…", "backThumb": "…", "tokens": { "clue": { "art", "thumb" }, "fuse": [{ "unused": { "art", "thumb" }, "used": { … } }, …] }, "suits": { "red": "…", … }, "box": "…", "lobby": "…", "guide": { "tagline": "…" }, "credit": "…" or { "title", "paragraphs": […], "links": [{ "label", "href" }] } }` (shape in `packages/private-games/skyfire/src/logic/manifest.ts`). Every field is optional: without the manifest, cards are drawn from their colour, symbol and number, and the tokens are emoji. The number and symbol are always drawn over small card art. Once it is uploaded, set the title with the `skyfire` id.

@@ -71,7 +71,7 @@ export function ClueForm({ act, max }: Props) {
           <legend className="text-small font-semibold max-sm:sr-only">
             How many of your agents does it point to?
           </legend>
-          <div className="grid grid-cols-9 gap-1 sm:mt-1">
+          <div className="grid grid-cols-5 gap-1 sm:mt-1 sm:grid-cols-9">
             {COUNTS.map((c) => (
               <button
                 key={c}

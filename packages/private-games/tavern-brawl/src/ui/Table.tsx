@@ -516,7 +516,7 @@ const HandCard = memo(function HandCard({
         type="button"
         onClick={() => onZoom(r)}
         aria-label={`Read ${art.card(r.card)}`}
-        className="absolute top-0 right-0 flex size-9 items-start justify-end p-1 text-xs"
+        className="absolute top-0 right-0 flex size-11 items-start justify-end p-1 text-xs"
       >
         <span className="flex size-5 items-center justify-center rounded-full bg-black/70 font-bold text-white">
           i
@@ -1123,7 +1123,7 @@ export function Table({
 
   // Phones: the opponents take what the screen has left and scroll inside it (six seats).
   const opponents = (
-    <FitArea phone plain min={128}>
+    <FitArea phone plain min={64}>
       <ul
         className={cn(
           'grid grid-cols-1 gap-1.5',

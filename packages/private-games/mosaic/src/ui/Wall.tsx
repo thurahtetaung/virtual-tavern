@@ -66,22 +66,24 @@ export function WallStage({
                   <strong>Line {row + 1}</strong>: {why}
                 </span>
               </p>
-              <BoardView
-                board={me}
-                art={art}
-                size={wide ? 'lg' : 'md'}
-                owner={me.id}
-                grey={grey}
-                spaces={{
-                  row,
-                  cols,
-                  chosen: pickCol,
-                  onPick: (col) => {
-                    if (confirm) setChosen({ row, col });
-                    else void place(col);
-                  },
-                }}
-              />
+              <div className="w-full overflow-x-auto py-1">
+                <BoardView
+                  board={me}
+                  art={art}
+                  size={wide ? 'lg' : 'md'}
+                  owner={me.id}
+                  grey={grey}
+                  spaces={{
+                    row,
+                    cols,
+                    chosen: pickCol,
+                    onPick: (col) => {
+                      if (confirm) setChosen({ row, col });
+                      else void place(col);
+                    },
+                  }}
+                />
+              </div>
               {confirm ? (
                 <StickyBar fixed refusal={ANCHOR}>
                   <Button
@@ -107,7 +109,7 @@ export function WallStage({
   return (
     <section
       aria-label={`Round ${g.round}: choosing wall spaces`}
-      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
+      className="flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-wall"
     >
       <h2 className="font-bold">Round {g.round}: wall-tiling, top line first</h2>
