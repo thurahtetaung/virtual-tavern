@@ -222,7 +222,13 @@ function Answering(props: Props) {
   return (
     <div className="space-y-4">
       {dialog}
-      <Question prompt={round.prompt} />
+      {/* The question as the round's card, the herd waiting under it. */}
+      <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12">
+        <p aria-hidden className="pb-2 text-center text-5xl leading-none lg:text-6xl">
+          🐄🐄🐄
+        </p>
+        <Question prompt={round.prompt} />
+      </div>
       {playing ? (
         <AnswerForm key={`${round.number}:${round.questionId}`} round={round} act={act} />
       ) : null}
@@ -282,12 +288,24 @@ function GroupRow({
       data-label={g.label}
       className={cn(
         'sp-rise rounded-xl px-3 py-2 ring-1',
-        herd ? 'bg-success-soft text-success-ink ring-success-line' : 'bg-card ring-line',
+        // The herd is the big card across the board; the strays are smaller cards beside it.
+        herd
+          ? 'bg-success-soft px-4 py-4 text-success-ink shadow-vt-2 ring-success-line lg:col-span-2 lg:px-6 lg:py-6'
+          : 'bg-card shadow-vt-1 ring-line',
         mine && !herd && 'ring-2 ring-accent',
       )}
     >
-      <p className={cn('font-bold', herd ? 'text-2xl lg:text-4xl' : 'text-lg lg:text-2xl')}>
-        {herd && '🐄 '}
+      <p
+        className={cn(
+          'font-bold',
+          herd ? 'flex items-center gap-3 text-2xl lg:text-4xl' : 'text-lg lg:text-2xl',
+        )}
+      >
+        {herd && (
+          <span aria-hidden className="text-5xl leading-none">
+            🐄
+          </span>
+        )}
         {g.label} <span className="font-normal opacity-70">×{g.members.length}</span>
         {alone && (
           <span className="ml-1 text-base font-normal" title="On its own">

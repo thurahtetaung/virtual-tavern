@@ -229,7 +229,8 @@ export function StampedeGame({
               <span className="sp-moo">🐮</span> {moo} mooed at you! Hurry up!
             </p>
           )}
-          {view.phase === 'playing' && <Tips names={names} open={wide} />}
+          {/* Wide screens keep the tips in the rail, beside the question. */}
+          {view.phase === 'playing' && !wide && <Tips names={names} open={false} />}
           {view.phase === 'over' ? (
             <GameOver {...props} />
           ) : (
@@ -239,6 +240,7 @@ export function StampedeGame({
           )}
         </div>
         <aside className={cn('space-y-3', tab === 'play' && 'hidden lg:block')}>
+          {view.phase === 'playing' && wide && <Tips names={names} open />}
           <Panel
             className={cn('space-y-3', tab === 'rounds' && 'max-lg:hidden')}
             {...(!wide && tab === 'herd' && tabPanelProps(TABS_ID, 'herd'))}
