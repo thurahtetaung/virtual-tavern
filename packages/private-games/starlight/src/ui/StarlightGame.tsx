@@ -403,9 +403,12 @@ function Play({
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
-            // Three lines of cards fit the screen's height on any desktop; once the round is done
-            // they make room for its results and Next round below.
-            style={{ maxWidth: r.stage === 'done' ? 'min(48rem, 40dvh)' : 'min(48rem, 62dvh)' }}
+            // Three lines of cards fit the screen's height on any desktop. Once the round is done
+            // a wide screen puts its results in the rail, so the cards keep their size for the
+            // look back at everyone's picks; narrower screens make room for them below.
+            style={{
+              maxWidth: r.stage === 'done' && !wide ? 'min(48rem, 40dvh)' : 'min(48rem, 62dvh)',
+            }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
@@ -459,11 +462,16 @@ function Play({
           className={cn('mt-3 space-y-3 sm:mt-0', shown === 'table' && 'hidden')}
           {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
         >
+          {wide && r.stage === 'done' && r.results && (
+            <RoundResults view={view} room={room} act={act} rail />
+          )}
           {stars}
         </aside>
       </div>
 
-      {r.stage === 'done' && r.results && <RoundResults view={view} room={room} act={act} />}
+      {!wide && r.stage === 'done' && r.results && (
+        <RoundResults view={view} room={room} act={act} />
+      )}
     </>
   );
 
@@ -841,7 +849,18 @@ function ScoreSlate({ view }: { view: StarlightView }) {
   );
 }
 
-function RoundResults({ view, room, act }: { view: StarlightView; room: Room; act: Act }) {
+function RoundResults({
+  view,
+  room,
+  act,
+  rail = false,
+}: {
+  view: StarlightView;
+  room: Room;
+  act: Act;
+  /** In the wide screen's rail: one column. */
+  rail?: boolean;
+}) {
   const r = view.round!;
   const results = r.results!;
   const you = view.me?.id;
@@ -853,7 +872,7 @@ function RoundResults({ view, room, act }: { view: StarlightView; room: Room; ac
       <h3 className="font-bold">
         Round {roundName(r.no)}: {counts.spark} ✨ · {counts.super} 🌟 · {counts.fall} 🌠
       </h3>
-      <ul className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+      <ul className={cn('grid gap-x-4 gap-y-1 text-sm', !rail && 'sm:grid-cols-2')}>
         {Object.entries(results).map(([id, res]) => (
           <li key={id} className="flex justify-between gap-2">
             <span className="flex min-w-0 items-baseline gap-1.5">
