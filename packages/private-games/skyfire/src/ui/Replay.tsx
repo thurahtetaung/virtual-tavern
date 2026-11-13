@@ -163,7 +163,7 @@ export function Replay({
           max={total}
           value={at}
           onChange={(e) => setStep(Number(e.target.value))}
-          className="min-w-0 flex-1 accent-accent"
+          className="h-6 min-w-0 flex-1 cursor-pointer accent-accent pointer-coarse:h-11"
           aria-label="Turn"
         />
         <Button

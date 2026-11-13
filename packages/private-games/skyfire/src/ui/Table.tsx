@@ -115,10 +115,16 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const wide = useWideScreen();
   const shown: Tab | null = wide || !playing ? null : tab;
   return (
-    <div className="flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
+    <div
+      className={cn(
+        'flex flex-col gap-1.5 lg:gap-3',
+        // The end's table part is one column: its rail would squeeze the piles.
+        playing && 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start',
+      )}
+    >
       <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">
         <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
-        <Fireworks g={g} art={art} onDetail={setDetail} />
+        <Fireworks g={g} art={art} onDetail={setDetail} small={!playing} />
         <div
           className={cn(
             'flex flex-col gap-1.5 lg:gap-2',
@@ -340,7 +346,18 @@ function Clock({ view, room, name }: { view: SkyfireView; room: GameRoomInfo; na
 
 // ---- Fireworks ----
 
-function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: Detail) => void }) {
+function Fireworks({
+  g,
+  art,
+  onDetail,
+  small = false,
+}: {
+  g: GameView;
+  art: Art;
+  onDetail: (d: Detail) => void;
+  /** The end's narrower table part: the piles keep their smaller size on wide screens. */
+  small?: boolean;
+}) {
   return (
     <ul aria-label="Fireworks" className="flex justify-between gap-1 sm:justify-start sm:gap-2">
       {g.suits.map((suit) => {
@@ -362,11 +379,14 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                   card={{ suit, rank: top }}
                   art={art}
                   size="stack"
-                  className={cn(h === 5 && 'ring-2 ring-warn-line')}
+                  className={cn(small && 'lg:w-16', h === 5 && 'ring-2 ring-warn-line')}
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14 lg:w-16"
+                  className={cn(
+                    'relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14',
+                    small ? 'lg:w-16' : 'lg:w-24 lg:text-3xl',
+                  )}
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
@@ -1103,7 +1123,8 @@ function Since({
     <button
       type="button"
       onClick={onMore}
-      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:pointer-events-none"
+      // Wide screens read the same lines in the rail's log, so the board keeps the height.
+      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:hidden"
       aria-label="Since your last turn (open the log)"
       data-testid="sf-since"
     >

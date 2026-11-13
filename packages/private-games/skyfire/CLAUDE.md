@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `SKYFIRE_TEST_DECK` (e.g. `r1 y1 g5 m3 k5 …`, top first) tops the deck.
   - **Phones:** Table, Discards and Log on the shared `TabBar`; your hand stays pinned above it.
 
-- **UI:** Discard counts on completed fireworks retain full-opacity secondary text.
+- **UI:** Discard counts on completed fireworks retain full-opacity secondary text. Wide screens show the firework piles at 96 px and leave the "since your last turn" lines to the rail's log; the end's table part is one column with 64 px piles. The replay slider is 24 px tall (44 px on touch).
 
 ## Assets
 
