@@ -412,10 +412,13 @@ async function fullPhoneHeader(p: Page, title: string) {
 
   const row = await header.evaluate((el) => ({
     spill: el.scrollWidth > el.clientWidth || document.scrollingElement!.scrollWidth > 390,
-    middles: [...el.children].map((c) => {
-      const r = c.getBoundingClientRect();
-      return Math.round(r.top + r.height / 2);
-    }),
+    // Children shown on this screen (the way-home mug is wide screens only).
+    middles: [...el.children]
+      .filter((c) => c.getClientRects().length > 0)
+      .map((c) => {
+        const r = c.getBoundingClientRect();
+        return Math.round(r.top + r.height / 2);
+      }),
   }));
   expect(row.spill).toBe(false);
   expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
