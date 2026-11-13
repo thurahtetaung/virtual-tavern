@@ -40,8 +40,7 @@ export function GameCard({
   cover?: GameCover | null;
   /**
    * Always show the art strip, with the emblem in it while there is no cover (wider screens only:
-   * phones show a cover's strip alone). On phones it is a shallower 21:9 (cropped), so a long list
-   * shows more than one game a screen.
+   * phones show a cover's strip alone).
    */
   strip?: boolean;
   createLabel?: string;
@@ -70,12 +69,9 @@ export function GameCard({
         // list stays short; a real cover always shows.
         <div className={cn('bg-sunk p-2.5', !art && 'max-sm:hidden')}>
           {art ? (
-            <div
-              className={cn(
-                'aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line',
-                strip && 'max-sm:aspect-[21/9]',
-              )}
-            >
+            // Covers keep their full 16:9 on phones too: box art often carries the title near
+            // its top or bottom edge, which a shallower crop would cut.
+            <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
               <ProtectedImage
                 src={art.src}
                 alt=""
