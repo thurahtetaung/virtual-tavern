@@ -674,7 +674,7 @@ function WordCard({
                 aria-pressed={pick === i}
                 onClick={() => onPick?.(i)}
                 className={cn(
-                  'min-h-10 rounded-lg px-3 py-1.5 text-left text-sm font-semibold ring-1 transition disabled:cursor-default',
+                  'min-h-11 rounded-lg px-3 py-1.5 text-left text-sm font-semibold ring-1 transition disabled:cursor-default',
                   LEVEL_CHIP[level],
                   (pick === i || chosen === w.word) && 'ring-2 ring-accent',
                   proposed === i && 'outline-2 outline-offset-2 outline-dashed outline-accent',
@@ -1148,11 +1148,15 @@ function Guesses({
       <ol
         ref={list}
         aria-label="Guesses"
-        className="flex max-h-[45vh] min-h-24 flex-col gap-1 overflow-y-auto lg:max-h-none lg:min-h-12 lg:flex-1"
+        className={cn(
+          'flex max-h-[45vh] flex-col gap-1 overflow-y-auto lg:max-h-none lg:min-h-12 lg:flex-1',
+          // Phones: an empty list is one line, not a tall empty box.
+          r.guesses.length > 0 && 'min-h-24',
+        )}
         data-testid="ic-guesses"
       >
         {r.guesses.length === 0 && (
-          <li className="py-4 text-center text-sm text-ink-muted">No guesses yet.</li>
+          <li className="py-2 text-center text-sm text-ink-muted lg:py-4">No guesses yet.</li>
         )}
         {r.guesses.map((x) => (
           <GuessRow
