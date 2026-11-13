@@ -48,7 +48,7 @@ const ANSWER_SIZE = {
 } as const;
 
 const PROMPT =
-  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:text-3xl';
+  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:py-4 lg:text-4xl';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
@@ -238,7 +238,8 @@ function OptionCard({
       aria-pressed={chosen}
       onClick={onPick}
       className={cn(
-        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 transition',
+        // A game-show answer board on wide screens: tall tiles in large type.
+        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 shadow-vt-1 transition lg:min-h-20 lg:px-6 lg:text-xl',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
           ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
@@ -271,7 +272,7 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
     setBusy(false);
   };
   return (
-    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2">
+    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2 lg:gap-3">
       {round.options.map((o) => (
         <li key={o.index}>
           <OptionCard
