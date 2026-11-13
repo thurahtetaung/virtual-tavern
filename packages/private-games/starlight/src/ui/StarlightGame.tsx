@@ -2,6 +2,7 @@ import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk'
 import { Card, cardSetChoices, useManifest } from '@vt/private-reverie/card';
 import {
   Button,
+  TAP_BAND,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -640,7 +641,10 @@ function GridCard({
         type="button"
         onClick={onZoom}
         aria-label={`Zoom card ${posName(pos)}`}
-        className="absolute right-0.5 bottom-0.5 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white"
+        className={cn(
+          TAP_BAND,
+          'absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white',
+        )}
       >
         🔍
       </button>

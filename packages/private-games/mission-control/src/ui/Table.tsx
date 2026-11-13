@@ -1,6 +1,16 @@
 import { storageKey } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import { Button, Modal, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  Modal,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useScrollEnds,
+  scrollFadeMask,
+} from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
 import type { Trick } from '../logic/checks.ts';
@@ -378,6 +388,7 @@ export function PlayTable({
   const showLast = !a.current.length && last && last.no === a.trickCount;
   const canHold = !a.signalBlock && !a.current.length && !a.holds.includes(me) && a.turn !== me;
   const order = a.crew.map((c) => c.id);
+  const seatsStrip = useScrollEnds(order.join(','));
   // The viewer's signal is spent (their own token, or the shared ones): show the used side.
   const tokenUsed =
     a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
@@ -390,7 +401,11 @@ export function PlayTable({
           ? '🗣️ Open table'
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
       </p>
-      <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible">
+      <ul
+        ref={seatsStrip.ref}
+        style={scrollFadeMask(seatsStrip.ends)}
+        className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible"
+      >
         {order.map((seat) => (
           <Seat
             key={seat}
