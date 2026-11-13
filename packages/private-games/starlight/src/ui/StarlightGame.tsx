@@ -410,7 +410,49 @@ function Play({
       )}
     </>
   );
-  const board = (
+  // Wide screens hold the word, the round and the latest moment at the top of the rail, so the
+  // cards get the window's full height.
+  const railTop = wide && view.phase === 'playing';
+  // At the end the finale says it all (the last word included), so there's one title.
+  const header = (
+    <header className={cn('space-y-1', view.phase === 'over' && 'hidden')}>
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+        <span className="flex items-center gap-1">
+          {view.phase === 'over' ? (
+            'Game over'
+          ) : (
+            <>
+              Round {roundName(r.no)} of {ROUNDS} ·{' '}
+              <Token
+                tokens={tokens}
+                src={firstScoutArt(tokens)}
+                emoji="🔭"
+                alt="First Scout pawn"
+              />{' '}
+              First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+            </>
+          )}
+        </span>
+        {view.phase === 'playing' && (
+          <Countdown
+            deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
+            clockOffset={room.clockOffset}
+            label={STEP_TIMER[r.stage]?.label}
+            soft={view.settings.timerMode !== 'strict'}
+            expiredHint="Just a reminder: the table waits."
+            atZero={STEP_TIMER[r.stage]?.atZero}
+          />
+        )}
+      </div>
+      <p className="text-center" data-testid="starlight-word">
+        <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
+          The word
+        </span>
+        <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
+      </p>
+    </header>
+  );
+  const moment = (
     <>
       {last && r.stage !== 'mark' && (
         <p
@@ -430,6 +472,11 @@ function Play({
       )}
 
       {r.stage !== 'done' && <DarkLine view={view} tokens={tokens} />}
+    </>
+  );
+  const board = (
+    <>
+      {!railTop && moment}
 
       <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <section
@@ -446,7 +493,7 @@ function Play({
                 r.stage === 'done' && !wide
                   ? 'min(48rem, 40dvh)'
                   : wide
-                    ? 'min(60rem, max(36rem, calc((100dvh - 20.25rem) * 1.18)))'
+                    ? 'min(60rem, max(36rem, calc((100dvh - 15.5rem) * 1.18)))'
                     : 'min(48rem, 62dvh)',
             }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
@@ -507,9 +554,21 @@ function Play({
           {isScout && <RefusalSlot anchor={SHOW_ANCHOR} resetKey={r.shown.length} />}
         </section>
         <aside
-          className={cn('mt-3 space-y-3 sm:mt-0', shown === 'table' && 'hidden')}
+          // A long rail (a done round's results and the full scores) scrolls on its own, so the
+          // cards keep the window's height.
+          className={cn(
+            'mt-3 space-y-3 sm:mt-0',
+            railTop && 'lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto lg:p-1',
+            shown === 'table' && 'hidden',
+          )}
           {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
         >
+          {railTop && (
+            <div className="space-y-3 rounded-2xl bg-card p-4 shadow-vt-1 ring-1 ring-line">
+              {header}
+              {moment}
+            </div>
+          )}
           {wide && tips}
           {wide && r.stage === 'done' && r.results && (
             <RoundResults view={view} room={room} act={act} rail />
@@ -528,43 +587,7 @@ function Play({
     <div className="space-y-3">
       {confirmDialog}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {/* At the end the finale says it all (the last word included), so there's one title. */}
-      <header className={cn('space-y-1', view.phase === 'over' && 'hidden')}>
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span className="flex items-center gap-1">
-            {view.phase === 'over' ? (
-              'Game over'
-            ) : (
-              <>
-                Round {roundName(r.no)} of {ROUNDS} ·{' '}
-                <Token
-                  tokens={tokens}
-                  src={firstScoutArt(tokens)}
-                  emoji="🔭"
-                  alt="First Scout pawn"
-                />{' '}
-                First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
-              </>
-            )}
-          </span>
-          {view.phase === 'playing' && (
-            <Countdown
-              deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
-              clockOffset={room.clockOffset}
-              label={STEP_TIMER[r.stage]?.label}
-              soft={view.settings.timerMode !== 'strict'}
-              expiredHint="Just a reminder: the table waits."
-              atZero={STEP_TIMER[r.stage]?.atZero}
-            />
-          )}
-        </div>
-        <p className="text-center" data-testid="starlight-word">
-          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
-            The word
-          </span>
-          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
-        </p>
-      </header>
+      {!railTop && header}
       {!wide && tips}
 
       {view.phase === 'over' && (
