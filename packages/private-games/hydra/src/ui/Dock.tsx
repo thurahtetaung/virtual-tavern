@@ -215,7 +215,7 @@ function SeatsPrompt({ text, onClick }: { text: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-center text-sm font-semibold text-accent-text"
+      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-1 text-center text-sm font-semibold text-accent-text"
       data-testid="seats-prompt"
     >
       <span className="hy-breathe inline-block">{text}</span>
