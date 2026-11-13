@@ -1,35 +1,53 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import {
-  Button,
-  Drawer,
-  FIT_SIZE_VAR,
-  RefusalSlot,
-  StickyBar,
-  cn,
-  useFitSize,
-  useFreeHeight,
-  useWideScreen,
-} from '@vt/ui';
-import { type ReactNode, useRef, useState } from 'react';
-import { PILLARS } from '../logic/cards.ts';
-import { HOURS, type PsychicView, type SeanceAction, type SeanceView } from '../logic/types.ts';
+import { Button, cn, useWideScreen } from '@vt/ui';
+import { type ReactNode, useState } from 'react';
+import { PILLARS, kindOf } from '../logic/cards.ts';
+import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CandidatesRow } from './Candidates.tsx';
 import { Avatar, Card } from './Card.tsx';
-import { psychicCards } from './Ghost.tsx';
-import { PickableCard, PickButton, cardsOf, useLook } from './Look.tsx';
+import { GAP, GhostFrame, GhostTurnLine, HandPanel } from './GhostShell.tsx';
+import { type LookCard, cardsOf, useLook } from './Look.tsx';
 import { PastGuesses } from './PastGuesses.tsx';
 import { HourClock, visionCaptions } from './Psychic.tsx';
-import { TableTab } from './Table.tsx';
-import { Tip } from './Tips.tsx';
 import { atTable, isEmpty, pastGuesses, roman, waitingForVision } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
-/** The least height the screen keeps on a short window: below it the page scrolls instead. */
-const MIN_HEIGHT_PX = 420;
-/** The gap between cards, in rem (Tailwind's `gap-2`). */
-const GAP = '0.5rem';
+/** Everything the ghost can look at for one psychic: the target, the visions they hold, their guess. */
+export function psychicCards(p: PsychicView, g: GameView): LookCard[] {
+  const pillar = PILLARS[p.step];
+  const target = pillar ? p.targets?.[p.step] : undefined;
+  if (!pillar) return [];
+  return [
+    ...(target !== undefined
+      ? [
+          {
+            kind: kindOf(pillar, g.third),
+            n: target,
+            caption: `${p.name}’s target`,
+          } satisfies LookCard,
+        ]
+      : []),
+    ...cardsOf(
+      'vision',
+      p.visions.map((v) => v.card),
+      visionCaptions(p, g.hour),
+    ).map((c) => ({
+      ...c,
+      caption: `Sent to ${p.name} · ${c.caption ?? ''}`,
+    })),
+    ...(p.intuition !== null
+      ? [
+          {
+            kind: kindOf(pillar, g.third),
+            n: p.intuition,
+            caption: `${p.name}’s guess${p.intuition === target ? ' (right)' : ' (wrong)'}`,
+          } satisfies LookCard,
+        ]
+      : []),
+  ];
+}
 
 /** Whether the ghost still owes this psychic the hour's vision. */
 const needsVision = (g: NonNullable<SeanceView['game']>, p: PsychicView) =>
@@ -52,25 +70,6 @@ function chipState(
     };
   if (p.ready) return { word: '✓ Ready', long: 'vision sent, ready', tone: 'done' };
   return { word: '✓ Sent', long: 'vision sent, not ready', tone: 'done' };
-}
-
-/** The seven hours as small marks, the current one lit (the Table drawer has the full clock). */
-function HourDots({ hour }: { hour: number }) {
-  return (
-    <ol aria-label={`Hour ${roman(hour)} of VII`} className="flex items-center gap-0.5">
-      {Array.from({ length: HOURS }, (_, i) => i + 1).map((h) => (
-        <li
-          key={h}
-          aria-current={h === hour ? 'step' : undefined}
-          className={cn(
-            'h-2 w-3 rounded-sm',
-            h < hour ? 'bg-line-strong' : h === hour ? 'bg-special' : 'bg-sunk ring-1 ring-line',
-            h === HOURS && h !== hour && 'ring-danger/70',
-          )}
-        />
-      ))}
-    </ol>
-  );
 }
 
 /**
@@ -132,7 +131,6 @@ export function GhostVisions({
     setLive(live.includes(c) ? live.filter((x) => x !== c) : [...live, c]);
   const canRaven = g.ravensLeft > 0;
   const canSend = !!sel && needsVision(g, sel) && !raven;
-  const [drawer, setDrawer] = useState(false);
 
   const send = () => {
     if (!sel || !live.length) return;
@@ -175,46 +173,10 @@ export function GhostVisions({
     : g.canReveal
       ? ''
       : `${ready} of ${searching.length} ready`;
-  const ravens = g.difficulty === 'easy' ? (g.ravenHour === g.hour ? 0 : 1) : g.ravensLeft;
-
-  // The play area takes the height left in the window; the cards size to it.
-  const root = useRef<HTMLDivElement>(null);
-  const free = useFreeHeight(root);
-  const height = free === null ? undefined : Math.max(MIN_HEIGHT_PX, free);
 
   const pillar = sel ? PILLARS[sel.step] : undefined;
   const target = pillar && sel ? sel.targets?.[sel.step] : undefined;
   const { look, viewer } = useLook(content);
-  // Picking from the full-screen view closes it, back to the hand with the card picked.
-  const pickLabel = raven ? 'Throw away' : 'Pick';
-  const pickedLabel = raven ? '✓ Throw away' : '✓ Picked';
-  const canPick = raven || canSend;
-  const { look: lookHand, viewer: handViewer } = useLook(content, (c, close) =>
-    canPick ? (
-      <PickButton
-        kind="vision"
-        n={c.n}
-        on={live.includes(c.n)}
-        onToggle={() => {
-          toggle(c.n);
-          close();
-        }}
-        label={pickLabel}
-        onLabel={pickedLabel}
-        big
-      />
-    ) : null,
-  );
-
-  const rows = Math.max(1, Math.ceil(hand.length / 4));
-  // Phones: the cards size to the hand's own box. Wide screens: the hand is as tall as the window
-  // lets it be (`useFitSize`, a card's height in px), no wider than 45% of the screen, and the
-  // target and the table cards take the width left.
-  const handWidth = wide
-    ? `min(var(${FIT_SIZE_VAR}, 160px) * 700 / 1024, (45cqw - 3 * ${GAP} - 1.5rem) / 4)`
-    : `min((100cqw - 3 * ${GAP}) / 4, ((100cqh - ${rows - 1} * ${GAP}) / ${rows}) * 700 / 1024)`;
-  const handList = useRef<HTMLUListElement>(null);
-  useFitSize(handList, { on: wide, min: 120, max: 520 });
   const tableCards = pillar ? g.table[pillar].length : 0;
   const tableRows = Math.max(1, Math.ceil(tableCards / 2));
   const tableWidth = `min((100cqw - ${GAP}) / 2, ((100cqh - ${tableRows - 1} * ${GAP}) / ${tableRows}) * 1024 / 700)`;
@@ -304,61 +266,20 @@ export function GhostVisions({
   return (
     <>
       {viewer}
-      {handViewer}
-      {/* The turn line: what to do now, then a small line of the table and its drawer. */}
-      <section
-        aria-label="Your turn"
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-special-soft px-3 py-2 ring-1 ring-special-line"
-      >
-        <p role="status" className="min-w-0 flex-1 text-sm lg:text-base">
-          <span aria-hidden>👻 </span>
-          <span className="font-bold">Hour {roman(g.hour)}</span>
-          <span className="text-ink-muted"> · </span>
-          <span className="font-semibold">{doing}</span>
-          {left && <span className="text-ink-muted"> · {left}</span>}
-        </p>
-        {wide && g.canReveal && revealButton}
-        <div className="flex shrink-0 items-center gap-2 text-xs text-ink-2 lg:text-sm">
-          <HourClock view={view} room={room} />
-          <span className={cn(!wide && 'sr-only')}>
-            🐦‍⬛ {ravens} raven{ravens === 1 ? '' : 's'}
-          </span>
-          {wide && <HourDots hour={g.hour} />}
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-haspopup="dialog"
-            onClick={() => setDrawer(true)}
-          >
-            {!wide && <span aria-hidden>🐦‍⬛ {ravens} · </span>}Table ›
-          </Button>
-        </div>
-        <RefusalSlot anchor="seance-reveal" className="basis-full" />
-      </section>
-      <Drawer open={drawer} onClose={() => setDrawer(false)} title="The table" className="max-w-md">
-        {drawer && (
-          <div className="space-y-3">
-            {!wide && <HourDots hour={g.hour} />}
-            <TableTab view={view} content={content} />
-            {hostTools}
-          </div>
-        )}
-      </Drawer>
-      {notes}
-      <Tip id="ghost-silent">
-        🤫 You’re the ghost: not a word, a nod or a sigh. Your pictures do the talking. Tap a card
-        to see it full screen; Pick the cards for a psychic, then Send.
-      </Tip>
-      <div
-        ref={root}
-        // Wide screens: at least the free height, so a hand too tall for it grows the page and
-        // `useFitSize` shrinks it back; phones: exactly that height, which the cards size to.
-        style={wide ? { minHeight: height } : { height }}
-        className="flex min-h-0 flex-col gap-2"
-        data-ui="ghost-visions"
-        // Wide screens: the room frame drops its 1440 px cap for this screen (index.css).
-        data-vt-full-width=""
-      >
+      <GhostTurnLine
+        view={view}
+        content={content}
+        lead={`Hour ${roman(g.hour)}`}
+        doing={doing}
+        rest={left}
+        clock={<HourClock view={view} room={room} />}
+        clockOnPhone
+        actions={g.canReveal && revealButton}
+        refusal="seance-reveal"
+        notes={notes}
+        hostTools={hostTools}
+      />
+      <GhostFrame name="ghost-visions">
         {/* The psychics, one chip each: tap one to see their target and send their vision. */}
         <ul aria-label="Psychics" className="-mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 py-0.5">
           {psychics.map((p) => {
@@ -496,72 +417,36 @@ export function GhostVisions({
             </section>
           )}
           {/* The hand: tap to look, Pick to choose, Send under it. */}
-          <section className="flex min-h-0 flex-[6_1_0] flex-col gap-1.5 rounded-xl bg-card p-2 ring-1 ring-line lg:p-3">
-            <div className="flex shrink-0 items-center justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="font-bold">Your hand</h3>
-                <p className="truncate text-xs text-ink-muted">
-                  {raven
-                    ? `Tap Throw away on the cards to lose, then draw back up to 7.${g.difficulty === 'easy' ? ' One raven per hour.' : ''}`
-                    : canSend && sel
-                      ? live.length
-                        ? `${live.length} picked for ${sel.name}`
-                        : `Pick cards for ${sel.name}`
-                      : 'Tap a card to see it full screen.'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant={raven ? 'primary' : 'secondary'}
-                aria-pressed={raven}
-                disabled={!canRaven}
-                onClick={() => {
-                  setRaven(!raven);
-                  setLive([]);
-                }}
-              >
-                🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
-              </Button>
-            </div>
-            <div className={cn(wide ? 'shrink-0' : 'min-h-0 flex-1 [container-type:size]')}>
-              <ul
-                ref={handList}
-                aria-label="Your hand"
-                className="grid content-start"
-                style={{ gridTemplateColumns: `repeat(4, ${handWidth})`, gap: GAP }}
-              >
-                {hand.map((c, i) => (
-                  <li key={c}>
-                    <PickableCard
-                      kind="vision"
-                      n={c}
-                      content={content}
-                      onLook={() => lookHand(cardsOf('vision', hand), i, 'Your hand')}
-                      pick={
-                        canPick
-                          ? {
-                              on: live.includes(c),
-                              onToggle: () => toggle(c),
-                              label: pickLabel,
-                              onLabel: pickedLabel,
-                            }
-                          : undefined
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {action && (
-              <div className="mt-auto">
-                <StickyBar fixed refusal={raven ? 'seance-raven' : 'seance-send'}>
-                  {action}
-                </StickyBar>
-              </div>
-            )}
-          </section>
+          <HandPanel
+            className="flex-[6_1_0]"
+            hand={hand}
+            content={content}
+            sub={
+              raven
+                ? `Tap Throw away on the cards to lose, then draw back up to 7.${g.difficulty === 'easy' ? ' One raven per hour.' : ''}`
+                : canSend && sel
+                  ? live.length
+                    ? `${live.length} picked for ${sel.name}`
+                    : `Pick cards for ${sel.name}`
+                  : 'Tap a card to see it full screen.'
+            }
+            picked={live}
+            pickable={raven || canSend ? () => true : undefined}
+            onToggle={toggle}
+            pickLabel={raven ? 'Throw away' : 'Pick'}
+            pickedLabel={raven ? '✓ Throw away' : '✓ Picked'}
+            raven={raven}
+            onRaven={() => {
+              setRaven(!raven);
+              setLive([]);
+            }}
+            ravenDisabled={!canRaven}
+            ravenLabel={`Raven${g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}`}
+            footer={action}
+            refusal={raven ? 'seance-raven' : 'seance-send'}
+          />
         </div>
-      </div>
+      </GhostFrame>
     </>
   );
 }

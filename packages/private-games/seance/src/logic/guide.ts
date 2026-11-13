@@ -270,7 +270,8 @@ function base(): GameGuide {
         title: 'The ghost’s screen',
         bullets: [
           'One psychic at a time: tap their chip at the top. Their target is big, with what they hold and their past guesses under it and the cards they choose from beside it.',
-          'Pick cards in your hand (tap a card to see it full screen), then Send. The Table button opens the hours, ravens, track and everyone’s progress.',
+          'Pick cards in your hand (tap a card to see it full screen), then Send. The Table button opens the hours, ravens, track, everyone’s progress and each psychic’s past guesses.',
+          'Between hours each psychic’s verdict sits beside their target, with Next hour at the top. In the final, choose the culprit’s group, pick 3 cards and tag what each one means, then Send; during the vote you see the shared vision beside the line-up.',
         ],
       },
       {

@@ -255,7 +255,7 @@ export async function seanceScreenshots(
   await shot(ana, 'others-past-guesses');
   await tab(ana, 'My vision');
   // Play on (everyone right) until the final.
-  const final = ghost.getByText(/Everyone found their cards! Pick the culprit/);
+  const final = ghost.getByRole('region', { name: 'Choose the shared vision' });
   const choose = ghost
     .getByRole('list', { name: 'Psychics' })
     .getByRole('button', { name: /waiting for a vision$/ });
@@ -265,7 +265,6 @@ export async function seanceScreenshots(
     await playHour(ghost, psychics);
   }
   const pick = ghost.getByRole('region', { name: 'Choose the shared vision' });
-  await tab(ghost, 'Final');
   await expect(pick).toBeVisible();
   await ghost.getByRole('button', { name: 'This is the culprit (group 3)' }).click();
   for (let i = 0; i < 3; i++)
@@ -280,6 +279,8 @@ export async function seanceScreenshots(
   const voter = psychics.find((p) => p.name !== 'Ana')!.page;
   await expect(voter.getByText(/Vote now, in silence/)).toBeVisible();
   await shot(voter, 'vote');
+  await expect(ghost.getByRole('region', { name: 'Your turn' })).toHaveText(/Card 1 of 3 is up/);
+  await shot(ghost, 'ghost-vote');
   // Everyone votes when their turn comes.
   for (let round = 0; round < 3; round++) {
     for (const p of psychics) {

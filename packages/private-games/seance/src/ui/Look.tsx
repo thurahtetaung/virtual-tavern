@@ -69,6 +69,7 @@ export function PickButton({
   disabled,
   className,
   big,
+  compact,
 }: {
   kind: Kind;
   n: number;
@@ -82,7 +83,39 @@ export function PickButton({
   className?: string;
   /** A full-size button (in the viewer) rather than a pill on the card. */
   big?: boolean;
+  /**
+   * A small card's mark: a round + (✓ once picked) in the card's corner instead of the worded
+   * pill, so the art stays in sight; the button is still a 44 px square, flush in that corner.
+   */
+  compact?: boolean;
 }) {
+  if (compact)
+    return (
+      <button
+        type="button"
+        aria-pressed={on}
+        aria-label={`${on ? onLabel : label}: ${kind === 'vision' ? 'vision' : kind} ${n}`}
+        data-pick={`${kind}-${n}`}
+        disabled={disabled}
+        onClick={onToggle}
+        className={cn(
+          'group grid size-11 touch-manipulation place-items-end p-1 disabled:cursor-not-allowed',
+          'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent',
+          className,
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'grid size-7 place-items-center rounded-full text-sm font-bold shadow-lg ring-1',
+            'group-disabled:bg-stone-600/80 group-disabled:text-stone-300 group-disabled:shadow-none group-disabled:ring-stone-400/40',
+            on ? 'bg-accent-line text-ink ring-black/20' : 'bg-black/70 text-white ring-white/30',
+          )}
+        >
+          {on ? '✓' : '+'}
+        </span>
+      </button>
+    );
   return (
     <button
       type="button"
@@ -119,6 +152,7 @@ export function PickableCard({
   className,
   children,
   preview,
+  compact,
 }: {
   kind: Kind;
   n: number;
@@ -138,6 +172,8 @@ export function PickableCard({
   children?: ReactNode;
   /** The desktop hover preview (on by default). */
   preview?: boolean;
+  /** A small card: the round corner mark instead of the worded pill (`PickButton`). */
+  compact?: boolean;
 }) {
   return (
     <div className={cn('relative', fill && 'size-full', className)}>
@@ -164,7 +200,8 @@ export function PickableCard({
           label={pick.label}
           onLabel={pick.onLabel}
           disabled={pick.disabled}
-          className="absolute right-1 bottom-1"
+          compact={compact}
+          className={compact ? 'absolute right-0 bottom-0' : 'absolute right-1 bottom-1'}
         />
       )}
     </div>

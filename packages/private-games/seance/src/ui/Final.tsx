@@ -1,12 +1,10 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn, useWideScreen } from '@vt/ui';
+import { Button, Countdown, StickyBar, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { Avatar, Card, CardBack } from './Card.tsx';
-import type { CompareSpec } from './Psychic.tsx';
-import { HandCards } from './Ghost.tsx';
 import { type LookCard, useLook } from './Look.tsx';
 import { myPsychic, psychicByColor, votersNow } from './status.ts';
 
@@ -123,19 +121,7 @@ export function SharedRow({
 }
 
 /** The line-up: one numbered group per psychic, with vote buttons when it's the viewer's turn. */
-export function Lineup({
-  view,
-  act,
-  content,
-  draft,
-  setDraft,
-}: {
-  view: SeanceView;
-  act: Act;
-  content: Content;
-  draft?: SharedDraft;
-  setDraft?: (d: SharedDraft) => void;
-}) {
+export function Lineup({ view, act, content }: { view: SeanceView; act: Act; content: Content }) {
   const g = view.game!;
   const f = g.final!;
   const { look, viewer } = useLook(content);
@@ -151,20 +137,14 @@ export function Lineup({
   const me = myPsychic(view);
   const myTurn =
     !!me && g.stage === 'vote' && me.voteStage === f.revealed && f.myVote === undefined;
-  const picking = g.myRole === 'ghost' && g.stage === 'shared' && !!setDraft;
   const over = g.stage === 'done';
   // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
   const [choice, setChoice] = useState<number | null>(null);
   const cast = castable(g, myTurn, choice);
-  // Phones: each group is a name line, with its action (Choose, or the ghost's Culprit) at its
-  // end, over its three cards at the full width, so the cards stay big enough to read and tap
-  // and no group needs a button row of its own. Wide screens: the groups side by side, at equal
-  // size, each with its action under its cards.
+  // Phones: each group is a name line, with Choose at its end, over its three cards at the full
+  // width, so the cards stay big enough to read and tap and no group needs a button row of its
+  // own. Wide screens: the groups side by side, at equal size, each with its action under its cards.
   const wide = useWideScreen();
-  // Phones: once the ghost has named the culprit's group, the groups fold to their name lines
-  // (each still with its Culprit button), so the hand to pick from is right under them.
-  const [showCards, setShowCards] = useState(false);
-  const folded = !wide && picking && draft?.group != null && !showCards;
   const castBar = myTurn && (
     // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
     <StickyBar fixed refusal="seance-vote">
@@ -183,16 +163,13 @@ export function Lineup({
   return (
     <div className="space-y-2">
       {/* Desktops: two groups a row with two or four, three with three, five or six, so every
-          group is on screen at once, the cards large; beside the ghost's picker the groups share
-          half the width. */}
+          group is on screen at once, the cards large. */}
       <ul
         className={cn(
           'grid grid-cols-1 gap-2',
-          picking
-            ? 'lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]'
-            : f.groups.length === 2 || f.groups.length === 4
-              ? 'lg:grid-cols-2 lg:gap-3'
-              : 'lg:grid-cols-3 lg:gap-3',
+          f.groups.length === 2 || f.groups.length === 4
+            ? 'lg:grid-cols-2 lg:gap-3'
+            : 'lg:grid-cols-3 lg:gap-3',
         )}
         aria-label="Line-up"
       >
@@ -202,7 +179,6 @@ export function Lineup({
           const cards = groupCards(g, i);
           const culprit = over ? g.result?.culprit === i : g.myRole === 'ghost' && f.culprit === i;
           const chosen = over && g.result?.chosen === i;
-          const selected = picking && draft?.group === i;
           const votes = over ? (g.result?.tally[i] ?? 0) : null;
           const action = myTurn ? (
             <Button
@@ -220,23 +196,6 @@ export function Lineup({
                 : wide
                   ? `Choose group ${i + 1}`
                   : 'Choose'}
-            </Button>
-          ) : picking ? (
-            <Button
-              size="sm"
-              variant={selected ? 'primary' : 'secondary'}
-              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
-              aria-pressed={selected}
-              aria-label={
-                selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`
-              }
-              onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
-            >
-              {selected
-                ? '👻 The culprit’s group'
-                : wide
-                  ? `This is the culprit (group ${i + 1})`
-                  : 'Culprit'}
             </Button>
           ) : null;
           // Phones while you vote: each group is one row (its number and psychic, its three
@@ -277,13 +236,12 @@ export function Lineup({
               <div
                 className={cn(
                   'rounded-xl p-2 ring-1 ring-line',
-                  (selected || culprit || (myTurn && choice === i)) &&
-                    'ring-2 ring-special bg-special/10',
+                  (culprit || (myTurn && choice === i)) && 'ring-2 ring-special bg-special/10',
                   chosen && !culprit && 'ring-2 ring-danger',
                 )}
                 aria-label={`Group ${i + 1}`}
               >
-                <div className={cn('flex min-h-7 items-center gap-2', !folded && 'mb-1.5')}>
+                <div className="mb-1.5 flex min-h-7 items-center gap-2">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
@@ -304,7 +262,7 @@ export function Lineup({
                   )}
                   {!wide && action}
                 </div>
-                <div className={cn('grid grid-cols-3 gap-1', folded && 'hidden')}>
+                <div className="grid grid-cols-3 gap-1">
                   {cards.map((c, k) => (
                     <Card
                       key={k}
@@ -321,215 +279,8 @@ export function Lineup({
           );
         })}
       </ul>
-      {!wide && picking && draft?.group != null && (
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-expanded={showCards}
-          onClick={() => setShowCards(!showCards)}
-        >
-          {showCards ? 'Fold the groups' : 'Show the groups’ cards'}
-        </Button>
-      )}
       {castBar}
     </div>
-  );
-}
-
-/** The ghost's shared-vision picker: three cards from the hand, each tagged privately. */
-export function SharedPicker({
-  view,
-  act,
-  content,
-  draft,
-  setDraft,
-  compare,
-}: {
-  view: SeanceView;
-  act: Act;
-  content: Content;
-  draft: SharedDraft;
-  setDraft: (d: SharedDraft) => void;
-  compare: (spec: CompareSpec) => void;
-}) {
-  const g = view.game!;
-  const hand = g.hand ?? [];
-  const cards = draft.cards.filter((c) => hand.includes(c));
-  const group = draft.group;
-  const ready = group !== null && cards.length === 3;
-  const { look, viewer } = useLook(content);
-  // The hand only shows here in the final, so the raven (throw away and draw) lives here too.
-  const [raven, setRaven] = useState(false);
-  const [thrown, setThrown] = useState<number[]>([]);
-  const throwing = thrown.filter((c) => hand.includes(c));
-  return (
-    <Panel role="region" className="space-y-2 p-3" aria-label="Choose the shared vision">
-      {viewer}
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-bold">The shared vision</h3>
-        <Button
-          size="sm"
-          variant={raven ? 'primary' : 'secondary'}
-          aria-pressed={raven}
-          disabled={g.ravensLeft <= 0}
-          onClick={() => {
-            setRaven(!raven);
-            setThrown([]);
-          }}
-        >
-          🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
-        </Button>
-      </div>
-      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-ink-2">
-        <li className={cn(group !== null && 'line-through opacity-60')}>
-          You choose the culprit: pick one group (tap “This is the culprit” on it).
-        </li>
-        <li>
-          Pick 3 cards from your hand (tap a card to look, Pick to choose): one for its suspect, one
-          for its place, one for its {content.pillarName('object').toLowerCase()}.
-        </li>
-        <li>Tag what each card means (only you see it until the end), then send.</li>
-      </ol>
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={group === null}
-        onClick={() =>
-          compare({
-            title: `Group ${(group ?? 0) + 1}: pick 3 cards`,
-            pinned: {
-              kind: 'suspect',
-              kinds: PILLARS.map(content.kindOf),
-              cards: groupCards(g, group ?? 0),
-            },
-            pinnedLabel: 'The culprit’s group',
-            strip: { kind: 'vision', cards: hand },
-            stripLabel: 'Your hand: pick 3',
-            mode: 'shared',
-          })
-        }
-      >
-        🔍 Compare with the group
-      </Button>
-      {raven ? (
-        <>
-          <p className="text-xs text-ink-muted">
-            Tap Throw away on the cards to lose, then draw back up to 7.
-          </p>
-          <HandCards
-            dense
-            hand={hand}
-            content={content}
-            picked={throwing}
-            onToggle={(c) =>
-              setThrown(throwing.includes(c) ? throwing.filter((x) => x !== c) : [...throwing, c])
-            }
-            pickLabel="Throw away"
-            pickedLabel="✓ Throw away"
-          />
-          <Button
-            className="w-full"
-            disabled={!throwing.length}
-            onClick={() =>
-              void act({ type: 'raven', cards: throwing }, { anchor: 'seance-raven' }).then(
-                (ok) => {
-                  if (ok) {
-                    setRaven(false);
-                    setThrown([]);
-                  }
-                },
-              )
-            }
-          >
-            {throwing.length
-              ? `🐦‍⬛ Throw away ${throwing.length} and draw`
-              : 'Pick the cards to throw away first'}
-          </Button>
-          <RefusalSlot anchor="seance-raven" />
-        </>
-      ) : (
-        <HandCards
-          dense
-          hand={hand}
-          content={content}
-          picked={cards}
-          canPick={() => cards.length < 3}
-          onToggle={(c) =>
-            setDraft({
-              ...draft,
-              cards: cards.includes(c)
-                ? cards.filter((x) => x !== c)
-                : cards.length < 3
-                  ? [...cards, c]
-                  : cards,
-            })
-          }
-        />
-      )}
-      {cards.length > 0 && (
-        <ul className="space-y-1" aria-label="Tags">
-          {cards.map((c, i) => (
-            <li key={c} className="flex items-center gap-2">
-              <span className="w-12 shrink-0">
-                <Card
-                  kind="vision"
-                  n={c}
-                  content={content}
-                  onTap={() =>
-                    look(
-                      cards.map((n, k) => ({ kind: 'vision', n, caption: `Card ${k + 1}` })),
-                      i,
-                      'Your shared vision',
-                    )
-                  }
-                />
-              </span>
-              <span className="text-xs text-ink-muted">Card {i + 1} means:</span>
-              <div className="flex flex-wrap gap-1">
-                {PILLARS.map((pl) => (
-                  <Button
-                    key={pl}
-                    size="sm"
-                    variant={draft.tags[c] === pl ? 'primary' : 'secondary'}
-                    aria-pressed={draft.tags[c] === pl}
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        tags: { ...draft.tags, [c]: draft.tags[c] === pl ? null : pl },
-                      })
-                    }
-                  >
-                    {content.pillarIcon(pl)}{' '}
-                    <span className="sr-only sm:not-sr-only">{content.pillarName(pl)}</span>
-                  </Button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Button
-        size="lg"
-        className="w-full"
-        disabled={!ready}
-        onClick={() =>
-          void act(
-            {
-              type: 'shared',
-              group: group!,
-              cards,
-              tags: cards.map((c) => draft.tags[c] ?? null),
-            },
-            { anchor: 'seance-shared' },
-          )
-        }
-      >
-        {ready
-          ? '👻 Send the shared vision'
-          : `Pick ${group === null ? 'a group and ' : ''}${3 - cards.length} more`}
-      </Button>
-      <RefusalSlot anchor="seance-shared" />
-    </Panel>
   );
 }
 
