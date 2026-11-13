@@ -17,7 +17,7 @@ import {
   cn,
   FoldSummary,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { TYPES, type TypeId, fullMenu, typeOf, variantOf } from '../logic/cards.ts';
 import { roundRows } from '../logic/score.ts';
 import type {
@@ -68,6 +68,8 @@ export interface TableProps {
   name: NameOf;
   logName: NameOf;
   showGuide: (topic?: string) => void;
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
 }
 
 /** What each tray scores now (this round only). */
@@ -133,7 +135,7 @@ function useZoom(art: Art) {
   return { open, viewer };
 }
 
-export function Table({ view, room, act, art, name, logName, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, logName, showGuide, aside }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you) ?? null;
   const live = useMemo(() => livePoints(g), [g]);
@@ -180,7 +182,7 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
       <div className="flex min-w-0 flex-col gap-3">
         {shown !== null && trays}
         <div className={cn('flex flex-col gap-3', hide('play'))} {...panel('play')}>
-          <MenuStrip g={g} art={art} showGuide={showGuide} />
+          {!wide && <MenuStrip g={g} art={art} showGuide={showGuide} />}
           <Moments view={view} you={room.you} art={art} name={name} />
           {shown === null && (
             <Others
@@ -204,14 +206,22 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
               act={act}
             />
           )}
-          {view.phase === 'playing' && g.stage === 'scores' ? (
-            <RoundScores view={view} room={room} act={act} art={art} name={name} />
-          ) : view.phase === 'playing' ? (
-            <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
-          ) : null}
+          {/* Wide screens: your hand (or the round's scores) first, the trays under it. */}
+          {view.phase === 'playing' && (
+            <div className="flex flex-col gap-3 lg:order-first">
+              {g.stage === 'scores' ? (
+                <RoundScores view={view} room={room} act={act} art={art} name={name} />
+              ) : (
+                <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
+              )}
+            </div>
+          )}
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', hide('scores'))} {...panel('scores')}>
+        {shown === null && aside}
+        {/* Wide screens: the menu sits in the rail, so the hand and the trays share the column. */}
+        {wide && <MenuStrip g={g} art={art} showGuide={showGuide} />}
         {view.phase !== 'over' && <Totals g={g} name={name} live={live} you={room.you} />}
         <Log view={view} name={logName} art={art} />
       </aside>
@@ -250,7 +260,10 @@ function MenuStrip({
   showGuide: (t?: string) => void;
 }) {
   return (
-    <nav aria-label="Menu" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+    <nav
+      aria-label="Menu"
+      className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible"
+    >
       {fullMenu(g.menu).map((t) => {
         const tile = art.tile(t);
         return (

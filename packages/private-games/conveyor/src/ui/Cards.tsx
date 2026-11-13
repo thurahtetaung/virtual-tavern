@@ -49,7 +49,7 @@ export type CardSize = 'hand' | 'tray' | 'mini' | 'big';
 const SIZES: Record<CardSize, string> = {
   big: 'w-40 sm:w-48',
   // Tall phones have the height for a bigger hand (the strip scrolls sideways either way).
-  hand: 'w-[6.5rem] max-sm:[@media(min-height:800px)]:w-[7.75rem] sm:w-24',
+  hand: 'w-[6.5rem] max-sm:[@media(min-height:800px)]:w-[7.75rem] sm:w-24 lg:w-28',
   tray: 'w-12 sm:w-14',
   mini: 'w-8',
 };

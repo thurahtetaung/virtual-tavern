@@ -88,6 +88,7 @@ export function ConveyorGame({
     };
   }, [setYourMove, tabAlert]);
 
+  const wide = useWideScreen();
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -108,6 +109,7 @@ export function ConveyorGame({
       name={youName}
       logName={name}
       showGuide={guide}
+      aside={wide && view.phase === 'playing' && inGame ? <Tips art={art} /> : null}
     />
   );
 
@@ -119,7 +121,7 @@ export function ConveyorGame({
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && inGame && <Tips art={art} />}
+          {view.phase === 'playing' && inGame && !wide && <Tips art={art} />}
           {view.phase === 'over' && (
             <End
               view={view}
