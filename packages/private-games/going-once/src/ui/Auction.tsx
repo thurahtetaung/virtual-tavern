@@ -9,10 +9,15 @@ import {
   type TabBarItem,
   cn,
   tabPanelProps,
+  MoreBelow,
+  useFitSize,
+  useFreeHeight,
+  useMarkMore,
   useSecondsLeft,
+  useWideScreen,
 } from '@vt/ui';
 import { LowEffectsNotice } from '@vt/ui/show';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
@@ -160,8 +165,63 @@ export function BidPanel({
   const held = !!a.screw || now < a.pausedUntil;
   const screwBlocked = !g.screwsOn || !mine?.screw || held || !!a.screwed || !live;
   const showBank = !!mine && g.bankOpened && mine.bankRefusal !== undefined;
+  // Once sold, Screw and the bank's call move to the top (wide screens also drop the dead bid
+  // buttons), so the call, made in the wrap-up, is in view with the Sold card.
+  const sold = g.stage === 'sold';
+  const tools = mine && !picking && (
+    <>
+      {affordable.length === 0 && !leading && live && (
+        <p className="text-center text-sm text-ink-muted">Not enough cash to bid on this one.</p>
+      )}
+      {(g.screwsOn || showBank) && (
+        <div className="flex flex-wrap gap-2">
+          {g.screwsOn && (
+            <Button
+              variant="secondary"
+              className="min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap"
+              disabled={screwBlocked}
+              onClick={() => void act({ type: 'screw' }, { anchor: 'go-tools' })}
+              data-testid="go-screw"
+              title={
+                !mine.screw
+                  ? 'You’ve used your screw'
+                  : a.screwed
+                    ? 'No screwing until someone makes a free bid'
+                    : 'Force another player to bid $100 more'
+              }
+            >
+              🔩 {mine.screw ? 'Screw' : 'Screw used'}
+            </Button>
+          )}
+          {showBank && (
+            <Button
+              variant="secondary"
+              className={cn(
+                'min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap',
+                a.bankCalled && 'ring-2 ring-accent motion-safe:animate-pulse',
+              )}
+              disabled={!mine.canCallBank}
+              onClick={() => void act({ type: 'call-bank' }, { anchor: 'go-tools' })}
+              data-testid="go-call-bank"
+              title={mine.bankRefusal ?? undefined}
+            >
+              🏦{' '}
+              {a.bankCalled && !mine.canCallBank
+                ? `${fillNames('{Bank}', art.names)} called`
+                : `Call ${fillNames('{bank}', art.names)}`}
+            </Button>
+          )}
+        </div>
+      )}
+      {mine.bankRefusal && !a.bankCalled && (
+        <p className="text-xs text-ink-muted">{mine.bankRefusal}</p>
+      )}
+      <RefusalSlot anchor="go-tools" resetKey={a.seq} />
+    </>
+  );
   return (
     <div className="flex flex-col gap-3">
+      {sold && tools}
       <div className="flex flex-col gap-2" data-testid="go-bid-status">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1">
           {a.bid ? (
@@ -198,8 +258,14 @@ export function BidPanel({
       </div>
       {/* On phones the bid buttons and their refusal sit in the bar at the foot of the screen,
           under the top bid and the clock; once sold, they stay in place. */}
-      {mine && !(quiet && g.stage === 'sold') && !picking && (
-        <StickyBar fixed off={g.stage === 'sold'} refusal="go-bid" refusalKey={a.seq}>
+      {mine && !(quiet && sold) && !picking && (
+        <StickyBar
+          fixed
+          off={sold}
+          refusal="go-bid"
+          refusalKey={a.seq}
+          className={cn(sold && 'lg:hidden')}
+        >
           <div
             className="grid grid-cols-3 gap-2"
             role="group"
@@ -227,59 +293,7 @@ export function BidPanel({
           </div>
         </StickyBar>
       )}
-      {mine && !picking && (
-        <>
-          {affordable.length === 0 && !leading && live && (
-            <p className="text-center text-sm text-ink-muted">
-              Not enough cash to bid on this one.
-            </p>
-          )}
-          {(g.screwsOn || showBank) && (
-            <div className="flex flex-wrap gap-2">
-              {g.screwsOn && (
-                <Button
-                  variant="secondary"
-                  className="min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap"
-                  disabled={screwBlocked}
-                  onClick={() => void act({ type: 'screw' }, { anchor: 'go-tools' })}
-                  data-testid="go-screw"
-                  title={
-                    !mine.screw
-                      ? 'You’ve used your screw'
-                      : a.screwed
-                        ? 'No screwing until someone makes a free bid'
-                        : 'Force another player to bid $100 more'
-                  }
-                >
-                  🔩 {mine.screw ? 'Screw' : 'Screw used'}
-                </Button>
-              )}
-              {showBank && (
-                <Button
-                  variant="secondary"
-                  className={cn(
-                    'min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap',
-                    a.bankCalled && 'ring-2 ring-accent motion-safe:animate-pulse',
-                  )}
-                  disabled={!mine.canCallBank}
-                  onClick={() => void act({ type: 'call-bank' }, { anchor: 'go-tools' })}
-                  data-testid="go-call-bank"
-                  title={mine.bankRefusal ?? undefined}
-                >
-                  🏦{' '}
-                  {a.bankCalled && !mine.canCallBank
-                    ? `${fillNames('{Bank}', art.names)} called`
-                    : `Call ${fillNames('{bank}', art.names)}`}
-                </Button>
-              )}
-            </div>
-          )}
-          {mine.bankRefusal && !a.bankCalled && (
-            <p className="text-xs text-ink-muted">{mine.bankRefusal}</p>
-          )}
-          <RefusalSlot anchor="go-tools" resetKey={a.seq} />
-        </>
-      )}
+      {!sold && tools}
     </div>
   );
 }
@@ -521,7 +535,7 @@ function LotIntro({
         quiet
           ? 'gap-3 p-2'
           : // Phones: the picture's 220 px of height, the whole width (the tip needs it).
-            'mx-auto w-full flex-col justify-center gap-4 p-4 max-sm:min-h-55 sm:aspect-[4/5] sm:max-w-[min(100%,32vh)] lg:max-w-none',
+            'mx-auto w-full flex-col justify-center gap-4 p-4 max-sm:min-h-55 sm:aspect-[4/5] sm:max-w-[min(100%,32vh)] lg:max-w-[min(100%,var(--vt-fit,100%))]',
       )}
       data-testid="go-lot-intro"
     >
@@ -634,12 +648,20 @@ export function Auction({
   // Phones: the lot and its bidding on the Auction tab; the wish list, hints and lots each on theirs
   // (hidden rather than unmounted, so the lot's moments and the bidding keep their place).
   const away = tab !== null && tab !== 'auction';
+  // Wide screens: the lot's picture is as large as the window allows with the page still in view.
+  const wide = useWideScreen();
+  const lot = useRef<HTMLElement>(null);
+  useFitSize(lot, { on: wide && !quiet, min: 192, max: 520 });
+  const rail = useRef<HTMLElement>(null);
+  useMarkMore(rail, [wide]);
+  const railRoom = useFreeHeight(rail, wide);
   return (
     <div
       className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:items-start"
       {...(tab === 'auction' && tabPanelProps(GO_TABS_ID, 'auction'))}
     >
       <section
+        ref={lot}
         aria-label="The lot"
         className={cn('relative flex flex-col gap-2 lg:rounded-2xl lg:p-3', away && 'hidden')}
       >
@@ -679,7 +701,7 @@ export function Auction({
             house={pic.house}
             art={art}
             label={`Lot ${a.lot + 1}`}
-            className="relative mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-none"
+            className="relative mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-[min(100%,var(--vt-fit,100%))]"
           >
             <PictureStamp />
           </Picture>
@@ -723,20 +745,29 @@ export function Auction({
           {side(tab)}
         </Panel>
       )}
-      <aside className="hidden flex-col gap-3 lg:flex">
-        <Panel className="flex flex-col gap-2 p-3">
-          <h3 className="font-bold">📜 Wish list</h3>
-          {side('wish')}
-        </Panel>
-        <Panel className="flex flex-col gap-2 p-3">
-          <h3 className="font-bold">💬 Hints</h3>
-          {side('hints')}
-        </Panel>
-        <Panel className="flex flex-col gap-2 p-3">
-          <h3 className="font-bold">🧾 Lots</h3>
-          {side('log')}
-        </Panel>
-      </aside>
+      {/* Wide screens: the side column never runs past the window; it scrolls inside, with More
+          below at its foot. */}
+      <div className="relative hidden min-w-0 lg:block">
+        <aside
+          ref={rail}
+          className="peer flex flex-col gap-3 overflow-y-auto overscroll-contain p-px"
+          style={railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
+        >
+          <Panel className="flex flex-col gap-2 p-3">
+            <h3 className="font-bold">📜 Wish list</h3>
+            {side('wish')}
+          </Panel>
+          <Panel className="flex flex-col gap-2 p-3">
+            <h3 className="font-bold">💬 Hints</h3>
+            {side('hints')}
+          </Panel>
+          <Panel className="flex flex-col gap-2 p-3">
+            <h3 className="font-bold">🧾 Lots</h3>
+            {side('log')}
+          </Panel>
+        </aside>
+        <MoreBelow column={rail} surface="page" compact />
+      </div>
     </div>
   );
 }

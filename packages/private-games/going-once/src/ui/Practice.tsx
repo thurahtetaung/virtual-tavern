@@ -1,6 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, PlayerTag, RefusalSlot, cn } from '@vt/ui';
-import { useState } from 'react';
+import {
+  Button,
+  Countdown,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  cn,
+  useFitSize,
+  useWideScreen,
+} from '@vt/ui';
+import { useRef, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import {
   type AuctionView,
@@ -172,14 +181,19 @@ function PracticeBidding({
         : action,
       opts,
     );
+  // Wide screens: the picture is as large as the window allows with the bids still in view, as
+  // on a real lot.
+  const wide = useWideScreen();
+  const box = useRef<HTMLDivElement>(null);
+  useFitSize(box, { on: wide, min: 192, max: 520 });
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2 lg:items-start">
+    <div ref={box} className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-2 lg:items-start">
       <Picture
         drawing={null}
         house={p.house}
         art={art}
         label="The practice picture"
-        className="mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-none"
+        className="mx-auto w-full max-w-[min(100%,11rem)] shadow-vt-1 sm:max-w-[min(100%,32vh)] lg:max-w-[min(100%,var(--vt-fit,100%))]"
       />
       <Panel className="flex flex-col gap-3 p-3">
         <p className="text-sm">

@@ -131,8 +131,19 @@ export function Table({ view, room, act, art, name, showGuide, aside }: TablePro
       )}
     >
       <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">
-        <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
-        <Fireworks g={g} art={art} onDetail={setDetail} small={!playing} />
+        {/* Wide screens in play: the counters sit beside the piles, so your own hand stays on
+            a laptop screen without scrolling. */}
+        <div
+          className={cn(
+            'flex flex-col gap-1.5',
+            playing && 'lg:flex-row-reverse lg:items-start lg:justify-end lg:gap-3',
+          )}
+        >
+          <div className={cn('min-w-0', playing && 'lg:flex-1')}>
+            <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
+          </div>
+          <Fireworks g={g} art={art} onDetail={setDetail} small={!playing} />
+        </div>
         <div
           className={cn(
             'flex flex-col gap-1.5 lg:gap-2',
@@ -394,7 +405,7 @@ function Fireworks({
                 <span
                   className={cn(
                     'relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14',
-                    small ? 'lg:w-16' : 'lg:w-24 lg:text-3xl',
+                    small ? 'lg:w-16' : 'lg:w-[min(6rem,9.5dvh)] lg:text-3xl',
                   )}
                   style={{
                     borderColor: 'transparent',
@@ -1400,7 +1411,7 @@ function Log({ view, you, name }: { view: SkyfireView; you: string; name: NameOf
           Playing from memory: clues drop out of your log after your next turn.
         </p>
       )}
-      <ol className="flex max-h-[28rem] flex-col gap-1 overflow-y-auto text-xs">
+      <ol className="flex max-h-[clamp(6rem,calc(100dvh-34rem),28rem)] flex-col gap-1 overflow-y-auto text-xs">
         {entries.map((e) => (
           <li key={e.id} className={cn(e.kind === 'play' && !e.ok && 'text-danger-ink')}>
             {logLine(e, name, you)}

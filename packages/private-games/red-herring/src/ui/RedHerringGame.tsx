@@ -96,12 +96,11 @@ export function RedHerringGame({
   );
 }
 
-/** Phones in play: the table, your notebook and hand, and the scores. */
-type PlayTab = 'table' | 'me' | 'scores';
+/** Phones in play: the table (your notebook and hand with it), and the scores. */
+type PlayTab = 'table' | 'scores';
 const PLAY_TABS_ID = 'red-herring-play';
 const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
   { id: 'table', label: 'Table', icon: 'layout-grid' },
-  { id: 'me', label: 'Me', icon: 'book-open' },
   { id: 'scores', label: 'Scores', icon: 'chart-bar' },
 ];
 
@@ -122,7 +121,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   const you = room.you;
   const inGame = r.order.includes(you);
   const handStage = r.stage === 'card' || r.stage === 'word' || r.stage === 'play';
-  // Phones and tablets: the table, your notebook (Me), and the scores, from the tab bar. While cards
+  // Phones and tablets: the table (your notebook over it) and the scores, from the tab bar. While cards
   // are chosen the hand sits under the table: large on your turn, a small row while others choose,
   // so the band under the table shows what you hold rather than empty space.
   const shown: PlayTab | null = wide ? null : tab;
@@ -181,10 +180,11 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           </Button>
         </span>
       </div>
+      {/* Your word (or that you're the Conspirator), always open by the round line. */}
+      {inGame && shown !== 'scores' && <Notebook view={view} you={you} art={art} />}
       {shown === null && <HostTools view={view} room={room} act={act} art={art} name={name} />}
       {/* Desktops keep the tips in the rail (under the vote), so the table starts at the top. */}
       {inGame && !wide && <Tips />}
-      {inGame && shown === null && <Notebook view={view} you={you} art={art} />}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <div
           className={cn(
@@ -194,7 +194,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           {!wide && panel}
-          <Table view={view} room={room} art={art} name={name} />
+          <Table view={view} room={room} act={act} art={art} name={name} />
           {inGame && handOnTable && !wide && (
             <HandStrip view={view} act={act} art={art} you={you} />
           )}
@@ -223,15 +223,6 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
             <HandStrip view={view} act={act} art={art} you={you} />
           </div>
         )}
-        {shown === 'me' && (
-          <div className="flex min-w-0 flex-col gap-2" {...tabPanelProps(PLAY_TABS_ID, 'me')}>
-            {inGame ? (
-              <Notebook view={view} you={you} art={art} />
-            ) : (
-              <ScoreList view={view} you={you} art={art} />
-            )}
-          </div>
-        )}
         {shown === 'scores' && (
           <div className="flex min-w-0 flex-col gap-3" {...tabPanelProps(PLAY_TABS_ID, 'scores')}>
             <ScoreList view={view} you={you} art={art} />
@@ -243,8 +234,8 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         <TabBar
           id={PLAY_TABS_ID}
           label="Red Herring"
-          items={inGame ? PLAY_TABS : PLAY_TABS.filter((t) => t.id !== 'me')}
-          value={!inGame && tab === 'me' ? 'table' : tab}
+          items={PLAY_TABS}
+          value={tab}
           onChange={setTab}
           className="lg:hidden"
         />

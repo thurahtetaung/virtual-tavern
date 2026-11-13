@@ -59,7 +59,7 @@ function base(art: GuideArt): GameGuide {
       id: 'notebook',
       name: 'Notebook',
       icon: '📓',
-      text: 'Hold it to read it: a Detective’s shows the word, the Conspirator’s says they’re the Conspirator. Everyone’s looks and works the same way, so nobody can tell from your screen which you have.',
+      text: 'Open under the round line: a Detective’s shows the word, the Conspirator’s says they’re the Conspirator. Keep your screen to yourself.',
       meta: 'One each but the word-picker',
       tone: 'neutral',
       ...(art.notebook && { art: art.notebook }),
@@ -114,7 +114,7 @@ function base(art: GuideArt): GameGuide {
       },
       {
         title: 'Find the Conspirator',
-        text: 'Everyone but the word-picker votes in secret for who they think played blind. Never yourself, never the word-picker.',
+        text: 'Everyone but the word-picker votes in secret for who they think played blind: tap their place on the table. Never yourself, never the word-picker.',
         icon: '🔍',
       },
       {
@@ -135,7 +135,7 @@ function base(art: GuideArt): GameGuide {
         level: 'basics',
         bullets: [
           'The word-picker plays one card face up, then writes the word: it should fit that card and at least one more in their hand.',
-          'Everyone else gets a notebook. Hold it to read it: a Detective’s shows the word, and the one Conspirator’s says they’re the Conspirator, with no word.',
+          'Everyone else gets a notebook, open under the round line: a Detective’s shows the word, and the one Conspirator’s says they’re the Conspirator, with no word.',
           'From the word-picker’s left, everyone plays a card face up. Then the word-picker plays their second card, and everyone else a second, in the same order.',
           'You see whose turn it is, never who is thinking.',
         ],

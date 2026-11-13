@@ -480,7 +480,7 @@ function Bank({
   const g = view.game!;
   return (
     <div
-      className="flex items-center justify-between gap-1 rounded-2xl bg-panel px-2 py-1.5 ring-1 ring-line"
+      className="flex items-center justify-between gap-1 rounded-2xl bg-panel px-2 py-1.5 ring-1 ring-line lg:flex-wrap lg:justify-center lg:gap-2"
       role="group"
       aria-label="Gem piles"
     >
@@ -811,6 +811,8 @@ function HoldPicker({
       size="sm"
       aria-pressed={sameFrom(mode.from, from)}
       onClick={() => mode.setFrom(from)}
+      // Phones: smaller, so two share a row and the bar leaves the market in view.
+      className="max-sm:px-2.5 max-sm:text-xs"
     >
       {label}
     </Button>
@@ -821,7 +823,8 @@ function HoldPicker({
       : 'Tap a highlighted card. Only you can buy or reserve a card you hold.';
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Place a stronghold">
-      <p className="flex items-center gap-1.5 text-sm font-semibold">
+      {/* Phones: the turn's prompt above the market already says it. */}
+      <p className="flex items-center gap-1.5 text-sm font-semibold max-sm:hidden">
         <StrongholdIcon art={art.stronghold(holdColor(view, room, me.id))} size={22} />
         You bought a card: place a stronghold.
       </p>
@@ -839,7 +842,10 @@ function HoldPicker({
         )}
         {canEvict && choice('evict', 'Send one back', 'evict')}
       </div>
-      <p className="text-xs text-ink-muted">{hint}</p>
+      {/* Phones: the turn's prompt above says where to place; the bar keeps only send-back's. */}
+      <p className={cn('text-xs text-ink-muted', mode.from !== 'evict' && 'max-sm:hidden')}>
+        {hint}
+      </p>
       {mode.from === 'evict' && (
         <p className="sr-only">
           {mode.moves
@@ -1076,239 +1082,267 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
         </FitArea>
       </aside>
 
-      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(66rem,max(42rem,calc((100dvh-27.5rem)*2.05)))]">
-        <div {...panel('table')}>
-          {playing && (clock?.deadline || g.finalBy) && (
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="text-ink-muted">
-                {clock ? waitingFor([clock.who], room.players, { you: room.you }) : ''}
-              </span>
-              {clock?.deadline && (
-                <Countdown
-                  deadline={clock.deadline}
-                  clockOffset={room.clockOffset}
-                  label="for this turn"
-                  soft={!strict}
-                  expiredHint={
-                    room.isHost ? 'You can act for them below.' : 'The host can act for them.'
-                  }
-                  atZero={strict ? 'then a safe move is made' : undefined}
-                />
-              )}
-            </div>
-          )}
-          {playing && g.finalBy && (
-            <p className="rounded-xl bg-warn-soft px-3 py-1 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line">
-              ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)}{' '}
-              {cities ? 'met a City' : `reached ${view.settings.target}`}. {name(g.order.at(-1))}{' '}
-              plays last.
-            </p>
-          )}
-          <Flash view={view} name={name} />
+      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1">
+        {/* Wide screens: the market keeps a height-bound width and the turn's panel (or the idle
+            piles) sits in the column beside it, so it never floats over the bottom row. */}
+        <div className="contents lg:flex lg:min-w-0 lg:flex-row lg:items-start lg:gap-3">
+          <div
+            {...panel('table')}
+            className={cn(
+              panel('table').className,
+              'min-w-0 lg:w-full lg:max-w-[min(66rem,max(42rem,calc((100dvh-27.5rem)*2.05)))]',
+            )}
+          >
+            {playing && (clock?.deadline || g.finalBy) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="text-ink-muted">
+                  {clock ? waitingFor([clock.who], room.players, { you: room.you }) : ''}
+                </span>
+                {clock?.deadline && (
+                  <Countdown
+                    deadline={clock.deadline}
+                    clockOffset={room.clockOffset}
+                    label="for this turn"
+                    soft={!strict}
+                    expiredHint={
+                      room.isHost ? 'You can act for them below.' : 'The host can act for them.'
+                    }
+                    atZero={strict ? 'then a safe move is made' : undefined}
+                  />
+                )}
+              </div>
+            )}
+            {playing && g.finalBy && (
+              <p className="rounded-xl bg-warn-soft px-3 py-1 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line">
+                ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)}{' '}
+                {cities ? 'met a City' : `reached ${view.settings.target}`}. {name(g.order.at(-1))}{' '}
+                plays last.
+              </p>
+            )}
+            <Flash view={view} name={name} />
 
-          {cities ? (
-            <section aria-label="Cities" className="grid grid-cols-3 gap-1.5">
-              {g.cities.map((c) => (
-                <CityTile
-                  key={c}
-                  id={c}
-                  art={art}
-                  met={!!me?.cities.includes(c)}
-                  onClick={() => setSheet({ kind: 'city', id: c })}
-                />
-              ))}
-            </section>
-          ) : (
-            // The nobles share their row evenly (up to 80 px each), centred over the market.
-            <section
-              aria-label="Nobles"
-              className="grid justify-center gap-2"
-              style={{
-                gridTemplateColumns: `repeat(${Math.max(1, g.nobles.length)}, minmax(0, 5rem))`,
-              }}
-            >
-              {g.nobles.map((n) => (
-                <NobleTile
-                  key={n}
-                  id={n}
-                  art={art}
-                  className="aspect-square !h-auto !w-full"
-                  {...(me && { bonuses: me.bonuses })}
-                  onClick={() => setSheet({ kind: 'noble', id: n })}
-                />
-              ))}
-              {g.nobles.length === 0 && (
-                <span className="text-sm text-ink-muted">No nobles left.</span>
-              )}
-            </section>
-          )}
-
-          <section aria-label="Cards for sale" className="flex flex-col gap-1.5">
-            {([3, 2, 1] as const).map((l) => (
-              <div
-                key={l}
-                className="grid grid-cols-[2.75rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
+            {cities ? (
+              <section aria-label="Cities" className="grid grid-cols-3 gap-1.5">
+                {g.cities.map((c) => (
+                  <CityTile
+                    key={c}
+                    id={c}
+                    art={art}
+                    met={!!me?.cities.includes(c)}
+                    onClick={() => setSheet({ kind: 'city', id: c })}
+                  />
+                ))}
+              </section>
+            ) : (
+              // The nobles share their row evenly (up to 80 px each), centred over the market.
+              <section
+                aria-label="Nobles"
+                className="grid justify-center gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(1, g.nobles.length)}, minmax(0, 5rem))`,
+                }}
               >
-                <CardBack
-                  level={l}
-                  art={art}
-                  count={g.decks[l]}
-                  className="h-full min-h-12"
-                  onClick={() => setSheet({ kind: 'deck', level: l })}
-                />
-                {g.market[l].map((id, i) => {
-                  if (!id)
+                {g.nobles.map((n) => (
+                  <NobleTile
+                    key={n}
+                    id={n}
+                    art={art}
+                    className="aspect-square !h-auto !w-full"
+                    {...(me && { bonuses: me.bonuses })}
+                    onClick={() => setSheet({ kind: 'noble', id: n })}
+                  />
+                ))}
+                {g.nobles.length === 0 && (
+                  <span className="text-sm text-ink-muted">No nobles left.</span>
+                )}
+              </section>
+            )}
+
+            <section aria-label="Cards for sale" className="flex flex-col gap-1.5">
+              {([3, 2, 1] as const).map((l) => (
+                <div
+                  key={l}
+                  className="grid grid-cols-[2.75rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
+                >
+                  <CardBack
+                    level={l}
+                    art={art}
+                    count={g.decks[l]}
+                    className="h-full min-h-12"
+                    onClick={() => setSheet({ kind: 'deck', level: l })}
+                  />
+                  {g.market[l].map((id, i) => {
+                    if (!id)
+                      return (
+                        <span
+                          key={`empty-${i}`}
+                          className="rounded-lg border border-dashed border-line"
+                          aria-label="Empty space"
+                        />
+                      );
+                    const move = holding ? holdMode.legal(id) : undefined;
                     return (
-                      <span
-                        key={`empty-${i}`}
-                        className="rounded-lg border border-dashed border-line"
-                        aria-label="Empty space"
+                      <CardTile
+                        key={id}
+                        id={id}
+                        art={art}
+                        {...(me && { hints: me })}
+                        afford={me && !holding ? affordOf(id, me, view) : null}
+                        fresh={fresh(id)}
+                        hold={holdInfo(view, room, art, id)}
+                        target={!!move}
+                        onClick={() =>
+                          move
+                            ? void act({ ...move }, { anchor: 'jw-play' })
+                            : setSheet({ kind: 'card', id })
+                        }
                       />
                     );
-                  const move = holding ? holdMode.legal(id) : undefined;
-                  return (
-                    <CardTile
-                      key={id}
-                      id={id}
+                  })}
+                </div>
+              ))}
+            </section>
+
+            {/* On your turn the piles sit in the action bar, so the bar never hides them; while
+                another move fills the bar (holds, Conquest, nobles, hand-back) a phone leaves the
+                idle piles out rather than under it. */}
+            {!(acting && !noMove) && !wide && !mine && (
+              <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
+            )}
+
+            <p className={cn('text-center text-xs text-ink-muted', mine && !wide && 'hidden')}>
+              Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
+              {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
+              <button
+                type="button"
+                className="min-h-11 min-w-11 px-2 underline"
+                onClick={() => showGuide()}
+              >
+                rules
+              </button>
+            </p>
+          </div>
+
+          <div className="contents lg:sticky lg:top-4 lg:flex lg:min-w-60 lg:flex-1 lg:flex-col lg:gap-2">
+            {wide && !(acting && !noMove) && (
+              <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
+            )}
+            {mine && (
+              <StickyBar fixed refusal="jw-play" refusalKey={view.log.at(-1)?.id ?? 0}>
+                <div className="flex flex-col gap-2 sm:rounded-2xl sm:bg-card sm:p-2.5 sm:shadow-lg sm:ring-1 sm:ring-line">
+                  {g.stage === 'return' ? (
+                    <ReturnPicker key={g.turns} me={me} art={art} act={act} />
+                  ) : g.stage === 'noble' ? (
+                    <div
+                      className="flex flex-col items-center gap-2"
+                      role="group"
+                      aria-label="Pick a noble"
+                    >
+                      <p className="text-sm font-semibold">Which noble visits you?</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {g.nobleChoice.map((n) => (
+                          <NobleTile
+                            key={n}
+                            id={n}
+                            art={art}
+                            bonuses={me.bonuses}
+                            size="lg"
+                            onClick={() =>
+                              void act({ type: 'noble', noble: n }, { anchor: 'jw-play' })
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : g.stage === 'hold' ? (
+                    <HoldPicker
+                      view={view}
+                      room={room}
+                      me={me}
                       art={art}
-                      {...(me && { hints: me })}
-                      afford={me && !holding ? affordOf(id, me, view) : null}
-                      fresh={fresh(id)}
-                      hold={holdInfo(view, room, art, id)}
-                      target={!!move}
-                      onClick={() =>
-                        move
-                          ? void act({ ...move }, { anchor: 'jw-play' })
-                          : setSheet({ kind: 'card', id })
-                      }
+                      mode={holdMode}
+                      name={name}
                     />
-                  );
-                })}
-              </div>
-            ))}
-          </section>
-
-          {/* On your turn the piles sit in the action bar, so the bar never hides them. */}
-          {!(acting && !noMove) && (
-            <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
-          )}
-
-          <p className="text-center text-xs text-ink-muted">
-            Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
-            {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
-            <button
-              type="button"
-              className="min-h-11 min-w-11 px-2 underline"
-              onClick={() => showGuide()}
-            >
-              rules
-            </button>
-          </p>
+                  ) : g.stage === 'conquer' && conquest ? (
+                    <div
+                      className="flex flex-col items-center gap-2"
+                      role="group"
+                      aria-label="Conquest"
+                    >
+                      <p className="text-center text-sm font-semibold">
+                        🏰 Conquest! All three of your strongholds hold this card. Buy it too?
+                      </p>
+                      <CardTile
+                        id={conquest}
+                        art={art}
+                        hints={me}
+                        afford={affordOf(conquest, me)}
+                        hold={holdInfo(view, room, art, conquest)}
+                        className="!w-20"
+                        onClick={() => setSheet({ kind: 'card', id: conquest })}
+                      />
+                      <div className="flex w-full gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => setSheet({ kind: 'card', id: conquest })}
+                          data-testid="jw-conquer"
+                        >
+                          Buy it…
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={() => void act({ type: 'no-conquest' }, { anchor: 'jw-play' })}
+                        >
+                          Not now
+                        </Button>
+                      </div>
+                    </div>
+                  ) : noMove ? (
+                    <Button onClick={() => void act({ type: 'pass' }, { anchor: 'jw-play' })}>
+                      No move is possible: pass
+                    </Button>
+                  ) : (
+                    <>
+                      <Bank view={view} art={art} staged={staged} onTap={tap} active />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex min-w-0 flex-1 items-center gap-1">
+                          {staged.length > 0
+                            ? staged.map((s, i) => (
+                                <TokenChip key={i} token={s} art={art} size={26} />
+                              ))
+                            : null}
+                          <span className="text-xs text-ink-muted">
+                            {takeHint(view, staged)}
+                            {!problem && after > 0 && ` You’ll hand back ${after} after.`}
+                          </span>
+                        </span>
+                        {staged.length > 0 && (
+                          <Button variant="ghost" size="sm" onClick={clear}>
+                            Clear
+                          </Button>
+                        )}
+                        <Button
+                          disabled={!!problem}
+                          onClick={() =>
+                            void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })
+                          }
+                          data-testid="jw-take"
+                        >
+                          Take {staged.length || ''}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </StickyBar>
+            )}
+          </div>
         </div>
 
         <div {...panel('mine')} className={cn(panel('mine').className, 'lg:hidden')}>
           {mePanel}
         </div>
-
-        {mine && (
-          <StickyBar fixed refusal="jw-play" refusalKey={view.log.at(-1)?.id ?? 0}>
-            <div className="flex flex-col gap-2 sm:rounded-2xl sm:bg-card sm:p-2.5 sm:shadow-lg sm:ring-1 sm:ring-line">
-              {g.stage === 'return' ? (
-                <ReturnPicker key={g.turns} me={me} art={art} act={act} />
-              ) : g.stage === 'noble' ? (
-                <div
-                  className="flex flex-col items-center gap-2"
-                  role="group"
-                  aria-label="Pick a noble"
-                >
-                  <p className="text-sm font-semibold">Which noble visits you?</p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {g.nobleChoice.map((n) => (
-                      <NobleTile
-                        key={n}
-                        id={n}
-                        art={art}
-                        bonuses={me.bonuses}
-                        size="lg"
-                        onClick={() => void act({ type: 'noble', noble: n }, { anchor: 'jw-play' })}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : g.stage === 'hold' ? (
-                <HoldPicker view={view} room={room} me={me} art={art} mode={holdMode} name={name} />
-              ) : g.stage === 'conquer' && conquest ? (
-                <div
-                  className="flex flex-col items-center gap-2"
-                  role="group"
-                  aria-label="Conquest"
-                >
-                  <p className="text-center text-sm font-semibold">
-                    🏰 Conquest! All three of your strongholds hold this card. Buy it too?
-                  </p>
-                  <CardTile
-                    id={conquest}
-                    art={art}
-                    hints={me}
-                    afford={affordOf(conquest, me)}
-                    hold={holdInfo(view, room, art, conquest)}
-                    className="!w-20"
-                    onClick={() => setSheet({ kind: 'card', id: conquest })}
-                  />
-                  <div className="flex w-full gap-2">
-                    <Button
-                      className="flex-1"
-                      onClick={() => setSheet({ kind: 'card', id: conquest })}
-                      data-testid="jw-conquer"
-                    >
-                      Buy it…
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => void act({ type: 'no-conquest' }, { anchor: 'jw-play' })}
-                    >
-                      Not now
-                    </Button>
-                  </div>
-                </div>
-              ) : noMove ? (
-                <Button onClick={() => void act({ type: 'pass' }, { anchor: 'jw-play' })}>
-                  No move is possible: pass
-                </Button>
-              ) : (
-                <>
-                  <Bank view={view} art={art} staged={staged} onTap={tap} active />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="flex min-w-0 flex-1 items-center gap-1">
-                      {staged.length > 0
-                        ? staged.map((s, i) => <TokenChip key={i} token={s} art={art} size={26} />)
-                        : null}
-                      <span className="text-xs text-ink-muted">
-                        {takeHint(view, staged)}
-                        {!problem && after > 0 && ` You’ll hand back ${after} after.`}
-                      </span>
-                    </span>
-                    {staged.length > 0 && (
-                      <Button variant="ghost" size="sm" onClick={clear}>
-                        Clear
-                      </Button>
-                    )}
-                    <Button
-                      disabled={!!problem}
-                      onClick={() =>
-                        void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })
-                      }
-                      data-testid="jw-take"
-                    >
-                      Take {staged.length || ''}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </StickyBar>
-        )}
 
         <div {...panel('talk')}>
           {playing && away.length > 0 && (

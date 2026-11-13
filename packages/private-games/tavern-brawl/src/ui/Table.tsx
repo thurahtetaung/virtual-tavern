@@ -18,7 +18,16 @@ import {
   useScrollEnds,
   useWideScreen,
 } from '@vt/ui';
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { CARDS } from '../logic/cards.ts';
 import type {
   CardRef,
@@ -42,6 +51,18 @@ import {
   prompt,
   waitingLine,
 } from './text.ts';
+
+const onResize = (f: () => void) => {
+  window.addEventListener('resize', f);
+  return () => window.removeEventListener('resize', f);
+};
+/** The window's height, kept current. */
+const useWindowHeight = () =>
+  useSyncExternalStore(
+    onResize,
+    () => window.innerHeight,
+    () => 800,
+  );
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -385,9 +406,11 @@ const Resolution = memo(function Resolution({
     (lastPlay?.kind === 'play'
       ? { id: lastPlay.inst, card: lastPlay.card, owner: lastPlay.owner }
       : null);
-  // Wide screens: the card in play is shown large, the table's centrepiece.
+  // Wide screens: the card in play is shown large, the table's centrepiece, sized by the window's
+  // height (about 94 px on a 720 px laptop, up to 140 px) so the hand stays in view under it.
   const big = useWideScreen();
-  const cardWidth = big ? 120 : 76;
+  const tall = useWindowHeight();
+  const cardWidth = big ? Math.max(72, Math.min(140, Math.round(tall * 0.13))) : 76;
   return (
     <section
       aria-label="Table"
@@ -404,8 +427,13 @@ const Resolution = memo(function Resolution({
           <Card card={showing.card} art={art} width={cardWidth} />
         </button>
       )}
-      <div className="min-w-48 flex-1">
-        <ol className="flex flex-col gap-0.5 text-sm lg:gap-1 lg:text-body" aria-live="polite">
+      {/* Wide screens: this turn's cards sit beside the story, not under it, so the hand below
+          stays in view. */}
+      <div className="min-w-48 flex-1 lg:flex lg:items-start lg:gap-4">
+        <ol
+          className="flex flex-col gap-0.5 text-sm lg:min-w-0 lg:flex-1 lg:gap-1 lg:text-body"
+          aria-live="polite"
+        >
           {lines.map((l, i) => (
             <li
               key={l.id}
@@ -423,7 +451,7 @@ const Resolution = memo(function Resolution({
         </ol>
         {played.length > 0 && (
           <div
-            className="mt-1.5 flex items-center gap-1 overflow-x-auto"
+            className="mt-1.5 flex items-center gap-1 overflow-x-auto lg:mt-0 lg:max-w-[50%] lg:shrink-0"
             aria-label="Played this turn"
           >
             <span className="shrink-0 text-xs text-ink-muted">This turn:</span>
@@ -559,7 +587,7 @@ function Hand({
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(360);
-  const free = useFreeHeight(ref, room < 700);
+  const free = useFreeHeight(ref);
   const { ref: stripRef, ends: stripEnds } = useScrollEnds(view.hand.map((c) => c.id).join(','));
   useLayoutEffect(() => {
     const el = ref.current;
@@ -576,9 +604,17 @@ function Hand({
   // Cards size by the window's height too (about a fifth of it on wide screens, so the hand fills
   // the play column and reads from across the table; a little less on phones, so a tall phone
   // fills the band above Play).
+  // On wide screens never taller than the band left under the hand, so the cards stay in view.
   const full =
     room >= 700
-      ? Math.max(132, Math.min(200, Math.round(window.innerHeight * 0.21)))
+      ? Math.max(
+          92,
+          Math.min(
+            200,
+            Math.round(window.innerHeight * 0.21),
+            free !== null ? Math.floor(((free - 44) * 400) / 630) : 200,
+          ),
+        )
       : Math.max(108, Math.min(128, Math.round(window.innerHeight * 0.15)));
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
   const oneRow = Math.max(92, Math.min(full, fit));
@@ -1196,6 +1232,30 @@ export function Table({
   );
   const heroes = useMemo(() => JSON.parse(heroesKey) as Hero[], [heroesKey]);
 
+  // Wide screens: Play sits beside your own seat line, so the hand under them stays in view.
+  const playBar = canPlay && (
+    <StickyBar fixed refusal="tb-play">
+      <div role="group" aria-label="Play a card" className="flex items-center gap-2">
+        <span
+          className="shrink-0 rounded-lg bg-panel px-2 py-2 text-sm font-bold tabular-nums ring-1 ring-line dark:ring-0"
+          aria-label={`${g.turn.debt} to play`}
+        >
+          ⚡{g.turn.debt}
+        </span>
+        <Button
+          size="lg"
+          className="min-w-0 flex-1"
+          disabled={!selectedRef}
+          onClick={() => selectedRef && play(selectedRef.id)}
+        >
+          <span className="truncate">
+            {selectedRef ? `Play ${art.card(selectedRef.card)}` : 'Pick a card to play'}
+          </span>
+        </Button>
+      </div>
+    </StickyBar>
+  );
+
   const playArea = (
     <>
       {mine && mine.kind === 'social' && picking && (
@@ -1212,28 +1272,6 @@ export function Table({
         <ChoiceStrip c={mine} g={g} me={me} art={art} name={name} picking={picking} room={room} />
       )}
       <RefusalSlot anchor="tb-choice" />
-      {canPlay && (
-        <StickyBar fixed refusal="tb-play">
-          <div role="group" aria-label="Play a card" className="flex items-center gap-2">
-            <span
-              className="shrink-0 rounded-lg bg-panel px-2 py-2 text-sm font-bold tabular-nums ring-1 ring-line dark:ring-0"
-              aria-label={`${g.turn.debt} to play`}
-            >
-              ⚡{g.turn.debt}
-            </span>
-            <Button
-              size="lg"
-              className="min-w-0 flex-1"
-              disabled={!selectedRef}
-              onClick={() => selectedRef && play(selectedRef.id)}
-            >
-              <span className="truncate">
-                {selectedRef ? `Play ${art.card(selectedRef.card)}` : 'Pick a card to play'}
-              </span>
-            </Button>
-          </div>
-        </StickyBar>
-      )}
       {me && !me.out && (
         <Hand
           view={view}
@@ -1269,7 +1307,10 @@ export function Table({
             name={name}
             onZoom={zoomTo}
           />
-          {mePanel}
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <div className="min-w-0 lg:flex-1">{mePanel}</div>
+            {playBar && <div className="lg:w-80 lg:shrink-0">{playBar}</div>}
+          </div>
           {playArea}
         </div>
         {tab === 'log' && (
@@ -1291,7 +1332,7 @@ export function Table({
           </div>
         )}
       </div>
-      <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex">
+      <aside className="hidden max-h-[calc(100dvh-10.5rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex">
         <details className="group">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
             <h2 className="font-bold">✦ Mighty powers</h2>

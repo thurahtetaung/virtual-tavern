@@ -593,11 +593,18 @@ export function GameOver(props: Props) {
                   label: '✨ Awards',
                   content: <Superlatives lines={room.superlatives} />,
                 },
+              // Phones: the last question is a tab of its own, so the standings keep the height.
+              !wide &&
+                !!view.round?.result && {
+                  id: 'last',
+                  label: '🐄 Last question',
+                  content: <Reveal {...props} final />,
+                },
             ]}
           />
         </Panel>
-        {/* The last question's herd, under the standings on every screen. */}
-        {view.round?.result && (
+        {/* Wide screens: the last question's herd, under the standings. */}
+        {wide && view.round?.result && (
           <Panel>
             <h3 className="mb-2 font-bold">The last question</h3>
             <Reveal {...props} final />

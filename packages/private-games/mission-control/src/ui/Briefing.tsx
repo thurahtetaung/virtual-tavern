@@ -125,9 +125,11 @@ export function Briefing({
           <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">
             Logbook entry
           </summary>
+          {/* The story scrolls in its own box, so the rule, the crew and Ready stay in view. */}
           <div
-            className="space-y-2 font-display text-base leading-relaxed lg:text-xl"
+            className="max-h-[max(7rem,calc(100dvh-46rem))] space-y-2 overflow-y-auto pr-1 font-display text-base leading-relaxed lg:max-h-[max(8rem,calc(100dvh-37rem))] lg:text-xl"
             data-testid="mc-story"
+            tabIndex={0}
           >
             {paragraphsOf(text.story).map((p, i) => (
               <p key={i} className="whitespace-pre-line">

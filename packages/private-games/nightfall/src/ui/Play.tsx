@@ -1381,6 +1381,17 @@ export function Day({
   const playing = view.myRole !== null;
   const deadline = voting ? (view.vote?.deadline ?? null) : (view.day?.deadline ?? null);
   const myArtifact = view.notes.find((n) => n.kind === 'artifact');
+  const secrets = playing && view.myRole && (
+    <MySecrets deck={deck} big={wide}>
+      <MyCardChip view={view} deck={deck} />
+      <MyMark view={view} deck={deck} />
+      {myArtifact?.kind === 'artifact' && (
+        <span className="text-sm">
+          Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+        </span>
+      )}
+    </MySecrets>
+  );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const tabs: readonly TabBarItem<DayTab>[] = [
     voting
@@ -1437,17 +1448,7 @@ export function Day({
         <div className="relative min-w-0">
           <div ref={tablePanel} className="peer max-sm:overflow-y-auto max-sm:overscroll-contain">
             <Panel className="space-y-3">
-              {playing && view.myRole && (
-                <MySecrets deck={deck} big={wide}>
-                  <MyCardChip view={view} deck={deck} />
-                  <MyMark view={view} deck={deck} />
-                  {myArtifact?.kind === 'artifact' && (
-                    <span className="text-sm">
-                      Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-                    </span>
-                  )}
-                </MySecrets>
-              )}
+              {!voting && secrets}
               {(view.day?.centerUp?.length ?? 0) > 0 && (
                 <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
                   Face up in the centre:
@@ -1526,6 +1527,9 @@ export function Day({
                   {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
                 </Button>
               )}
+              {/* In the vote the players to tap come first, your covered card after them, so the
+                  whole list is in view on a laptop window. */}
+              {voting && secrets}
               {!voting && (playing || room.isHost) && (
                 // Phones keep the day's move in the bar at the foot of the Table tab, the host's
                 // Start the vote now beside it.

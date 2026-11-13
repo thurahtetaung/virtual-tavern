@@ -592,6 +592,8 @@ export function GhostHand({
   const hand = g.hand ?? [];
   const live = picked.filter((c) => hand.includes(c));
   const canRaven = g.ravensLeft > 0 && g.stage !== 'vote' && g.stage !== 'done';
+  // Wide screens: the cards fit the window and scroll inside, like the psychics beside them.
+  const wide = useWideScreen();
   return (
     <Panel className="space-y-2 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -614,18 +616,20 @@ export function GhostHand({
           ? `Tap Throw away on the cards to lose, then draw back up to 7.${g.difficulty === 'easy' ? ' One raven per hour.' : ''}`
           : 'Tap a card to see it full screen. To send one, tap Choose on a psychic.'}
       </p>
-      <HandCards
-        hand={hand}
-        content={content}
-        picked={raven ? live : []}
-        onToggle={
-          raven
-            ? (c) => setPicked(live.includes(c) ? live.filter((x) => x !== c) : [...live, c])
-            : undefined
-        }
-        pickLabel="Throw away"
-        pickedLabel="✓ Throw away"
-      />
+      <FitArea on={wide} plain surface="page" min={200}>
+        <HandCards
+          hand={hand}
+          content={content}
+          picked={raven ? live : []}
+          onToggle={
+            raven
+              ? (c) => setPicked(live.includes(c) ? live.filter((x) => x !== c) : [...live, c])
+              : undefined
+          }
+          pickLabel="Throw away"
+          pickedLabel="✓ Throw away"
+        />
+      </FitArea>
       {raven && (
         <Button
           className="w-full"

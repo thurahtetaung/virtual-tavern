@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { openBackroom } from './inquest-play.ts';
 import {
   draw,
@@ -133,6 +134,13 @@ test('a Short Fuse turn and a Nope window fit one phone screen, the actions in t
   await expect(host.getByRole('tablist', { name: 'Short Fuse' })).toBeVisible();
   await expect(host.getByTestId('draw')).toBeVisible();
   await expectPhoneFit(host, 'Short Fuse turn');
+  // A laptop sees the piles, the whole hand and Play and Draw, the bar never over the hand.
+  await expectLaptopFit(host, 'Short Fuse turn', [
+    host.getByTestId('discard'),
+    host.getByTestId('hand'),
+    host.getByTestId('play'),
+    host.getByTestId('draw'),
+  ]);
   // The first turn with its first-time tip open still fits, the hand's hint above the bar.
   await host.addInitScript(() =>
     localStorage.setItem('vt.short-fuse.tips', JSON.stringify(['nope', 'owed', 'pile', 'pairs'])),

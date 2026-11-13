@@ -97,6 +97,16 @@ test('four players on phones play Stampede to 5: a typo grouped by itself, a tie
   await expect(ana.getByText('🏆 You win!')).toBeVisible();
   await expect(ben.getByText('🏆 Ana wins!')).toBeVisible();
   await expect(cy.getByRole('region', { name: 'Final standings' })).toContainText('Ana');
+  // On a phone the result, Play again and all four standings rows are on screen together; the
+  // last question's herd is a tab of its own.
+  await expect(hana.getByRole('button', { name: 'Play again' })).toBeInViewport({ ratio: 1 });
+  const standings = hana.getByRole('region', { name: 'Final standings' });
+  for (const name of ['Hana', 'Ana', 'Ben', 'Cy'])
+    await expect(standings.getByText(new RegExp(`^${name}( \\(you\\))?$`)).last()).toBeInViewport({
+      ratio: 1,
+    });
+  await hana.getByRole('tab', { name: /Last question/ }).click();
+  await expect(hana.getByTestId('herd')).toContainText(/tea/i);
 });
 
 test('a Stampede question and its answer form fit one phone screen', async ({ browser }) => {

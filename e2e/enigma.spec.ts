@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { openSettings } from './lobby-settings.ts';
 
 type TeamName = 'Red' | 'Blue';
@@ -137,6 +138,12 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   for (let round = 1; round <= 3; round++) {
     const redEnc = await encryptorOf(red, 'Red');
     const blueEnc = await encryptorOf(blue, 'Blue');
+    // On a laptop the Encryptor's code, all three clue fields and Send clues fit with no scroll.
+    if (round === 1)
+      await expectLaptopFit(redEnc, 'enigma clue form', [
+        transmission(redEnc, 'Red').getByPlaceholder('A hint only your team will get').nth(2),
+        redEnc.getByRole('button', { name: 'Send clues' }),
+      ]);
     const redCode = await sendClues(redEnc, 'Red');
     const blueCode = await sendClues(blueEnc, 'Blue');
     const redDecoder = red.find((p) => p !== redEnc)!;

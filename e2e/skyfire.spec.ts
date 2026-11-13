@@ -177,3 +177,18 @@ test('5 players on phones: every turn fits the screen without scrolling', async 
     if (turn < names.length) await clue(p, 1);
   }
 });
+
+test('3 players on a laptop: your own hand is on screen on your turn', async ({ browser }) => {
+  test.setTimeout(90_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const laptop = { viewport: { width: 1280, height: 720 }, colorScheme: 'dark' as const };
+  const pages = await table(browser, ['Ana', 'Ben', 'Cy'], [laptop, laptop, laptop]);
+  await pages[0]!.getByRole('button', { name: 'Start the show' }).click();
+  await myTurn(pages[0]!);
+  // The piles, both teammates' hands and your own, with the first-time tips, without scrolling.
+  await expect(pages[0]!.getByTestId('sf-tips')).toBeVisible();
+  await expect(pages[0]!.getByTestId('sf-my-hand')).toBeInViewport({ ratio: 1 });
+  await clue(pages[0]!, 1);
+  await myTurn(pages[1]!);
+  await expect(pages[1]!.getByTestId('sf-my-hand')).toBeInViewport({ ratio: 1 });
+});

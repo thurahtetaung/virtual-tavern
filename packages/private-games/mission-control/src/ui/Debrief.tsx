@@ -146,7 +146,7 @@ export function Debrief({
           <ProtectedImage
             src={box}
             alt=""
-            className="w-28 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-[min(14rem,32vh)]"
+            className="w-28 rounded-xl shadow-vt-2 ring-1 ring-line lg:h-[min(19rem,var(--vt-fit,45vh))] lg:w-auto"
           />
         )
       }

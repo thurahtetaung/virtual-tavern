@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { type Browser, type Download, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
 import { openAdminSection } from './admin-sections.ts';
@@ -89,6 +90,11 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
     await expect(skipRefusal).toBeVisible();
   };
   await refuseSkip();
+  // On a laptop the Spymaster sees the whole key (its last row too) above the clue form.
+  await expectLaptopFit(spy, 'codenames clue', [
+    cards(spy).last(),
+    spy.getByRole('button', { name: 'Give clue' }),
+  ]);
   await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
   await spy.getByRole('button', { name: '2', exact: true }).click();
   await spy.getByRole('button', { name: 'Give clue' }).click();
@@ -106,6 +112,11 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await card(op, oursWord).click();
   await op.getByRole('button', { name: `Guess ${oursWord.toUpperCase()}` }).click();
   await expect(skipRefusal).toBeHidden({ timeout: 3000 });
+  // The guess's result line and the whole board stay in view together on a laptop.
+  await expectLaptopFit(op, 'codenames after a guess', [
+    op.getByText(/Correct!/).first(),
+    cards(op).last(),
+  ]);
 
   // Operatives never see the key; the spymaster finds the assassin for us.
   const assassinLabel = await cards(spy, /Assassin/).getAttribute('aria-label');

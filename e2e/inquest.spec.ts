@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import {
   type Player,
@@ -66,6 +67,10 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
       .click();
     await expectPhoneFit(m.page, 'inquest crime suspects');
     await m.page.setViewportSize(size);
+    // On a laptop both rows of the Murderer's cards and the Commit button fit.
+    await expectLaptopFit(m.page, 'inquest crime', [
+      m.page.getByRole('button', { name: 'Tap one Clue and one Means' }),
+    ]);
   }
   const murderer = await commitCrime(players);
   await expect(host.page.getByText('Pick the Location tile for this crime.')).toBeVisible();
@@ -107,6 +112,11 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   await host.page.locator('button[data-item]:visible').first().click();
   await expect(host.page.getByRole('button', { name: /^Place bullet on/ })).toBeVisible();
   await expectPhoneFit(host.page, 'inquest place bullet');
+  // On a laptop the Forensic Scientist's tiles (the last item too) sit above the Place bar.
+  await expectLaptopFit(host.page, 'inquest place bullet', [
+    host.page.locator('button[data-item]:visible').last(),
+    host.page.getByRole('button', { name: /^Place bullet on/ }),
+  ]);
   await host.page.getByRole('button', { name: /^Place bullet on/ }).click();
   await placeBullets(host.page, 5);
   await expect(

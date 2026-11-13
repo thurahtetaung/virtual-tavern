@@ -731,7 +731,7 @@ function Podium({
                 id={result.location}
                 display={display}
                 className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
-                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-96 lg:max-w-full"
+                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-[min(24rem,calc(var(--vt-fit,45vh)*1.4))] lg:max-w-full"
               />
             )
           }

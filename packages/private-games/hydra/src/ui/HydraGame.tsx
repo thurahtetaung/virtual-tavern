@@ -402,15 +402,16 @@ function TableRing({
   return (
     <div className="space-y-3">
       {seats(top, half)}
-      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner xl:grid-cols-1">
+      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner xl:grid-cols-1 xl:[@media(max-height:820px)]:p-3">
         <div className="xl:hidden">
           <Pile label="Deck" count={g.deckCount} c={c} />
         </div>
         {/* The boards' width follows the window's height, so both seat rows and the dock (with
             its ballots) fit a laptop screen (the art is about three times as wide as it is tall).
-            Wide desktops lay them side by side across the whole felt, larger and shorter (the
-            deck and discard counts are in the chip under the table). */}
-        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2 xl:grid xl:max-w-none xl:grid-cols-2 xl:gap-3 xl:space-y-0">
+            Wide desktops lay them side by side, larger and shorter, across the felt as far as the
+            window's height allows: a short laptop window keeps them narrower, so the bottom seats
+            stay clear of the ballots (the deck and discard counts are in the chip by the heading). */}
+        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2 xl:grid xl:max-w-[max(36rem,calc((100dvh-34rem)*3.2))] xl:grid-cols-2 xl:gap-3 xl:space-y-0">
           <Board team="red" g={g} c={c} />
           <Board team="blue" g={g} c={c} />
         </div>
@@ -433,6 +434,7 @@ function SeatsPanel({
   panelRef,
   className,
   outerClassName,
+  aside,
   children,
 }: {
   c: Content;
@@ -441,6 +443,8 @@ function SeatsPanel({
   className?: string;
   /** Classes for the wrapper (which holds the More below cue): showing or hiding the panel. */
   outerClassName?: string;
+  /** Shown beside the heading (desktops: the deck chip, so it takes no row of its own). */
+  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   // Fitted to a phone's screen, the seats show "More below" while some are under the fold.
@@ -457,14 +461,17 @@ function SeatsPanel({
         )}
         data-testid="seats-panel"
       >
-        <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
-          <span>👥 {c.copy('seats.heading')}</span>
-          {picking && (
-            <span className="hy-breathe text-accent-text normal-case">
-              {c.copy('seats.pick')} 👇
-            </span>
-          )}
-        </h3>
+        <div className="mb-1.5 flex items-center gap-3 lg:mb-2">
+          <h3 className="flex min-w-0 flex-1 items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:text-sm">
+            <span>👥 {c.copy('seats.heading')}</span>
+            {picking && (
+              <span className="hy-breathe text-accent-text normal-case">
+                {c.copy('seats.pick')} 👇
+              </span>
+            )}
+          </h3>
+          {aside}
+        </div>
         {children}
       </section>
       <MoreBelow column={panelRef} surface="sunk" compact />
@@ -785,6 +792,8 @@ export function HydraGame({
                   reveal={reveal}
                   showGuide={showGuide}
                   big
+                  // Desktops: the quick reference waits in the rail, so the card sits above Ready.
+                  part={wide ? 'role' : 'all'}
                   moments={momentsOn}
                   setMoments={setMomentsOn}
                   plain={plain}
@@ -812,10 +821,14 @@ export function HydraGame({
                   {seatGrid()}
                 </SeatsPanel>
                 <div className="hidden lg:block">
-                  <SeatsPanel c={c} picking={!!pick} panelRef={deskSeatsRef}>
+                  <SeatsPanel
+                    c={c}
+                    picking={!!pick}
+                    panelRef={deskSeatsRef}
+                    aside={<DeckChip g={g} c={c} className="shrink-0" />}
+                  >
                     <TableRing view={view} c={c} seats={(ids, cols) => seatGrid(ids, cols)} />
                   </SeatsPanel>
-                  <DeckChip g={g} c={c} className="mt-2" />
                 </div>
               </div>
               <div
@@ -835,36 +848,24 @@ export function HydraGame({
               </div>
             </>
           )}
-          {/* Tips sit under the table, so they never push a seat under the dock. */}
-          {tip &&
-            (wide ? (
-              <div className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
-                <span className="flex-1">💡 {tip[1]}</span>
-                <button
-                  type="button"
-                  className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
-                  onClick={() => dismissTip(tip[0])}
-                >
-                  Got it
-                </button>
-              </div>
-            ) : (
-              // Phones: the tip folds to its first line, so the seats and the dock fit the screen.
-              <Fold
-                summary={<span className="line-clamp-1 text-sm">💡 {tip[1]}</span>}
-                className="bg-info-soft text-info-ink ring-info-line"
-                bodyClassName="flex items-start gap-2 px-3 pb-2 text-sm"
+          {/* Phones: tips sit under the table, so they never push a seat under the dock. */}
+          {tip && !wide && (
+            // Phones: the tip folds to its first line, so the seats and the dock fit the screen.
+            <Fold
+              summary={<span className="line-clamp-1 text-sm">💡 {tip[1]}</span>}
+              className="bg-info-soft text-info-ink ring-info-line"
+              bodyClassName="flex items-start gap-2 px-3 pb-2 text-sm"
+            >
+              <span className="flex-1">{tip[1]}</span>
+              <button
+                type="button"
+                className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+                onClick={() => dismissTip(tip[0])}
               >
-                <span className="flex-1">{tip[1]}</span>
-                <button
-                  type="button"
-                  className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
-                  onClick={() => dismissTip(tip[0])}
-                >
-                  Got it
-                </button>
-              </Fold>
-            ))}
+                Got it
+              </button>
+            </Fold>
+          )}
           <Dock
             view={view}
             c={c}
@@ -874,6 +875,19 @@ export function HydraGame({
             onOpenTask={() => setClosedTask('')}
             onShowSeats={showSeats}
           />
+          {/* Desktops: tips sit under the dock, so its tray never floats over one. */}
+          {tip && wide && (
+            <div className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
+              <span className="flex-1">💡 {tip[1]}</span>
+              <button
+                type="button"
+                className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+                onClick={() => dismissTip(tip[0])}
+              >
+                Got it
+              </button>
+            </div>
+          )}
         </div>
         <div className={cn('relative min-w-0', onTab('log'))}>
           <aside
@@ -884,13 +898,14 @@ export function HydraGame({
             {/* Desktops: the timeline first, then your role and the quick reference, the rail
               scrolling on its own so the page fits the window. */}
             {wide && <Timeline view={view} c={c} />}
-            {view.stage !== 'reveal' && (
+            {(view.stage !== 'reveal' || inGame) && (
               <div className="hidden lg:block">
                 <MeTab
                   view={view}
                   c={c}
                   reveal={reveal}
                   showGuide={showGuide}
+                  part={view.stage === 'reveal' ? 'reference' : 'all'}
                   moments={momentsOn}
                   setMoments={setMomentsOn}
                   plain={plain}

@@ -3,6 +3,8 @@ import {
   Button,
   END_ART,
   FitArea,
+  FIT_SIZE_VAR,
+  useFitSize,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -512,6 +514,18 @@ function Play({
     return () => observer.disconnect();
   }, [handOpen, view.hand.length]);
   const canNext = room.isHost && view.phase === 'playing' && turn?.phase === 'reveal';
+  // Wide screens: the table's cards and, while the table is empty, the hand grid are sized so the
+  // whole turn fits the window (larger on a tall one, smaller on a short one).
+  const tableList = useRef<HTMLUListElement>(null);
+  const fitTable = wide && view.phase !== 'over' && !!turn && turn.table.length > 0;
+  useFitSize(tableList, {
+    on: fitTable,
+    min: 104,
+    max: turn?.phase === 'reveal' ? 288 : 352,
+  });
+  const handFills =
+    wide && handNeeded && !!turn && turn.table.length === 0 && !(storyPick !== null && canTell);
+  useFitSize(handList, { on: handFills, min: 320, max: 768 });
   const canGive =
     !!turn && turn.phase === 'pick' && !isStory && !!me?.playing && turn.myCards.length === 0;
   // A vote can change until the last one is in (the reveal follows straight away).
@@ -590,36 +604,28 @@ function Play({
   );
   const tableSection = turn && turn.table.length > 0 && (
     <section aria-label="Table">
-      <h3 className="mb-2 font-bold">On the table</h3>
+      {/* Wide screens drop the heading's line (the clue above says it) to give the cards room. */}
+      <h3 className="mb-2 font-bold lg:sr-only">On the table</h3>
       <ul
+        ref={tableList}
         className={cn(
           'grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:justify-center lg:gap-3',
-          // Wide screens: a table of four or fewer stands in one row as tall as the window allows;
-          // a bigger table keeps two rows that still fit.
-          turn.table.length > 4 && 'lg:grid-cols-[repeat(auto-fit,minmax(10rem,min(14rem,24dvh)))]',
         )}
         style={
-          !wide && turn.table.length <= 4
+          fitTable
             ? {
-                // Phones: a table of four or fewer fits the height above the hand bar, so every
-                // card (and, at the reveal, its owner and votes) shows without scrolling.
-                gridTemplateColumns: `repeat(2, minmax(0, min(50%, calc((100dvh - 23.5rem - ${
-                  turn.phase === 'reveal' ? '7rem' : '2rem'
-                }) / 2 * 366 / 512))))`,
-                justifyContent: 'center',
+                // Wide screens: the cards are as large as the window allows with the clue, the
+                // result and the action still in view (`useFitSize`), as many to a row as fit.
+                gridTemplateColumns: `repeat(auto-fit, var(${FIT_SIZE_VAR}, 12rem))`,
               }
-            : wide && turn.table.length <= 4
+            : !wide && turn.table.length <= 4
               ? {
-                  // While everyone studies the table to vote, the cards take the height the
-                  // collapsed hand leaves (a table of three or fewer grows to 22 rem; four fill
-                  // the column's width).
-                  gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, ${
-                    turn.phase === 'reveal'
-                      ? 'min(18rem, 36dvh)'
-                      : turn.phase === 'vote'
-                        ? 'min(22rem, 46dvh)'
-                        : 'min(16rem, 34dvh)'
-                  }))`,
+                  // Phones: a table of four or fewer fits the height above the hand bar, so every
+                  // card (and, at the reveal, its owner and votes) shows without scrolling.
+                  gridTemplateColumns: `repeat(2, minmax(0, min(50%, calc((100dvh - 23.5rem - ${
+                    turn.phase === 'reveal' ? '7rem' : '2rem'
+                  }) / 2 * 366 / 512))))`,
+                  justifyContent: 'center',
                 }
               : undefined
         }
@@ -949,11 +955,8 @@ function Play({
                             // Wide screens: while the table is still empty (the storyteller
                             // choosing), the hand is two rows of three sized to the window's
                             // height; once cards are on the table, one row under them.
-                            turn && turn.table.length === 0 && !(storyPick !== null && canTell)
-                              ? turn.clue
-                                ? // The clue line shares the height while cards are picked.
-                                  'lg:max-w-[calc((100dvh-14.25rem)*1.07)] lg:gap-3'
-                                : 'lg:max-w-[calc((100dvh-11.5rem)*1.07)] lg:gap-3'
+                            handFills
+                              ? 'lg:max-w-(--vt-fit) lg:gap-3'
                               : 'lg:max-w-none lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,13rem)] lg:justify-center',
                             'max-sm:overflow-y-auto',
                             // What else shares the phone's height: the clue form once the

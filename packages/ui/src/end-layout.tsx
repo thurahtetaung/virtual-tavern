@@ -15,12 +15,15 @@ function cap(el: HTMLElement, max: number | null) {
 }
 
 /**
- * How tall the finale's column must stay so its title and art show whole, clear of the More below
- * fade (48 px) at its foot when it scrolls.
+ * How tall the finale's column must stay so its title, art and Play again show whole, clear of the
+ * More below fade (48 px) at its foot when it scrolls (a Play again clipped by the column would
+ * lift its tray over the column for good).
  */
 function keepWhole(el: HTMLElement) {
   const last =
-    el.querySelector('[data-ui=end-hero-art]') ?? el.querySelector('[data-ui=end-hero] h2');
+    el.querySelector('[data-ui=end-hero-actions]') ??
+    el.querySelector('[data-ui=end-hero-art]') ??
+    el.querySelector('[data-ui=end-hero] h2');
   if (!last) return Infinity;
   return Math.ceil(
     last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + MORE_FADE_PX,
@@ -71,7 +74,7 @@ function useFitColumns(
       const tallest = Math.max(...els.map((el, i) => (stacked && el === kept ? 0 : heights[i]!)));
       const room = Math.max(MIN_COLUMN_PX, Math.floor(tallest - over - 1));
       els.forEach((el, i) => {
-        // The finale gives up only what lies under its title and art (awards, Play again), and
+        // The finale gives up only what lies under its title, art and Play again (the awards), and
         // only beside the rest; above it, as a banner, it is never capped.
         const max = el === kept ? (stacked ? Infinity : Math.max(room, keepWhole(el))) : room;
         if (heights[i]! <= max) return;

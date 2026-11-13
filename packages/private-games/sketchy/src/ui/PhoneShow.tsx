@@ -121,8 +121,8 @@ export function PhoneShow({
 
 /**
  * A personal line ("You fooled 2! +1,000") for a moment, then gone: the phone's `subtitle`, which
- * the show fills and clears (and never replays to a late device). It lies over the status line
- * (put it in a `relative` box with it), so it never covers a card or a button.
+ * the show fills and clears (and never replays to a late device). It takes its own line under the
+ * status line while it shows, so it never covers the status line's names, a card or a button.
  */
 export function Toast() {
   const ref = useTarget('subtitle');
@@ -150,7 +150,7 @@ export function Toast() {
       }}
       role="status"
       data-testid="sketchy-toast"
-      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-ink px-4 text-center text-base font-bold text-page shadow-vt-2 empty:hidden"
+      className="pointer-events-none flex min-h-10 items-center justify-center rounded-xl bg-ink px-4 py-1.5 text-center text-base font-bold text-page shadow-vt-2 empty:hidden"
     />
   );
 }
@@ -174,14 +174,48 @@ const PHONE_CARD_CSS =
 
 /** The balloon the original's card turns over: the answer is live text, the art scales to fit. */
 const PHONE_W = 360;
+/**
+ * The original puts the choosers' names along the balloon's top edge, where a lie's black balloon
+ * swallows our dark names: on a phone they sit this far higher (rig units), clear of it.
+ */
+const CHIPS_LIFT = 32;
+/** A crowd's sixth and seventh choosers, which the original puts beside the balloon: a row above. */
+const CHIPS_ROW = 30;
+/** A light halo round the choosers' names and points, so they read as they fly over the balloon. */
+const HALO = '0 0 6px #fbf8f1, 0 0 6px #fbf8f1, 0 0 10px #fbf8f1, 0 0 10px #fbf8f1';
+/** Rig units from the card's top to its origin (one row of names), and from the origin to its foot. */
+const CARD_TOP = 76;
+const CARD_FOOT = 150;
+
+/**
+ * The choosers' spots on a phone: the rig's top row as it is, and any spot it puts lower (beside
+ * the balloon) in a row above it, between the top row's names, so no name is ever on the balloon.
+ */
+function phoneSpots(rig: LoadedRig): number[][] | undefined {
+  const spots = rig.places['chips.initial'] as number[][] | undefined;
+  if (!spots) return undefined;
+  const top = spots.filter((m) => (m[5] ?? 0) < 60);
+  const y = Math.min(...top.map((m) => m[5] ?? 0)) - CHIPS_ROW;
+  const xs = top.map((m) => m[4] ?? 0).sort((a, b) => a - b);
+  let gap = 0;
+  return spots.map((m) => {
+    if ((m[5] ?? 0) < 60) return m;
+    // Between two neighbours of the top row, from the outside in.
+    const i = gap++ % 2 === 0 ? 0 : xs.length - 2;
+    const x = ((xs[i] ?? 0) + (xs[i + 1] ?? 0)) / 2;
+    return [m[0]!, m[1]!, m[2]!, m[3]!, x, y];
+  });
+}
 
 /**
  * The reveal card on a phone with no table screen: the original's balloon with the answer, the
  * choosers' names and the author's, played by the same moments as the table screen, scaled to the
  * card's width. Nothing without the art (or with a table screen, or the battery saver on).
  */
-export function PhoneCard({ shown }: { shown: boolean }) {
+export function PhoneCard({ shown, crowd = false }: { shown: boolean; crowd?: boolean }) {
   const rig = useContext(PhoneRig);
+  // A room big enough for six choosers of one title gets the second row of names its room.
+  const top = CARD_TOP + (crowd ? CHIPS_ROW : 0);
   const profile = useContext(Profiled);
   const box = useRef<HTMLDivElement>(null);
   const [k, setK] = useState(0);
@@ -202,12 +236,14 @@ export function PhoneCard({ shown }: { shown: boolean }) {
       ref={box}
       aria-hidden
       hidden={!shown}
-      className="relative h-40 w-full overflow-hidden rounded-2xl bg-[#f6f2ea] ring-1 ring-line"
+      // As tall as the names above the balloon and the author's tag under it need at this width.
+      className="relative w-full overflow-hidden rounded-2xl bg-[#f6f2ea] ring-1 ring-line"
+      style={{ height: Math.round((top + CARD_FOOT) * k) || 160 }}
       data-testid="sketchy-phone-card"
     >
       <div
         className="absolute"
-        style={{ left: 120 * k, top: 40 * k, transform: `scale(${k})`, transformOrigin: '0 0' }}
+        style={{ left: 120 * k, top: top * k, transform: `scale(${k})`, transformOrigin: '0 0' }}
       >
         <style>{PHONE_CARD_CSS}</style>
         <RevealCard
@@ -233,11 +269,19 @@ export function PhoneCard({ shown }: { shown: boolean }) {
               </Layer>
             ),
             'card-playersWhoChose': (
-              <Choosers
-                rig={rig}
-                nameStyle={{ color: '#1c1917', fontSize: 46, fontWeight: 900 }}
-                pointsStyle={{ fontSize: 50, fontWeight: 900, color: '#15803d' }}
-              />
+              <Layer m={[1, 0, 0, 1, 0, -CHIPS_LIFT]}>
+                <Choosers
+                  rig={rig}
+                  spots={phoneSpots(rig)}
+                  nameStyle={{ color: '#1c1917', fontSize: 46, fontWeight: 900, textShadow: HALO }}
+                  pointsStyle={{
+                    fontSize: 50,
+                    fontWeight: 900,
+                    color: '#15803d',
+                    textShadow: HALO,
+                  }}
+                />
+              </Layer>
             ),
             'card-author': (
               <Layer m={placeOf(rig, 'author.right')}>

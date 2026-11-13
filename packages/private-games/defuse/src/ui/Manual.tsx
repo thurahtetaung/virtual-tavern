@@ -604,9 +604,10 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
           )}
         </div>
         <ClaimLine list={claims[page]} names={names} you={you} />
-        {/* Phones: the page reads inside its own bounded panel, so the screen never scrolls. */}
+        {/* Phones, and wide screens too: the page reads inside its own bounded panel, so the
+            screen never scrolls and the claim and notes stay in view. */}
         <div
-          className="rounded-xl bg-card p-3 ring-1 ring-line max-sm:max-h-[52dvh] max-sm:overflow-y-auto"
+          className="rounded-xl bg-card p-3 ring-1 ring-line max-sm:max-h-[52dvh] max-sm:overflow-y-auto lg:max-h-[max(14rem,calc(100dvh-28rem))] lg:overflow-y-auto lg:overscroll-contain"
           role="region"
           tabIndex={0}
           aria-label={`${pageName(art, page)} page`}
@@ -634,7 +635,10 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
     if (!wide) return body;
     return (
       <div className="grid grid-cols-[17rem_minmax(0,1fr)] items-start gap-4">
-        <nav aria-label="Manual pages" className="sticky top-3 space-y-2">
+        <nav
+          aria-label="Manual pages"
+          className="sticky top-3 max-h-[max(16rem,calc(100dvh-17rem))] space-y-2 overflow-y-auto overscroll-contain p-px pr-1"
+        >
           {search}
           {list(true)}
         </nav>

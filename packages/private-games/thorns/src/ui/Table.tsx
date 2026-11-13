@@ -14,7 +14,7 @@ import {
   useWideScreen,
   FoldSummary,
 } from '@vt/ui';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState, useSyncExternalStore } from 'react';
 import { discName } from '../logic/names.ts';
 import {
   type Disc,
@@ -320,12 +320,27 @@ function hasMove(view: ThornsView, you: string) {
  * The viewer's own discs and every choice they can make right now. `show` is the phone's Me tab:
  * the same discs and what you lost, with no moves.
  */
+const onResize = (f: () => void) => {
+  window.addEventListener('resize', f);
+  return () => window.removeEventListener('resize', f);
+};
+/** The window's height, kept current. */
+const useWindowHeight = () =>
+  useSyncExternalStore(
+    onResize,
+    () => window.innerHeight,
+    () => 800,
+  );
+
 function MyArea({ view, room, act, art, name, show = false }: TableProps & { show?: boolean }) {
   const g = view.game!;
   const r = g.round;
   const mine = view.mine;
   const me = g.players.find((p) => p.id === room.you);
-  const disc = useWideScreen() ? 110 : 64;
+  // Wide screens: your discs size by the window's height (up to 110 px), so on a laptop they and
+  // the bid sit in view under the mats.
+  const tall = useWindowHeight();
+  const disc = useWideScreen() ? Math.max(72, Math.min(110, Math.round(tall * 0.12))) : 64;
   if (!mine || !me) return null;
   const seat = g.order.indexOf(room.you);
   const color = colorOf(room, room.you);
@@ -542,7 +557,7 @@ export function Table(props: TableProps) {
             'grid grid-cols-2 gap-2 sm:grid-cols-3',
             ended
               ? 'lg:grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))]'
-              : 'lg:grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))]',
+              : 'lg:grid-cols-3',
           )}
           aria-label="The table"
         >
@@ -572,9 +587,29 @@ export function Table(props: TableProps) {
               />
             </li>
           ))}
+          {seated && wide && (
+            // Your discs and move: on wide screens beside a lone last mat (four players: the two
+            // empty places of its row), else a row of their own under the mats.
+            <li
+              className={cn(
+                'col-span-full min-w-0',
+                !ended && g.players.length % 3 === 1 && 'lg:col-span-2',
+              )}
+            >
+              {/* Phones keep your move in the bar while you have one; wider screens show it here. */}
+              <StickyBar
+                fixed
+                off={!move || shown !== 'table'}
+                refusal="th-play"
+                refusalKey={view.log.at(-1)?.id ?? 0}
+              >
+                {(move || !tabbed) && <MyArea {...props} />}
+              </StickyBar>
+            </li>
+          )}
         </ul>
-        {seated && (
-          // Phones keep your move in the bar while you have one; wider screens show it here.
+        {seated && !wide && (
+          // Phones keep your move in the bar while you have one.
           <StickyBar
             fixed
             off={!move || shown !== 'table'}

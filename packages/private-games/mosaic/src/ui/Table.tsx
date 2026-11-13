@@ -304,9 +304,21 @@ function Market({
   const [hover, setHover] = useState<Pick | null>(null);
   const [info, setInfo] = useState<Special | null>(null);
   const centre = TILES.filter((c) => countOf(g.centre, c) > 0);
+  // Wide screens: every factory in one row, so the boards under them stay in the window.
+  const wide = useWide();
   return (
     <section aria-label="The table" className="flex flex-col gap-2" data-testid="mo-market">
-      <div className={cn('grid grid-cols-5 gap-1.5', g.specials && 'pt-2.5')}>
+      <div
+        className={cn('grid grid-cols-5 gap-1.5', g.specials && 'pt-2.5')}
+        style={
+          wide
+            ? {
+                gridTemplateColumns: `repeat(${g.factories.length}, minmax(0, min(9rem, 16dvh)))`,
+                justifyContent: 'center',
+              }
+            : undefined
+        }
+      >
         {g.factories.map((f, i) => (
           <Factory
             key={i}
@@ -737,7 +749,7 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start lg:gap-3">
         <div
           className={cn(
-            'flex min-w-0 flex-col gap-2 lg:max-w-[min(66.5rem,calc((100dvh-30rem)*2.5))]',
+            'flex min-w-0 flex-col gap-2 lg:max-w-[66.5rem]',
             tab !== 'play' && 'hidden lg:flex',
           )}
           {...(!wide && tabPanelProps(TABS_ID, 'play'))}

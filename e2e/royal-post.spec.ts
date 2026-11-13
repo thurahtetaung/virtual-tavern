@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import {
@@ -77,6 +78,11 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   const first = await whoseTurn(players, host);
   if (first !== 'over') {
     await expectPhoneFit(first, 'royal-post turn');
+    // A laptop sees every seat and the whole hand, the hand never over a seat.
+    await expectLaptopFit(first, 'royal-post turn', [
+      first.getByRole('list', { name: 'Players' }),
+      first.getByRole('region', { name: 'Your hand' }),
+    ]);
     // The tab bar marks the tab on screen: History, then back to the Table.
     const size = first.viewportSize()!;
     await first.setViewportSize({ width: 390, height: 844 });
@@ -291,10 +297,10 @@ test('watchers get a seat: a bigger edition seats them, and the podium offers Ta
   };
   await playUntil(host, [host, ana], '2019', done, (gameOver) => gameOver);
 
-  // The podium: Ben takes a seat for the next game; guests know who deals.
+  // The podium: Ben takes a seat for the next game; guests know who deals (under the result).
   const podium = ben.getByLabel('Game result');
   await expect(podium).toBeVisible();
-  await expect(ana.getByLabel('Game result')).toContainText(
+  await expect(ana.getByRole('region', { name: 'Result' })).toContainText(
     'Waiting for Hana (host) to start the next game',
   );
   await podium.getByRole('button', { name: 'Take a seat' }).click();

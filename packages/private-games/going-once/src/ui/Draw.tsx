@@ -1,5 +1,16 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag, cn, useSecondsLeft } from '@vt/ui';
+import {
+  Countdown,
+  DrawingPad,
+  DrawingView,
+  Panel,
+  PlayerTag,
+  cn,
+  useFitSize,
+  useSecondsLeft,
+  useWideScreen,
+} from '@vt/ui';
+import { useRef } from 'react';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
@@ -9,24 +20,10 @@ import { PadFrame, RigIcon } from './PhoneShow.tsx';
 const SEND_EARLY_MS = 1200;
 
 /** The drawing stage: your titles one at a time, then who is still drawing. */
-/**
- * Room on a phone for everything but the sheet (the site's bar, the status line, the title, the
- * pens and Send; the auctioneer's words too unless a table screen shows them), so the sheet is as
- * big as the screen allows with all of it in view, never too small to draw on.
- */
-const AROUND_PX = { quiet: 315, full: 410 };
-/**
- * Desktops: what the page has around the pad (the room's header, the status, the auctioneer's
- * words, the title and the note; the pens, the clock and Send sit beside it), so all of it fits a
- * 900 px window with the pad.
- */
-const AROUND_DESKTOP_PX = 400;
-
 export function Draw({
   view,
   room,
   act,
-  quiet = false,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
@@ -41,6 +38,11 @@ export function Draw({
   // its full length; drawing is open meanwhile.
   const startsIn = useSecondsLeft(g.drawFrom, room.clockOffset);
   const clock = (startsIn ?? 0) <= 0;
+  // The sheet is as big as the screen allows with the title, the pens, the clock and Send in
+  // view, never too small to draw on (`useFitSize`; on a phone, within the play area).
+  const wide = useWideScreen();
+  const sheet = useRef<HTMLDivElement>(null);
+  useFitSize(sheet, { min: wide ? 192 : 176, max: wide ? 544 : 360 });
   if (!mine)
     return (
       <Panel className="flex flex-col items-center gap-2 text-center">
@@ -64,16 +66,11 @@ export function Draw({
               {index + 1} of {mine.prompts.length}
             </span>
           </div>
-          <div
-            style={{
-              ['--sheet' as string]: `max(13rem, calc((100svh - ${quiet ? AROUND_PX.quiet : AROUND_PX.full}px) * 0.8))`,
-              ['--sheet-lg' as string]: `min(34rem, max(12rem, calc((100svh - ${AROUND_DESKTOP_PX}px) * 0.8)))`,
-            }}
-          >
+          <div ref={sheet}>
             <PadFrame>
               <DrawingPad
                 key={todo.item}
-                className="max-lg:[&>div:first-child]:max-w-(--sheet) lg:[&>div:first-child]:max-w-(--sheet-lg)"
+                className="[&>div:first-child]:max-w-(--vt-fit)"
                 draftKey={`go.draft.${todo.item}`}
                 sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
                 onSubmit={(drawing) =>

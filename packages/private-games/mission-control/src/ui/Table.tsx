@@ -397,8 +397,8 @@ export function PlayTable({
 
   return (
     <div className="space-y-3">
-      {/* Phones say it in the trick's header instead. */}
-      <p className="hidden rounded-lg bg-panel px-3 py-1 text-center text-sm ring-1 ring-line sm:block">
+      {/* Phones and wide screens say it in the trick's header instead. */}
+      <p className="hidden rounded-lg bg-panel px-3 py-1 text-center text-sm ring-1 ring-line sm:block lg:hidden">
         {openTable
           ? '🗣️ Open table'
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
@@ -433,7 +433,7 @@ export function PlayTable({
       )}
 
       <Panel
-        className="min-h-24 space-y-2 p-3! text-center sm:min-h-36 sm:p-4!"
+        className="min-h-24 space-y-2 p-3! text-center sm:min-h-36 sm:p-4! lg:min-h-28"
         data-testid="mc-trick"
       >
         <p className="text-sm text-ink-muted">
@@ -444,6 +444,10 @@ export function PlayTable({
               ? ` · last trick won by ${name(last.winner)}`
               : ''}
           <span className="sm:hidden">{openTable ? ' · 🗣️ Open table' : ' · 🤫 Silent'}</span>
+          {/* Wide screens say it here too, so the height goes to your hand. */}
+          <span className="hidden lg:inline">
+            {openTable ? ' · 🗣️ Open table' : ' · 🤫 Silent running: no talking about cards'}
+          </span>
         </p>
         {a.current.length ? (
           <TrickRow plays={a.current} name={name} size="hand" />
@@ -452,7 +456,7 @@ export function PlayTable({
             <TrickRow plays={last.plays} name={name} winner={last.winner} size="sm" />
           </div>
         ) : (
-          <p className="py-3 text-sm text-ink-muted sm:py-6">{name(a.turn)} leads.</p>
+          <p className="py-3 text-sm text-ink-muted sm:py-6 lg:py-3">{name(a.turn)} leads.</p>
         )}
         {a.stage === 'play' && !a.current.length && a.trickCount > 0 && inCrew && (
           <div className="flex justify-center gap-1" aria-label="React">

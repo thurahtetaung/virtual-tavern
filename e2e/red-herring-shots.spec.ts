@@ -7,7 +7,6 @@ import {
   playLaps,
   roundOrder,
   talk,
-  showTab,
   table,
   writeWord,
 } from './red-herring-play.ts';
@@ -68,16 +67,8 @@ test('red herring screenshots', async ({ browser }) => {
       await expect(picker.getByTestId('rh-word-form')).toHaveCount(0);
     } else await writeWord(picker, `Lantern ${k + 1}`);
     if (k === 0) {
-      // Everyone's notebook open: Cy's is the blank page.
-      for (const p of order.slice(1)) {
-        await showTab(p, 'Me');
-        await p.getByRole('button', { name: 'Show your notebook' }).click();
-      }
+      // Everyone's notebook, open under the round line: Cy's says they're the Conspirator.
       await all('05-notebook');
-      for (const p of order.slice(1)) {
-        await p.getByRole('button', { name: 'Hide your notebook' }).click();
-        await showTab(p, 'Table');
-      }
       for (const p of order.slice(1, 3)) await playCard(p);
       await all('06-plays');
       // A card full screen.

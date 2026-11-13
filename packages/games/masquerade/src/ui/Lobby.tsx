@@ -257,7 +257,14 @@ export function Lobby({
           data-testid="lobby-places"
         >
           {places.map((src, i) => (
-            <li key={src} className={cn(i >= 4 && 'max-sm:hidden')}>
+            // A short laptop window keeps one row of places, so Start stays in view.
+            <li
+              key={src}
+              className={cn(
+                i >= 4 && 'max-sm:hidden',
+                i >= 3 && 'lg:[@media(max-height:820px)]:hidden',
+              )}
+            >
               <ProtectedImage
                 src={src}
                 alt=""

@@ -1,5 +1,5 @@
-import { Icon, cn } from '@vt/ui';
-import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import { Icon, cn, useFreeHeight } from '@vt/ui';
+import { type CSSProperties, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CodenamesView } from '../logic/types.ts';
 import { type Measure, canvasMeasure, estimate, fitSize, fitsAlone, softBreaks } from './fit.ts';
 import { FACE_DOWN, KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
@@ -21,12 +21,57 @@ interface Props {
 
 const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
 
+/** Tailwind's `lg`: from here up the board's rows are sized to the window. */
+const WIDE = '(min-width: 1024px)';
+const useWide = () =>
+  useSyncExternalStore(
+    (on) => {
+      const q = window.matchMedia(WIDE);
+      q.addEventListener('change', on);
+      return () => q.removeEventListener('change', on);
+    },
+    () => window.matchMedia(WIDE).matches,
+    () => false,
+  );
+
+/** Wide screens: five rows and their 8 px gaps share the height left down to the bars. */
+export function rowHeight(free: number, tallest: number) {
+  return Math.round(Math.min(tallest, Math.max(40, (free - 4 * 8) / 5)));
+}
+
 export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
     view.me?.role === 'spymaster' && view.me.team !== null && view.phase === 'playing';
   // Word widths in the board's own font, so each word can be sized to fit its card.
   const section = useRef<HTMLElement>(null);
+  // From lg up the five rows take exactly the height left between what sits above the board (a
+  // result line, the playtest bar) and what follows it in its column (the clue form) or the bar at
+  // the foot, so the whole board, the Spymaster's key included, is in view with no scroll: down to
+  // 40 px rows on a short laptop window (at the default text size; larger text keeps a rem floor).
+  const root = useRef<HTMLDivElement>(null);
+  const wide = useWide();
+  const free = useFreeHeight(root, wide);
+  const [after, setAfter] = useState(0);
+  useLayoutEffect(() => {
+    const el = root.current;
+    const column = el?.parentElement;
+    if (!wide || !el || !column) return;
+    // What follows the board in its own column (never the side rail beside it).
+    const measure = () => {
+      const last = column.lastElementChild;
+      const below = last
+        ? last.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom
+        : 0;
+      const next = Math.max(0, Math.ceil(below));
+      setAfter((a) => (a === next ? a : next));
+    };
+    measure();
+    const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    for (const child of column.children) if (child !== el) sizes?.observe(child);
+    return () => sizes?.disconnect();
+  });
+  const rows = free === null ? null : rowHeight(free - after, size === 'fill' ? 144 : 120);
   const [measure, setMeasure] = useState<Measure>(() => estimate);
   useLayoutEffect(() => {
     if (section.current)
@@ -36,8 +81,13 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
     (card) => card.kind !== null && (card.revealed || showKey || view.phase === 'over'),
   );
   return (
-    <div>
-      <section ref={section} className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Word cards">
+    <div ref={root}>
+      <section
+        ref={section}
+        className="grid grid-cols-5 gap-1.5 sm:gap-2"
+        aria-label="Word cards"
+        style={rows === null ? undefined : ({ '--row-h': `${rows}px` } as CSSProperties)}
+      >
         {view.board.map((card, i) => {
           const interactive = onPick !== null && !card.revealed;
           // The kind is printed, not just tinted, whenever the viewer may know it.
@@ -84,6 +134,10 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
                 lastGuessed === i &&
                   'z-10 scale-105 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
                 card.revealed && lastGuessed !== i && 'opacity-90',
+                // The fitted rows, but never under the 4.5rem floor once the browser's text is larger
+                // than its default (the min() is 0 at 16 px and the floor above it), so long phrases
+                // still fit their cards at 150% text; at the default size the rows fit the window.
+                rows !== null && 'lg:h-[max(var(--row-h),min(4.5rem,calc((1rem_-_16px)*1000)))]!',
                 // At the end the cards nobody guessed keep their words at full strength: their soft
                 // key tint and the missing check mark already tell them from the guessed ones.
               )}

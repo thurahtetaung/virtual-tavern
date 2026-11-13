@@ -339,7 +339,8 @@ export function Attempts({ view, content }: { view: InquestView; content: Conten
 }
 
 /** A hand of cards to pick from: full width on phones, capped so 8 cards fit a desktop screen. */
-const HAND = 'mx-auto grid w-full max-w-lg gap-2';
+// From lg up the two rows are no taller than leaves the Commit button on a 720 px laptop window.
+const HAND = 'mx-auto grid w-full max-w-lg gap-2 lg:max-w-[min(32rem,calc((100dvh-26rem)*1.25))]';
 
 /** Night: the Murderer picks the crime from their own cards, with a confirm step. */
 export function NightPanel({

@@ -27,7 +27,8 @@ export type CardSize = 'hand' | 'table' | 'float' | 'mini';
 
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
-  table: 'aspect-[5/7] w-12 sm:w-16 lg:w-20',
+  // Wide screens: by the window's height, 80 px on a 720 px laptop up to 112 px.
+  table: 'aspect-[5/7] w-12 sm:w-16 lg:w-[clamp(5rem,calc(18dvh-5rem),7rem)]',
   float: 'aspect-[5/7] w-16 sm:w-20',
   mini: 'aspect-[5/7] w-7',
 };

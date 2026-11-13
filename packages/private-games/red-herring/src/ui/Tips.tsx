@@ -18,10 +18,11 @@ export function Tips() {
   const tips = (
     <ul className="list-disc space-y-0.5 pl-5">
       <li>
-        Hold your notebook to see your role: the word if you’re a Detective, or that you’re the
-        Conspirator.
+        Your notebook, under the round line, shows your role: the word if you’re a Detective, or
+        that you’re the Conspirator.
       </li>
       <li>Tap any card on the table to see it full screen.</li>
+      <li>At the vote, tap a player’s place on the table to accuse them.</li>
       <li>Tap the dot by a name to keep a private 🤔 / 👍 mark. Only you see it.</li>
     </ul>
   );

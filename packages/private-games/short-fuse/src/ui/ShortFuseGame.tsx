@@ -630,73 +630,6 @@ export function ShortFuseGame({
       bar={!myTurn && !(nowOnly && selCards.length > 0)}
     />
   );
-  const table = (
-    <div className="space-y-2">
-      {/* Desktop: the two piles at 128 px, centred in the table with the turn between them. */}
-      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3 lg:grid-cols-[auto_minmax(0,24rem)_auto] lg:items-center lg:justify-center lg:gap-8 lg:p-5">
-        <Pile
-          pile={g.pile}
-          c={c}
-          art={g.art}
-          shuffling={shuffling}
-          onInspect={openVoidTop}
-          size="table"
-        />
-        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted lg:order-3">
-          {top ? (
-            <button
-              type="button"
-              className="rounded-[0.55rem]"
-              onClick={(e) => openPileCard(top, e.currentTarget)}
-              aria-label={`Top of the discard pile: ${c.name(top.t)}. Details`}
-              data-testid="discard-top"
-            >
-              <CardFace card={top} art={g.art} c={c} size="table" />
-            </button>
-          ) : (
-            <span
-              className={cn(
-                'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line',
-                WIDTH.table,
-              )}
-            />
-          )}
-          <button
-            type="button"
-            className={cn(
-              'inline-flex min-h-7 items-center rounded-md px-1.5 underline decoration-dotted underline-offset-2 hover:text-ink',
-              TAP_BAND,
-            )}
-            onClick={() => setDiscardOpen(true)}
-            aria-label={`Discard pile (${g.discard.length} cards): browse`}
-            data-testid="discard"
-          >
-            Discard ({g.discard.length})
-          </button>
-        </div>
-        <div className="flex w-full min-w-0 flex-col items-start gap-2 lg:order-2 lg:items-center lg:text-center">
-          <LastAction view={view} c={c} />
-          {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
-            <Countdown
-              deadline={g.decisionEnds}
-              clockOffset={room.clockOffset}
-              label="to decide"
-              {...(strict
-                ? { atZero: 'then the safe move is made' }
-                : {
-                    soft: true,
-                    expiredHint:
-                      'Nothing happens by itself. Nudge them, or the host can act for them.',
-                  })}
-            />
-          )}
-          {/* Desktop: the countdown fills the room beside the piles, so the hand stays in view. */}
-          {wide && nopePanel && <div className="w-full">{nopePanel}</div>}
-        </div>
-      </div>
-      {!wide && nopePanel}
-    </div>
-  );
 
   const blindMe = g.blindCount !== null;
   const slotPicked = blindSlot?.key === selKey ? blindSlot.slot : null;
@@ -852,6 +785,82 @@ export function ShortFuseGame({
     </div>
   );
 
+  const table = (
+    <div className="space-y-2">
+      {/* Desktop: the two piles at 128 px, centred in the table with the turn between them. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3 lg:grid-cols-[auto_minmax(0,24rem)_auto] lg:items-center lg:justify-center lg:gap-8 lg:p-5">
+        <Pile
+          pile={g.pile}
+          c={c}
+          art={g.art}
+          shuffling={shuffling}
+          onInspect={openVoidTop}
+          size="table"
+        />
+        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted lg:order-3">
+          {top ? (
+            <button
+              type="button"
+              className="rounded-[0.55rem]"
+              onClick={(e) => openPileCard(top, e.currentTarget)}
+              aria-label={`Top of the discard pile: ${c.name(top.t)}. Details`}
+              data-testid="discard-top"
+            >
+              <CardFace card={top} art={g.art} c={c} size="table" />
+            </button>
+          ) : (
+            <span
+              className={cn(
+                'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line',
+                WIDTH.table,
+              )}
+            />
+          )}
+          <button
+            type="button"
+            className={cn(
+              'inline-flex min-h-7 items-center rounded-md px-1.5 underline decoration-dotted underline-offset-2 hover:text-ink',
+              TAP_BAND,
+            )}
+            onClick={() => setDiscardOpen(true)}
+            aria-label={`Discard pile (${g.discard.length} cards): browse`}
+            data-testid="discard"
+          >
+            Discard ({g.discard.length})
+          </button>
+        </div>
+        <div className="flex w-full min-w-0 flex-col items-start gap-2 lg:order-2 lg:items-center lg:text-center">
+          <LastAction view={view} c={c} />
+          {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
+            <Countdown
+              deadline={g.decisionEnds}
+              clockOffset={room.clockOffset}
+              label="to decide"
+              {...(strict
+                ? { atZero: 'then the safe move is made' }
+                : {
+                    soft: true,
+                    expiredHint:
+                      'Nothing happens by itself. Nudge them, or the host can act for them.',
+                  })}
+            />
+          )}
+          {/* Desktop: the countdown fills the room beside the piles, so the hand stays in view. */}
+          {wide && nopePanel && <div className="w-full">{nopePanel}</div>}
+          {/* Desktop: your move sits here too, beside the piles, so it never covers the hand. */}
+          {wide && (dock || blindDock || nowDock) && (
+            <div className="w-full text-left">
+              {dock}
+              {blindDock}
+              {nowDock}
+            </div>
+          )}
+        </div>
+      </div>
+      {!wide && nopePanel}
+    </div>
+  );
+
   const handBlock = blindMe ? (
     <section aria-label="Your face-down hand" className="space-y-1">
       <p className="text-xs font-semibold text-ink-muted">
@@ -956,7 +965,7 @@ export function ShortFuseGame({
                 />
               )}
               {handBlock}
-              {(dock || blindDock || nowDock) && (
+              {!wide && (dock || blindDock || nowDock) && (
                 <StickyBar fixed>
                   {dock}
                   {blindDock}
@@ -988,7 +997,7 @@ export function ShortFuseGame({
             )}
           </div>
           {/* The rail fits the window: what only you know, then the log, which scrolls inside. */}
-          <aside className="hidden max-h-[calc(100dvh-14rem)] min-h-0 flex-col gap-4 lg:flex">
+          <aside className="hidden max-h-[calc(100dvh-17rem)] min-h-0 flex-col gap-4 lg:flex">
             <div className="min-h-0 overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
               <MeTab view={view} c={c} />
             </div>

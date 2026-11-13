@@ -539,6 +539,8 @@ export function InquestGame({
       <TableScreen view={view} room={room} content={content} onExit={() => setTableScreen(false)} />
     );
 
+  // The Forensic Scientist's own turn at the scene.
+  const laying = g.stage === 'collect' && g.fs === view.me?.id;
   const solvePanel = (
     <>
       {g.stage === 'night' && <NightPanel view={view} content={content} act={act} room={room} />}
@@ -585,9 +587,16 @@ export function InquestGame({
         {/* Desktops: the suspects' cards across the full width at the top, large, then the
             scene's tiles in one row (three across on narrower desktops) with your role beside
             them, so what players study to solve (or to name the Witness) is on one screen. */}
+        {/* While the Forensic Scientist lays out the scene (Location, bullets, a new tile), the
+            tiles they tap and their role card come first and the suspects follow, so on a laptop
+            the item they pick and its Place bar are in view together. */}
         <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div
-            className={cn('min-w-0 lg:col-start-1 lg:row-start-2', onTab('scene'))}
+            className={cn(
+              'min-w-0 lg:col-start-1',
+              laying ? 'lg:row-start-1' : 'lg:row-start-2',
+              onTab('scene'),
+            )}
             {...(!wide && tabPanelProps(TABS_ID, 'scene'))}
           >
             <Scene view={view} content={content} act={act} />
@@ -600,7 +609,11 @@ export function InquestGame({
             )}
           </div>
           <div
-            className={cn('min-w-0 lg:col-start-2 lg:row-start-2', onTab('me'))}
+            className={cn(
+              'min-w-0 lg:col-start-2',
+              laying ? 'lg:row-start-1' : 'lg:row-start-2',
+              onTab('me'),
+            )}
             {...(!wide && tabPanelProps(TABS_ID, 'me'))}
           >
             <MeTab
@@ -612,7 +625,8 @@ export function InquestGame({
           </div>
           <div
             className={cn(
-              'min-w-0 space-y-2 lg:col-span-2 lg:col-start-1 lg:row-start-1',
+              'min-w-0 space-y-2 lg:col-span-2 lg:col-start-1',
+              laying ? 'lg:row-start-2' : 'lg:row-start-1',
               onTab('suspects'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}

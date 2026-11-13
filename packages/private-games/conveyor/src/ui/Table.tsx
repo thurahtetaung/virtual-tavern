@@ -184,17 +184,6 @@ export function Table({ view, room, act, art, name, logName, showGuide, aside }:
         <div className={cn('flex flex-col gap-3', hide('play'))} {...panel('play')}>
           {!wide && <MenuStrip g={g} art={art} showGuide={showGuide} />}
           <Moments view={view} you={room.you} art={art} name={name} />
-          {shown === null && (
-            <Others
-              g={g}
-              room={room}
-              art={art}
-              name={name}
-              live={live}
-              zoom={zoom.open}
-              over={view.phase === 'over'}
-            />
-          )}
           {shown === null && me && (
             <MyTray
               g={g}
@@ -204,6 +193,17 @@ export function Table({ view, room, act, art, name, logName, showGuide, aside }:
               zoom={zoom.open}
               view={view}
               act={act}
+            />
+          )}
+          {shown === null && (
+            <Others
+              g={g}
+              room={room}
+              art={art}
+              name={name}
+              live={live}
+              zoom={zoom.open}
+              over={view.phase === 'over'}
             />
           )}
           {/* Wide screens: your hand (or the round's scores) first, the trays under it. */}
@@ -900,7 +900,9 @@ function Play({
           </div>
           {choices.length ? (
             <ul
-              className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-3 pb-1 sm:flex-wrap sm:overflow-visible"
+              // Wide screens: one row whose cards share the width (at most 112 px, and capped by the
+              // window's height), so the reveal, Lock in and your tray stay in view under it.
+              className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-3 pb-1 sm:flex-wrap sm:overflow-visible lg:flex-nowrap"
               aria-label={title}
             >
               {choices.map((c, i) => {
@@ -908,7 +910,10 @@ function Play({
                 const delta =
                   preview && selectable && !giveStep && me ? previewOf(g, me.id, c.k, base) : null;
                 return (
-                  <li key={c.id} className="shrink-0">
+                  <li
+                    key={c.id}
+                    className="shrink-0 lg:max-w-[min(7rem,15dvh)] lg:min-w-0 lg:flex-1"
+                  >
                     <button
                       type="button"
                       aria-pressed={selectable ? on : undefined}
@@ -929,6 +934,7 @@ function Play({
                         k={c.k}
                         art={art}
                         className={cn(
+                          'lg:w-full',
                           on && 'ring-4 ring-accent',
                           pickedNow?.card === c.id && 'ring-4 ring-success-line',
                         )}

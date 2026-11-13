@@ -39,8 +39,12 @@ import {
   LobbyStart,
   SeatHeading,
   SeatToggle,
+  useFitSize,
+  useFreeHeight,
+  useMarkMore,
+  MoreBelow,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   CARD_SETS,
   COLUMNS,
@@ -392,6 +396,8 @@ function Play({
 
   const tokens = useTokens();
   const wide = useWideScreen();
+  const grid = useRef<HTMLUListElement>(null);
+  useFitSize(grid, { min: wide ? 448 : 260, max: wide ? 960 : 768 });
   const stars = <StarBoard view={view} room={room} online={online} pickColor={pickColor} />;
   // First-time tips: above the cards on phones and tablets, at the top of the rail on wide screens.
   const tips = (
@@ -411,6 +417,10 @@ function Play({
   // Wide screens hold the word, the round and the latest moment at the top of the rail, so the
   // cards get the window's full height.
   const railTop = wide && view.phase === 'playing';
+  // The rail scrolls inside the window's free height, measured, so the page itself never scrolls.
+  const rail = useRef<HTMLElement>(null);
+  const railRoom = useFreeHeight(rail, railTop);
+  useMarkMore(rail, [railTop]);
   // At the end the finale says it all (the last word included), so there's one title.
   const header = (
     <header className={cn('space-y-1', view.phase === 'over' && 'hidden')}>
@@ -479,28 +489,14 @@ function Play({
       <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <section
           aria-label="The cards"
-          className={cn(
-            'space-y-2',
-            // Phones fill five cards across their width; while the Scouts show, the board sits in
-            // the middle of the free height rather than over an empty band.
-            r.stage === 'reveal' &&
-              'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-18.5rem)] max-sm:flex-col max-sm:justify-center',
-            shown === 'stars' && 'hidden',
-          )}
+          className={cn('space-y-2', shown === 'stars' && 'hidden')}
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
-            // Three lines of cards fit the screen's height on any desktop. Once the round is done
-            // a wide screen puts its results in the rail, so the cards keep their size for the
-            // look back at everyone's picks; narrower screens make room for them below.
-            style={{
-              maxWidth:
-                r.stage === 'done' && !wide
-                  ? 'min(48rem, 40dvh)'
-                  : wide
-                    ? 'min(60rem, max(36rem, calc((100dvh - 15.5rem) * 1.18)))'
-                    : 'min(48rem, 62dvh)',
-            }}
+            ref={grid}
+            // The three lines of cards are as large as the screen allows with the word, the latest
+            // moment, Lock and (once the round is done) the results still in view (`useFitSize`).
+            style={{ maxWidth: 'var(--vt-fit)' }}
             className="mx-auto grid w-full grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
@@ -561,28 +557,32 @@ function Play({
           )}
           {isScout && <RefusalSlot anchor={SHOW_ANCHOR} resetKey={r.shown.length} />}
         </section>
-        <aside
-          // A long rail (a done round's results and the full scores) scrolls on its own, so the
-          // cards keep the window's height.
-          className={cn(
-            'mt-3 space-y-3 sm:mt-0',
-            railTop && 'lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto lg:p-1',
-            shown === 'table' && 'hidden',
-          )}
-          {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
-        >
-          {railTop && (
-            <div className="space-y-3 rounded-2xl bg-card p-4 shadow-vt-1 ring-1 ring-line">
-              {header}
-              {moment}
-            </div>
-          )}
-          {wide && tips}
-          {wide && r.stage === 'done' && r.results && (
-            <RoundResults view={view} room={room} act={act} rail />
-          )}
-          {stars}
-        </aside>
+        <div className={cn('relative min-w-0', shown === 'table' && 'hidden')}>
+          <aside
+            ref={rail}
+            // A long rail (a done round's results and the full scores) scrolls on its own, so the
+            // cards keep the window's height.
+            className={cn(
+              'mt-3 space-y-3 sm:mt-0',
+              railTop && 'lg:overflow-y-auto lg:overscroll-contain lg:p-1',
+            )}
+            style={railTop && railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
+            {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
+          >
+            {railTop && (
+              <div className="space-y-3 rounded-2xl bg-card p-4 shadow-vt-1 ring-1 ring-line">
+                {header}
+                {moment}
+              </div>
+            )}
+            {wide && tips}
+            {wide && r.stage === 'done' && r.results && (
+              <RoundResults view={view} room={room} act={act} rail />
+            )}
+            {stars}
+          </aside>
+          {railTop && <MoreBelow column={rail} surface="page" compact />}
+        </div>
       </div>
 
       {!wide && r.stage === 'done' && r.results && (

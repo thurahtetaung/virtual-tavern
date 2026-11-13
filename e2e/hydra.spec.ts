@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import {
   NAMES,
@@ -29,11 +30,16 @@ test.afterEach(() => {
 });
 
 /** One government: nominate someone who isn't the Leader, everyone votes yes, red is enacted. */
-async function government(players: Player[], avoid: (p: Player) => boolean = () => false) {
+async function government(
+  players: Player[],
+  avoid: (p: Player) => boolean = () => false,
+  beforeVote?: (pres: Player) => Promise<void>,
+) {
   const alive = players.filter((p) => !p.dead);
   const pres = await president(alive);
   const chan = await eligible(pres, alive, (p) => p.role === 'leader' || avoid(p));
   await nominate(pres, chan.name);
+  await beforeVote?.(pres);
   await voteAll(alive);
   return legislate(alive, 'red');
 }
@@ -53,13 +59,34 @@ test('five players: peek, mandatory claims, a skipped claim and an execution to 
   await expect(quick(players[1]!.page)).toHaveAttribute('aria-disabled', 'true');
   await expect(quick(host)).not.toHaveAttribute('aria-disabled');
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
+  // On a laptop, with the card up, how you win and who you know sit in view above Ready.
+  {
+    const card = host.getByRole('region', { name: 'Your role card' });
+    await card.getByRole('button', { name: '👁️ Show my role' }).click();
+    await expectLaptopFit(host, 'hydra deal', [
+      host.getByTestId('role-details'),
+      host.getByRole('button', { name: /I’ve read my role: Ready/ }),
+    ]);
+    await card.getByRole('button', { name: '🙈 Hide my role' }).click();
+  }
   await readRoles(players);
   expect(players.filter((p) => p.role === 'leader')).toHaveLength(1);
   expect(players.filter((p) => p.role === 'red')).toHaveLength(1);
 
   // Two red policies, each followed by the government's claims (play waits for them).
   for (let i = 0; i < 2; i++) {
-    const gov = await government(players);
+    // On a laptop, every seat stays clear of the ballots at the foot.
+    const gov = await government(players, undefined, async (pres) =>
+      i > 0
+        ? undefined
+        : expectLaptopFit(pres.page, 'hydra vote', [
+            pres.page
+              .locator('[data-testid="seats-panel"]:visible')
+              .getByRole('button', { name: /voting record and notes/ })
+              .last(),
+            pres.page.getByRole('button', { name: `Vote ${pres.w.yes}` }),
+          ]),
+    );
     await expect(host.getByTestId('waiting-on')).toBeVisible();
     // The first President claims a blue card they never drew: the end screen calls it a lie.
     await claim(gov.pres, { blues: i === 0 ? 1 : 0 });

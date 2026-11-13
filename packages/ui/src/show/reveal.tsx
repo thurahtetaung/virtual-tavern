@@ -96,23 +96,26 @@ function ChipName({ name }: { name: string }) {
 }
 
 /**
- * Every chip a card can hold: at the rig's own spots (`chips.initial`, the original's locators)
- * when it has them, else in two rows `gap` apart centred on the layer's origin.
+ * Every chip a card can hold: at `spots` when given (a device that lays them out its own way),
+ * else at the rig's own spots (`chips.initial`, the original's locators) when it has them, else in
+ * two rows `gap` apart centred on the layer's origin.
  */
 export function Choosers({
   rig,
   gap = 150,
   y = 0,
+  spots: own,
   nameStyle,
   pointsStyle,
 }: {
   rig: LoadedRig;
+  spots?: number[][];
   gap?: number;
   y?: number;
   nameStyle?: CSSProperties;
   pointsStyle?: CSSProperties;
 }) {
-  const spots = rig.places['chips.initial'] as number[][] | undefined;
+  const spots = own ?? (rig.places['chips.initial'] as number[][] | undefined);
   return (
     <>
       {Array.from({ length: MAX_CHIPS }, (_, k) => {

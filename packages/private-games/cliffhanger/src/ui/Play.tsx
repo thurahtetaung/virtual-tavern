@@ -125,7 +125,7 @@ function SaidIt({ onPress, disabled }: { onPress: () => void; disabled?: boolean
       disabled={disabled}
       onClick={onPress}
       className={cn(
-        'mx-auto grid aspect-square w-full max-w-72 place-items-center max-sm:max-w-[13.75rem] rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
+        'mx-auto grid aspect-square w-full max-w-72 place-items-center max-sm:max-w-[min(13.75rem,20dvh)] rounded-full font-black text-white transition active:scale-95 disabled:opacity-40',
         // vt-palette: the buzzer's own pink
         !src && 'bg-pink-600 text-4xl shadow-[0_10px_0_#9d174d] active:shadow-[0_4px_0_#9d174d]',
       )}
@@ -192,7 +192,12 @@ function FaceOff({ view, room, act }: PlayProps) {
           side && 'lg:col-start-1 lg:row-start-2',
         )}
       >
-        {card && <CategoryCard text={r.category?.text ?? ''} className="h-48 sm:h-56 lg:h-72" />}
+        {card && (
+          <CategoryCard
+            text={r.category?.text ?? ''}
+            className="h-48 sm:h-56 lg:h-[min(18rem,30dvh)]"
+          />
+        )}
         <div className={cn('min-w-0 space-y-1', card ? 'w-full' : 'flex-1')}>
           <p
             className={cn(
@@ -324,7 +329,12 @@ function KeepSheet({ view, room, act }: PlayProps) {
         clockOffset={room.clockOffset}
         label={hand.choose ? 'Keep 3 and place them' : 'Place your 3'}
       />
-      <ul className="grid grid-cols-3 gap-2" aria-label="Your squares">
+      {/* Wide screens: the squares and the tapes keep to a column that fits a laptop's height,
+          so the tapes to tap and Lock in stay in view (wider on tall screens). */}
+      <ul
+        className="grid grid-cols-3 gap-2 lg:mx-auto lg:max-w-md lg:[@media(min-height:900px)]:max-w-xl"
+        aria-label="Your squares"
+      >
         {r.styles.map((style, i) => {
           const id = slots[i];
           const card = id ? (byId.get(id) ?? null) : null;
@@ -363,7 +373,7 @@ function KeepSheet({ view, room, act }: PlayProps) {
       </p>
       {/* Two a row on phones, three wider: tapes large enough to read their titles. */}
       <ul
-        className="mx-auto grid max-w-[18rem] grid-cols-2 gap-2 sm:max-w-lg sm:grid-cols-3"
+        className="mx-auto grid max-w-[18rem] grid-cols-2 gap-2 sm:max-w-lg sm:grid-cols-3 lg:max-w-md lg:[@media(min-height:900px)]:max-w-xl"
         aria-label="Your cards"
       >
         {hand.offered.map((c) => {
@@ -735,8 +745,15 @@ function Recap({ view }: PlayProps) {
       <p className="text-center text-lg font-black">
         {nameOf(view, result.describer)} got {result.got.length}
       </p>
-      {/* Two across on phones, four on wide screens, each title also in plain type under it. */}
-      <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      {/* Two across on phones, four on wide screens (five or six in one row when there are that
+          many, so the recap stays in view), each title also in plain type under it. */}
+      <ul
+        className={cn(
+          'mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4',
+          result.got.length + result.missed.length === 5 && 'lg:grid-cols-5',
+          result.got.length + result.missed.length >= 6 && 'lg:grid-cols-6',
+        )}
+      >
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
             <Tape card={g.card} deck={deck} className="w-full" got={result.team} />

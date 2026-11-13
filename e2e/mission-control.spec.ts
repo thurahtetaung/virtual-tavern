@@ -16,6 +16,18 @@ import { pageErrors } from './tavern-brawl-play.ts';
 // Mission Control on phones, on the test deal (`mission-control-play.ts`): Hana holds every pink
 // card and the trumps, so she is captain and wins any pink lead. Only lasting state is checked.
 
+const LAPTOP = { width: 1280, height: 720 };
+
+/** Whether every element is wholly on screen and nothing (a bar, a toast) sits over its middle. */
+const uncovered = (cards: ReturnType<Page['locator']>) =>
+  cards.evaluateAll((els) =>
+    els.every((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return r.top >= 0 && r.bottom <= window.innerHeight && !!top && el.contains(top);
+    }),
+  );
+
 const cleanup: (() => Promise<unknown>)[] = [];
 test.afterEach(async () => {
   for (const undo of cleanup.splice(0)) await undo();
@@ -76,10 +88,16 @@ test('a failed attempt says why, shows the replay, and retries with the same tas
     Page,
   ];
   const all = [hana, ben, cleo];
-  await brief(all);
+  // Cleo plays on a laptop: the briefing's Ready, her whole hand and the debrief's buttons are on
+  // her screen without scrolling, and the bar never sits over her cards.
+  await cleo.setViewportSize(LAPTOP);
+  await brief(all, 'Mission 1', async () => {
+    await expect(cleo.getByTestId('mc-ready')).toBeInViewport({ ratio: 1 });
+  });
   await claim(hana, 'Take trick one');
   await claim(ben, 'Take the pink 3');
   await dive(all);
+  await expect.poll(() => uncovered(cleo.locator('[data-testid^="mc-card-"]'))).toBe(true);
 
   // Following suit: Ben has no pink, Cleo neither, so their whole hands are open to them.
   await play(hana, 'p3');
@@ -89,6 +107,7 @@ test('a failed attempt says why, shows the replay, and retries with the same tas
     await expect(p.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'failure');
     await expect(p.getByTestId('mc-why')).toContainText('Hana won');
   }
+  await expect(cleo.getByTestId('mc-retry-same')).toBeInViewport({ ratio: 1 });
 
   // The post-mortem shows every hand and the trick where it was lost.
   await cleo.getByTestId('mc-replay-open').click();

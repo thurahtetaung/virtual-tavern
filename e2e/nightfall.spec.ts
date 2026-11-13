@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
@@ -226,6 +227,13 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByRole('button', { name: 'Start the vote now' })).toBeVisible();
     await expect(others[0]!.getByRole('button', { name: 'Start the vote now' })).toHaveCount(0);
 
+    // On a laptop the players to vote for are in view, every one of them.
+    for (const p of players.slice(1))
+      await p.getByRole('button', { name: 'Ready to vote' }).click();
+    await expect(host.getByText('🗳️ The vote')).toBeVisible();
+    await expectLaptopFit(host, 'nightfall vote', [
+      host.getByRole('button', { name: /^Vote for / }).last(),
+    ]);
     // Everyone but Hana votes for Hana; Hana votes for Ana. Hana dies.
     await vote(players, names, (i) => (i === 0 ? 1 : 0));
     const rows = host.getByTestId('reveal-player');
