@@ -1549,11 +1549,14 @@ function Lobby({
 }) {
   const seated = view.seats.filter((s) => s.playing);
   const T = rig.tracks;
+  // The sign, the join line, the slots and the bar come in with the lobby's moment, once the logo
+  // has settled; until it plays they wait out of sight (during the 3-2-1 they stand at rest).
+  const until = (t: Track | undefined) => (countdown ? restOf(t) : { ...startOf(t), opacity: 0 });
   return (
     <>
       <StageLogo rig={rig} style={restOf(T.logo?.Shrink)} />
-      <JoinLine rig={rig} style={restOf(T.address?.Appear)} />
-      <Slots rig={rig} style={restOf(T.circle?.Appear)}>
+      <JoinLine rig={rig} style={until(T.address?.Appear)} />
+      <Slots rig={rig} style={until(T.circle?.Appear)}>
         {(slot) => {
           const p = seated[slot];
           if (!p) return null;
@@ -1573,10 +1576,10 @@ function Lobby({
       <Easel
         rig={rig}
         countdown={countdown}
-        style={restOf(T['easel-d1']?.Appear)}
-        card={restOf(T['easel-content']?.Appear)}
+        style={until(T['easel-d1']?.Appear)}
+        card={until(T['easel-content']?.Appear)}
       />
-      {seated.length >= 3 && <PressBar rig={rig} style={restOf(T.pressToPlay?.Appear)} />}
+      {seated.length >= 3 && <PressBar rig={rig} style={until(T.pressToPlay?.Appear)} />}
     </>
   );
 }

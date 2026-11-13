@@ -519,7 +519,9 @@ function soldCues(
 }
 
 /** The lobby on the table screen, ms after it opens there: the logo settling, the sign dropping. */
-export const LOBBY = { logoBack: 600, sign: 1200 } as const;
+export const LOBBY = { logoBack: 600, sign: 1200, logins: 1200 } as const;
+/** The logo shrinking back to the top (the rig's `logo.Shrink`). */
+export const LOGO_SHRINK_MS = 500;
 
 /**
  * The table screen's lobby (it has no server moment of its own: it opens when the screen shows
@@ -541,7 +543,13 @@ export function lobbyCues(
     .filter((s) => s.playing)
     .forEach((s, i) => {
       const at = joined[s.id];
-      if (at) out.push(sfx(`${id}:yelp:${s.id}`, at + 100, 'bidder-voice', { pick: i }));
+      // With the paddle springing up (never before the logo has settled).
+      if (at)
+        out.push(
+          sfx(`${id}:yelp:${s.id}`, Math.max(at, openedAt + LOBBY.logins) + 100, 'bidder-voice', {
+            pick: i,
+          }),
+        );
     });
   return out;
 }

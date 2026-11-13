@@ -18,6 +18,7 @@ import {
   END_PLAYER_IN_MS,
   END_PLAYER_OUT_MS,
   LOBBY,
+  LOGO_SHRINK_MS,
   WINNER_OUT_MS,
   effectCues,
   endBeats,
@@ -179,6 +180,30 @@ describe('the tutorial on the projector', () => {
 });
 
 describe('the lobby', () => {
+  it('springs the paddles up only once the logo has settled at the top', () => {
+    const h = harness(3);
+    const v = goingOnce.view(h.state, null);
+    const [first, second, late] = v.seats.filter((s) => s.playing).map((s) => s.id) as [
+      string,
+      string,
+      string,
+    ];
+    const opened = 1000;
+    // Two seated before the screen opened, one 300 ms in (during the logo), one long after.
+    const joined = { [first]: 0, [second]: opened + 300, [late]: opened + 5000 };
+    const list = moments(v, { you: null, profile: 'stage', openedAt: opened, joined });
+    const intro = list.find((m) => m.id === `lobby:${opened}`)!;
+    const shrink = intro.steps.find((s) => 'track' in s && s.track === 'logo.Shrink')!;
+    const settledAt = opened + shrink.t + LOGO_SHRINK_MS;
+    const at = (id: string) => list.find((m) => m.id === `login:${id}`)!.at;
+    expect(at(first)).toBeGreaterThanOrEqual(settledAt);
+    expect(at(second)).toBeGreaterThanOrEqual(settledAt);
+    expect(at(late)).toBe(opened + 5000);
+    // The yelps come with the paddles.
+    const yelps = lobbyCues(v, opened, joined).filter((c) => c.key === 'bidder-voice');
+    expect(yelps.map((c) => c.at)).toEqual([at(second) + 100, at(late) + 100]);
+  });
+
   it('drops the logo back and the sign as it opens, and yelps for each newcomer', () => {
     const h = harness(3);
     const v = goingOnce.view(h.state, null);

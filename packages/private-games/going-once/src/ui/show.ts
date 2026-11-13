@@ -988,12 +988,15 @@ export function winnersShownAt(view: GoingOnceView): number | null {
 function lobby(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   if (view.phase !== 'lobby') return [];
   const seated = view.seats.filter((s) => s.playing);
+  const open = ctx.openedAt;
+  // A paddle springs up as its player sits down, but never before the lobby's logo has settled at
+  // the top (`LOBBY.logins`): those already seated when the screen opened wait for it.
+  const settled = open ? open + LOBBY.logins : 0;
   const out: Moment[] = seated.map((s) => ({
     id: `login:${s.id}`,
-    at: ctx.joined?.[s.id] ?? 0,
+    at: Math.max(ctx.joined?.[s.id] ?? 0, settled),
     steps: [anim(0, `login:${s.id}`, 'login.Appear', { on: STAGE })],
   }));
-  const open = ctx.openedAt;
   if (open)
     out.push({
       id: `lobby:${open}`,
