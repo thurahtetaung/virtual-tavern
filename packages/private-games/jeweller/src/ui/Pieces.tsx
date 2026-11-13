@@ -14,8 +14,9 @@ export const TOKEN_FILL: Record<Token, string> = {
   white: 'bg-stone-50 text-stone-800 ring-stone-400 dark:bg-stone-100',
   // vt-palette: gem colours
   blue: 'bg-blue-600 text-white ring-blue-800',
+  // One step darker than the other gems' shade, so white counts clear 4.5:1.
   // vt-palette: gem colours
-  green: 'bg-emerald-600 text-white ring-emerald-800',
+  green: 'bg-emerald-700 text-white ring-emerald-900',
   // vt-palette: gem colours
   red: 'bg-red-600 text-white ring-red-800',
   black: 'bg-stone-900 text-white ring-stone-600 dark:ring-stone-400',
@@ -29,7 +30,7 @@ export const BAND: Record<Gem, string> = {
   // vt-palette: gem colours
   blue: 'bg-blue-600/85',
   // vt-palette: gem colours
-  green: 'bg-emerald-600/85',
+  green: 'bg-emerald-700/90',
   // vt-palette: gem colours
   red: 'bg-red-600/85',
   black: 'bg-stone-800',
