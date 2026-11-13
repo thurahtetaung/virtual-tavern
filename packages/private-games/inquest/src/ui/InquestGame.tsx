@@ -538,7 +538,7 @@ export function InquestGame({
       <TableScreen view={view} room={room} content={content} onExit={() => setTableScreen(false)} />
     );
 
-  const sceneless = g.slots.length === 0;
+  const sceneless = g.stage === 'night';
   const solvePanel = (
     <>
       {g.stage === 'night' && <NightPanel view={view} content={content} act={act} room={room} />}
