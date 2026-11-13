@@ -130,12 +130,13 @@ describe('music', () => {
       nextLot(h);
     }
     // The end: the scores' loop through each buyer's art, the drumroll while everyone's totals
-    // rack up, then the credits once the winner is shown.
+    // rack up, silence as the winner comes, then the credits' loop three seconds on.
     const end = goingOnce.view(h.state, null);
     const times = endTimes(end)!;
     expect(musicFor(end, times.sum)).toEqual({ key: 'drumroll', pick: 0 });
     expect(musicFor(end, times.winner - 1)).toEqual({ key: 'drumroll', pick: 0 });
-    expect(musicFor(end, times.winner)).toEqual({ key: 'credits', pick: 0 });
+    expect(musicFor(end, times.winner)).toBeNull();
+    expect(musicFor(end, times.winner + 3000)).toEqual({ key: 'credits', pick: 0 });
     expect(times.winner).toBeGreaterThan(times.sum);
     // The winner's sound comes at the same moment.
     expect(effectCues(end, null).find((c) => c.key === 'winner-centre')!.at).toBe(times.winner);
@@ -205,13 +206,20 @@ describe('effects', () => {
     const a = game(h).auction!;
     const view = goingOnce.view(h.state, 'p1');
     const cues = effectCues(view, 'p1');
-    expect(cues[0]).toMatchObject({ key: 'lot-in', at: a.since });
+    // Lot 1 follows the drawing: the done paddles go down as it comes in.
+    expect(cues[0]).toMatchObject({ key: 'paddles-down', at: a.since });
+    expect(cues.find((c) => c.key === 'lot-in')).toMatchObject({ at: a.since });
     const ring = cues.find((c) => c.key === 'message')!;
     expect(ring.local).toBe(true);
     expect(ring.pick).toBe(RING[view.mine!.messages.at(-1)!.from]);
     expect(ring.at).toBeGreaterThan(a.since!);
     // Someone watching gets no ring; the disc's rise away lands as the intro ends.
-    const watching = effectCues(goingOnce.view(h.state, null), null);
+    const all = effectCues(goingOnce.view(h.state, null), null);
+    expect(keys(all.filter((c) => c.id.startsWith('drawEnd:')))).toEqual([
+      'paddles-down',
+      'timer-out',
+    ]);
+    const watching = all.filter((c) => !c.id.startsWith('drawEnd:'));
     expect(keys(watching)).toEqual(['lot-in', 'lot-out']);
     expect(watching[1]!.at).toBe(a.closeAt - 600);
     h.tick();
@@ -293,10 +301,14 @@ describe('effects', () => {
     const v = goingOnce.view(h.state, null);
     const ks = keys(effectCues(v, null));
     expect(ks[0]).toBe('player-in');
-    expect(ks.slice(-2)).toEqual(['winner-centre', 'winner']);
+    // The winner, its plate, then the winner's light going out before the credits.
+    expect(ks.slice(-3)).toEqual(['winner-centre', 'winner', 'winner-out']);
+    const out = effectCues(v, null).find((c) => c.key === 'winner-out')!;
+    expect(out.at).toBe(endTimes(v)!.winnerOut - 500);
     // Each group of art slides in, its titles pop, then its values; each buyer leaves.
     expect(ks.filter((k) => k === 'painting-in-end')).toHaveLength(endTimes(v)!.groups.length);
-    expect(ks.filter((k) => k === 'player-out')).toHaveLength(endTimes(v)!.buyers);
+    // (and once more as everyone's totals drop away before the winner).
+    expect(ks.filter((k) => k === 'player-out')).toHaveLength(endTimes(v)!.buyers + 1);
     expect(ks.includes('debt-shark')).toBe(v.game!.final!.some((f) => f.debt > 0));
     // Each buyer's art racks up to the scores' loop, before the drumroll.
     const times = endTimes(v)!;

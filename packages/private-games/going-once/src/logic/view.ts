@@ -64,6 +64,9 @@ function gameView(state: GoingOnceState, g: Game): GameView {
   const a = g.auction;
   const drawing = g.stage === 'draw';
   const waitingToDraw = drawing ? drawWaiting(g) : [];
+  // The drawing and what follows it straight away (the tutorial, lot 1's opening).
+  const drawEnding =
+    drawing || g.stage === 'intro' || (g.stage === 'auction' && g.auction?.lot === 0);
   return {
     // A room saved mid-practice-lot by an older release shows as starting until its timer
     // (due at once) moves it on to lot 1.
@@ -78,6 +81,7 @@ function gameView(state: GoingOnceState, g: Game): GameView {
       name: state.seats[id]?.name ?? g.names[id] ?? 'Gone',
       screw: g.players[id]!.screw,
       drawn: drawing && !waitingToDraw.includes(id),
+      doneAt: drawEnding ? (g.drawDone?.[id] ?? 0) : 0,
       left: g.left.includes(id),
     })),
     lotCount: g.lots.length,
@@ -127,6 +131,9 @@ function gameView(state: GoingOnceState, g: Game): GameView {
     voiced: g.voiced === true,
     introSkipped: g.introSkipped === true,
     introSkippedAt: g.introSkippedAt ?? 0,
+    firstAt: g.stage === 'intro' && g.firstAt ? g.firstAt : 0,
+    tipsEarly: g.tipsEarly === true,
+    drawEnded: drawEnding && !drawing ? (g.drawEnded ?? 0) : 0,
     host: g.host
       ? {
           id: g.host.id,

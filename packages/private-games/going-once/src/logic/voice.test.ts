@@ -2,7 +2,7 @@ import { clone, type PlayerColor, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { HOST, SQUIGGLE, bid, game, hammer, harness, nextLot, pastIntro } from './test-utils.ts';
-import type { GoingOnceState } from './types.ts';
+import { type GoingOnceState, PROJECTOR_WAIT_MS, SLIDE_ONE_MS, TUTORIAL_END_MS } from './types.ts';
 import { CHANT_GAP_MS, CLIP_GAP_MS, chantKey, clipTimes, clipsMs } from './voice.ts';
 import { BID_SETTLE_MS } from './types.ts';
 import { VOICE_MS } from './voice-lengths.ts';
@@ -96,16 +96,75 @@ describe('the spoken introduction, in the original’s order', () => {
     expect(keys(h.state)).toEqual(
       expect.arrayContaining(['tutorial-start', 'auction-count-4', 'first-message', 'how-to-win']),
     );
-    // Lot 1's tips go out with it ("you should have your first message now").
-    for (const id of g.order) expect(g.players[id]!.messages).toHaveLength(1);
+    // The projector and its logo slide come between "A few quick words…" and the first line.
+    const clips = g.host!.clips!;
+    const count = clips.findIndex((c) => c.key === 'auction-count-4');
+    expect(clips[count - 1]!.key).toBe('tutorial-start');
+    expect(clips[count]!.wait).toBe(PROJECTOR_WAIT_MS + SLIDE_ONE_MS);
+    // Lot 1's tips wait for slide 10 ("you should have your first message on your device now").
+    for (const id of g.order) expect(g.players[id]!.messages).toHaveLength(0);
     h.act('p3', { type: 'skip-intro' });
     const v = goingOnce.view(h.state, 'p2').game!;
     expect(v.stage).toBe('auction');
     expect(v.introSkipped).toBe(true);
     expect(keys(h.state)[0]).toBe('skipped');
-    // Lot 1 doesn't send them again.
+    // Skipped before slide 10: lot 1 sends them, once.
     for (const id of game(h).order) expect(game(h).players[id]!.messages).toHaveLength(1);
     expect(h.refuse(HOST, { type: 'skip-intro' }).code).toBe('no-intro');
+  });
+
+  it('sends lot 1’s tips at the tutorial’s slide 10, and not again at lot 1', () => {
+    const h = voicedGame(3);
+    drawEverything(h);
+    const g = game(h);
+    const at = clipTimes(g.host!)[g.host!.clips!.findIndex((c) => c.key === 'first-message')]!;
+    expect(g.firstAt).toBe(at);
+    expect(goingOnce.view(h.state, 'p1').game!.firstAt).toBe(at);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(at);
+    h.tick();
+    expect(h.now).toBe(at);
+    expect(game(h).stage).toBe('intro');
+    for (const id of g.order) expect(game(h).players[id]!.messages).toHaveLength(1);
+    expect(goingOnce.view(h.state, 'p1').mine!.messages[0]!.lot).toBe(0);
+    // The tutorial runs to its end and the lights come up; then lot 1, without a second round.
+    expect(goingOnce.nextDeadline!(h.state)).toBe(game(h).until);
+    const end = clipTimes(g.host!).at(-1)! + g.host!.clips!.at(-1)!.ms;
+    expect(game(h).until).toBeGreaterThanOrEqual(end + TUTORIAL_END_MS);
+    h.tick();
+    expect(game(h).stage).toBe('auction');
+    for (const id of g.order) expect(game(h).players[id]!.messages).toHaveLength(1);
+  });
+
+  it('sends nothing more when the tutorial is skipped after slide 10', () => {
+    const h = voicedGame(3);
+    drawEverything(h);
+    h.tick();
+    h.act('p2', { type: 'skip-intro' });
+    expect(game(h).stage).toBe('auction');
+    for (const id of game(h).order) expect(game(h).players[id]!.messages).toHaveLength(1);
+  });
+
+  it('never sends lot 1’s tips twice in a room saved mid-tutorial by an older release', () => {
+    const h = voicedGame(3);
+    drawEverything(h);
+    // As an older release saved it: the tips already sent at the tutorial's start, no `firstAt`.
+    const s = clone(h.state);
+    const old = s.game!;
+    delete old.firstAt;
+    old.firstSent = true;
+    for (const id of old.order)
+      old.players[id]!.messages.push({
+        id: 900,
+        lot: 0,
+        kind: 'intro',
+        from: 'buyer1',
+        text: 'Hi!',
+      });
+    h.state = s;
+    expect(goingOnce.view(h.state, 'p1').game!.firstAt).toBe(0);
+    h.tick();
+    expect(game(h).stage).toBe('auction');
+    for (const id of old.order) expect(game(h).players[id]!.messages).toHaveLength(1);
   });
 
   it('spares regulars the instructions and the tutorial; nothing at all with the voice off', () => {

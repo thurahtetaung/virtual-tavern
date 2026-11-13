@@ -113,8 +113,9 @@ describe('bots', () => {
         name: `P${i + 1}`,
         color: (['red', 'yellow', 'blue'] as const)[i],
       });
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // past the 3-2-1
     const from = game(h).drawStart;
     expect(from).toBeGreaterThan(h.now);
     expect(look(h, 'p2')).toBeNull();

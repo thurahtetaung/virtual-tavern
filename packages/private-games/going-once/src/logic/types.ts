@@ -53,6 +53,15 @@ export const COMMISSION = 0.5;
 /** Each lot opens with its number and the hints for this long, before the picture goes up. */
 export const LOT_INTRO_MS = 2000;
 
+/**
+ * The tutorial's projector, as the original: it starts half a second after "A few quick words…",
+ * slide 1 (the logo) shows for a second and a little more, then slide 2 comes with the first line.
+ */
+export const PROJECTOR_WAIT_MS = 500;
+export const SLIDE_ONE_MS = 1100;
+/** After the last slide: the projector shuts off and the lights come up before lot 1. */
+export const TUTORIAL_END_MS = 1200;
+
 export const SCREW_PICK_MS = 15_000;
 /** The bank's phone rings first; then the line (the original's 2.2 s ring). */
 export const BANK_RING_MS = 2200;
@@ -448,8 +457,23 @@ export interface Game {
   introSkipped?: boolean;
   /** When the tutorial was skipped (for its sound). */
   introSkippedAt?: number;
-  /** Lot 1's tips went out with the tutorial. */
+  /** Lot 1's tips went out with the tutorial (at its slide 10; at its start in older releases). */
   firstSent?: boolean;
+  /**
+   * When lot 1's tips go out during the tutorial: the start of "you should have your first
+   * message on your device now" (slide 10). Missing in rooms saved before (their tips went out
+   * with the tutorial's start, so `firstSent` is already set).
+   */
+  firstAt?: number;
+  /** Lot 1's tips went out during the tutorial (its slide 10), not with lot 1. */
+  tipsEarly?: boolean;
+  /**
+   * The drawing: when each player's last drawing arrived (the table screen raises their paddle
+   * then); cleared by a redraw. Missing in rooms saved before.
+   */
+  drawDone?: Record<PlayerId, number>;
+  /** When the drawing ended with art in (the paddles go down, the hourglass rises away). */
+  drawEnded?: number;
 }
 
 /** A title group kept for a redraw. */
@@ -580,6 +604,8 @@ export interface PlayerView {
   screw: boolean;
   /** Has sent both drawings (draw stage). */
   drawn: boolean;
+  /** When their last drawing arrived, during the drawing and just after it (0: not yet). */
+  doneAt: number;
   left: boolean;
 }
 
@@ -694,6 +720,15 @@ export interface GameView {
   introSkipped: boolean;
   /** When the tutorial was skipped (0: it wasn't). */
   introSkippedAt: number;
+  /**
+   * The tutorial: when lot 1's tips reach the phones (its slide 10, "you should have your first
+   * message on your device now"); 0 outside it or once they were sent another way.
+   */
+  firstAt: number;
+  /** Lot 1's tips came during the tutorial, so lot 1 opens without the phone's ring. */
+  tipsEarly: boolean;
+  /** When the drawing ended with art in (the tutorial and lot 1 show it ending; 0 otherwise). */
+  drawEnded: number;
   /** This drawing round is the redraw. */
   redraw: boolean;
   /** Each player's paddle shape. */

@@ -175,7 +175,7 @@ const base: GameGuide = {
         'Drawing time: 60, 90 (default) or 120 seconds for both drawings.',
         'Auction pace: Relaxed, Normal (the default) or Fast (the default at 3 players). Relaxed gives 12 seconds after each bid, like the original; Fast suits players who know the game.',
         'Between lots the host can tap Next to skip a wait.',
-        'The spoken how-to comes in a room’s first game only (with the voice on); anyone can skip it.',
+        'The spoken how-to comes in a room’s first game only (with the voice on); anyone can skip it. Your first tip from a buyer arrives during it, when he tells you to check your phone (or with lot 1 if it was skipped before then).',
       ],
     },
     {
@@ -184,7 +184,7 @@ const base: GameGuide = {
       bullets: [
         'The host picks where the sound plays: Off, the host’s device only, or every device (the default), all in time with each other.',
         'Music for each part of the game; effects for every beat, including each player’s own yelp when they bid; and the auctioneer’s voice, off unless the host turns it on.',
-        'With the voice on, every game opens with his welcome while the drawing is already open; the drawing’s clock starts once he has explained it (regulars are spared the explanation). In a room’s first game his short tutorial follows the drawing, and anyone can skip it. He also talks through each lot, the wrap-up after each sale, half-time and the visits from {bank}, and his timing replaces the auction pace.',
+        'With the voice on, every game opens with his welcome while the drawing is already open; the drawing’s clock starts once he has explained it (regulars are spared the explanation). In a room’s first game his short tutorial follows the drawing (on a table screen, with slides on a projector), and anyone can skip it. He also talks through each lot, the wrap-up after each sale, half-time and the visits from {bank}, and his timing replaces the auction pace.',
         'He calls players by their colour (“You’re screwed, yellow!”), so every player is one of his seven colours: red, orange, yellow, green, blue, purple or grey. The words on screen show the player’s dot and name with the colour.',
         'A tip’s ring plays on its own player’s device even when only the host’s device plays the rest.',
         'Sound starts after your first tap. Each player sets their own volume for the music, effects and voice under Sound (in the lobby, and the 🔊 corner during play).',

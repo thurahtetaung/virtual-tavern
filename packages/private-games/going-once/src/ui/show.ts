@@ -17,11 +17,14 @@ import {
 import {
   BEAT,
   FINALE_GAP_MS,
-  RACKUP_BEAT_MS,
+  LOBBY,
+  endBeats,
   endTimes,
   lotOutAt,
+  openingTimes,
   soldBeatsOf,
   soldOutAt,
+  tutorialTimes,
 } from './audio.ts';
 
 // Going Once's show as data: every beat the table screen and the phones animate, built purely from
@@ -68,6 +71,8 @@ export interface ShowCtx {
    * up then; seats already taken when the device arrived are just there.
    */
   joined?: Readonly<Record<string, number>>;
+  /** When this device first showed the lobby (the table screen's lobby opens then). */
+  openedAt?: number;
   /** The rig's mid-track art swaps (the bank's sign turning into the shark's). */
   swaps?: Rig['swaps'];
   /**
@@ -170,10 +175,18 @@ function lotIn(view: GoingOnceView, l: Lot): Moment {
         text(0, `pad:${id}.num`, '', { on: FULL }),
         text(0, `pad:${id}.word`, '', { on: FULL }),
       ]),
+      // The bank's veil lifts as the next lot comes in.
+      dim(0, 0),
       anim(0, 'camera', 'stage.ZoomIn', { on: STAGE }),
       anim(0, 'lot', 'lot.Appear'),
-      anim(phone, 'phone', 'phone.Appear', { on: STAGE }),
-      anim(phone + MS.phoneIn, 'ring', 'ring-d7.Ring', { on: STAGE }),
+      // The tips going out: the phone slides in and rings (not on lot 1 when they came during
+      // the tutorial, as the original's lot 1).
+      ...(a.lot === 0 && g.tipsEarly
+        ? []
+        : [
+            anim(phone, 'phone', 'phone.Appear', { on: STAGE }),
+            anim(phone + MS.phoneIn, 'ring', 'ring-d7.Ring', { on: STAGE }),
+          ]),
       anim(out, 'lot', 'lot.Disappear', { on: STAGE }),
     ],
   };
@@ -200,7 +213,9 @@ function paintingIn(view: GoingOnceView, l: Lot): Moment {
     at: opened,
     steps: [
       anim(0, 'painting', 'painting.Appear'),
-      anim(0, 'phone', 'phone.Disappear', { on: STAGE }),
+      ...(l.lot === 0 && view.game!.tipsEarly
+        ? []
+        : [anim(0, 'phone', 'phone.Disappear', { on: STAGE })]),
       text(0, 'bidLabel.text', 'Opening Bid', { on: STAGE }),
       text(0, 'bidAmount.text', money(OPENING_BID), { on: STAGE }),
       text(0, 'bidPrompt.text', `${money(OPENING_BID)}?`, { on: STAGE }),
@@ -530,33 +545,186 @@ function bank(view: GoingOnceView, ctx: ShowCtx): Moment[] {
 export const BANK_PARTS = ['loans', 'd4', 'tory', 'pred', 'a', 'd35'];
 
 /** The drawing: the hourglass drops in and the sign swings down (each seat's tick is the page's). */
-function drawing(view: GoingOnceView): Moment[] {
+function drawing(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   const g = view.game!;
-  if (g.stage !== 'draw') return [];
+  const o = openingTimes(view);
+  if (!o) return [];
+  const at = (t: number) => Math.max(0, t - g.since);
+  const doodle = (ctx.swaps?.['doodle-d2']?.Appear ?? []).map(([ms, face]) =>
+    set(at(o.signIn) + SIGN_IN_MS + ms, 'doodle', 'data-show', face, { on: STAGE }),
+  );
   return [
     {
       id: `draw:${g.since}`,
       at: g.since,
-      // The sign comes with the stage; the hourglass once its clock starts, after the
-      // instructions (as the original lowers its timer).
       steps: [
-        anim(Math.max(0, g.drawFrom - g.since), 'timer', 'timer.Appear'),
-        anim(MS.sign, 'sign', 'sign.Appear', { on: STAGE }),
-        // The chairs pop up from below with the names (not on a redraw: they are up already).
-        ...(g.redraw
+        // The start, as the original's: the sign, its words and the paddles leave the lobby, the
+        // logo grows to the middle and the chairs pop up from below with the names; the paddles
+        // cascade as the auctioneer teases the guests, and the logo goes as the sign drops in.
+        ...(o.redraw
           ? []
-          : g.order.flatMap((id) => [
-              anim(0, `chair:${id}`, 'seat-d7.Appear', { on: STAGE }),
-              anim(0, `name:${id}.seat`, 'seat-playerName.Appear', { on: STAGE }),
-            ])),
+          : [
+              anim(0, 'easel.stand', 'easel-d1.Disappear', { on: STAGE }),
+              anim(0, 'easel.card', 'easel-content.Disappear', { on: STAGE }),
+              anim(0, 'address', 'address.Disappear', { on: STAGE }),
+              anim(0, 'press', 'pressToPlay.Disappear', { on: STAGE }),
+              ...[0, 1, 2, 3, 4, 5].map((i) =>
+                anim(0, `circle:${i}`, 'circle.Disappear', { on: STAGE }),
+              ),
+              ...g.order.map((id, i) =>
+                anim(0, `leave:${id}`, i % 2 ? 'login.DisappearRight' : 'login.DisappearLeft', {
+                  on: STAGE,
+                }),
+              ),
+              anim(0, 'logo', 'logo.Enlarge', { on: STAGE }),
+              anim(at(o.logoOut), 'logo', 'logo.Disappear', { on: STAGE }),
+              ...g.order.flatMap((id) => [
+                anim(0, `chair:${id}`, 'seat-d7.Appear', { on: STAGE }),
+                anim(0, `name:${id}.seat`, 'seat-playerName.Appear', { on: STAGE }),
+              ]),
+              ...g.order.map((id, i) =>
+                anim(at(o.cascade!) + i * CASCADE_GAP_MS, `pad:${id}`, 'paddle.Cascade', {
+                  on: STAGE,
+                }),
+              ),
+            ]),
+        // The sign drops in and its example draws itself; the line comes with the instructions;
+        // then it rises away as the hourglass drops in.
+        set(0, 'doodle', 'data-show', ctx.swaps?.['doodle-d2']?.Appear?.[0]?.[1] ?? 'doodle-d2', {
+          on: STAGE,
+        }),
+        anim(at(o.signIn), 'sign', 'sign.Appear', { on: STAGE }),
+        ...doodle,
+        anim(at(o.prompt), 'prompt', 'prompt.Appear', { on: STAGE }),
+        anim(at(o.signOut), 'sign', 'sign.Disappear', { on: STAGE }),
+        anim(at(o.signOut), 'prompt', 'prompt.Disappear', { on: STAGE }),
+        anim(at(o.timerIn), 'timer', 'timer.Appear'),
+      ],
+    },
+    // Each player's paddle springs up with a word as their drawings are all in (a moment of its
+    // own: it comes after the drawing's moment has started).
+    ...g.players.flatMap((p): Moment[] =>
+      p.doneAt
+        ? [
+            {
+              id: `draw:${g.since}:done:${p.id}`,
+              at: p.doneAt,
+              steps: [
+                text(0, `pad:${p.id}.word`, DONE_WORDS[variantOf(p.id, 4)]!, { on: STAGE }),
+                anim(0, `pad:${p.id}`, 'paddle.Done', { on: STAGE }),
+              ],
+            },
+          ]
+        : [],
+    ),
+  ];
+}
+
+/** The sign dropping in (the rig's `sign.Appear`): its example starts drawing once it hangs still. */
+const SIGN_IN_MS = 733;
+
+/** The hourglass rising away (the rig's `timer.Disappear`). */
+const TIMER_OUT_MS = 533;
+
+/** What a player's paddle says when their drawings are in (the original's words). */
+export const DONE_WORDS = ['READY!', 'FINISHED!', 'LET’S GO!', 'DONE!'] as const;
+/** The opening's paddle cascade: each paddle a little after the one before (left to right). */
+export const CASCADE_GAP_MS = 100;
+
+/**
+ * The drawing's end, as the tutorial or lot 1 begins (the original's "all paddles down" and the
+ * hourglass rising away).
+ */
+function drawEnd(view: GoingOnceView): Moment[] {
+  const g = view.game!;
+  if (!g.drawEnded) return [];
+  return [
+    {
+      id: `drawEnd:${g.drawEnded}`,
+      at: g.drawEnded,
+      steps: [
+        ...g.players.flatMap((p) =>
+          p.doneAt
+            ? [
+                anim(0, `pad:${p.id}`, 'paddle.DoneOff', { on: STAGE }),
+                text(500, `pad:${p.id}.word`, '', { on: STAGE }),
+              ]
+            : [],
+        ),
+        anim(300, 'timer', 'timer.Disappear', { on: STAGE }),
+        {
+          t: 300 + TIMER_OUT_MS,
+          kind: 'css',
+          target: 'timer.gone',
+          keyframes: [{ opacity: 0 }],
+          ms: 150,
+          on: STAGE,
+        },
       ],
     },
   ];
 }
 
 /**
- * The 3-2-1 after Start: the original's countdown card, its number popping 3, 2, 1 a second
- * apart (the clip's own beats).
+ * The tutorial on the table screen (`tutorialTimes`): the wall darkens, the projector comes on with
+ * the logo slide and the Skip line, each slide slides up through the card with its line, and the
+ * projector shuts off before the lights come up. A skip leaves the stage: the moment settles at
+ * its end (lights up, projector off).
+ */
+function tutorial(view: GoingOnceView): Moment[] {
+  const g = view.game!;
+  const t = tutorialTimes(view);
+  if (!t) return [];
+  const at = (x: number) => Math.max(0, x - g.since);
+  const slide = (n: number, from: number, to: number, when: number): Step => ({
+    t: at(when),
+    kind: 'css',
+    target: `slide:${n}`,
+    keyframes: [
+      { transform: `translate(0px, ${from}px)` },
+      { transform: `translate(0px, ${to}px)` },
+    ],
+    ms: SLIDE_MS,
+    easing: 'ease-in-out',
+    on: STAGE,
+  });
+  return [
+    {
+      id: `tutorial:${g.since}`,
+      at: g.since,
+      steps: [
+        wall(at(t.dark), true, 567),
+        anim(at(t.projector), 'projector.glow', 'tutorial-d1.Appear', { on: STAGE }),
+        anim(at(t.projector), 'projector.dust', 'tutorial-d5.Appear', { on: STAGE }),
+        anim(at(t.projector), 'projector.slides', 'tutorial-slide.Appear', { on: STAGE }),
+        anim(at(t.projector), 'skip', 'skip.Appear', { on: STAGE }),
+        // Slide 1 is up as the projector comes on; each next one pushes the last up and out.
+        slide(1, 0, 0, t.projector),
+        ...t.slides
+          .slice(1)
+          .flatMap((when, i) => [
+            slide(i + 1, 0, -SLIDE_RISE, when),
+            slide(i + 2, SLIDE_RISE, 0, when),
+          ]),
+        anim(at(t.off), 'projector.glow', 'tutorial-d1.Disappear', { on: STAGE }),
+        anim(at(t.off), 'projector.dust', 'tutorial-d5.Disappear', { on: STAGE }),
+        anim(at(t.off), 'projector.slides', 'tutorial-slide.Disappear', { on: STAGE }),
+        anim(at(t.off), 'skip', 'skip.Disappear', { on: STAGE }),
+        wall(at(t.light), false, 567),
+        // Slide 10: the buzz on every phone as lot 1's tips arrive.
+        { t: at(t.buzz), kind: 'haptic', pattern: [200, 100, 200], on: PHONES },
+      ],
+    },
+  ];
+}
+
+/** A slide sliding up through the projector's card: 400 units in 667 ms (the original's strip). */
+export const SLIDE_RISE = 400;
+export const SLIDE_MS = 667;
+
+/**
+ * The 3-2-1 after Start, in the room's sign as the original's: the number takes the card's place
+ * and the card bumps with each one (the clip's own beats).
  */
 function countdown(view: GoingOnceView): Moment[] {
   const g = view.game!;
@@ -566,11 +734,12 @@ function countdown(view: GoingOnceView): Moment[] {
       id: `countdown:${g.since}`,
       at: g.since,
       steps: [
-        text(0, 'countdown.num', '3', { on: STAGE }),
-        anim(0, 'countdown', 'countdown-d1.Countdown', { on: STAGE }),
-        anim(0, 'countdown.numL', 'countdown-num.Countdown', { on: STAGE }),
-        text(1100, 'countdown.num', '2', { on: STAGE }),
-        text(2100, 'countdown.num', '1', { on: STAGE }),
+        text(0, 'easel.num', '3', { on: STAGE }),
+        anim(0, 'easel.card', 'easel-content.Countdown', { on: STAGE }),
+        text(1100, 'easel.num', '2', { on: STAGE }),
+        anim(1100, 'easel.card', 'easel-content.Countdown', { on: STAGE }),
+        text(2100, 'easel.num', '1', { on: STAGE }),
+        anim(2100, 'easel.card', 'easel-content.Countdown', { on: STAGE }),
       ],
     },
   ];
@@ -590,17 +759,27 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   const times = endTimes(view);
   if (!times || !g.final) return [];
   const scale = view.rig?.scale ?? 1;
-  const step = RACKUP_BEAT_MS * scale;
   const out: Moment[] = [];
-  times.groups.forEach((grp) => {
-    const n = grp.items.length;
-    const i = grp.buyer;
-    const last = times.groups[grp.index + 1]?.buyer !== i;
+  // The chairs drop away to show the floor as the end begins (the original's).
+  out.push({
+    id: `end:${g.since}:chairs`,
+    at: g.since,
+    steps: [
+      // The bank's veil lifts (a game can end on a bank visit).
+      dim(0, 0),
+      anim(0, 'camera', 'stage.ZoomOut', { on: STAGE }),
+      ...g.order.flatMap((id) => [
+        anim(0, `endchair:${id}`, 'seat-d7.Disappear', { on: STAGE }),
+        anim(0, `endchair:${id}.name`, 'seat-playerName.Disappear', { on: STAGE }),
+      ]),
+    ],
+  });
+  // Each buyer's paddle and total come up, then their art a group at a time, then they go.
+  times.players.forEach((p, i) =>
     out.push({
-      id: `end:${g.since}:group${grp.index}`,
-      at: grp.at,
+      id: `end:${g.since}:buyer${i}`,
+      at: p.in,
       steps: [
-        ...(grp.index === 0 ? [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })] : []),
         {
           t: 0,
           kind: 'css',
@@ -609,20 +788,37 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
           ms: 200,
           on: STAGE,
         },
+        anim(0, `endtotal:${i}`, 'total-content.Appear', { on: STAGE }),
+        anim(0, `endtotal:${i}.thump`, 'total-score.Appear', { on: STAGE }),
+        anim(p.out - p.in, `endtotal:${i}`, 'total-content.Disappear', { on: STAGE }),
+        anim(p.out - p.in, `endtotal:${i}.thump`, 'total-score.Disappear', { on: STAGE }),
+      ],
+    }),
+  );
+  times.groups.forEach((grp) => {
+    const n = grp.items.length;
+    const i = grp.buyer;
+    const b = endBeats(n);
+    const t = (ms: number) => ms * scale;
+    out.push({
+      id: `end:${g.since}:group${grp.index}`,
+      at: grp.at,
+      steps: [
         text(0, `endtotal:${i}.num`, money(grp.from), { on: STAGE }),
         ...grp.items.flatMap((_, k) => [
           anim(0, `end:${grp.index}:${k}`, `${endTrack(n, k)}.Appear`, { on: STAGE }),
-          anim(MS.endName + k * 120, `end:${grp.index}:${k}.name`, 'endpic-drawingName.NameOn', {
+          anim(t(b.names[k]!), `end:${grp.index}:${k}.name`, 'endpic-drawingName.NameOn', {
             on: STAGE,
           }),
-          anim(MS.endValue + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.ValueOn', {
+          anim(t(b.values), `end:${grp.index}:${k}.price`, 'endpic-price.ValueOn', {
             on: STAGE,
           }),
-          anim(950 + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.Score', { on: STAGE }),
+          anim(t(b.fly), `end:${grp.index}:${k}.price`, 'endpic-price.Score', { on: STAGE }),
+          anim(t(b.out), `end:${grp.index}:${k}`, `${endTrack(n, k)}.Disappear`, { on: STAGE }),
         ]),
-        // The total counts up as the values fly into it.
+        // The total counts up as the values fly into it, and thumps.
         {
-          t: 950,
+          t: t(b.fly),
           kind: 'count',
           target: `endtotal:${i}.num`,
           from: grp.from,
@@ -631,23 +827,7 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
           format: 'money',
           on: STAGE,
         },
-        anim(1300, `endtotal:${i}.thump`, 'total-score.RackUp', { on: STAGE }),
-        ...grp.items.map((_, k) =>
-          anim(step - 450, `end:${grp.index}:${k}`, `${endTrack(n, k)}.Disappear`, { on: STAGE }),
-        ),
-        // The buyer's total stays while more of their art comes up.
-        ...(last
-          ? [
-              {
-                t: step - 300,
-                kind: 'css',
-                target: `endtotal:${i}`,
-                keyframes: [{ opacity: 0 }],
-                ms: 250,
-                on: STAGE,
-              } as Step,
-            ]
-          : []),
+        anim(t(b.thump), `endtotal:${i}.thump`, 'total-score.RackUp', { on: STAGE }),
       ],
     });
   });
@@ -657,7 +837,6 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
     id: `end:${g.since}:finale`,
     at: times.sum,
     steps: [
-      ...(times.groups.length ? [] : [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })]),
       ...times.finale.flatMap((id, i) => [
         text(0, `finale:${id}.score`, money(byId.get(id)!.score + byId.get(id)!.debt), {
           on: STAGE,
@@ -684,6 +863,41 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
             ]
           : [];
       }),
+      // With debts the loan sign comes back for the bite, as the original's.
+      ...(times.debt
+        ? [
+            ...BANK_PARTS.map((p) =>
+              anim(times.bankIn - times.sum, `bank-${p}`, `bank-${p}.Appear2`, { on: STAGE }),
+            ),
+            ...BANK_PARTS.flatMap((p) =>
+              (ctx.swaps?.[`bank-${p}`]?.Appear2 ?? []).map(([ms, face]) =>
+                set(times.bankIn - times.sum + ms, `bank-${p}`, 'data-show', face, { on: STAGE }),
+              ),
+            ),
+            ...BANK_PARTS.map((p) =>
+              anim(times.bankOut - times.sum, `bank-${p}`, `bank-${p}.Disappear`, { on: STAGE }),
+            ),
+          ]
+        : []),
+      // Everyone's totals drop away before the winner comes.
+      ...g.final.map((f) =>
+        anim(times.dismiss - times.sum, `finale:${f.id}`, 'finale-content.Disappear', {
+          on: STAGE,
+        }),
+      ),
+      ...g.final.map((f) =>
+        anim(times.dismiss - times.sum, `finale:${f.id}.scoreL`, 'finale-score.Disappear', {
+          on: STAGE,
+        }),
+      ),
+      ...g.final.map((f) => ({
+        t: times.dismiss - times.sum,
+        kind: 'css' as const,
+        target: `finale:${f.id}.name`,
+        keyframes: [{ opacity: 0 }],
+        ms: 300,
+        on: STAGE,
+      })),
       // Your own total, on your phone.
       ...(ctx.you && g.final.some((f) => f.id === ctx.you)
         ? [{ t: 0, kind: 'haptic', pattern: [15], for: ctx.you, on: PHONES } as Step]
@@ -697,18 +911,6 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
       // The original's WinnerDarken: the wall to 40 % and the round beam coming down in the middle.
       wall(0, true, 367),
       anim(0, 'beam', 'beam.WinnerDarken', { on: STAGE }),
-      ...g.final.map((f) => anim(0, `finale:${f.id}`, 'finale-content.Disappear', { on: STAGE })),
-      ...g.final.map((f) =>
-        anim(0, `finale:${f.id}.scoreL`, 'finale-score.Disappear', { on: STAGE }),
-      ),
-      ...g.final.map((f) => ({
-        t: 0,
-        kind: 'css' as const,
-        target: `finale:${f.id}.name`,
-        keyframes: [{ opacity: 0 }],
-        ms: 300,
-        on: STAGE,
-      })),
       ...g.winners.flatMap((id, i) => [
         anim(300 + i * 100, `win:${id}`, 'winning-content.Appear', { on: STAGE }),
         anim(300 + i * 100, `win:${id}.plate`, 'winning-d9.Appear', { on: STAGE }),
@@ -724,6 +926,41 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
             } as Step,
           ]
         : []),
+    ],
+  });
+  // The winner leaves (the original's `winner-out`: the light goes, the paddle slides down), then
+  // the camera closes in on the credits' projector: the logo, the credits rolling up, and the line
+  // that the host can play again.
+  const away = times.winnerOut - times.winner;
+  out.push({
+    id: `end:${g.since}:credits`,
+    at: times.winner,
+    steps: [
+      anim(away, 'beam', 'beam.WinnerLighten', { on: STAGE }),
+      ...g.winners.map((id): Step => ({
+        t: away - 500,
+        kind: 'css',
+        target: `win:${id}.out`,
+        keyframes: [
+          { transform: 'translate(0px, 0px)', opacity: 1 },
+          { transform: 'translate(0px, 500px)', opacity: 0 },
+        ],
+        ms: 500,
+        easing: 'ease-in',
+        on: STAGE,
+      })),
+      anim(times.credits - times.winner, 'camera', 'stage.ZoomInCredits', { on: STAGE }),
+      anim(times.credits - times.winner, 'credits.card', 'credits-d2.Appear', { on: STAGE }),
+      anim(times.credits - times.winner, 'credits.glow', 'credits-d7.Appear', { on: STAGE }),
+      anim(times.credits - times.winner, 'credits.slide', 'credits-slide.Appear', { on: STAGE }),
+      {
+        t: times.credits - times.winner + 400,
+        kind: 'css',
+        target: 'credits.again',
+        keyframes: [{ opacity: 0 }, { opacity: 1 }],
+        ms: 400,
+        on: STAGE,
+      },
     ],
   });
   return out;
@@ -742,17 +979,48 @@ export function winnersShownAt(view: GoingOnceView): number | null {
   return times ? times.winner + WINNERS_SETTLE_MS : null;
 }
 
-/** Players joining in the lobby: each paddle pops up into the row as its player sits down. */
+/**
+ * The lobby on the table screen, as the original's: once the screen opens it (`openedAt`), the logo
+ * comes up and settles back small, the room's sign drops onto its easel with the join line and the
+ * empty paddle slots; each joiner's paddle springs up in their slot with their name; the "press
+ * Start" bar pops up once enough have joined.
+ */
 function lobby(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   if (view.phase !== 'lobby') return [];
-  return view.seats
-    .filter((s) => s.playing)
-    .map((s) => ({
-      id: `login:${s.id}`,
-      at: ctx.joined?.[s.id] ?? 0,
-      steps: [anim(0, `login:${s.id}`, 'login.Appear', { on: STAGE })],
-    }));
+  const seated = view.seats.filter((s) => s.playing);
+  const out: Moment[] = seated.map((s) => ({
+    id: `login:${s.id}`,
+    at: ctx.joined?.[s.id] ?? 0,
+    steps: [anim(0, `login:${s.id}`, 'login.Appear', { on: STAGE })],
+  }));
+  const open = ctx.openedAt;
+  if (open)
+    out.push({
+      id: `lobby:${open}`,
+      at: open,
+      steps: [
+        anim(0, 'logo', 'logo.Appear', { on: STAGE }),
+        anim(LOBBY.logoBack, 'logo', 'logo.Shrink', { on: STAGE }),
+        anim(LOBBY.sign, 'easel.stand', 'easel-d1.Appear', { on: STAGE }),
+        anim(LOBBY.sign, 'easel.card', 'easel-content.Appear', { on: STAGE }),
+        anim(LOBBY.sign, 'address', 'address.Appear', { on: STAGE }),
+        ...[0, 1, 2, 3, 4, 5].map((i) =>
+          anim(LOBBY.sign + i * 60, `circle:${i}`, 'circle.Appear', { on: STAGE }),
+        ),
+      ],
+    });
+  const third = seated[MIN_TO_START - 1];
+  if (third)
+    out.push({
+      id: `press:${third.id}`,
+      at: Math.max(open ? open + LOBBY.sign : 0, ctx.joined?.[third.id] ?? 0),
+      steps: [anim(0, 'press', 'pressToPlay.Appear', { on: STAGE })],
+    });
+  return out;
 }
+
+/** Players needed to start (the bar asks the host to press Start from then). */
+const MIN_TO_START = 3;
 
 /**
  * Every moment the view calls for on this device, oldest first. Moments are built for every
@@ -761,7 +1029,12 @@ function lobby(view: GoingOnceView, ctx: ShowCtx): Moment[] {
 export function moments(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   const g = view.game;
   if (view.phase === 'lobby' || !g) return lobby(view, ctx);
-  const out: Moment[] = [...countdown(view), ...drawing(view)];
+  const out: Moment[] = [
+    ...countdown(view),
+    ...drawing(view, ctx),
+    ...drawEnd(view),
+    ...tutorial(view),
+  ];
   const l = lotOf(view);
   if (l) {
     out.push(lotIn(view, l));

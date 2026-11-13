@@ -62,7 +62,15 @@ import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
 import { Auction, GO_TABS, GO_TABS_ID, type GoTab, LotLog, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
-import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
+import {
+  Alerts,
+  GoingOnceStyles,
+  HostStrip,
+  PsstBubble,
+  RackUp,
+  useScrewBanner,
+  useBeats,
+} from './Extras.tsx';
 import { Picture } from './Picture.tsx';
 import { type NameOf, statusFor, unquote } from './text.ts';
 import { GoLobbySound, GoSoundButton } from './Sound.tsx';
@@ -218,7 +226,9 @@ export function GoingOnceGame({
                   />
                 </div>
               )}
-              {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
+              {g.stage === 'intro' && (
+                <Intro view={view} room={room} act={act} art={art} name={name} />
+              )}
               {g.introSkipped &&
                 g.stage === 'auction' &&
                 g.auction?.lot === 0 &&
@@ -690,11 +700,31 @@ function IntroSkipped() {
 
 /**
  * The auctioneer's tutorial after the drawing (voiced games, a room's first game), as the original:
- * the words show in the host strip above; anyone at the table can skip it for everyone.
+ * the words show in the host strip above; anyone at the table can skip it for everyone. Lot 1's
+ * tip arrives at its slide 10 ("you should have your first message on your device now"): it shows
+ * at the top, as tips do during the lots, and rings and buzzes.
  */
-function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
+function Intro({
+  view,
+  room,
+  act,
+  art,
+  name,
+}: {
+  view: GoingOnceView;
+  room: GameRoomInfo;
+  act: Act;
+  art: Art;
+  name: NameOf;
+}) {
+  const tip = view.mine?.messages.at(-1);
   return (
     <Panel className="flex flex-col items-center gap-3 text-center" data-testid="go-intro">
+      {tip && tip.lot === 0 && (
+        <div className="w-full text-left" data-testid="go-intro-tip">
+          <PsstBubble message={tip} art={art} name={name} big />
+        </div>
+      )}
       <p className="text-4xl" aria-hidden>
         🎙️
       </p>

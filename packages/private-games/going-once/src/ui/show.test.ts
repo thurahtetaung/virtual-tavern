@@ -34,7 +34,7 @@ import {
   soldMoment,
   winnersShownAt,
 } from './show.ts';
-import { BEAT, endGroups, endTimes } from './audio.ts';
+import { BEAT, endGroups, endTimes, openingTimes } from './audio.ts';
 
 // The show's moments are pure: built from real views (the game's own harness), the same for
 // every device, with only the steps meant for someone personal.
@@ -58,15 +58,19 @@ describe('moments', () => {
     said.game!.drawFrom = said.game!.since + 40_000;
     const voicedDraw = stage(said).find((m) => m.id.startsWith('draw:'))!;
     expect(steps(voicedDraw, 'timer')[0]).toMatchObject({ t: 40_000, track: 'timer.Appear' });
-    expect(steps(voicedDraw, 'sign')[0]).toMatchObject({ t: 300 });
+    // Unvoiced, the sign comes as the logo leaves (the voice's `need-art` line when there is one).
+    expect(steps(voicedDraw, 'sign')[0]).toMatchObject({
+      t: openingTimes(said)!.signIn - said.game!.since,
+    });
   });
 
   it('brings a lot in, then its picture, with stable ids every view', () => {
     const h = auctioning();
     const v = goingOnce.view(h.state, null);
     const list = stage(v);
-    expect(ids(list)).toEqual(['lot0:in', 'lot0:painting']);
-    expect(steps(list[1], 'painting')[0]).toMatchObject({ track: 'painting.Appear' });
+    // Lot 1 follows the drawing: its done paddles go down first.
+    expect(ids(list)).toEqual([`drawEnd:${v.game!.drawEnded}`, 'lot0:in', 'lot0:painting']);
+    expect(steps(list[2], 'painting')[0]).toMatchObject({ track: 'painting.Appear' });
     // Re-built from the same state: the same moments, so nothing replays.
     expect(stage(goingOnce.view(h.state, null))).toEqual(list);
   });
@@ -193,11 +197,7 @@ describe('moments', () => {
     const v = goingOnce.view(h.state, null);
     const count = stage(v).find((m) => m.id.startsWith('countdown:'))!;
     expect(count.at).toBe(v.game!.since);
-    expect(steps(count, 'countdown.num').map((s) => 'text' in s && s.text)).toEqual([
-      '3',
-      '2',
-      '1',
-    ]);
+    expect(steps(count, 'easel.num').map((s) => 'text' in s && s.text)).toEqual(['3', '2', '1']);
     h.tick();
     const draw = stage(goingOnce.view(h.state, null)).find((m) => m.id.startsWith('draw:'))!;
     for (const id of ['p1', 'p2', 'p3'])
@@ -325,8 +325,13 @@ describe('moments', () => {
       expect(steps(winner, `win:${id}`)).toHaveLength(1);
       expect(steps(winner, `win:${id}.plate`)).toHaveLength(1);
     }
+    // Everyone's totals leave before the winner comes (`dismiss`).
     for (const id of times.finale)
-      expect(steps(winner, `finale:${id}.name`)[0]).toMatchObject({ keyframes: [{ opacity: 0 }] });
+      expect(steps(finale, `finale:${id}.name`).at(-1)).toMatchObject({
+        t: times.dismiss - times.sum,
+        keyframes: [{ opacity: 0 }],
+      });
+    expect(times.winner).toBeGreaterThan(times.dismiss);
   });
 
   it('groups a buyer’s drawings in threes and twos, never one alone', () => {

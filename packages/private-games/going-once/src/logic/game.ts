@@ -51,6 +51,9 @@ import {
   LOAN_CASH,
   LOAN_DEBT,
   LOT_INTRO_MS,
+  PROJECTOR_WAIT_MS,
+  SLIDE_ONE_MS,
+  TUTORIAL_END_MS,
   type LogEntry,
   MAX_BANK_CALLS,
   MAX_LOANS,
@@ -388,6 +391,7 @@ function endDraw(s: GoingOnceState, now: number, rng: Rng) {
     host(s, rng, now, { text: ['no-drawings'], voice: ['no-art-end'] }, true);
     return;
   }
+  g.drawEnded = now;
   const missing = Object.values(g.items).some((i) => i.drawer && !i.drawing);
   const wish = wishLists(g.order, g.items, rng, s.rig?.fixed);
   for (const id of g.order) g.players[id]!.wish = wish[id] ?? [];
@@ -407,6 +411,7 @@ function redeal(s: GoingOnceState, groups: [TitleGroupRef, TitleGroupRef], now: 
   g.prompts = dealt.prompts;
   g.redraws += 1;
   g.spares = null;
+  g.drawDone = {};
   g.nudges = 0;
   g.since = now;
   startDrawClock(s, now);
@@ -686,7 +691,9 @@ function draw(
   if (!check.ok) return err(check.code, check.message);
   item.drawing = check.drawing;
   item.artist = by;
-  if (drawWaiting(g).length === 0) endDraw(s, now, rng);
+  const waiting = drawWaiting(g);
+  if (!waiting.includes(by)) g.drawDone = { ...g.drawDone, [by]: now };
+  if (waiting.length === 0) endDraw(s, now, rng);
   return null;
 }
 
@@ -1056,15 +1063,16 @@ function startDrawClock(s: GoingOnceState, at: number) {
 }
 
 /**
- * The auctioneer's tutorial, as the original: after the drawing, in a voiced room's first game;
- * lot 1's tips go out with it ("you should have your first message now"). Anyone can skip it.
+ * The auctioneer's tutorial, as the original: after the drawing, in a voiced room's first game.
+ * The projector comes on after "A few quick words…" and shows its logo slide before the first line
+ * (`PROJECTOR_WAIT_MS`, `SLIDE_ONE_MS`); lot 1's tips go out at slide 10, as he says "you should
+ * have your first message on your device now" (`firstAt`, sent by its deadline). Anyone can skip it.
  */
 function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
   const g = s.game!;
   const n = g.order.length;
   enter(g, 'intro', now);
-  sendHints(s, rng, 0);
-  g.firstSent = true;
+  g.firstSent = false;
   const ms = speak(
     s,
     rng,
@@ -1072,6 +1080,7 @@ function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
     [
       ...lead.voice,
       'tutorial-start',
+      { wait: PROJECTOR_WAIT_MS + SLIDE_ONE_MS },
       `auction-count-${n}`,
       'worth-a-lot',
       'worth-less',
@@ -1086,7 +1095,18 @@ function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
     ],
     true,
   );
-  g.until = now + ms + 500;
+  const clips = g.host?.clips ?? [];
+  const at = clipTimes(g.host ?? {})[clips.findIndex((c) => c.key === 'first-message')];
+  g.firstAt = at ?? now;
+  g.until = now + ms + TUTORIAL_END_MS;
+}
+
+/** Lot 1's tips at the tutorial's slide 10 (not when it was skipped first: lot 1 sends them). */
+function sendFirstTips(s: GoingOnceState, rng: Rng) {
+  const g = s.game!;
+  sendHints(s, rng, 0);
+  g.firstSent = true;
+  g.tipsEarly = true;
 }
 
 /** After the drawing (and the tutorial): lot 1, as the original. */
@@ -1328,6 +1348,9 @@ export function nextDeadline(state: GoingOnceState): number | null {
   // A room saved mid-practice-lot by an older release: due at once (lot 1 follows).
   if (g.stage === 'practice') return 0;
   if (g.stage === 'done') return null;
+  // The tutorial's slide 10: lot 1's tips go out first.
+  if (g.stage === 'intro' && !g.firstSent && g.firstAt !== undefined)
+    return Math.min(g.firstAt, g.until);
   if (g.stage === 'draw') {
     // The host's nudges at half time and with ten seconds left come first.
     const t = drawTimes(state, g.drawStart);
@@ -1345,7 +1368,8 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
   const rng = hiddenRng(state, now);
   switch (g.stage) {
     case 'intro':
-      afterDrawing(s, now, rng);
+      if (!g.firstSent && g.firstAt !== undefined && now < g.until) sendFirstTips(s, rng);
+      else afterDrawing(s, now, rng);
       break;
     case 'draw':
       if (due < g.until) {
