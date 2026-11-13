@@ -318,9 +318,7 @@ function InGame({
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
-        {/* At the end on wide screens the finale panel says how it ended, so the last
-            guess's banner gives way to the key. */}
-        {result && !(wide && view.phase === 'over') && (
+        {result && (
           <ResultBanner
             key={view.log.length}
             result={result}
