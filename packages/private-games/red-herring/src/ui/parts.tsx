@@ -11,6 +11,7 @@ import {
   RefusalSlot,
   StickyBar,
   type ViewerItem,
+  TAP_BAND,
   cn,
   useConfirm,
 } from '@vt/ui';
@@ -255,6 +256,8 @@ export function Table({
   const color = (id: string) => room.players.find((p) => p.id === id)?.color;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const active = focus ?? r.turn;
+  // Desktops: while cards are being laid the table has the height to spare, so they grow with it.
+  const laying = r.stage === 'card' || r.stage === 'play';
   return (
     <section aria-label="The table" data-testid="rh-table">
       {/* Phones: the laps take what the screen has left and scroll inside it. */}
@@ -296,14 +299,17 @@ export function Table({
                     offline={offline(id)}
                     className="min-w-0 flex-1"
                   />
-                  {left.has(id) && <span className="text-[11px] text-ink-muted">away</span>}
+                  {left.has(id) && <span className="text-xs text-ink-muted">away</span>}
                   {id !== you && id !== r.picker && (
                     <button
                       type="button"
                       onClick={() => {
                         cycle(id);
                       }}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel"
+                      className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel',
+                        TAP_BAND,
+                      )}
                       aria-label={`Your private mark on ${name(id)}: ${mark ?? 'none'}`}
                       title="Your private mark (only you see it)"
                     >
@@ -315,7 +321,7 @@ export function Table({
                   className={cn(
                     'grid grid-cols-2 gap-1',
                     many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
-                    'lg:max-w-[12rem]',
+                    laying ? 'lg:max-w-[clamp(12rem,30vh,18rem)]' : 'lg:max-w-[12rem]',
                   )}
                 >
                   {([1, 2] as const).map((lap) => {
@@ -393,7 +399,14 @@ export function HandStrip({
       <p className="mb-1 px-1 text-xs font-semibold">
         {canPlay ? 'Your hand: tap a card to look, then play it' : 'Your hand (only you see it)'}
       </p>
-      <ul className="grid grid-cols-6 gap-1 lg:max-w-xl">
+      <ul
+        className={cn(
+          'grid grid-cols-6 gap-1',
+          r.stage === 'card' || r.stage === 'play'
+            ? 'lg:max-w-[clamp(36rem,90vh,52rem)]'
+            : 'lg:max-w-xl',
+        )}
+      >
         {hand.map((c, i) => (
           <li key={c}>
             <Card
