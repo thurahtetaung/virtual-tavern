@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.103.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.102.0...v0.103.0) (2026-11-13)
+
+
+### Features
+
+* a tidier drawing screen, Going Once drawing waits for the auctioneer, and bots bid early ([#586](https://github.com/thurahtetaung/virtual-tavern/issues/586)) ([dd8b6c3](https://github.com/thurahtetaung/virtual-tavern/commit/dd8b6c362ae3cef3ad3050ee14dace49690cc361))
+
 ## [0.102.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.4...v0.102.0) (2026-11-13)
 
 
