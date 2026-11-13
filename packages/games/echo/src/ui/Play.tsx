@@ -215,7 +215,11 @@ function GuesserClues({ turn }: { turn: TurnView }) {
             className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 ring-1 ring-accent-line"
           >
             {turn.clues.map((c, i) => (
-              <Row key={i} className="justify-center text-heading font-bold">
+              // In the display face, larger on wide screens: the clues are the guesser's stage.
+              <Row
+                key={i}
+                className="justify-center font-display text-heading font-bold lg:min-h-16 lg:text-title"
+              >
                 {c.text}
               </Row>
             ))}
