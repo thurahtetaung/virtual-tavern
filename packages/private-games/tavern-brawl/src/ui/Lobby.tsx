@@ -102,12 +102,8 @@ function SetFilter({
     if (next.length > 0) void act({ type: 'update-settings', sets: next }, { anchor: 'tb-heroes' });
   };
   return (
-    <div
-      className="flex flex-wrap items-center gap-1.5"
-      role="group"
-      aria-label="Random picks from"
-    >
-      <span className="text-xs text-ink-muted">🎲 picks from:</span>
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Random picks from">
+      <span className="text-sm text-ink-muted">🎲 picks from:</span>
       {SET_IDS.map((id) => (
         <button
           key={id}
@@ -116,10 +112,11 @@ function SetFilter({
           aria-pressed={on.includes(id)}
           onClick={() => toggle(id)}
           className={cn(
-            'min-h-8 rounded-full px-3 text-xs font-semibold ring-1',
+            // The lobbies' 44 px choice, the picked ones ringed in the accent.
+            'min-h-11 rounded-lg px-3.5 text-sm font-semibold ring-1 disabled:cursor-default',
             on.includes(id)
-              ? 'bg-accent-soft text-accent-text ring-accent-line'
-              : 'bg-card text-ink-muted ring-line',
+              ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+              : 'bg-card text-ink-2 ring-line enabled:hover:bg-sunk',
           )}
         >
           {on.includes(id) ? '✓ ' : ''}

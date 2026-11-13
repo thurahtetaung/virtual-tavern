@@ -10,6 +10,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  cn,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo } from 'react';
 import type { TavernBrawlAction, TavernBrawlView } from '../logic/types.ts';
@@ -111,10 +112,11 @@ function End({
   const card = (id: string | null) => (id ? art.card(id) : null);
   return (
     <Panel className="mx-auto flex w-full max-w-3xl flex-col gap-3" style={heroVars(hero)}>
-      <div className="flex items-center gap-3">
-        {hero && <Portrait hero={hero} art={art} size={64} />}
+      {/* The finale: the winner's hero large in their own colour, the line under it. */}
+      <div className="flex flex-col items-center gap-2 pt-1 text-center">
+        {hero && <Portrait hero={hero} art={art} size={128} className="shadow-vt-2 ring-4" />}
         <div className="min-w-0">
-          <h2 className="text-xl font-black">{status.text}</h2>
+          <h2 className="font-display text-2xl font-black sm:text-3xl">{status.text}</h2>
           {hero && (
             <p className="text-sm text-ink-muted">
               {art.hero(hero)} is the last one standing after {g.turn.number} turns.
@@ -124,6 +126,41 @@ function End({
       </div>
       <EndTabs
         tabs={[
+          {
+            id: 'players',
+            label: '❤️ Players',
+            content: (
+              // Standings: who is still up first, each with their hero's portrait.
+              <ul className="grid gap-2 sm:grid-cols-2" aria-label="Final hit points">
+                {[...g.players]
+                  .sort((a, b) => Number(a.out) - Number(b.out) || b.hp - a.hp)
+                  .map((p) => (
+                    <li
+                      key={p.id}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-xl bg-panel px-2.5 py-2 ring-1 ring-line dark:ring-0',
+                        p.out && 'opacity-75',
+                      )}
+                      style={heroVars(p.hero)}
+                    >
+                      <Portrait hero={p.hero} art={art} size={44} />
+                      <span className="min-w-0 flex-1 text-sm">
+                        <span className="flex items-center gap-1 font-semibold">
+                          <NameDot name={p.name} />
+                          {name(p.id)}
+                          {g.winners.includes(p.id) && <span aria-label="winner">🏆</span>}
+                        </span>
+                        <span className="block text-ink-muted">
+                          {art.hero(p.hero)}
+                          {!p.out && ` · ${p.hp} hit points left`}
+                        </span>
+                      </span>
+                      <HpDial hp={p.hp} size={34} out={p.out} />
+                    </li>
+                  ))}
+              </ul>
+            ),
+          },
           kos.length > 0 && {
             id: 'knockouts',
             label: '💥 KOs',
@@ -143,29 +180,6 @@ function End({
                   ))}
                 </ol>
               </section>
-            ),
-          },
-          {
-            id: 'players',
-            label: '❤️ Players',
-            content: (
-              <ul className="flex flex-wrap gap-2" aria-label="Final hit points">
-                {g.players.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:ring-0"
-                  >
-                    <HpDial hp={p.hp} size={30} out={p.out} />
-                    <span className="inline-flex items-center gap-1 text-sm">
-                      <span>
-                        <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
-                        {!p.out && ` · ${p.hp} hit points left`}
-                      </span>
-                      <NameDot name={p.name} className="order-first" />
-                    </span>
-                  </li>
-                ))}
-              </ul>
             ),
           },
           !!room.superlatives?.length && {
