@@ -89,7 +89,7 @@ export function LobbyPitch({
   title: ReactNode;
   /** The one-line pitch, and anything small that belongs with it. */
   children?: ReactNode;
-  /** The game's art, sized by the slot (64 px phones, 112 px wide screens). */
+  /** The game's art, sized by the slot (64 px phones, 144 px wide screens). */
   art?: ReactNode;
   /** An emoji for a game without art. */
   emblem?: ReactNode;
@@ -114,31 +114,36 @@ export function LobbyPitch({
         />
       </div>
     );
-    artClassName = cn('w-28 sm:w-36 lg:w-48', artClassName);
+    artClassName = cn('w-28 sm:w-36 lg:w-60', artClassName);
   }
   return (
     <section
       data-ui="lobby-pitch"
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-vt-1 sm:p-5',
+        'vt-lobby-pitch relative overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-vt-1 sm:p-5 lg:p-6',
         className,
       )}
     >
-      <div className="flex items-center gap-4 lg:gap-5">
+      <div className="flex items-center gap-4 lg:gap-6">
         {art ? (
-          <div className={cn('w-16 shrink-0 sm:w-20 lg:w-28', artClassName)}>{art}</div>
+          <div className={cn('w-16 shrink-0 sm:w-20 lg:w-36', artClassName)}>{art}</div>
         ) : (
           emblem && (
             <div
               aria-hidden
-              className="grid size-16 shrink-0 place-items-center rounded-xl bg-sunk text-4xl lg:size-20 lg:text-5xl"
+              className="grid size-16 shrink-0 place-items-center rounded-xl bg-sunk text-4xl lg:size-24 lg:text-6xl"
             >
               {emblem}
             </div>
           )
         )}
         <div className="min-w-0 space-y-1">
-          <h2 className={cn('font-display text-title font-semibold text-ink', titleClassName)}>
+          <h2
+            className={cn(
+              'font-display text-title font-semibold text-ink lg:text-[2.5rem] lg:leading-tight',
+              titleClassName,
+            )}
+          >
             {title}
           </h2>
           {children && <div className="text-small text-ink-2 lg:text-body">{children}</div>}

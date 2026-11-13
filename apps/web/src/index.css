@@ -434,6 +434,10 @@
 /* The finale (@vt/ui EndHero): a card lit from above by the lamp, ember for a win, danger for a
    shared loss. The light fades into `card` well before the title, so every text sits on a measured
    surface (accent-soft / danger-soft at the top, card below). */
+/* A lobby's pitch card sits under a corner of lamplight, as the finale does under its own. */
+.vt-lobby-pitch {
+  background-image: radial-gradient(80% 130% at 0% 0%, var(--vt-lamp), transparent 70%);
+}
 .vt-end-hero {
   background-color: var(--vt-card);
   background-image:
