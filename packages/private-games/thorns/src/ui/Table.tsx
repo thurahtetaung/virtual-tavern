@@ -108,7 +108,7 @@ function Mat({
         {chip && (
           <span
             className={cn(
-              'shrink-0 rounded-full px-1.5 text-[11px] font-semibold ring-1',
+              'shrink-0 rounded-full px-1.5 text-xs font-semibold ring-1',
               chip === 'Challenger'
                 ? 'bg-accent-soft text-accent-text ring-accent-line'
                 : 'bg-panel text-ink-muted ring-line',
@@ -416,7 +416,7 @@ export function Table(props: TableProps) {
   const shown: PlayTab | null = tabbed ? tab : null;
   const move = hasMove(view, room.you);
   const strict = view.settings.timerMode === 'strict';
-  const flipping = r.stage === 'flip' && r.challenger === room.you;
+  const flipping = playing && r.stage === 'flip' && r.challenger === room.you;
   const targets = useMemo(() => {
     if (!flipping) return new Set<string>();
     const me = g.players.find((p) => p.id === room.you)!;
