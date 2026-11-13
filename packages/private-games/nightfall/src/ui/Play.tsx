@@ -20,7 +20,14 @@ import {
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  type ReactNode,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -468,15 +475,35 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
  * Your starting card, Mark and artifact: covered until you hold or Show, like the card at the deal,
  * so a phone left face up on the table says nothing about you.
  */
-function MySecrets({ children }: { children: ReactNode }) {
+/**
+ * Your card and Mark behind a hold. At night (`big`) the cover is the card back itself, the art the
+ * ready screen showed; by day it's a slim strip with a small back, on the theme's own card surface.
+ */
+function MySecrets({
+  deck,
+  big = false,
+  children,
+}: {
+  deck: Deck;
+  big?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div data-testid="my-secrets" className="w-full">
       <Peek
         what="your card"
         cover={
-          <span className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
-            <span aria-hidden>🂠</span> Hold to see your card
-          </span>
+          big ? (
+            <span className="flex flex-col items-center gap-2 text-sm font-semibold text-stone-100">
+              <CardBack deck={deck} size="md" className="shadow-vt-3 lg:w-44 lg:rounded-xl" />
+              Hold to see your card
+            </span>
+          ) : (
+            <span className="flex min-h-11 items-center justify-center gap-2.5 rounded-xl bg-card px-3 py-1.5 text-sm font-semibold text-ink shadow-vt-1 ring-1 ring-line">
+              <CardBack deck={deck} className="w-6 rounded-[3px] shadow-none" />
+              Hold to see your card
+            </span>
+          )
         }
       >
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">{children}</div>
@@ -833,13 +860,23 @@ function NightClock({
  * chosen theme, so no light strip glows around the night screen. The theme comes back at daybreak.
  */
 function useDarkNight() {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
-    const before = root.dataset.theme;
-    root.dataset.theme = 'dark';
+    let before = root.dataset.theme;
+    const force = () => {
+      if (root.dataset.theme !== 'dark') {
+        before = root.dataset.theme;
+        root.dataset.theme = 'dark';
+      }
+    };
+    force();
+    // The site's theme switch sets it again as the page settles (and when the device's theme
+    // changes): the night stays dark until daybreak.
+    const watch = new MutationObserver(force);
+    watch.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
     return () => {
-      // Leave it alone if the theme was changed during the night.
-      if (root.dataset.theme === 'dark' && before !== undefined) root.dataset.theme = before;
+      watch.disconnect();
+      if (before !== undefined) root.dataset.theme = before;
     };
   }, []);
 }
@@ -886,7 +923,7 @@ export function Night({
         acting
           ? // Your turn takes the whole screen, lit up, so nobody sleeps through it.
             'fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-indigo-950 text-indigo-50'
-          : '-mx-4 -my-4 min-h-[70dvh] space-y-3 bg-stone-950 px-4 py-4 text-stone-300 sm:mx-0 sm:my-0 sm:rounded-2xl',
+          : '-mx-4 -my-4 flex min-h-[70dvh] flex-col bg-stone-950 px-4 py-4 text-stone-300 sm:mx-0 sm:my-0 sm:rounded-2xl lg:min-h-[calc(100dvh-12rem)]',
       )}
       data-testid={acting ? 'night-acting' : 'night-idle'}
     >
@@ -916,7 +953,12 @@ export function Night({
           </p>
         </div>
       )}
-      <div className={cn('space-y-3', acting && 'mx-auto max-w-xl px-4 py-4')}>
+      <div
+        className={cn(
+          'space-y-3',
+          acting ? 'mx-auto max-w-xl px-4 py-4' : 'flex flex-1 flex-col [&>*:last-child]:mt-auto',
+        )}
+      >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">
             {night.index < 0 ? 'Night falls…' : `Step ${night.index + 1} of ${night.count}`}
@@ -1067,11 +1109,11 @@ export function Night({
             <Announcements list={said} view={view} deck={deck} light />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <span aria-hidden className="text-6xl">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
+            <span aria-hidden className="text-6xl lg:text-7xl">
               {view.myRole ? '🌕' : '👀'}
             </span>
-            <p className="font-serif text-2xl text-stone-100">
+            <p className="font-serif text-2xl text-stone-100 lg:text-4xl">
               {view.myRole ? 'Night has fallen…' : 'You’re watching the night'}
             </p>
             <p className="text-sm" data-testid="idle-hint">
@@ -1080,7 +1122,7 @@ export function Night({
                 : status.text}
             </p>
             {view.myRole && (
-              <MySecrets>
+              <MySecrets deck={deck} big>
                 <MyCardChip view={view} deck={deck} />
                 <MyMark view={view} deck={deck} />
               </MySecrets>
@@ -1344,7 +1386,7 @@ export function Day({
         <div ref={tablePanel} className="max-sm:overflow-y-auto max-sm:overscroll-contain">
           <Panel className="space-y-3">
             {playing && view.myRole && (
-              <MySecrets>
+              <MySecrets deck={deck}>
                 <MyCardChip view={view} deck={deck} />
                 <MyMark view={view} deck={deck} />
                 {myArtifact?.kind === 'artifact' && (
@@ -1863,7 +1905,39 @@ export function Reveal({
             ? wonLines.map((t) => teamOutcome(t.team, true)).join(' · ')
             : 'Nobody wins'
         }
-        emblem={wonLines.length ? '🏆' : '🌑'}
+        emblem={result.winners.length ? null : '🌑'}
+        // The winners' cards as they ended the night: the result in the game's own art.
+        art={
+          result.winners.length > 0 &&
+          view
+            .table!.filter((p) => result.winners.includes(p.id))
+            .map((p) => (
+              <figure
+                key={p.id}
+                className="flex flex-col items-center gap-1"
+                data-testid="end-winner-card"
+              >
+                <CardFace
+                  role={reveal.cards[p.id]!.role}
+                  deck={deck}
+                  size={wide ? 'lg' : 'sm'}
+                  // Many winners (a whole village) get smaller cards, so the finale stays one or two rows.
+                  className={
+                    result.winners.length > 4
+                      ? wide
+                        ? 'w-28'
+                        : 'w-12'
+                      : wide
+                        ? 'w-36'
+                        : 'w-[4.5rem]'
+                  }
+                />
+                <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">
+                  {p.name}
+                </figcaption>
+              </figure>
+            ))
+        }
         // The viewer's own result lights the card; watchers get the quiet lamp.
         tone={!meSeated ? 'neutral' : result.winners.includes(me) ? 'win' : 'loss'}
         superlatives={wide ? room.superlatives : undefined}

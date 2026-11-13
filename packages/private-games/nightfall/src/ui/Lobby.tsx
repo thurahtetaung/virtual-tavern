@@ -226,13 +226,13 @@ function RoleTile({
         {TEAM_LABEL[ROLES[role].team]}
       </span>
       {editable ? (
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             aria-label={`One less ${deck.name(role)}`}
             disabled={count === 0}
             onClick={() => onChange(count - 1)}
-            className="size-11 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
+            className="size-11 shrink-0 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
           >
             −
           </button>
@@ -242,7 +242,7 @@ function RoleTile({
             aria-label={`One more ${deck.name(role)}`}
             disabled={count >= max}
             onClick={() => onChange(count + 1)}
-            className="size-11 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
+            className="size-11 shrink-0 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
           >
             +
           </button>
