@@ -1247,23 +1247,18 @@ export function ScoreRows({
   you: string;
 }) {
   const sorted = [...rows].sort((x, y) => y.points - x.points);
+  // Phones: your own breakdown in full, everyone else's folded to the total (a tap opens it), so
+  // the whole table fits above the Ready bar.
+  const wide = useWideScreen();
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
-      {sorted.map((r, i) => (
-        <li
-          key={r.id}
-          className={cn(
-            'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line',
-            r.id === you && 'ring-2 ring-accent',
-          )}
-          style={{ animationDelay: `${i * 120}ms` }}
-        >
-          <p className="flex justify-between font-semibold">
-            <span>{name(r.id)}</span>
-            <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>
-              {r.points} {Math.abs(r.points) === 1 ? 'point' : 'points'}
-            </span>
-          </p>
+      {sorted.map((r, i) => {
+        const total = (
+          <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>
+            {r.points} {Math.abs(r.points) === 1 ? 'point' : 'points'}
+          </span>
+        );
+        const parts = (
           <ul className="text-sm">
             {r.parts.map((p, j) => (
               <li key={j} className="flex justify-between gap-2">
@@ -1275,8 +1270,36 @@ export function ScoreRows({
             ))}
             {!r.parts.length && <li className="text-ink-muted">Nothing scored</li>}
           </ul>
-        </li>
-      ))}
+        );
+        return (
+          <li
+            key={r.id}
+            className={cn(
+              'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line',
+              r.id === you && 'ring-2 ring-accent',
+            )}
+            style={{ animationDelay: `${i * 120}ms` }}
+          >
+            {wide || r.id === you ? (
+              <>
+                <p className="flex justify-between font-semibold">
+                  <span>{name(r.id)}</span>
+                  {total}
+                </p>
+                {parts}
+              </>
+            ) : (
+              <details className="group">
+                <FoldSummary className="-my-2 min-h-11 justify-between px-0 text-body font-semibold">
+                  <span className="flex-1">{name(r.id)}</span>
+                  {total}
+                </FoldSummary>
+                <div className="pt-1">{parts}</div>
+              </details>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
