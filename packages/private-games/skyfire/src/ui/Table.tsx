@@ -366,7 +366,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
+                  className="relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14 lg:w-16"
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
@@ -435,6 +435,7 @@ function Teammates({
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const others = othersOf(g, room.you);
   const width = Math.max(...others.map((id) => g.hands[id]!.length), 4);
+  const wide = useWideScreen();
   return (
     <ul
       aria-label="The other hands"
@@ -478,7 +479,8 @@ function Teammates({
               style={{
                 // Each card takes its share of the row, capped by the screen's height: larger with
                 // two or three hands, smaller with four so they fit (the tap band keeps 44 px).
-                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, ${others.length >= 4 ? 4.4 : 6.5}dvh)))`,
+                // Wide screens with two or three hands give them a little more (the width is there).
+                gridTemplateColumns: `repeat(${width}, minmax(0, ${others.length >= 4 ? 'min(5rem, 4.4dvh)' : wide ? 'min(6rem, 8dvh)' : 'min(5rem, 6.5dvh)'}))`,
               }}
             >
               {hand.map((s) => {
@@ -836,7 +838,7 @@ function MyHand({
         {reactions}
       </div>
       <div
-        className="grid gap-1.5 [--sf-hand-card:3.75rem] sm:[--sf-hand-card:4.75rem]"
+        className="grid gap-1.5 [--sf-hand-card:3.75rem] sm:[--sf-hand-card:4.75rem] lg:gap-2 lg:[--sf-hand-card:min(6.5rem,10.5dvh)]"
         style={{
           gridTemplateColumns: `repeat(${Math.max(hand.length, 4)}, minmax(0, var(--sf-hand-card)))`,
           touchAction: 'pan-y',

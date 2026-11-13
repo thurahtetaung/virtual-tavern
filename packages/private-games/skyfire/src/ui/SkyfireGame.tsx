@@ -10,6 +10,7 @@ import {
   Button,
   EndHero,
   EndTabs,
+  FoldSummary,
   GuideLink,
   Hint,
   LobbySettings,
@@ -30,7 +31,14 @@ import {
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { type MultiMode, RATING_LINE, maxScore, ratingOf } from '../logic/cards.ts';
+import {
+  type MultiMode,
+  RATING_LINE,
+  type Rank,
+  SUIT_SYMBOL,
+  maxScore,
+  ratingOf,
+} from '../logic/cards.ts';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -263,7 +271,7 @@ function Choice<T extends string>({
               if (editable) onChange(o);
             }}
             className={cn(
-              'rounded-lg px-3 py-1.5 text-sm font-semibold ring-1',
+              'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1',
               value === o ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
               !editable && 'cursor-default',
             )}
@@ -511,6 +519,32 @@ function End({
           </span>
         }
         tone={lost || rating === 'Lost' ? 'loss' : 'success'}
+        // The show itself: each firework's top card as it ended.
+        art={
+          <ul aria-label="The fireworks" className="flex flex-wrap justify-center gap-2 lg:gap-3">
+            {g.suits.map((suit) => {
+              const h = g.fireworks[suit] ?? 0;
+              const top = h ? ((suit === 'black' ? 6 - h : h) as Rank) : null;
+              return (
+                <li key={suit} className="flex w-12 flex-col items-center gap-1 sm:w-16 lg:w-24">
+                  {top ? (
+                    <CardFace
+                      card={{ suit, rank: top }}
+                      art={art}
+                      size="row"
+                      className={cn('shadow-vt-2', h === 5 && 'ring-2 ring-warn-line')}
+                    />
+                  ) : (
+                    <span className="flex aspect-[5/7] w-full items-center justify-center rounded-md text-lg text-ink-muted ring-2 ring-line ring-dashed">
+                      {SUIT_SYMBOL[suit]}
+                    </span>
+                  )}
+                  <span className="text-caption tabular-nums text-ink-muted">{h}/5</span>
+                </li>
+              );
+            })}
+          </ul>
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
@@ -572,10 +606,10 @@ function End({
               id: 'replay',
               label: '⏪ Replay',
               content: (
-                <details className="rounded-xl bg-card p-2 ring-1 ring-line" open>
-                  <summary className="cursor-pointer text-sm font-semibold">
+                <details className="group rounded-xl bg-card p-2 ring-1 ring-line" open>
+                  <FoldSummary className="px-2 font-semibold">
                     Replay: every turn, every hand face up
-                  </summary>
+                  </FoldSummary>
                   <div className="mt-2">
                     <Replay view={view} you={room.you} art={art} name={name} />
                   </div>

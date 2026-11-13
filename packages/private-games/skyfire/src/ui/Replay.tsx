@@ -96,7 +96,8 @@ export function Replay({
             </span>
             <span
               className="grid gap-1"
-              style={{ gridTemplateColumns: 'repeat(5, minmax(0, 2.5rem))' }}
+              // 44 px wide at least: every card is a tap target.
+              style={{ gridTemplateColumns: 'repeat(5, minmax(0, 2.75rem))' }}
             >
               {(hands[id] ?? []).map((cid) => {
                 const c = r.cards[cid];

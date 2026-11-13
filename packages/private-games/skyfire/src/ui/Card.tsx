@@ -28,14 +28,14 @@ export type CardSize = 'hand' | 'row' | 'stack' | 'mini';
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
   row: 'aspect-[5/7] w-full',
-  stack: 'aspect-[5/7] w-10 sm:w-14',
+  stack: 'aspect-[5/7] w-10 sm:w-14 lg:w-16',
   mini: 'aspect-[5/7] w-6',
 };
 
 const DIGIT: Record<CardSize, string> = {
   hand: 'text-[clamp(1.25rem,7vw,2.25rem)]',
   row: 'text-[clamp(1rem,5.5vw,1.9rem)]',
-  stack: 'text-xl sm:text-2xl',
+  stack: 'text-xl sm:text-2xl lg:text-3xl',
   mini: 'text-xs',
 };
 
