@@ -164,6 +164,7 @@ export function LobbyStart({
   blocker = null,
   busy = false,
   secondary,
+  inline = false,
   refusal,
   refusalKey,
   testId,
@@ -175,6 +176,8 @@ export function LobbyStart({
   busy?: boolean;
   /** Quiet buttons that belong with Start (Shuffle teams, Random for everyone). */
   secondary?: ReactNode;
+  /** Put `secondary` beside Start on one row instead of above it, saving a row on a crowded lobby. */
+  inline?: boolean;
   /** The anchor of Start's `RefusalSlot`. */
   refusal?: string;
   refusalKey?: string | number;
@@ -183,17 +186,22 @@ export function LobbyStart({
   return (
     <StickyBar refusal={refusal} refusalKey={refusalKey}>
       <div data-ui="lobby-start" className="mx-auto w-full space-y-2 sm:max-w-md">
-        {secondary && <div className="flex flex-wrap justify-center gap-2">{secondary}</div>}
-        <Button
-          size="lg"
-          className="w-full"
-          disabled={!!blocker}
-          sending={busy}
-          onClick={onStart}
-          data-testid={testId}
-        >
-          {label}
-        </Button>
+        {secondary && !inline && (
+          <div className="flex flex-wrap justify-center gap-2">{secondary}</div>
+        )}
+        <div className={cn(inline && !!secondary && 'flex items-center gap-2')}>
+          <Button
+            size="lg"
+            className={inline && secondary ? 'min-w-0 flex-1' : 'w-full'}
+            disabled={!!blocker}
+            sending={busy}
+            onClick={onStart}
+            data-testid={testId}
+          >
+            {label}
+          </Button>
+          {inline && secondary}
+        </div>
         {blocker && <p className="text-center text-caption text-ink-muted">{blocker}</p>}
       </div>
     </StickyBar>

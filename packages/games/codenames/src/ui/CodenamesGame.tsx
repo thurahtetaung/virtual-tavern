@@ -134,6 +134,8 @@ export function CodenamesGame({
             <LobbyStart
               blocker={blocker}
               onStart={() => void act({ type: 'start' })}
+              // Shuffle sits beside Start, so the lobby fits a phone with the playtest bar too.
+              inline
               secondary={
                 <Button
                   variant="ghost"
