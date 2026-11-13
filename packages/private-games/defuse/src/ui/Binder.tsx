@@ -1,4 +1,4 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { ProtectedImage, TAP_BAND, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { type Settings, isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
@@ -81,6 +81,9 @@ const L = {
     buttons: [{ x: 524, y: 906, label: 'CONTINUE', what: 'back' }],
   },
 } as const;
+
+/** The shared 44 px touch pad, minus its `relative` (these buttons are placed absolutely). */
+const PAD = TAP_BAND.replace(/^relative /, '');
 
 const LABELS = ['1. Identifier', '2. Bomb Configuration', '3. Advanced Options', '4. Result'];
 
@@ -288,7 +291,11 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
               <button
                 key={x.label}
                 type="button"
-                className="absolute -translate-x-1/2 -translate-y-1/2 rounded-[0.6cqw] bg-[#1d1d1b] px-[2.2cqw] py-[0.9cqw] font-mono font-bold tracking-[0.25em] text-white/80 ring-[0.35cqw] ring-[#e8d23a]/0 hover:ring-[#e8d23a] focus-visible:ring-[#e8d23a]"
+                className={cn(
+                  'absolute -translate-x-1/2 -translate-y-1/2 rounded-[0.6cqw] bg-[#1d1d1b] px-[2.2cqw] py-[0.9cqw] font-mono font-bold tracking-[0.25em] text-white/80 ring-[0.35cqw] ring-[#e8d23a]/0 hover:ring-[#e8d23a] focus-visible:ring-[#e8d23a]',
+                  // A 44 px tap target on touch screens around the printed button.
+                  PAD,
+                )}
                 style={{
                   left: `${(x.x / 1024) * 100}%`,
                   top: `${(x.y / 1024) * 100}%`,
