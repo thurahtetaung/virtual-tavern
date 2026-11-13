@@ -243,8 +243,36 @@ function InGame({
   // The viewer's side lights the card: ember when their team won, danger when it lost, quiet
   // for watchers (the title carries the winning team's colour).
   const tone = !me?.team || !view.winner ? 'neutral' : me.team === view.winner ? 'win' : 'loss';
+  // The finale wears the winning team's colours: its soft light from the top and a 4 px band. A team
+  // that found all its agents shows the count as the emblem; a win by the other team's assassin
+  // keeps the trophy (the count would read as nothing found).
+  const won = view.winner;
+  const found = won ? view.board.filter((c) => c.kind === won && c.revealed).length : 0;
+  const agents = won ? view.board.filter((c) => c.kind === won).length : 0;
   const hero = (
     <EndHero
+      className={
+        won
+          ? cn(
+              // isolate + -z-10: the light sits on the card's surface, under every word and button.
+              'isolate border-t-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-b before:to-transparent before:to-70%',
+              won === 'red'
+                ? 'border-t-team-a before:from-team-a-soft'
+                : 'border-t-team-b before:from-team-b-soft',
+            )
+          : undefined
+      }
+      emblem={
+        won && found === agents ? (
+          <span className={cn('block font-display font-black tabular-nums', TEAM_TEXT[won])}>
+            <span className="text-[3.5rem] leading-none lg:text-[4.5rem]">{found}</span>
+            <span className="text-heading text-ink-muted"> / {agents}</span>
+            <span className="mt-1 block text-small font-semibold tracking-wide text-ink-2 uppercase">
+              agents found
+            </span>
+          </span>
+        ) : undefined
+      }
       title={
         view.winner ? (
           <span className={TEAM_TEXT[view.winner]}>{TEAM_LABEL[view.winner]} team wins!</span>

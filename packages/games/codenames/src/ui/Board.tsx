@@ -67,8 +67,13 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
                 // push them into the word, and are never under 12 px.
                 '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:clamp(12px,9cqw,16px)] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
                 '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-30rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
+                // Nothing to type or press under the board: the cells take that room too, on
+                // phones and on wide screens (about a quarter taller at 1440×900).
                 size === 'fill' &&
-                  'max-sm:aspect-auto max-sm:h-[clamp(3.3rem,calc((100dvh-22rem)/5-0.4rem),5.5rem)]',
+                  'max-sm:aspect-auto max-sm:h-[clamp(3.3rem,calc((100dvh-22rem)/5-0.4rem),5.5rem)] lg:h-[clamp(4.5rem,calc((100dvh-23rem)/5-0.5rem),9rem)]',
+                // A face-down card has a printed frame inside its edge, like the cards on a table.
+                face === FACE_DOWN &&
+                  'sm:before:pointer-events-none sm:before:absolute sm:before:inset-1 sm:before:rounded-md sm:before:border sm:before:border-line',
                 // In rem, so a larger text size grows the cards with their words.
                 size === 'short' && 'max-sm:aspect-auto max-sm:h-[2.8rem]',
                 face,
@@ -79,7 +84,8 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
                 lastGuessed === i &&
                   'z-10 scale-105 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
                 card.revealed && lastGuessed !== i && 'opacity-90',
-                view.phase === 'over' && !card.revealed && 'opacity-70',
+                // At the end the cards nobody guessed keep their words at full strength: their soft
+                // key tint and the missing check mark already tell them from the guessed ones.
               )}
             >
               <CardWord
