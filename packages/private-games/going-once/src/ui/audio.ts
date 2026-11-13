@@ -61,7 +61,7 @@ export const BEAT = {
   lotOut: 600,
   /** The painting sliding in: the opening bid follows once it has landed. */
   paintingIn: 933,
-  /** The Sold stamp leaving (a good buy shrinks away, a bad one spins off), the painting leaving. */
+  /** The Sold stamp leaving (bought under its value it shrinks away, else it spins off), the painting. */
   stampGood: 733,
   stampBad: 600,
   paintingOut: 633,
@@ -89,7 +89,7 @@ export const lotOutAt = (a: { closeAt: number; since: number }) =>
 export function soldOutAt(view: GoingOnceView, profit: number): number {
   const g = view.game!;
   const len = Math.max(SOLD_BEAT_MS * (view.rig?.scale ?? 1) * 5, g.until - g.since);
-  return len - Math.max(BEAT.paintingOut, profit >= 0 ? BEAT.stampGood : BEAT.stampBad) - 150;
+  return len - Math.max(BEAT.paintingOut, profit > 0 ? BEAT.stampGood : BEAT.stampBad) - 150;
 }
 
 /**

@@ -1,4 +1,11 @@
-import { type Moment, type Profile, type Rig, type Step, variantOf } from '@vt/game-sdk/show';
+import {
+  type Frame,
+  type Moment,
+  type Profile,
+  type Rig,
+  type Step,
+  variantOf,
+} from '@vt/game-sdk/show';
 import {
   type AuctionView,
   BANK_LATER_MS,
@@ -63,6 +70,11 @@ export interface ShowCtx {
   joined?: Readonly<Record<string, number>>;
   /** The rig's mid-track art swaps (the bank's sign turning into the shark's). */
   swaps?: Rig['swaps'];
+  /**
+   * The table screen's raise caps: for a player's paddle track (`paddle.Raise2`), how far down to
+   * hold the paddle on each of its frames so it never covers the next ask (`raiseCap`), or null.
+   */
+  caps?: (id: string, track: string) => RaiseCap | null;
 }
 
 /** The lot on the easel. */
@@ -144,14 +156,6 @@ function lotIn(view: GoingOnceView, l: Lot): Moment {
     at,
     steps: [
       text(0, 'lot.num', l.label),
-      {
-        t: 0,
-        kind: 'css',
-        target: 'stampSpin',
-        keyframes: [{ transform: 'none', opacity: 1 }],
-        ms: 1,
-        on: STAGE,
-      },
       // Last lot's stamp, if it was never sent off, is put away.
       {
         t: 0,
@@ -231,7 +235,7 @@ function calls(l: Lot): Moment[] {
  * leaves the list settles where it ended (its paddle parked again), so a bid beaten within the
  * second lands its paddle at once.
  */
-function bids(l: Lot): Moment[] {
+function bids(l: Lot, ctx?: ShowCtx): Moment[] {
   const i = l.recent.length - 1;
   const b = l.recent[i];
   if (!b) return [];
@@ -258,11 +262,27 @@ function bids(l: Lot): Moment[] {
     );
   // The paddle goes back down behind the chair (the original's: up and down again); the name and
   // the TOP shape keep showing the leader.
-  steps.push(
-    anim(BEAT.paddleDown, `pad:${b.by}`, b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise', {
-      on: FULL,
-    }),
-  );
+  const down = b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise';
+  steps.push(anim(BEAT.paddleDown, `pad:${b.by}`, down, { on: FULL }));
+  // On the table screen a paddle under the next ask is held low enough, frame by frame, that it
+  // never covers it (the owner's rule: nothing covers the price you would bid).
+  const up = b.forced ? 'paddle.ScrewRaise' : raiseOf(l.lot, b.amount);
+  for (const [t, track] of [
+    [0, up],
+    [BEAT.paddleDown, down],
+  ] as const) {
+    const cap = ctx?.caps?.(b.by, track);
+    if (cap)
+      steps.push({
+        t,
+        kind: 'css',
+        target: `padcap:${b.by}`,
+        keyframes: cap.ys.map((y) => ({ transform: `translate(0px, ${y}px)` })),
+        ms: cap.ms,
+        easing: 'linear',
+        on: STAGE,
+      });
+  }
   if (before && before.by !== b.by)
     steps.push(anim(0, `name:${before.by}`, 'name.Reset', { on: STAGE }));
   // Outbid and screwed buzzes are the phone's own (`Alerts`), so no personal steps here.
@@ -368,23 +388,10 @@ export function soldMoment(view: GoingOnceView): Moment | null {
     text(0, `pad:${r.buyer}.num`, '', { on: FULL }),
     text(0, `pad:${r.buyer}.word`, 'WINNER', { on: FULL }),
     anim(0, 'bidFrom', 'bidFrom.Disappear', { on: STAGE }),
-    // The value: the table screen's stamp spins round to it and flies to the middle of the room;
-    // a phone's stays on its picture and pops.
-    // The original flies the value to the middle of the room; ours spins in place over the
-    // painting, so the row and the bid stay readable.
-    {
-      t: spin,
-      kind: 'css',
-      target: 'stampSpin',
-      keyframes: [
-        { transform: 'rotate(0deg) scale(1)' },
-        { transform: 'rotate(-200deg) scale(1.25)', offset: 0.5 },
-        { transform: 'rotate(-360deg) scale(1.45)' },
-      ],
-      ms: 867,
-      easing: 'ease-out',
-      on: STAGE,
-    },
+    // The value, as the original's: the table screen's slab spins, grows to the middle of the room
+    // (its face swapping to the value mid-spin) with PROFIT or LOSS under it on the slab; a phone's
+    // stays on its picture and pops.
+    anim(spin, 'stamp', 'stamp.Value', { on: STAGE }),
     {
       t: swap,
       kind: 'css',
@@ -422,19 +429,8 @@ export function soldMoment(view: GoingOnceView): Moment | null {
       for: r.buyer,
       on: PHONES,
     },
-    // Its exit, from where ours spun to: a good buy shrinks away, a bad one spins off.
-    {
-      t: out,
-      kind: 'css',
-      target: 'stampSpin',
-      keyframes:
-        profit >= 0
-          ? [{ transform: 'scale(1.45)' }, { transform: 'scale(0.2)', opacity: 0 }]
-          : [{ transform: 'scale(1.45)' }, { transform: 'rotate(-169deg) scale(1)', opacity: 0 }],
-      ms: profit >= 0 ? MS.stampGood : MS.stampBad,
-      easing: 'ease-in',
-      on: STAGE,
-    },
+    // Its exit, as the original's: a good buy (under the value) shrinks away, else it spins off.
+    anim(out, 'stamp', profit > 0 ? 'stamp.Good' : 'stamp.Bad', { on: STAGE }),
     anim(out + 100, 'painting', 'painting.Disappear', { on: STAGE }),
     anim(out, 'bidAmount', 'bidAmount.Disappear', { on: STAGE }),
     anim(out, 'bidLabel', 'bidLabel.Disappear', { on: STAGE }),
@@ -717,7 +713,6 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
         anim(300 + i * 100, `win:${id}`, 'winning-content.Appear', { on: STAGE }),
         anim(300 + i * 100, `win:${id}.plate`, 'winning-d9.Appear', { on: STAGE }),
       ]),
-      { t: 300, kind: 'css', target: 'winline', keyframes: [{ opacity: 1 }], ms: 400, on: STAGE },
       ...(ctx.you && g.winners.includes(ctx.you)
         ? [
             {
@@ -771,7 +766,7 @@ export function moments(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   if (l) {
     out.push(lotIn(view, l));
     if (!l.intro) out.push(paintingIn(view, l));
-    out.push(...bids(l), ...calls(l), ...screwAim(view), ...screwOutcome(view));
+    out.push(...bids(l, ctx), ...calls(l), ...screwAim(view), ...screwOutcome(view));
   }
   const sold = soldMoment(view);
   if (sold) out.push(sold);
@@ -847,6 +842,98 @@ export function compose(outer: readonly number[], inner: readonly number[]): num
  * The chairs along the bottom of the room, as the original lays them out for three to six
  * (`row.Three`…`row.Six`, inside `row.at`): one matrix per seat, the same in every phase.
  */
+/** How far down to hold a raised paddle on each frame of its track, and the track's length. */
+export interface RaiseCap {
+  ms: number;
+  ys: number[];
+}
+
+/**
+ * The next ask's room on the table screen, which a raised paddle must stay under: its left and
+ * the bottom of its text box (160 units from 2, in `bidPrompt.at`), and its right edge at its
+ * widest ("Going Twice…" in the amount face measures 1,039; 1,060 leaves room for the fallback
+ * face).
+ */
+export function askBox(places: Rig['places']): { left: number; right: number; bottom: number } {
+  const at = (places['bidPrompt.at'] as number[] | undefined) ?? [0.42, 0, 0, 0.42, 560, 380];
+  return { left: at[4]!, right: 1060, bottom: at[5]! + at[3]! * (2 + 160) };
+}
+/**
+ * The painting's room on the table screen (its canvas, 285 × 380 from `painting.at`), which a
+ * raised paddle must stay under too: the owner's rule that nothing covers what matters.
+ */
+export function paintingBox(places: Rig['places']): {
+  left: number;
+  right: number;
+  bottom: number;
+} {
+  const at = (places['painting.at'] as number[] | undefined) ?? [1, 0, 0, 1, 243, 96];
+  return { left: at[4]!, right: at[4]! + 285, bottom: at[5]! + 380 };
+}
+/** The gap kept between a raised paddle's top and the ask or the painting. */
+export const CAP_GAP = 6;
+
+/** A rig symbol's bounds, [left, right, top, bottom], from its paths (null if it has none). */
+export function symbolBox(src: string | undefined): [number, number, number, number] | null {
+  if (!src) return null;
+  const stack: number[][] = [[1, 0, 0, 1, 0, 0]];
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  const tokens = /<g transform="matrix\(([^)]*)\)">|<\/g>|<path [^>]*?d="([^"]*)"/g;
+  for (const m of src.matchAll(tokens)) {
+    if (m[1] !== undefined) stack.push(compose(stack.at(-1)!, m[1].split(',').map(Number)));
+    else if (m[2] === undefined) stack.pop();
+    else {
+      const n = (m[2].match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+      const t = stack.at(-1)!;
+      for (let i = 0; i + 1 < n.length; i += 2) {
+        const x = t[0]! * n[i]! + t[2]! * n[i + 1]! + t[4]!;
+        const y = t[1]! * n[i]! + t[3]! * n[i + 1]! + t[5]!;
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
+      }
+    }
+  }
+  return x0 === Infinity ? null : [x0, x1, y0, y1];
+}
+
+/**
+ * A raised paddle's cap on the table screen: per frame of its track, how far down (in the seat's
+ * units) to hold it so its silhouette (`box`, in `paddle.shape` units) stays under the next ask,
+ * or null when it never reaches the ask at that seat. The original's paddles rise as high as
+ * this too; it only shows them beside the ask, where ours can stand under it.
+ */
+export function raiseCap(
+  places: Rig['places'],
+  seat: readonly number[],
+  box: readonly [number, number, number, number],
+  frames: readonly Frame[],
+  ms: number,
+): RaiseCap | null {
+  const keep = [askBox(places), paintingBox(places)];
+  const base = compose(seat, (places['seat.paddle'] as number[] | undefined) ?? [1, 0, 0, 1, 0, 0]);
+  const shape = (places['paddle.shape'] as number[] | undefined) ?? [1, 0, 0, 1, 0, 0];
+  const ys = frames.map((f) => {
+    const m = compose(compose(base, f.slice(0, 6)), shape);
+    const pts = [box[0], box[1]].flatMap((x) =>
+      [box[2], box[3]].map((y) => [m[0]! * x + m[2]! * y + m[4]!, m[1]! * x + m[3]! * y + m[5]!]),
+    );
+    const left = Math.min(...pts.map((p) => p[0]!));
+    const right = Math.max(...pts.map((p) => p[0]!));
+    const top = Math.min(...pts.map((p) => p[1]!));
+    const over = keep.filter((b) => right > b.left && left < b.right);
+    if (!over.length) return 0;
+    const bottom = Math.max(...over.map((b) => b.bottom));
+    // Room units to the seat's (the row is drawn at 0.95).
+    return Math.max(0, (bottom + CAP_GAP - top) / (seat[3] || 1));
+  });
+  return ys.some((y) => y > 0) ? { ms, ys: ys.map((y) => Math.round(y * 10) / 10) } : null;
+}
+
 export function chairsOf(places: Rig['places'], n: number): number[][] {
   const list = places[`row.${COUNT[Math.min(6, Math.max(3, n))]}`] as number[][] | undefined;
   const at = (places['row.at'] as number[] | undefined) ?? [1, 0, 0, 1, 0, 0];

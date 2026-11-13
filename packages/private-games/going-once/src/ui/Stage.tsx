@@ -30,7 +30,7 @@ import {
   useRig,
 } from '@vt/ui/show';
 import type { Track } from '@vt/game-sdk/show';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { BID_STEP, type GoingOnceView, OPENING_BID, type PlayerView } from '../logic/types.ts';
 import { type Art, GAME_ID, type ManifestState, artFor, assetUrl, useManifest } from './assets.ts';
@@ -43,6 +43,8 @@ import {
   CALL_WORDS,
   chairsOf,
   compose,
+  raiseCap,
+  symbolBox,
   endTrack,
   moments,
   plateText,
@@ -168,6 +170,64 @@ const COUNTDOWN_AT = [0.42, 0, 0, 0.42, 640, 372];
 /** A part not on show. */
 const HIDDEN: CSSProperties = { opacity: 0 };
 
+/**
+ * The original's stamp text over the shared stamp's (whose label sizes are inline, hence
+ * `!important`): SOLD! 62; the value 52, its middle 11 above the slab's, over the PROFIT or LOSS
+ * line (18) at the rig's `stamp.profit`.
+ */
+const STAMP_FACES =
+  '.go-stamp .vt-stamp-word{font-size:62px !important}' +
+  '.go-stamp [data-face=value] .vt-stamp-word{font-size:52px !important;top:-11px !important}' +
+  '.go-stamp .vt-stamp-line{font-size:18px !important}';
+
+const SLAB_BOX: CSSProperties = { position: 'absolute', left: 0, top: 0 };
+
+/** The widest the value may be on the slab: the original's value box (253 at 0.8), less a margin. */
+const VALUE_WIDTH = 196;
+
+/**
+ * Keeps the slab's word inside the original's value box: a longer amount ("$12,500") shrinks
+ * to fit instead of running off the slab or into the line under it.
+ */
+function SlabStamp({ rig }: { rig: LoadedRig }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = ref.current;
+    const word = root?.querySelector<HTMLElement>('.vt-stamp-word');
+    if (!root || !word) return;
+    const fit = () => {
+      word.style.removeProperty('font-size');
+      if (word.closest('[data-face=value]') === null) return;
+      const w = word.offsetWidth;
+      if (w > VALUE_WIDTH) {
+        const size = parseFloat(getComputedStyle(word).fontSize);
+        word.style.setProperty(
+          'font-size',
+          `${Math.floor((size * VALUE_WIDTH) / w)}px`,
+          'important',
+        );
+      }
+    };
+    const watch = new MutationObserver(fit);
+    watch.observe(root, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['data-face'],
+    });
+    return () => {
+      watch.disconnect();
+    };
+  }, []);
+  return (
+    <div ref={ref} className="go-stamp" style={{ ...SLAB_BOX, fontFamily: FONT.amount }}>
+      <style>{STAMP_FACES}</style>
+      <Stamp rig={rig} line="inside" />
+    </div>
+  );
+}
+
 /** The room's size in stage units. */
 const ROOM: CSSProperties = { width: 1280, height: 720 };
 
@@ -253,9 +313,27 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
   const low = lowOf({ setting, auto: false }, true);
   const offset = room.clockOffset;
   const joined = useJoined(view, offset);
+  const g0 = view.game;
+  // Each raised paddle is held under the next ask, by its seat and silhouette (`raiseCap`).
+  const caps = useMemo(() => {
+    if (!rig || !g0) return undefined;
+    const seats = chairsOf(rig.places, g0.order.length);
+    return (id: string, track: string) => {
+      const seat = seats[g0.order.indexOf(id)];
+      const [part, label] = track.split('.');
+      const t = rig.tracks[part ?? '']?.[label ?? ''];
+      if (!seat || !t) return null;
+      const key = shapeKey(manifest, rig, g0.paddles[id]);
+      const src = key ? rig.symbols[key] : undefined;
+      const art = src?.startsWith('@') ? rig.symbols[src.slice(1)] : src;
+      const box = key ? symbolBox(art) : FALLBACK_BOX;
+      return box ? raiseCap(rig.places, seat, box, t.frames, t.ms) : null;
+    };
+  }, [rig, g0, manifest]);
   const list = useMemo(
-    () => (rig ? moments(view, { you: null, profile: 'stage', joined, swaps: rig.swaps }) : []),
-    [rig, view, joined],
+    () =>
+      rig ? moments(view, { you: null, profile: 'stage', joined, swaps: rig.swaps, caps }) : [],
+    [rig, view, joined, caps],
   );
   useShow(list, {
     clock: () => Date.now() + offset,
@@ -652,11 +730,6 @@ function Room({
               </div>
             </Layer>
           </Layer>
-          <Layer m={compose(painting, stampAt)}>
-            <Layer name="stampSpin">
-              <Stamp rig={rig} line="below" />
-            </Layer>
-          </Layer>
           {sold?.buyer && (
             <SoldTitle
               title={sold.title}
@@ -732,6 +805,11 @@ function Room({
                   : `${money(nextAsk(a.bid?.amount))}?`}
               </Label>
             </Layer>
+          </Layer>
+          <Layer m={compose(painting, stampAt)}>
+            {/* The original's slab, over the bid's words: its words in the amount face, PROFIT or
+                LOSS on the slab under the value (it grows with the slab). */}
+            <SlabStamp rig={rig} />
           </Layer>
         </>
       )}
@@ -837,37 +915,40 @@ function Seat({
   return (
     <Layer m={m}>
       <Layer m={placeOf(rig, 'seat.paddle')}>
-        <Layer name={`pad:${id}`} moving style={restOf(T.paddle?.Unraise)}>
-          <Layer m={placeOf(rig, 'paddle.wood')}>
-            <RigArt rig={rig} symbol="wood" />
-          </Layer>
-          <Layer m={placeOf(rig, 'paddle.shape')}>
-            <PaddleHead rig={rig} manifest={manifest} shape={shape} colour={colour} />
-          </Layer>
-          <Layer m={placeOf(rig, 'paddle.num')}>
-            <Label
-              name={`pad:${id}.num`}
-              style={{
-                color: '#fff',
-                fontSize: 58,
-                fontFamily: FONT.label,
-                fontWeight: 400,
-                textShadow: '0 1px 0 rgba(0,0,0,.5)',
-              }}
-            />
-          </Layer>
-          {/* The paddle's words (WINNER, ARTIST), smaller than an amount, as the original's. */}
-          <Layer m={placeOf(rig, 'paddle.num')}>
-            <Label
-              name={`pad:${id}.word`}
-              style={{
-                color: '#fff',
-                fontSize: 40,
-                fontFamily: FONT.label,
-                fontWeight: 400,
-                textShadow: '0 1px 0 rgba(0,0,0,.5)',
-              }}
-            />
+        {/* Holds a raised paddle under the next ask (the bid moment's `padcap` steps). */}
+        <Layer name={`padcap:${id}`} moving>
+          <Layer name={`pad:${id}`} moving style={restOf(T.paddle?.Unraise)}>
+            <Layer m={placeOf(rig, 'paddle.wood')}>
+              <RigArt rig={rig} symbol="wood" />
+            </Layer>
+            <Layer m={placeOf(rig, 'paddle.shape')}>
+              <PaddleHead rig={rig} manifest={manifest} shape={shape} colour={colour} />
+            </Layer>
+            <Layer m={placeOf(rig, 'paddle.num')}>
+              <Label
+                name={`pad:${id}.num`}
+                style={{
+                  color: '#fff',
+                  fontSize: 58,
+                  fontFamily: FONT.label,
+                  fontWeight: 400,
+                  textShadow: '0 1px 0 rgba(0,0,0,.5)',
+                }}
+              />
+            </Layer>
+            {/* The paddle's words (WINNER, ARTIST), smaller than an amount, as the original's. */}
+            <Layer m={placeOf(rig, 'paddle.num')}>
+              <Label
+                name={`pad:${id}.word`}
+                style={{
+                  color: '#fff',
+                  fontSize: 40,
+                  fontFamily: FONT.label,
+                  fontWeight: 400,
+                  textShadow: '0 1px 0 rgba(0,0,0,.5)',
+                }}
+              />
+            </Layer>
           </Layer>
         </Layer>
       </Layer>
@@ -1098,10 +1179,13 @@ function ScrewHead({ rig, colour }: { rig: LoadedRig; colour: string }) {
   );
 }
 
+/** A picture paddle's box: the original's silhouettes' median size (181 × 125.5 units). */
+const FALLBACK_BOX = [-90.5, 90.5, -62.75, 62.75] as const;
+
 /**
  * A paddle's silhouette in the player's colour: the rig's, or for a shape the rig lacks (the
- * manifest's list has one the original's paddles don't), the manifest's picture as a mask, the size
- * of the rig's own silhouettes, so the table screen shows the shape the phones show.
+ * manifest's list has one the original's paddles don't), the manifest's picture as a mask in the
+ * original's paddle box (`FALLBACK_BOX`), so the table screen shows the shape the phones show.
  */
 function PaddleHead({
   rig,
@@ -1123,10 +1207,10 @@ function PaddleHead({
     <div
       className="absolute"
       style={{
-        left: -75,
-        top: -60,
-        width: 150,
-        height: 120,
+        left: FALLBACK_BOX[0],
+        top: FALLBACK_BOX[2],
+        width: FALLBACK_BOX[1] - FALLBACK_BOX[0],
+        height: FALLBACK_BOX[3] - FALLBACK_BOX[2],
         background: tint,
         maskImage: `url("${src}")`,
         WebkitMaskImage: `url("${src}")`,
@@ -1439,19 +1523,10 @@ function Lights({
   const T = rig.tracks;
   const hidden = (t: Track | undefined): CSSProperties => ({ ...startOf(t), opacity: 0 });
   if (g.stage === 'done' && g.final) {
-    const final = g.final;
     const wins = rig.places[`winners.${WINNERS[Math.min(6, g.winners.length)]}`] as
       number[][] | undefined;
     return (
       <>
-        <WinLine
-          shown={settled}
-          text={`${
-            g.winners.length === 1
-              ? `${name(g.winners[0])} wins`
-              : `${g.winners.map(name).join(' & ')} share the win`
-          } with ${money(final.find((f) => f.id === g.winners[0])?.score ?? 0)}!`}
-        />
         {/* The original's round beam in the middle of the darkened room. */}
         {rig.symbols.beam && (
           <Layer
@@ -1559,33 +1634,4 @@ function useReached(at: number | null, offset: number): boolean {
     return () => clearTimeout(id);
   }, [at, offset]);
   return at !== null && reached === at;
-}
-
-/**
- * The winner's line at the end (ours: the original only shows the paddle), across the top in at
- * most two lines, clear of the winners below: brought on by the winner moment, then shown for good.
- */
-function WinLine({ text, shown }: { text: string; shown: boolean }) {
-  const ref = useTarget('winline');
-  return (
-    <div
-      ref={ref}
-      className="absolute line-clamp-2 text-center"
-      style={{
-        left: 40,
-        top: 14,
-        width: 1200,
-        fontSize: 44,
-        lineHeight: 1.1,
-        fontFamily: FONT.name,
-        fontWeight: 900,
-        color: '#fff',
-        textShadow: '0 3px 8px #000',
-        opacity: shown ? 1 : 0,
-      }}
-      data-testid="go-stage-winner"
-    >
-      {text}
-    </div>
-  );
 }

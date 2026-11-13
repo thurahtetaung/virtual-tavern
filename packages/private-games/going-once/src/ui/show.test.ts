@@ -1,5 +1,5 @@
 import { clone, createRng } from '@vt/game-sdk';
-import { type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
+import { type Frame, type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from '../logic/definition.ts';
 import {
@@ -17,7 +17,12 @@ import {
   BANK_PARTS,
   CALL_WORDS,
   WALL_DARK,
+  CAP_GAP,
+  askBox,
+  paintingBox,
   chairsOf,
+  raiseCap,
+  symbolBox,
   WINNERS_SETTLE_MS,
   endTrack,
   moments,
@@ -129,7 +134,7 @@ describe('moments', () => {
       );
     const quiet = at('p3', 'phone-quiet');
     expect(quiet.some((s) => s.kind === 'count')).toBe(false);
-    expect(quiet.some((s) => s.kind === 'css' && s.target === 'stampSpin')).toBe(false);
+    expect(quiet.some((s) => s.kind === 'anim' && s.track === 'stamp.Value')).toBe(false);
     expect(quiet.some((s) => s.kind === 'anim' && s.target === 'stamp')).toBe(true);
     // The buyer's buzz is theirs alone.
     expect(at('p2', 'phone-quiet').some((s) => s.kind === 'haptic')).toBe(true);
@@ -357,6 +362,94 @@ describe('moments', () => {
     );
     expect(last).toBeLessThanOrEqual(WINNERS_SETTLE_MS);
     expect(winnersShownAt(goingOnce.view(auctioning().state, null))).toBeNull();
+  });
+});
+
+describe('a raised paddle never covers the next ask (the owner’s rule)', () => {
+  // A made-up layout: the ask's text box at (560, 380), a seat row at 0.95, a tall silhouette.
+  const places: Rig['places'] = {
+    'bidPrompt.at': [0.42, 0, 0, 0.42, 560, 380],
+    'seat.paddle': [1, 0, 0, 1, 0, 165],
+    'paddle.shape': [1, 0, 0, 1, 0, -35],
+  };
+  const box = [-90, 90, -80, 60] as const;
+  // Parked, then up past where it rests (an overshoot), then resting up.
+  const frames: Frame[] = [
+    [0.9, 0, 0, 0.6, 0, -36, 1],
+    [1.1, 0, 0, 1.1, 0, -200, 1],
+    [1.3, 0, 0, 1.3, 0, -300, 1],
+    [1.2, 0, 0, 1.2, 0, -284, 1],
+  ];
+  const seatAt = (x: number) => [0.95, 0, 0, 0.95, x, 634];
+  const topAt = (seat: number[], f: Frame, cap: number) => {
+    const sy = seat[3]!;
+    const paddleY = seat[5]! + sy * (165 + cap + f[5]);
+    return paddleY + sy * f[3] * (-35 + box[2]);
+  };
+
+  it('holds a paddle under the ask low enough on every frame, overshoot included', () => {
+    const seat = seatAt(740);
+    const cap = raiseCap(places, seat, box, frames, 700)!;
+    expect(cap.ms).toBe(700);
+    expect(cap.ys[0]).toBe(0);
+    const bottom = askBox(places).bottom;
+    frames.forEach((f, i) => {
+      expect(topAt(seat, f, cap.ys[i]!)).toBeGreaterThanOrEqual(bottom + CAP_GAP - 0.1);
+    });
+    // Without the cap the overshoot would have reached into the ask.
+    expect(topAt(seat, frames[2]!, 0)).toBeLessThan(bottom);
+  });
+
+  it('holds a paddle under the painting too', () => {
+    const seat = seatAt(400);
+    const cap = raiseCap(places, seat, box, frames, 700)!;
+    const bottom = paintingBox(places).bottom;
+    expect(bottom).toBeGreaterThan(askBox(places).bottom);
+    frames.forEach((f, i) => {
+      expect(topAt(seat, f, cap.ys[i]!)).toBeGreaterThanOrEqual(bottom + CAP_GAP - 0.1);
+    });
+  });
+
+  it('leaves a paddle clear of the ask and the painting alone', () => {
+    expect(raiseCap(places, seatAt(100), box, frames, 700)).toBeNull();
+    expect(raiseCap(places, seatAt(1200), box, frames, 700)).toBeNull();
+  });
+
+  it('measures a silhouette through its nested transforms', () => {
+    const src =
+      '<g transform="matrix(1,0,0,1,0,-5)"><g transform="matrix(2,0,0,2,10,0)">' +
+      '<path fill="rgb(1,2,3)" d="M-5 -10L5 -10L5 10Z"/></g></g>';
+    expect(symbolBox(src)).toEqual([0, 20, -25, 15]);
+    expect(symbolBox('<g></g>')).toBeNull();
+  });
+
+  it('the bid moment holds the paddle up and lets it down with the cap, on the table screen only', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    const v = goingOnce.view(h.state, null);
+    const caps = (id: string, track: string) =>
+      id === 'p2' ? { ms: track.endsWith('Unraise') ? 667 : 700, ys: [0, 40, 30] } : null;
+    const m = moments(v, { you: null, profile: 'stage', caps }).find(
+      (x) => x.id === 'lot0:bid400',
+    )!;
+    expect(steps(m, 'padcap:p2')).toMatchObject([
+      { t: 0, kind: 'css', ms: 700, on: ['stage'] },
+      { t: BEAT.paddleDown, kind: 'css', ms: 667 },
+    ]);
+    expect(steps(m, 'padcap:p2')[0]).toMatchObject({
+      keyframes: [
+        { transform: 'translate(0px, 0px)' },
+        { transform: 'translate(0px, 40px)' },
+        { transform: 'translate(0px, 30px)' },
+      ],
+    });
+    // Without caps (phones, or no rig), no such steps.
+    expect(
+      steps(
+        stage(v).find((x) => x.id === 'lot0:bid400'),
+        'padcap:p2',
+      ),
+    ).toEqual([]);
   });
 });
 
