@@ -45,8 +45,9 @@ export const KEY_TINT: Record<CardKind, string> = {
   assassin: ASSASSIN,
 };
 
-/** A face-down card nobody's key colours. */
-export const FACE_DOWN = 'bg-card text-ink ring-1 ring-line shadow-vt-1';
+/** A face-down card nobody's key colours: a card lit from above, with its printed edge. */
+export const FACE_DOWN =
+  'bg-gradient-to-b from-card to-panel text-ink ring-1 ring-line shadow-vt-1-edge';
 
 export const KIND_LABEL: Record<CardKind, string> = {
   red: 'Red agent',

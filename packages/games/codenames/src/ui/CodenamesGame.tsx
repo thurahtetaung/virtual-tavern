@@ -241,16 +241,22 @@ function InGame({
     </p>
   );
   const yourTeam = me?.team && (
-    <p className="font-semibold">
-      {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
-    </p>
+    <b>{me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}</b>
   );
+  // Wide screens: one finale panel in the winner's colours, short enough that the whole key
+  // stays above the fold of a laptop screen.
   const overPanel = (
-    <Panel className="space-y-3 text-center">
+    <Panel
+      className={cn(
+        'space-y-2 py-3 text-center shadow-vt-1',
+        view.winner === 'red' && 'bg-team-a-soft ring-team-a-line',
+        view.winner === 'blue' && 'bg-team-b-soft ring-team-b-line',
+      )}
+    >
       {winner}
-      <p>{winHow(view)}.</p>
-      {yourTeam}
-      <p className="text-small text-ink-muted">The full key is shown on the board below.</p>
+      <p>
+        {winHow(view)}.{yourTeam && <> {yourTeam}</>}
+      </p>
       <Superlatives lines={room.superlatives} />
       {endButtons}
     </Panel>
@@ -312,7 +318,9 @@ function InGame({
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
-        {result && (
+        {/* At the end on wide screens the finale panel says how it ended, so the last
+            guess's banner gives way to the key. */}
+        {result && !(wide && view.phase === 'over') && (
           <ResultBanner
             key={view.log.length}
             result={result}
