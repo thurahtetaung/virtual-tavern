@@ -126,8 +126,9 @@ export function Dock({
                 : 'bg-card ring-line-strong hover:scale-[1.02]',
             )}
           >
-            {/* The ballot is the vote: as large as the dock allows (about 115 × 80 on phones). */}
-            <BallotFace ballot={b} c={c} className="h-20 lg:h-24" />
+            {/* The ballot is the vote: as large as the screen allows (phones have no height to
+                spare under the hall; desktops show it at 115 × 80). */}
+            <BallotFace ballot={b} c={c} className="h-10 sm:h-14 lg:h-20" />
             {g.myVote === b && (
               <span
                 aria-hidden
