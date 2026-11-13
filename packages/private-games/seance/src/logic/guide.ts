@@ -259,7 +259,7 @@ function base(): GameGuide {
         bullets: [
           'The ghost picks a psychic still searching, chooses one or more cards from their hand and sends them. The hand fills back up to 7.',
           'Each psychic gets exactly one vision per hour; the ghost works round the table until everyone still searching has one.',
-          'Psychics may start guessing as soon as their own vision arrives. Several psychics may pick the same card, but each card belongs to at most one of them.',
+          'Psychics may start guessing as soon as their own vision arrives (or straight away with visions kept from an earlier hour), never before. Several psychics may pick the same card, but each card belongs to at most one of them.',
           'Once every vision is out, the timer starts (2 minutes by default). Talk freely; the ghost listens but never reacts. Tap Ready when you are happy.',
           'When everyone still searching is Ready, the ghost reveals the verdicts. Until then, moving a guess or token takes your Ready back.',
           'The timer is a reminder, or strict (the hour ends at 0:00; no guess counts as wrong). The host can lock the guesses in at any time.',

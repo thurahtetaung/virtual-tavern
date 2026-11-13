@@ -126,8 +126,9 @@ describe('an hour', () => {
   it('refuses the reveal until every vision is out and every psychic still searching is Ready', () => {
     const h = startedGame(4);
     expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-yet');
-    guessAll(h);
+    // Ana has her vision, guesses and is Ready; the others' visions are still to come.
     h.act({ type: 'send', to: colorOf(h, 'ana'), cards: [h.game().hand[0]!] }, HOST);
+    h.act({ type: 'intuition', card: h.game().table.suspect[0]! }, 'ana');
     h.act({ type: 'ready', on: true }, 'ana');
     expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-yet');
     sendAll(h);
@@ -170,11 +171,21 @@ describe('an hour', () => {
     expect(h.game().lockedHow).toBe('host');
   });
 
-  it('refuses Ready without a guess, and a new vision clears Ready', () => {
+  it('refuses a guess before the first vision, and Ready without a guess', () => {
     const h = startedGame(4);
+    const card = h.game().table.suspect[0]!;
+    expect(h.reject({ type: 'intuition', card }, 'ana')).toBe('no-vision');
     expect(h.reject({ type: 'ready', on: true }, 'ana')).toBe('no-intuition');
-    const pillar = 'suspect';
-    h.act({ type: 'intuition', card: h.game().table[pillar][0]! }, 'ana');
+    h.act({ type: 'send', to: colorOf(h, 'ana'), cards: [h.game().hand[0]!] }, HOST);
+    h.act({ type: 'intuition', card }, 'ana');
+    expect(h.psychic('ana').intuition).toBe(card);
+  });
+
+  it('a psychic with visions kept from a wrong guess may guess before the new one; it clears Ready', () => {
+    const h = startedGame(4);
+    playHour(h, []);
+    expect(h.psychic('ana').visions.length).toBeGreaterThan(0);
+    h.act({ type: 'intuition', card: h.game().table.suspect[0]! }, 'ana');
     h.act({ type: 'ready', on: true }, 'ana');
     h.act({ type: 'send', to: colorOf(h, 'ana'), cards: [h.game().hand[0]!] }, HOST);
     expect(h.psychic('ana').ready).toBe(false);

@@ -542,9 +542,21 @@ export function HandCards({
       onLabel: pickedLabel,
       disabled: !picked.includes(c) && !canPick(c),
     };
-  const { look, viewer } = useLook(content, (c) => {
+  // Picking from the full-screen view closes it, back to the hand with the card picked.
+  const { look, viewer } = useLook(content, (c, close) => {
     const p = pick(c.n);
-    return p ? <PickButton kind="vision" n={c.n} {...p} big /> : null;
+    return p ? (
+      <PickButton
+        kind="vision"
+        n={c.n}
+        {...p}
+        onToggle={() => {
+          p.onToggle();
+          close();
+        }}
+        big
+      />
+    ) : null;
   });
   return (
     <>

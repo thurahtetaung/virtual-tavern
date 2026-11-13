@@ -400,6 +400,9 @@ function intuition(state: SeanceState, card: number | null, ctx: Ctx): Result {
   if (!pillar) return err('finished', 'You have found everything: help the others now.');
   if (card !== null && !g.table[pillar].includes(card))
     return err('not-on-table', `Pick one of the ${pillar} cards on the table.`);
+  // A guess needs something to read: the first vision, or ones kept from earlier hours.
+  if (card !== null && me.visions.length === 0)
+    return err('no-vision', 'Wait for your vision before you guess.');
   const psychics = g.psychics.map((p) =>
     p.id === me.id ? { ...p, intuition: card, ready: false } : p,
   );

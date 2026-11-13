@@ -29,7 +29,10 @@ export const cardsOf = (kind: Kind, cards: readonly number[], captions?: Record<
  * somewhere in the component. `actions` (a Pick toggle) is drawn under the card shown, from the
  * current render, so it always reflects the latest state.
  */
-export function useLook(content: Content, actions?: (card: LookCard) => ReactNode) {
+export function useLook(
+  content: Content,
+  actions?: (card: LookCard, close: () => void) => ReactNode,
+) {
   const [open, setOpen] = useState<{
     cards: readonly LookCard[];
     start: number;
@@ -46,7 +49,7 @@ export function useLook(content: Content, actions?: (card: LookCard) => ReactNod
       start={open.start}
       title={open.title}
       onClose={close}
-      actions={actions ? (i) => open.cards[i] && actions(open.cards[i]) : undefined}
+      actions={actions ? (i) => open.cards[i] && actions(open.cards[i], close) : undefined}
     />
   );
   return { look, viewer };

@@ -136,6 +136,8 @@ export function MineTab({
   const me = myPsychic(view)!;
   const pillar = PILLARS[me.step];
   const open = g.stage === 'visions';
+  // Guesses open once there is a vision to read (kept ones from earlier hours count).
+  const canGuess = open && me.visions.length > 0;
   const candidates = pillar ? g.table[pillar] : [];
   const { look, viewer } = useLook(content, (c) =>
     pillar && isPillarCard(c.kind, pillar, g.third) && candidates.includes(c.n) ? (
@@ -146,7 +148,7 @@ export function MineTab({
         on={me.intuition === c.n}
         label="Guess this one"
         onLabel="✓ Your guess"
-        disabled={!open}
+        disabled={!canGuess}
         onToggle={() =>
           void act(
             { type: 'intuition', card: me.intuition === c.n ? null : c.n },
@@ -301,7 +303,7 @@ export function MineTab({
                       )
                     }
                     pick={
-                      open
+                      canGuess
                         ? {
                             on: me.intuition === c,
                             label: 'Guess',
@@ -413,7 +415,9 @@ export function ReadyBar({
         {pillar
           ? me.intuition !== null
             ? 'Your guess'
-            : 'No guess yet: pick a card first'
+            : me.visions.length === 0
+              ? 'Waiting for your vision'
+              : 'No guess yet: pick a card first'
           : 'Tokens placed?'}
         {me.ready && waiting.length > 0 && (
           <span className="block truncate text-xs text-ink-muted">
