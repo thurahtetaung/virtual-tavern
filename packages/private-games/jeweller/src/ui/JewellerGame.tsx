@@ -443,6 +443,23 @@ function End({
         ))}
       </ul>
     );
+  // Wide screens: under the winner's nobles, the last three cards they bought, in a row at the
+  // finale's size, so the lit panel carries the winning table rather than one tile.
+  const topCards = wide &&
+    winners[0] &&
+    winners[0].nobles.length > 0 &&
+    winners[0].cards.length > 0 && (
+      <ul
+        aria-label={`${winners[0].name}’s last cards`}
+        className="flex w-full basis-full justify-center gap-2"
+      >
+        {winners[0].cards.slice(-3).map((c) => (
+          <li key={c} className="w-[min(31%,8rem)]">
+            <CardTile id={c} art={art} className="!w-full shadow-vt-2" />
+          </li>
+        ))}
+      </ul>
+    );
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
@@ -456,10 +473,11 @@ function End({
             emblem={winnerArt.length ? null : '💎'}
             // The winners' nobles (or, without any, the last cards they bought): the game's own art.
             art={
-              tableau ? (
+              tableau || topCards ? (
                 <>
                   {winnerArt}
                   {tableau}
+                  {topCards}
                 </>
               ) : (
                 winnerArt

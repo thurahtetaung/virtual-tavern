@@ -121,7 +121,7 @@ function Pip({
   return (
     <span
       className={cn(
-        'inline-flex size-4 items-center justify-center rounded-full text-xs leading-none font-black tabular-nums ring-1 sm:size-5 lg:size-6 lg:text-sm',
+        'inline-flex size-5 items-center justify-center rounded-full text-sm leading-none font-black tabular-nums ring-1 lg:size-6',
         TOKEN_FILL[gem],
         // A cost your cards already cover: a tick in the gem's own colours, at full contrast.
         covered && 'scale-90',
@@ -272,7 +272,7 @@ export const CardTile = memo(function CardTile({
           <span
             className={cn(
               'relative flex items-center justify-between px-1.5',
-              size === 'lg' ? 'h-12 text-3xl' : 'h-5 text-sm sm:h-7 sm:text-lg',
+              size === 'lg' ? 'h-12 text-3xl' : 'h-6 text-base sm:h-7 sm:text-lg',
               BAND[card.bonus],
               BAND_TEXT[card.bonus],
             )}
