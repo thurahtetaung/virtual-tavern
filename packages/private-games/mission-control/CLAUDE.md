@@ -12,7 +12,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `MISSION_CONTROL_TEST_DEAL` (e.g. `hands=p1 p2 …|b1 …;tasks=1,2`) fixes every deal and its tasks.
   - **Phones:** Play, Mission (the rules) and, in a trick, Logbook (the cards played) on the shared `TabBar`; the trick's moves sit in the fixed `StickyBar` with `mc-play`.
 
-- **UI:** Full hands wrap without overlapping card targets on phones, filling the row's width in as many rows as seven to a row would take (six across for six or fewer, about 55 × 80 px; seven across for 13 or 14 cards, about 46 × 64 px); without a campaign the lobby says so once, as Start's reason; the existing pick, queue and confirm controls keep their behavior.
+- **UI:** Full hands wrap without overlapping card targets on phones, filling the row's width in as many rows as seven to a row would take (six across for six or fewer, about 55 × 80 px; seven across for 13 or 14 cards, about 46 × 64 px); without a campaign the lobby says so once, as Start's reason; the existing pick, queue and confirm controls keep their behavior. The phone briefing shows the box art 128 px wide beside the title; the debrief's box art grows to 14 rem on wide screens (at most a third of the window's height).
 
 ## Assets
 

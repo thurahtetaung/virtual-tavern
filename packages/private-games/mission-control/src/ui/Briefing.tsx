@@ -93,12 +93,12 @@ export function Briefing({
     <Panel className={cn('space-y-4', !box && 'mx-auto max-w-2xl')} data-testid="mc-briefing">
       {/* Phones: the clock drops under the title, so the title keeps the width. */}
       <div className="flex flex-wrap items-start justify-between gap-2">
-        {/* Phones: the voyage's box art beside the title (wide screens show it large beside the panel). */}
+        {/* Phones: the voyage's box art beside the title, 128 px wide (wide screens show it large beside the panel). */}
         {box && (
           <ProtectedImage
             src={box}
             alt=""
-            className="w-20 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line lg:hidden"
+            className="w-32 shrink-0 rounded-lg shadow-vt-2 ring-1 ring-line lg:hidden"
           />
         )}
         <div className="min-w-0 flex-1">
