@@ -13,7 +13,13 @@ import {
   cn,
   useConfirm,
 } from '@vt/ui';
-import { type ReactNode, type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from 'react';
 import {
   RANKS,
   type Rank,
@@ -255,7 +261,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'clues' })}
-        className={cn(TAP_BAND, 'flex items-center gap-0.5')}
+        className={cn(TAP_BAND, 'flex min-h-6 items-center gap-0.5')}
         aria-label={`${g.clues} of ${CLUE_TOKENS} clue tokens`}
         data-testid="sf-clues"
         data-clues={g.clues}
@@ -281,7 +287,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'fuses' })}
-        className={cn(TAP_BAND, 'flex items-center gap-0.5')}
+        className={cn(TAP_BAND, 'flex min-h-6 items-center gap-0.5')}
         aria-label={`${g.fuses} of ${FUSES} fuses burned`}
         data-testid="sf-fuses"
         data-fuses={g.fuses}
@@ -301,7 +307,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'deck' })}
-        className={cn(TAP_BAND, 'tabular-nums')}
+        className={cn(TAP_BAND, 'flex min-h-6 items-center tabular-nums')}
         aria-label={`${g.deck} cards in the deck`}
         data-testid="sf-deck"
       >
@@ -409,16 +415,25 @@ function Fireworks({
                       className="absolute inset-0 size-full object-cover opacity-40"
                     />
                   )}
+                  {/* The pale colours (white, yellow) take their dark ink in light mode, so the
+                      symbol clears 3:1 on the pale wash; dark mode keeps the colour itself. */}
                   <span
                     aria-hidden
                     className={cn(
                       'relative drop-shadow-sm',
                       (suit === 'black' || suit === 'multi') && 'text-ink',
+                      (suit === 'white' || suit === 'yellow') &&
+                        'text-[var(--sf-sym-ink)] dark:text-[var(--sf-sym)]',
                     )}
                     style={
                       suit === 'black' || suit === 'multi'
                         ? undefined
-                        : { color: SUIT_STYLE[suit].bg }
+                        : suit === 'white' || suit === 'yellow'
+                          ? ({
+                              '--sf-sym': SUIT_STYLE[suit].bg,
+                              '--sf-sym-ink': SUIT_STYLE[suit].fg,
+                            } as CSSProperties)
+                          : { color: SUIT_STYLE[suit].bg }
                     }
                   >
                     {SUIT_SYMBOL[suit]}
@@ -504,7 +519,10 @@ function Teammates({
               onClick={() => onClue(id)}
               className={cn(
                 'flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm',
-                roomy && 'max-sm:flex-row max-sm:items-center max-sm:justify-between',
+                // On roomy phones the name sits over the hand as one row: 44 px tall, taking the
+                // card's top padding, so it is a full thumb target without pushing the hands down.
+                roomy &&
+                  'max-sm:-mt-1.5 max-sm:-mb-1 max-sm:min-h-11 max-sm:flex-row max-sm:items-center max-sm:justify-between',
               )}
               aria-label={`${p.name}${current ? ', on turn' : ''}. ${mine && g.clues > 0 ? 'Give them a clue.' : 'See what they know.'}`}
               data-testid="sf-clue-open"

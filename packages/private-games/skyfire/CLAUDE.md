@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `SKYFIRE_TEST_DECK` (e.g. `r1 y1 g5 m3 k5 …`, top first) tops the deck.
   - **Phones:** Table, Discards and Log on the shared `TabBar`; your hand stays pinned above it.
 
-- **UI:** Discard counts on completed fireworks retain full-opacity secondary text. Wide screens show the firework piles at 96 px and leave the "since your last turn" lines to the rail's log; the end's table part is one column with 64 px piles. The replay slider is 24 px tall (44 px on touch). An empty firework pile is a soft wash of its colour with its symbol in it. On phones with one or two teammates each name sits over its hand so the cards take the row (about 65 × 91 px); the end's replay cards keep a 44 px target with the shared tap band. The first-time tips line sits at the top of the rail on wide screens, above the play on phones.
+- **UI:** Discard counts on completed fireworks retain full-opacity secondary text. Wide screens show the firework piles at 96 px and leave the "since your last turn" lines to the rail's log; the end's table part is one column with 64 px piles. The replay slider is 24 px tall (44 px on touch). An empty firework pile is a soft wash of its colour with its symbol in it (white and yellow take their dark ink in light mode, so the symbol clears 3:1). The top strip's counters are at least 24 px tall. On phones with one or two teammates each name sits over its hand as a 44 px row so the cards take the row (about 65 × 91 px); the end's replay cards keep a 44 px target with the shared tap band. The first-time tips line sits at the top of the rail on wide screens, above the play on phones.
 
 ## Assets
 
