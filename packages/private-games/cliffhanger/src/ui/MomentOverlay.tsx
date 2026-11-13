@@ -62,7 +62,8 @@ export function MomentOverlay({
       className={cn(
         'pointer-events-none z-40 flex items-center justify-center',
         // On the table screen it sits over the poster (in its 1920 × 1080 units).
-        inline ? 'relative h-[160px]' : big ? 'absolute inset-0' : 'fixed inset-0',
+        // On the table screen a scrim keeps the headline under it from showing through.
+        inline ? 'relative h-[160px]' : big ? 'absolute inset-0 bg-page/85' : 'fixed inset-0',
       )}
     >
       <div key={key} className="cl-pop flex flex-col items-center gap-2">
