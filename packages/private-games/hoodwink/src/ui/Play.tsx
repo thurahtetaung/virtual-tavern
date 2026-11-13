@@ -411,8 +411,11 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
   switch (round.stage) {
     case 'write':
       return (
-        <div className="space-y-4">
-          <Prompt prompt={round.prompt} />
+        <div className="space-y-4 lg:space-y-6">
+          {/* The fact as the round's question card. */}
+          <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:px-10 lg:py-12">
+            <Prompt prompt={round.prompt} />
+          </div>
           {round.answerSize && round.players.includes(me) && (
             <p className="text-center text-sm text-ink-muted">
               💡 The real answer is {ANSWER_SIZE[round.answerSize]}: make your lie match.
