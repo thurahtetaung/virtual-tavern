@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `CONVEYOR_TEST_DECK` (e.g. `2:miso onigiri-circle …`, by table size) tops each round's deck.
   - **Phones:** Play (hand and choices), Table (the trays) and Scores (totals and log) on the shared `TabBar`; Lock in and Ready sit in the fixed `StickyBar`.
 
-- **UI:** End actions share equal-width columns so the phone’s Play again label fits. Wide screens put your hand (or the round's scores) at the top of the play column with the trays under it, and the first-time tips and the menu strip (wrapped) in the rail above the scores. On phones a round's scores show your own breakdown and fold everyone else's to the total. The end's winning tray uses the finale card size on wide screens (about 140 px for up to four cards, two to a row).
+- **UI:** End actions share equal-width columns so the phone’s Play again label fits. Wide screens put your hand (or the round's scores) at the top of the play column with the trays under it (the clock, the waiting line and the host's Act for buttons share one row, so Lock in and your tray stay in view), and the first-time tips and the menu strip (wrapped) in the rail above the scores. On phones a round's scores show your own breakdown and fold everyone else's to the total. The end's winning tray uses the finale card size on wide screens (about 140 px for up to four cards, two to a row).
 
 ## Assets
 

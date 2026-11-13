@@ -1021,49 +1021,55 @@ function Play({
         <p className="text-sm text-ink-muted">You’re watching this game.</p>
       )}
       {spoonStep && <SpoonPicker g={g} art={art} act={act} />}
-      {clock?.deadline && waiting.length > 0 && (
-        <Countdown
-          deadline={clock.deadline}
-          clockOffset={room.clockOffset}
-          label={clock.fixed ? 'to choose' : g.stage === 'pick' ? 'to pick' : 'to choose'}
-          {...(clock.fixed || view.settings.timerMode === 'strict'
-            ? {
-                atZero: clock.fixed
-                  ? 'then a random card that fits is given'
-                  : 'then a random choice is made',
-              }
-            : {
-                soft: true,
-                expiredHint: room.isHost
-                  ? 'You can Act for anyone still choosing.'
-                  : 'The host can choose for anyone still choosing.',
-              })}
-        />
-      )}
-      {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
-        <div className="space-y-2 text-center text-sm text-ink-muted">
-          <p>{waitingFor(waiting, room.players, { you: room.you })}</p>
-          {room.isHost && waiting.some((id) => id !== room.you) && (
-            // One even row of the host's Act for buttons under the waiting line.
-            <div className="flex flex-wrap justify-center gap-2">
-              {waiting
-                .filter((id) => id !== room.you)
-                .slice(0, 3)
-                .map((id) => (
-                  <Button
-                    key={id}
-                    size="sm"
-                    variant="secondary"
-                    className="min-w-28"
-                    onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })}
-                  >
-                    Act for {name(id)}
-                  </Button>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Wide screens: the clock, the waiting line and the host's Act for buttons share one row,
+          so your hand, Lock in and the trays stay in view. */}
+      <div className="flex flex-col gap-3 empty:hidden lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
+        {clock?.deadline && waiting.length > 0 && (
+          <Countdown
+            deadline={clock.deadline}
+            clockOffset={room.clockOffset}
+            label={clock.fixed ? 'to choose' : g.stage === 'pick' ? 'to pick' : 'to choose'}
+            {...(clock.fixed || view.settings.timerMode === 'strict'
+              ? {
+                  atZero: clock.fixed
+                    ? 'then a random card that fits is given'
+                    : 'then a random choice is made',
+                }
+              : {
+                  soft: true,
+                  expiredHint: room.isHost
+                    ? 'You can Act for anyone still choosing.'
+                    : 'The host can choose for anyone still choosing.',
+                })}
+          />
+        )}
+        {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
+          <div className="space-y-2 text-center text-sm text-ink-muted lg:flex lg:flex-wrap lg:items-center lg:gap-3 lg:space-y-0 lg:text-left">
+            <p>{waitingFor(waiting, room.players, { you: room.you })}</p>
+            {room.isHost && waiting.some((id) => id !== room.you) && (
+              // One even row of the host's Act for buttons under the waiting line.
+              <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                {waiting
+                  .filter((id) => id !== room.you)
+                  .slice(0, 3)
+                  .map((id) => (
+                    <Button
+                      key={id}
+                      size="sm"
+                      variant="secondary"
+                      className="min-w-28"
+                      onClick={() =>
+                        void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })
+                      }
+                    >
+                      Act for {name(id)}
+                    </Button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       {selectable && me && (
         <StickyBar fixed refusal="cv-play" refusalKey={key}>
           <div className="flex gap-2">
