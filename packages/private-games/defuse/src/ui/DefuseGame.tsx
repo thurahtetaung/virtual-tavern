@@ -460,7 +460,7 @@ function Expert({
   const [hand, setHand] = useState(false);
   const defuserHere = v.seats.some((p) => p.id === v.defuser);
   return (
-    <div className="mx-auto max-w-3xl space-y-3" data-testid="expert">
+    <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl" data-testid="expert">
       <div data-testid="status">
         <Hint tone={v.role === 'expert' ? 'action' : 'neutral'} dense>
           📖 {defuser} is defusing bomb {v.bombNo}: read them the manual.
@@ -1039,7 +1039,7 @@ function Lobby({
     !enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null,
   );
   return (
-    <div className="mx-auto max-w-2xl space-y-3" data-testid="lobby">
+    <div className="mx-auto max-w-3xl space-y-3" data-testid="lobby">
       {line && (
         <div data-testid={line.me ? undefined : 'waiting'}>
           <Hint dense tone={line.me ? 'action' : 'neutral'}>

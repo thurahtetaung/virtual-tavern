@@ -312,8 +312,9 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
               </button>
             ))}
       </div>
-      {done && !retry && how === 'exploded' && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] text-center text-xs text-stone-300">
+      {/* Who acts next, for everyone but the host (whose page holds Retry), on either outcome. */}
+      {done && !retry && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] px-4 text-center text-sm text-stone-200">
           The host starts the next bomb.
         </p>
       )}
