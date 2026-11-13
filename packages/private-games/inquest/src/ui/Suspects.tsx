@@ -239,7 +239,7 @@ export function AllSuspects(props: Common) {
             <ChipLabel p={p} view={props.view} /> <BadgeDot p={p} />
           </h4>
           {/* As wide as the panel, but no taller than leaves the tiles on a 900 px screen. */}
-          <div className="mx-auto max-w-[max(16rem,calc(100dvh-34rem))]">
+          <div className="mx-auto max-w-[max(16rem,calc(100dvh-40rem))]">
             <CardGrid {...props} p={p} />
           </div>
         </li>
