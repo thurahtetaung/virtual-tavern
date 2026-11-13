@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Table screen:** the shared poster (`Stage.tsx`): each team's genres, tapes and people on its side, the moment in the middle (the face-off's category card, the turn's squares as slates, the 120 px clock). The tapes lie flat, side by side, never upright (owner).
   - **Testing:** `CLIFFHANGER_TEST_DECK=1` deals titles and categories in the packs' own order.
 
-- **UI:** The finale reserves the winner headline above a grid of flat tapes across the poster body. The TV countdown occupies the clock slot below the headline. Recap tapes sit two across on phones (four on wide screens); the steal offer is one sideways-scrolling row on phones and a five-across grid on wide screens. On phones the countdown and keep steps show both teams' races and won tapes under the step. The table screen shows each side's genres as big tiles four across and its players as coloured name chips.
+- **UI:** Tape titles never go under 10 px; the keep step shows the offered tapes two a row on phones (three wider) with each square's title also in plain type under it, and the face-off's category card stands large above the category (most of a phone's width, about 400 px on desktops). The finale reserves the winner headline above a grid of flat tapes across the poster body. The TV countdown occupies the clock slot below the headline. Recap tapes sit two across on phones (four on wide screens); the steal offer is one sideways-scrolling row on phones and a five-across grid on wide screens. On phones the countdown and keep steps show both teams' races and won tapes under the step. The table screen shows each side's genres as big tiles four across and its players as coloured name chips.
 
 ## Assets
 

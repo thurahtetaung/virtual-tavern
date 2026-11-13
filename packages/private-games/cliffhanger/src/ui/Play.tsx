@@ -164,14 +164,26 @@ function FaceOff({ view, room, act }: PlayProps) {
           <span className="font-semibold">{nameOf(view, r.pair.b)}</span>
         </span>
       </div>
-      <div className="flex items-center gap-3">
-        {card && <CategoryCard text={r.category?.text ?? ''} className="h-24 sm:h-36" />}
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase">
+      {/* The category card large (most of a phone's width, about 400 px on desktops), the
+          category under it; plain words alone without the card's art. */}
+      <div
+        className={cn('flex gap-3', card ? 'flex-col items-center text-center' : 'items-center')}
+      >
+        {card && <CategoryCard text={r.category?.text ?? ''} className="h-48 sm:h-56 lg:h-72" />}
+        <div className={cn('min-w-0 space-y-1', card ? 'w-full' : 'flex-1')}>
+          <p
+            className={cn(
+              'flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase',
+              card && 'justify-center',
+            )}
+          >
             Name a {nounOf(view.settings.deck)}
             {view.settings.noSequels && <RuleNote testId="rule-no-sequels">No sequels</RuleNote>}
           </p>
-          <p className="text-xl font-black leading-tight sm:text-2xl" data-testid="category">
+          <p
+            className="font-display text-xl leading-tight font-black sm:text-2xl"
+            data-testid="category"
+          >
             {r.category?.text}
           </p>
           <p className="text-sm text-ink-muted" aria-live="polite">
@@ -295,7 +307,13 @@ function KeepSheet({ view, room, act }: PlayProps) {
               >
                 <StyleName style={squares[i]?.plays ?? style} className="truncate text-xs" />
                 {card ? (
-                  <Tape card={card} deck={deck} className="w-full" />
+                  <>
+                    <Tape card={card} deck={deck} className="w-full" />
+                    {/* The title in full type too: the square's tape is small on a phone. */}
+                    <span className="w-full truncate text-center text-xs font-semibold text-ink">
+                      {card.title}
+                    </span>
+                  </>
                 ) : (
                   <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted">
                     empty
@@ -312,7 +330,11 @@ function KeepSheet({ view, room, act }: PlayProps) {
           : 'Tap a card to put it on the next square.'}{' '}
         Tap a square to clear it.
       </p>
-      <ul className="flex flex-wrap justify-center gap-2" aria-label="Your cards">
+      {/* Two a row on phones, three wider: tapes large enough to read their titles. */}
+      <ul
+        className="mx-auto grid max-w-[19.5rem] grid-cols-2 gap-2 sm:max-w-xl sm:grid-cols-3"
+        aria-label="Your cards"
+      >
         {hand.offered.map((c) => {
           const at = slots.indexOf(c.id);
           return (
@@ -323,11 +345,11 @@ function KeepSheet({ view, room, act }: PlayProps) {
                 aria-pressed={at >= 0}
                 onClick={() => tapCard(c)}
                 className={cn(
-                  'relative rounded-md transition',
+                  'relative block w-full rounded-md transition',
                   at >= 0 ? 'opacity-40' : 'hover:-translate-y-0.5',
                 )}
               >
-                <Tape card={c} deck={deck} className="h-[4.5rem]" />
+                <Tape card={c} deck={deck} className="w-full" />
                 {c.tier === 'easy' && (
                   <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                     easy
@@ -402,7 +424,7 @@ export function Bays({
             {tappable ? (
               <button
                 type="button"
-                className="flex flex-col items-center gap-1"
+                className="flex w-full flex-col items-center gap-1"
                 onClick={() => onTap(s.card!)}
               >
                 {inner}

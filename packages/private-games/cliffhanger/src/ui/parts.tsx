@@ -256,11 +256,14 @@ export function Tape({
   );
 }
 
-/** The title's size on the label, in container units: long titles smaller. */
+/**
+ * The title's size on the label, in container units (long titles smaller), never under 10 px:
+ * the screens that choose by title show their tapes large enough for that to fit.
+ */
 function titleSize(title: string): string {
   const n = title.length;
   const h = n <= 10 ? 13 : n <= 18 ? 11 : n <= 28 ? 9 : 7.5;
-  return `clamp(7px, ${h}cqh, 64px)`;
+  return `clamp(10px, ${h}cqh, 64px)`;
 }
 
 /** A team's collection as the goal's genres: filled ones in colour, the rest faint. */
