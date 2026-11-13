@@ -865,7 +865,7 @@ function LocationsBoard({
           )}
           <ul
             aria-label={groups.length > 1 ? g.label : undefined}
-            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]"
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]"
           >
             {g.ids.map((id) => {
               const mark = marks[id];
