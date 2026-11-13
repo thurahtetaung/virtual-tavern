@@ -72,8 +72,19 @@ export function ThornsGame({
     };
   }, [setYourMove, tabAlert]);
 
+  const wide = useWideScreen();
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
-  const table = <Table view={view} room={room} act={act} art={art} name={name} />;
+  const table = (
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={name}
+      ended={view.phase === 'over'}
+      aside={wide && view.phase === 'playing' ? <Tips art={art} /> : null}
+    />
+  );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -90,7 +101,7 @@ export function ThornsGame({
   return (
     <div
       className={
-        view.phase === 'playing'
+        view.phase !== 'lobby'
           ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl'
           : 'mx-auto flex w-full max-w-3xl flex-col gap-3'
       }
@@ -101,7 +112,7 @@ export function ThornsGame({
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && <Tips art={art} />}
+          {view.phase === 'playing' && !wide && <Tips art={art} />}
           {view.phase === 'over' && (
             <End
               view={view}
@@ -378,7 +389,7 @@ function End({
               const mat = set.matScored ?? set.mat;
               return (
                 <figure key={id} className="flex flex-col items-center gap-1.5">
-                  <span className="relative flex h-32 w-48 items-center justify-center overflow-hidden rounded-2xl bg-panel shadow-vt-2 ring-1 ring-line lg:h-44 lg:w-64">
+                  <span className="relative flex h-32 w-48 items-center justify-center overflow-hidden rounded-2xl bg-panel shadow-vt-2 ring-1 ring-line lg:h-56 lg:w-80">
                     {mat && (
                       <ProtectedImage
                         src={mat}
@@ -391,7 +402,7 @@ function End({
                       seat={seat}
                       color={room.players.find((x) => x.id === id)?.color}
                       art={art}
-                      size={wide ? 104 : 76}
+                      size={wide ? 128 : 76}
                       className="relative shadow-vt-2"
                     />
                   </span>
