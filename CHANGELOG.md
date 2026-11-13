@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.101.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.3...v0.101.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ui:** game screens fit the window and nothing hides names, results or the move ([#582](https://github.com/thurahtetaung/virtual-tavern/issues/582)) ([5cb0c62](https://github.com/thurahtetaung/virtual-tavern/commit/5cb0c62742fb2af949c4a0a368408674c5882558))
+
 ## [0.101.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.2...v0.101.3) (2026-11-13)
 
 
