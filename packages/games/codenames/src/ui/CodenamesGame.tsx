@@ -99,7 +99,7 @@ export function CodenamesGame({
 
   if (view.phase === 'lobby') {
     return (
-      <div className="space-y-4">
+      <div className="mx-auto max-w-3xl space-y-4">
         {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Teams view={view} online={online} act={act} hostId={room.hostId} />
         <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />

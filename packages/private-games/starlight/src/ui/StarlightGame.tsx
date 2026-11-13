@@ -136,7 +136,7 @@ export function StarlightGame({
 
   if (view.phase === 'lobby') {
     return (
-      <div className="space-y-4">
+      <div className="mx-auto max-w-3xl space-y-4">
         {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Seats view={view} room={room} online={online} act={act} pickColor={pickColor} />
         <GuideLink title={room.gameName ?? 'Starlight'} onClick={showGuide} />

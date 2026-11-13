@@ -157,7 +157,7 @@ export function Lobby({
 }) {
   const editable = room.isHost;
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4">
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
       <GuideLink title={room.gameName ?? 'Enigma'} onClick={showGuide} />
