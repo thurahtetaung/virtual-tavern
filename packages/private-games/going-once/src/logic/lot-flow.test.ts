@@ -10,11 +10,12 @@ import {
   bid,
   game,
   hammer,
+  harness,
   nextLot,
   packContent,
   started,
 } from './test-utils.ts';
-import { BUYERS, HOUSE_BIDDER, PRACTICE_MS, PRACTICE_VALUE } from './types.ts';
+import { BUYERS, COUNTDOWN_MS } from './types.ts';
 
 describe('the lot intro', () => {
   it('shows the lot number and the hints before the picture, then opens the bidding', () => {
@@ -178,118 +179,51 @@ describe('each player’s art buyer', () => {
   });
 });
 
-/** A room's first game with the practice lot on, all drawings in. */
-function practising(seed = 8, lines?: Parameters<typeof packContent>[1]) {
-  const h = started(3, seed, lines ? packContent(undefined, lines) : undefined, true);
-  const g = game(h);
-  for (const id of g.order)
-    for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
-  return h;
-}
-
-describe('the practice lot', () => {
-  it('runs in a room’s first game: a tip, the bidding with a house bidder, Sold, two lessons', () => {
-    const h = practising();
-    let g = game(h);
-    expect(g.stage).toBe('practice');
-    const p = g.practice!;
-    // The tip is true, and the picture comes from a spare group, never a lot.
-    expect(p.step).toBe('hint');
-    expect(p.hint).toContain('$2,000');
-    expect(g.lots.map((id) => g.items[id]!.title)).not.toContain(p.title);
-    expect(p.until - h.now).toBe(PRACTICE_MS.hint);
-    expect(h.refuse('p1', { type: 'practice-bid', amount: 400, seq: 0 }).code).toBe('not-yet');
+describe('the start and lot 1 (the owner’s rulings, 2026-11-13)', () => {
+  it('counts 3-2-1 after Start, then the drawing begins', () => {
+    const h = harness(3);
+    h.act(HOST, { type: 'start' });
+    const g = game(h);
+    expect(g.stage).toBe('countdown');
+    expect(g.until - h.now).toBe(COUNTDOWN_MS);
+    expect(goingOnce.view(h.state, 'p1').game!.stage).toBe('countdown');
+    expect(h.refuse('p1', { type: 'draw', item: g.prompts.p1![0]!, drawing: SQUIGGLE }).code).toBe(
+      'not-drawing',
+    );
     h.tick();
-    expect(game(h).practice!.step).toBe('bid');
-    // A player opens; the house bidder raises once when the quiet ends.
-    h.wait(400);
-    h.act('p2', { type: 'practice-bid', amount: 600, seq: 0 });
-    h.tick();
-    g = game(h);
-    expect(g.practice!.bid).toEqual({ by: HOUSE_BIDDER, amount: 700 });
-    expect(g.practice!.houseBid).toBe(true);
-    h.wait(400);
-    h.act('p3', { type: 'practice-bid', amount: 900, seq: g.practice!.seq });
-    // Then the close runs as usual: going once, going twice, Sold.
-    h.tick();
-    expect(game(h).practice!.close).toBe('once');
-    h.tick();
-    expect(game(h).practice!.close).toBe('twice');
-    h.tick();
-    g = game(h);
-    expect(g.practice!.step).toBe('sold');
-    expect(g.practice!.bid).toEqual({ by: 'p3', amount: 900 });
-    const v = goingOnce.view(h.state, 'p1').game!.practice!;
-    expect(v.title).toBe(g.practice!.title);
-    expect(v.value).toBe(PRACTICE_VALUE);
-    h.tick();
-    expect(game(h).practice!.step).toBe('own');
-    h.tick();
-    expect(game(h).practice!.step).toBe('screw');
-    h.tick();
-    // Lot 1 opens; nothing from the practice counts.
-    g = game(h);
-    expect(g.stage).toBe('auction');
-    expect(g.auction!.lot).toBe(0);
-    expect(g.practice).toBeNull();
-    for (const id of g.order) {
-      expect(g.players[id]!.cash).toBe(3000);
-      expect(g.players[id]!.bids).toBe(0);
-    }
-    expect(Object.values(g.items).every((i) => !i.sale)).toBe(true);
+    expect(game(h).stage).toBe('draw');
+    expect(game(h).since).toBe(h.now);
   });
 
-  it('has the house bidder open a lot nobody bids on, and refuses bad practice bids', () => {
-    const h = practising(9);
-    h.tick();
-    expect(h.refuse('p1', { type: 'practice-bid', amount: 700, seq: 0 }).code).toBe('bad-bid');
-    h.tick();
-    const p = game(h).practice!;
-    expect(p.bid).toEqual({ by: HOUSE_BIDDER, amount: 400 });
-    expect(h.refuse('p1', { type: 'practice-bid', amount: 400, seq: 0 }).code).toBe('too-late');
-    h.wait(400);
-    h.act('p1', { type: 'practice-bid', amount: 500, seq: p.seq });
-    expect(
-      h.refuse('p1', { type: 'practice-bid', amount: 600, seq: game(h).practice!.seq }).code,
-    ).toBe('leading');
-    // The house bidder bid once already: no more raises.
-    h.tick();
-    expect(game(h).practice!.close).toBe('once');
-  });
-
-  it('can be skipped by any player, for everyone', () => {
-    const h = practising(10);
-    expect(h.refuse('p2', { type: 'skip' }).code).toBe('not-host');
-    h.act('p3', { type: 'skip-practice' });
-    expect(game(h).stage).toBe('auction');
-    expect(game(h).auction!.lot).toBe(0);
-    expect(h.refuse('p3', { type: 'skip-practice' }).code).toBe('no-practice');
-  });
-
-  it('only runs in the room’s first game, and the host can turn it off', () => {
-    const h = practising(11);
-    h.act('p1', { type: 'skip-practice' });
-    while (h.state.phase !== 'over') {
-      hammer(h);
-      nextLot(h);
-    }
-    h.act(HOST, { type: 'play-again' });
+  it('goes straight from the drawing to lot 1 in a room’s first game (no practice lot)', () => {
+    const h = started(3, 8);
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     expect(game(h).stage).toBe('auction');
-    // Off in the lobby: the first game goes straight to lot 1.
-    const off = started(3, 12);
-    expect(off.state.settings.practice).toBe(false);
-    for (const id of game(off).order)
-      for (const item of game(off).prompts[id]!)
-        off.act(id, { type: 'draw', item, drawing: SQUIGGLE });
-    expect(game(off).stage).toBe('auction');
+    expect(game(h).auction!.lot).toBe(0);
   });
 
-  it('uses the pack’s practice tip when it has one', () => {
-    const h = practising(13, { practice: ['This one is worth {value}, honest.'] });
-    expect(game(h).practice!.hint).toBe('This one is worth $2,000, honest.');
+  it('moves a room saved mid-practice-lot by an older release on to lot 1', () => {
+    const h = started(3, 9);
+    const g = game(h);
+    for (const id of g.order)
+      for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    // As an older release saved it: the practice lot in play, no auction yet.
+    const old = clone(h.state);
+    Object.assign(old.game!, {
+      stage: 'practice',
+      auction: null,
+      practice: { step: 'bid', until: 0, since: h.now, title: 'X', house: 'x', seq: 0 },
+    });
+    Object.assign(old.settings, { practice: true });
+    h.state = JSON.parse(JSON.stringify(old)) as typeof old;
+    expect(goingOnce.view(h.state, 'p1').game!.stage).toBe('countdown');
+    expect(goingOnce.nextDeadline!(h.state)).toBe(0);
+    h.state = goingOnce.onDeadline!(h.state, h.now);
+    expect(game(h).stage).toBe('auction');
+    expect(game(h).auction!.lot).toBe(0);
+    expect(game(h).practice).toBeNull();
   });
 });
 

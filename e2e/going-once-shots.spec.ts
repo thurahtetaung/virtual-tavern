@@ -5,7 +5,7 @@ import { type Look, visitor } from './tavern-brawl-play.ts';
 import { auditTv } from './tv-audit.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/going-once-shots.spec.ts
-// Phone and desktop, light and dark: the lobby (and its sound settings), drawing, the practice
+// Phone and desktop, light and dark: the lobby (and its sound settings), drawing, the
 // lot's tip and bidding, a lot's intro with its tip bubble, an auction going once, the screw
 // picker, the bank, the Sold card, half-time and the end gallery. With GOING_ONCE_ART and GOING_ONCE_PACKS
 // (`going-once-play.ts`) it previews the real art and lines locally; without, placeholders.
@@ -61,15 +61,6 @@ for (const [label, viewport, colorScheme] of [
       }
     }
 
-    // The practice lot: the tip, then its bidding; then Cleo skips the rest.
-    await expect(hana.getByTestId('go-practice')).toBeVisible();
-    await shot(hana, '02b-practice-tip');
-    await expect(
-      ben.getByTestId('go-practice').getByTestId('go-bid-400').filter({ visible: true }),
-    ).toBeEnabled({ timeout: 20_000 });
-    await shot(ben, '02c-practice-bid');
-    await cleo.getByTestId('go-skip-practice').click();
-
     // Lot 1 opens with its number and each player's tip, before the picture.
     await expect(hana.getByTestId('go-lot-intro')).toBeVisible();
     await shot(hana, '02d-lot-intro-tip');
@@ -119,7 +110,7 @@ test('going once table screen (tv)', async ({ browser }) => {
   };
   cleanup.push(await importPacks(browser));
   const pages = (await table(browser, ['Hana', 'Ben', 'Cleo'], look)) as [Page, Page, Page];
-  const [hana, ben, cleo] = pages;
+  const [hana, ben] = pages;
   await hana.getByRole('button', { name: /^Players/ }).click();
   const panel = hana
     .getByRole('dialog', { name: 'Players' })
@@ -156,7 +147,6 @@ test('going once table screen (tv)', async ({ browser }) => {
       await p.getByTestId('drawing-send').click();
     }
   }
-  await cleo.getByTestId('go-skip-practice').click();
   await expect(stage).toHaveAttribute('data-phase', 'auction');
   await lotIs(ben, 1);
   await bid(ben, 500);

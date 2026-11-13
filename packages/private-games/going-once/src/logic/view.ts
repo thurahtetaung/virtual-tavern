@@ -23,9 +23,6 @@ import {
   type LotResult,
   MAX_LOANS,
   type MineView,
-  PRACTICE_CASH,
-  PRACTICE_VALUE,
-  type PracticeView,
   type SeatView,
   settingsOf,
 } from './types.ts';
@@ -57,27 +54,6 @@ function result(g: Game, item: Item, index: number, over: boolean): LotResult {
   };
 }
 
-function practiceView(g: Game): PracticeView | null {
-  const p = g.practice;
-  if (g.stage !== 'practice' || !p) return null;
-  return {
-    step: p.step,
-    until: p.until,
-    since: p.since,
-    house: p.house,
-    hint: p.hint,
-    value: PRACTICE_VALUE,
-    cash: PRACTICE_CASH,
-    title: p.step === 'hint' || p.step === 'bid' ? null : p.title,
-    seq: p.seq,
-    bid: p.bid ? { ...p.bid } : null,
-    close: p.close,
-    closeAt: p.closeAt,
-    steps: bidSteps(p.bid).filter((n) => n <= PRACTICE_CASH),
-    recent: p.recent.map((r) => ({ ...r })),
-  };
-}
-
 /** The lot on the easel: nothing of it during its intro, before the picture goes up. */
 function easel(item: Item, intro: boolean): LotPicture {
   return intro ? { item: item.id, drawing: null, house: null } : picture(item, true);
@@ -89,12 +65,13 @@ function gameView(state: GoingOnceState, g: Game): GameView {
   const drawing = g.stage === 'draw';
   const waitingToDraw = drawing ? drawWaiting(g) : [];
   return {
-    stage: g.stage,
+    // A room saved mid-practice-lot by an older release shows as starting until its timer
+    // (due at once) moves it on to lot 1.
+    stage: g.stage === 'practice' ? 'countdown' : g.stage,
     until: drawing ? g.until - DRAW_GRACE_MS : g.until,
     since: g.since ?? 0,
     drawFrom: drawing ? g.drawStart : 0,
     soldBeats: g.stage === 'sold' ? (g.soldBeats ?? null) : null,
-    practice: practiceView(g),
     order: [...g.order],
     players: g.order.map((id) => ({
       id,

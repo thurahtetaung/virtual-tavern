@@ -67,10 +67,6 @@ export function dealContacts(order: readonly PlayerId[], rng: Rng, fixed = false
   >;
 }
 
-/** The practice lot's tip when no lines pack words it. */
-export const PRACTICE_TIP =
-  'Psst! The picture coming up is worth {value}. My tips are always true: bid below that and you profit.';
-
 const RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz!?#&*%$';
 const RANDOM_LENGTH = 6;
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { enableTestRig, timing } from './game.ts';
 import { halfAt } from './setup.ts';
-import { BID_SETTLE_MS, SCREW_OUTCOME_MS } from './types.ts';
+import { BID_SETTLE_MS, COUNTDOWN_MS, SCREW_OUTCOME_MS } from './types.ts';
 import {
   GROUPS,
   HOST,
@@ -47,7 +47,6 @@ describe('lobby', () => {
       music: true,
       effects: true,
       voice: false,
-      practice: true,
     });
     expect(h.refuse('p2', { type: 'update-settings', pace: 'relaxed' }).code).toBe('not-host');
   });
@@ -67,6 +66,7 @@ describe('lobby', () => {
     try {
       h.act(HOST, { type: 'rig', scale: 0.5, fixed: true, cash: 1400 });
       h.act(HOST, { type: 'start' });
+      h.tick(); // the 3-2-1
       const g = game(h);
       // Fixed: groups in pack order, titles in seat order, first group high.
       expect(g.prompts.p1!.map((i) => g.items[i]!.title)).toEqual(['Apple', 'Top hat']);
@@ -137,6 +137,7 @@ describe('the deal', () => {
     expect(first).toHaveLength(2);
     h.act(HOST, { type: 'back-to-lobby' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     // Only one group was left unused: the list starts over.
     expect(h.state.usedGroups).toHaveLength(2);
     // Group keys name the pack.
@@ -214,14 +215,17 @@ describe('drawing', () => {
 
   it('turns unsent drawings into house pictures with no artist when time runs out', () => {
     const h = started(3);
+    // The drawing starts after the 3-2-1.
+    const t0 = game(h).since!;
+    expect(t0).toBe(NOW + COUNTDOWN_MS);
     drawAll(h, ['p3']);
     expect(game(h).stage).toBe('draw');
     // Nudges at half time and with ten seconds left, then 90 s plus a short grace.
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 45_000);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 45_000);
     h.tick();
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 80_000);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 80_000);
     h.tick();
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 90_000 + 2500);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 90_000 + 2500);
     h.tick();
     const g = game(h);
     expect(g.stage).toBe('auction');
@@ -318,8 +322,9 @@ describe('bidding', () => {
 
   it('runs at the host’s pace', () => {
     const h = harness(3);
-    h.act(HOST, { type: 'update-settings', pace: 'relaxed', practice: false });
+    h.act(HOST, { type: 'update-settings', pace: 'relaxed' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     drawAll(h);
     expect(game(h).auction!.closeAt).toBe(h.now + 12_000);
   });
@@ -763,8 +768,9 @@ describe('the host', () => {
 
   it('speaks at each moment, from the private pack only', () => {
     const h = harness(3, 3, withHost());
-    h.act(HOST, { type: 'update-settings', practice: false });
+    h.act(HOST, { type: 'update-settings' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     expect(goingOnce.view(h.state, null).game!.host!.lines).toEqual(['Draw!']);
     drawAll(h);
     expect(game(h).host!.lines).toEqual(['First up.']);
@@ -800,8 +806,9 @@ describe('the host', () => {
 
   it('calls out a quiet bidder before a lot', () => {
     const h = harness(3, 3, withHost());
-    h.act(HOST, { type: 'update-settings', practice: false });
+    h.act(HOST, { type: 'update-settings' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     drawAll(h);
     for (let i = 0; i < 3; i++) {
       hammer(h);

@@ -32,7 +32,7 @@ export const GROUPS = [
 
 export function packContent(
   groups: unknown = GROUPS,
-  lines: Partial<Record<HintKind | 'buyer1' | 'buyer2' | 'buyer3' | 'practice', string[]>> = {},
+  lines: Partial<Record<HintKind | 'buyer1' | 'buyer2' | 'buyer3', string[]>> = {},
   host: Record<string, string[]> | null = null,
 ): ContentProvider {
   return {
@@ -103,14 +103,12 @@ export function harness(n = 3, seed = 7, content: ContentProvider = packContent(
   return h;
 }
 
-/**
- * A started game in its drawing stage, at the Normal pace (whatever the table size), without the
- * practice lot unless `practice` is set.
- */
-export function started(n = 3, seed = 7, content?: ContentProvider, practice = false) {
+/** A started game in its drawing stage (past the 3-2-1), at the Normal pace (whatever the table size). */
+export function started(n = 3, seed = 7, content?: ContentProvider) {
   const h = harness(n, seed, content);
-  h.act(HOST, { type: 'update-settings', pace: 'normal', practice });
+  h.act(HOST, { type: 'update-settings', pace: 'normal' });
   h.act(HOST, { type: 'start' });
+  h.tick();
   return h;
 }
 

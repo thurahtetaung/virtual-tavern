@@ -65,7 +65,7 @@ const base: GameGuide = {
     },
   ],
   stepsDone:
-    'A room’s first game starts with a practice lot for play money; anyone can skip it. Tap 📖 Rules any time to read the details.',
+    'After the host presses Start, a 3-2-1 and the drawing begin. Tap 📖 Rules any time to read the details.',
   setup: [
     'Everyone sits down; 3 to 6 can play, others can watch.',
     'Everyone starts with $3,000 cash and one screw. The app deals the titles and keeps every value secret.',
@@ -137,16 +137,6 @@ const base: GameGuide = {
       ],
     },
     {
-      title: 'The practice lot',
-      level: 'details',
-      bullets: [
-        'In a room’s first game, after the drawing and before lot 1, one house picture goes up for play money ($3,000 each). Nothing in it counts.',
-        'It teaches four things in turn: tips are true (your contact tells you what it’s worth), values are true (its value shows at Sold), you can bid on your own drawing, and a screw fails on a player who can’t pay.',
-        'A house bidder bids once: to open it if nobody does, or to raise a low first bid.',
-        'Anyone can skip it for everyone; the host can turn it off in the lobby.',
-      ],
-    },
-    {
       title: 'Screws',
       level: 'details',
       bullets: [
@@ -185,7 +175,7 @@ const base: GameGuide = {
         'Drawing time: 60, 90 (default) or 120 seconds for both drawings.',
         'Auction pace: Relaxed, Normal (the default) or Fast (the default at 3 players). Relaxed gives 12 seconds after each bid, like the original; Fast suits players who know the game.',
         'Between lots the host can tap Next to skip a wait.',
-        'The how-to and the practice lot come in a room’s first game only; anyone can skip them, and the host can turn the practice lot off.',
+        'The spoken how-to comes in a room’s first game only (with the voice on); anyone can skip it.',
       ],
     },
     {

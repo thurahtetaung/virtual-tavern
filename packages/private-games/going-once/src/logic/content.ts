@@ -26,8 +26,8 @@ export type GroupsPack = z.output<typeof groupsPack>;
 /**
  * Message lines per hint kind. `{player}` is the player a line names, `{value}` an amount and
  * `{random}` a string of random characters. `buyer1`…`buyer3` are each art buyer's own chatter
- * (their personality), sent instead of the shared filler when that buyer is the sender, and
- * `practice` is the practice lot's tip (`{value}` is its worth).
+ * (their personality), sent instead of the shared filler when that buyer is the sender.
+ * `practice` was an older release's practice-lot tip: packs that have it still import, unused.
  */
 export const LINE_KEYS = [...HINT_KINDS, ...BUYERS, 'practice'] as const;
 export type LineKey = (typeof LINE_KEYS)[number];
@@ -101,13 +101,15 @@ export function hostLinesOf(content: ContentProvider): Record<string, string[]> 
 }
 
 /** Lines per kind from every enabled lines pack, merged. */
-export function hintLines(content: ContentProvider): Partial<Record<LineKey, string[]>> {
-  const out: Partial<Record<LineKey, string[]>> = {};
+export function hintLines(
+  content: ContentProvider,
+): Partial<Record<Exclude<LineKey, 'practice'>, string[]>> {
+  const out: Partial<Record<Exclude<LineKey, 'practice'>, string[]>> = {};
   for (const pack of content.contentPacks?.('lines') ?? []) {
     const parsed = linesPack.safeParse(pack.data);
     if (!parsed.success) continue;
     for (const [kind, lines] of Object.entries(parsed.data) as [LineKey, string[]][])
-      out[kind] = [...(out[kind] ?? []), ...lines];
+      if (kind !== 'practice') out[kind] = [...(out[kind] ?? []), ...lines];
   }
   return out;
 }

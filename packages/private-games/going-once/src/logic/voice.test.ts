@@ -18,8 +18,9 @@ function voicedGame(n = 3, seed = 5, voice = true) {
       name: `P${i + 1}`,
       color: COLORS[i]!,
     });
-  h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice });
+  h.act(HOST, { type: 'update-settings', pace: 'normal', voice });
   h.act(HOST, { type: 'start' });
+  h.tick(); // the 3-2-1
   return h;
 }
 
@@ -115,6 +116,7 @@ describe('the spoken introduction, in the original’s order', () => {
     const h = voicedGame(3);
     h.act(HOST, { type: 'back-to-lobby' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     expect(game(h).stage).toBe('draw');
     expect(keys(h.state).slice(0, 1)).toEqual(['greeting']);
     expect(keys(h.state).at(-1)).toBe('later-game');
@@ -140,8 +142,9 @@ describe('the spoken introduction, in the original’s order', () => {
 
   it('isn’t voiced when sound is off, whatever the voice switch says', () => {
     const h = harness(3);
-    h.act(HOST, { type: 'update-settings', voice: true, sound: 'off', practice: false });
+    h.act(HOST, { type: 'update-settings', voice: true, sound: 'off' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     expect(game(h).voiced).toBe(false);
     expect(game(h).stage).toBe('draw');
   });
@@ -191,20 +194,18 @@ describe('the voiced auction', () => {
         name: `P${i + 1}`,
         color: COLORS[i]!,
       });
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: true, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     drawEverything(h);
-    // The tutorial skipped, then the practice lot at once: "skipped" is still being said.
+    // The tutorial skipped, then lot 1 at once: "skipped" is said first.
     h.act(HOST, { type: 'skip-intro' });
-    expect(game(h).stage).toBe('practice');
-    const skipped = game(h).host!;
-    expect(skipped.clips![0]!.key).toBe('skipped');
-    const said = skipped.at! + skipped.ms!;
-    h.wait(500);
-    h.act(HOST, { type: 'skip-practice' });
     expect(game(h).stage).toBe('auction');
+    const lead = game(h).host!;
+    expect(lead.clips![0]!.key).toBe('skipped');
+    const said = clipTimes(lead)[0]! + lead.clips![0]!.ms;
     // "The first item up for bid" waits for it, and so does the opening.
-    expect(game(h).host!.at).toBe(said);
+    expect(clipTimes(lead)[1] ?? said).toBeGreaterThanOrEqual(said);
     h.tick();
     const opening = game(h).host!;
     expect(opening.clips!.map((c) => c.key)).toContain('opening');

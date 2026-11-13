@@ -35,8 +35,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     Page,
   ];
   const all = [hana, ben, cleo];
-  // Sound: every device by default, the auctioneer's voice off until the host turns it on; the
-  // practice lot is on for a room's first game. Guests see the host's choices.
+  // Sound: every device by default, the auctioneer's voice off until the host turns it on. Guests
+  // see the host's choices.
   await expect(hana.getByRole('radio', { name: 'Every device' })).toHaveAttribute(
     'aria-checked',
     'true',
@@ -60,8 +60,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   ).toHaveCount(7);
   await ben.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
-  await expect(ben.getByTestId('go-practice-setting')).toHaveAttribute('aria-checked', 'true');
   await hana.getByTestId('go-start').click();
+  // A 3-2-1 first, then the drawing.
+  await expect(ben.getByTestId('go-countdown')).toBeVisible();
 
   // Drawing on a phone: the title, the sheet and its pens, with Send in the bar, on one screen.
   await expect(hana.getByTestId('go-title')).toHaveText(TITLES[0]![0]);
@@ -75,11 +76,6 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
       await p.getByTestId('drawing-send').click();
     }
   }
-
-  // The room's first game opens with the practice lot, on every phone; anyone may skip it for all.
-  for (const p of all) await expect(p.getByTestId('go-practice')).toBeVisible();
-  await cleo.getByTestId('go-skip-practice').click();
-  for (const p of all) await expect(p.getByTestId('go-practice')).toHaveCount(0);
 
   // Lot 1 is Hana's "Apple" (worth $3,500): Ben and Cleo fight over it, Ben wins at $600.
   for (const p of all) await lotIs(p, 1);
@@ -215,6 +211,8 @@ test('a table screen shows the auction while the phones go quiet', async ({ brow
     'true',
   );
   await hana.getByTestId('go-start').click();
+  // The 3-2-1 counts down in the lobby scene, then the drawing.
+  await expect(stage.locator('.go-stage-countdown')).toBeAttached();
   await expect(stage).toHaveAttribute('data-phase', 'draw');
   for (const [seat, p] of all.entries()) {
     for (const title of TITLES[seat]!) {
@@ -223,8 +221,6 @@ test('a table screen shows the auction while the phones go quiet', async ({ brow
       await p.getByTestId('drawing-send').click();
     }
   }
-  await cleo.getByTestId('go-skip-practice').click();
-
   // Lot 1 on the TV; on the phones only a thumbnail with a nudge to look up.
   await expect(stage).toHaveAttribute('data-phase', 'auction');
   for (const p of all) await lotIs(p, 1);
@@ -235,7 +231,7 @@ test('a table screen shows the auction while the phones go quiet', async ({ brow
   await bid(ben, 400);
   await bid(cleo, 500);
   await bid(ben, 600);
-  await expect(stage.getByText('Current bid')).toBeVisible();
+  await expect(stage.getByText('Current Bid')).toBeVisible();
   // A quiet phone's bidding fits a 390 × 844 screen: no page to scroll, either way.
   for (const p of all)
     await expect

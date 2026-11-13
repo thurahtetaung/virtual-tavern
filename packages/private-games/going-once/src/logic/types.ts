@@ -204,20 +204,8 @@ export type Buyer = (typeof BUYERS)[number];
 export const SOUND_MODES = ['off', 'host', 'all', 'stage'] as const;
 export type SoundMode = (typeof SOUND_MODES)[number];
 
-/** The practice lot: a house picture for play money, before lot 1 of a room's first game. */
-export const PRACTICE_STEPS = ['hint', 'bid', 'sold', 'own', 'screw'] as const;
-export type PracticeStep = (typeof PRACTICE_STEPS)[number];
-/** How long each practice step lasts (the bidding runs on the auction's own close instead). */
-export const PRACTICE_MS: Record<Exclude<PracticeStep, 'bid'>, number> = {
-  hint: 6000,
-  sold: 7000,
-  own: 7000,
-  screw: 9000,
-};
-export const PRACTICE_VALUE = 2000;
-export const PRACTICE_CASH = 3000;
-/** The practice lot's scripted rival, who bids once: never a real player id (those are hashes). */
-export const HOUSE_BIDDER = '~house';
+/** Between the host's Start and the drawing: the original's 3-2-1 (at the test rig's scale). */
+export const COUNTDOWN_MS = 3000;
 
 export interface Settings {
   drawSeconds: DrawSeconds;
@@ -232,8 +220,6 @@ export interface Settings {
   effects?: boolean;
   /** The auctioneer's voice, off unless the host turns it on. */
   voice?: boolean;
-  /** The practice lot in the room's first game. */
-  practice?: boolean;
   /** The table screen's volumes, from the host's sliders (the table has no input). */
   tableVolumes?: TableVolumes;
   /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
@@ -249,7 +235,6 @@ export const DEFAULT_SETTINGS: Required<
   music: true,
   effects: true,
   voice: false,
-  practice: true,
 };
 
 /** The settings with every default filled in. */
@@ -373,31 +358,13 @@ export interface RecentBid {
 /** Bids kept in `Auction.recent`. */
 export const RECENT_BIDS = 4;
 
-/** `intro`: the auctioneer's tutorial after the drawing (a voiced room's first game; anyone can skip). */
+/**
+ * `countdown`: the 3-2-1 after the host's Start. `intro`: the auctioneer's tutorial after the
+ * drawing (a voiced room's first game; anyone can skip). `practice` is only ever in rooms saved by
+ * an older release mid-practice-lot (the lot is gone): it moves on to lot 1 at once.
+ */
 export type Stage =
-  'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
-
-/** The practice lot in play (none of it counts). */
-export interface Practice {
-  step: PracticeStep;
-  /** When a timed step ends. */
-  until: number;
-  /** When this step (or the bidding's current close stage) began. */
-  since: number;
-  /** A title and house picture from the spare groups, which no lot uses. */
-  title: string;
-  house: string;
-  /** The coach's hint, the same for everyone (it is about the practice lot only). */
-  hint: string;
-  seq: number;
-  bid: { by: PlayerId; amount: number } | null;
-  close: CloseStage;
-  closeAt: number;
-  recent: RecentBid[];
-  /** The house bidder has made its one bid. */
-  houseBid: boolean;
-  lastBidAt: Record<PlayerId, number>;
-}
+  'countdown' | 'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
 
 export type LogEntry =
   | {
@@ -439,9 +406,9 @@ export interface Game {
   bankTook: PlayerId[];
   /**
    * The hint lines for this game (from the private lines packs; kinds left out use our own), plus
-   * each buyer's own chatter and the practice tip (`LineKey` in `content.ts`).
+   * each buyer's own chatter (`LineKey` in `content.ts`).
    */
-  lines: Partial<Record<HintKind | Buyer | 'practice', string[]>>;
+  lines: Partial<Record<HintKind | Buyer, string[]>>;
   /** Players who left the room for good: they keep their seat, cash and art. */
   left: PlayerId[];
   winners: PlayerId[];
@@ -469,8 +436,8 @@ export interface Game {
   since?: number;
   /** Each player's art buyer, who sends them every tip (games saved before it pick at random). */
   contacts?: Record<PlayerId, Buyer>;
-  /** The practice lot, while it runs. */
-  practice?: Practice | null;
+  /** An older release's practice lot, in rooms saved during it (ignored: lot 1 follows). */
+  practice?: unknown;
   /** The auctioneer's voice is on (the host's switch with sound on, at the start): it sets the pace. */
   voiced?: boolean;
   /** The voice has explained buying your own drawing once this game. */
@@ -566,7 +533,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     music: z.boolean().optional(),
     effects: z.boolean().optional(),
     voice: z.boolean().optional(),
-    practice: z.boolean().optional(),
   }),
   tableVolumeAction,
   hostVolumeAction,
@@ -579,12 +545,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     amount: z.number().int().min(OPENING_BID).max(1_000_000),
     seq: z.number().int().min(0),
   }),
-  z.object({
-    type: z.literal('practice-bid'),
-    amount: z.number().int().min(OPENING_BID).max(PRACTICE_CASH),
-    seq: z.number().int().min(0),
-  }),
-  z.object({ type: z.literal('skip-practice') }),
   z.object({ type: z.literal('skip-intro') }),
   z.object({ type: z.literal('screw') }),
   z.object({ type: z.literal('screw-pick'), target: id }),
@@ -691,26 +651,6 @@ export interface MineView {
   contact: Buyer;
 }
 
-/** The practice lot as everyone sees it. */
-export interface PracticeView {
-  step: PracticeStep;
-  until: number;
-  since: number;
-  /** The house picture's key. */
-  house: string;
-  hint: string;
-  value: number;
-  cash: number;
-  /** Shown from the Sold step on. */
-  title: string | null;
-  seq: number;
-  bid: { by: PlayerId; amount: number } | null;
-  close: CloseStage;
-  closeAt: number;
-  steps: number[];
-  recent: RecentBid[];
-}
-
 export interface FinalView {
   id: PlayerId;
   cash: number;
@@ -721,7 +661,7 @@ export interface FinalView {
 }
 
 export interface GameView {
-  stage: Stage;
+  stage: Exclude<Stage, 'practice'>;
   /** The Sold card's beats (`SoldBeats`) while it is up, else null. */
   soldBeats: SoldBeats | null;
   until: number;
@@ -732,7 +672,6 @@ export interface GameView {
    * its timer only then); 0 otherwise.
    */
   drawFrom: number;
-  practice: PracticeView | null;
   order: PlayerId[];
   players: PlayerView[];
   lotCount: number;
@@ -777,7 +716,7 @@ export interface GoingOnceView {
   mine: MineView | null;
   log: LogEntry[];
   groupsAvailable: number;
-  /** Games started in this room (the practice lot runs in the first). */
+  /** Games started in this room. */
   gamesPlayed: number;
   rigAllowed: boolean;
   rig: Rig | null;

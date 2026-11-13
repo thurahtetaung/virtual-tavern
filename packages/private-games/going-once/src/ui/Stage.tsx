@@ -7,6 +7,7 @@ import {
   useSecondsLeft as useSecondsTo,
 } from '@vt/ui';
 import {
+  Dim,
   Label,
   Layer,
   type LoadedRig,
@@ -19,6 +20,7 @@ import {
   Spotlight,
   Stamp,
   placeOf,
+  symbolSource,
   useShow,
   lowOf,
   useShowSettings,
@@ -31,14 +33,16 @@ import type { Track } from '@vt/game-sdk/show';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { BID_STEP, type GoingOnceView, OPENING_BID, type PlayerView } from '../logic/types.ts';
-import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
+import { type Art, GAME_ID, type ManifestState, artFor, assetUrl, useManifest } from './assets.ts';
 import { endTimes } from './audio.ts';
 import { HostStrip } from './Extras.tsx';
 import type { GoingOnceUiProps } from './GoingOnceGame.tsx';
 import { Picture } from './Picture.tsx';
 import {
   BANK_PARTS,
-  type RowWhere,
+  CALL_WORDS,
+  chairsOf,
+  compose,
   endTrack,
   moments,
   plateText,
@@ -60,11 +64,11 @@ function phaseOf(view: GoingOnceView): string {
   const g = view.game;
   if (view.phase === 'lobby' || !g) return 'lobby';
   switch (g.stage) {
+    case 'countdown':
+      return 'lobby';
     case 'intro':
     case 'draw':
       return 'draw';
-    case 'practice':
-      return 'practice';
     case 'done':
       return 'end';
     default:
@@ -74,7 +78,6 @@ function phaseOf(view: GoingOnceView): string {
 const NEXT: Record<string, string> = {
   lobby: 'draw',
   draw: 'auction',
-  practice: 'auction',
   auction: 'end',
 };
 
@@ -100,77 +103,67 @@ const restOf = (t: Track | undefined): CSSProperties | undefined => {
 };
 
 /**
- * Where things stand in the room. The original's own places put a small painting at the top left
- * and the paddles behind the floor's edge; on a TV across a room the lot is the point, so the
- * painting hangs large on the left (the camera is closed in on the easel), the LOT disc beside it,
- * the bidding on the right, and the paddles stand in a full row above the floor with the names on
- * it. Parts keep the original's own motion (their tracks) inside these places.
+ * Where things stand in the room: the original's own places (the rig's `<part>.at`), so the lot
+ * reads as it did: the camera closed in on the wall, a small framed painting at the top left, the
+ * label, the huge amount and the grey next ask to its right, the leader's silhouette with TOP,
+ * and the chairs along the bottom with the paddles parked behind them.
  */
-const PAINTING_K = 1.3;
 const AT = {
-  painting: [PAINTING_K, 0, 0, PAINTING_K, 90, 40],
-  /** The stamp sits on the painting's middle, outside its scale (the original's size). */
-  stamp: [1, 0, 0, 1, 90 + 148 * PAINTING_K, 40 + 175 * PAINTING_K],
-  lot: [1, 0, 0, 1, 690, 14],
-  bidLabel: [1, 0, 0, 1, 880, 150],
-  bidAmount: [1, 0, 0, 1, 876, 196],
-  bidFrom: [1, 0, 0, 1, 1190, 180],
-  bidPrompt: [0.42, 0, 0, 0.42, 882, 286],
   /** The end's art layouts (their pictures slide in relative to this). */
   art: [1, 0, 0, 1, 640, 160],
   /** A buyer's total, where the values fly to. */
   total: [1, 0, 0, 1, 640, 500],
 };
-/** The seats: the original's row, a little smaller. */
+/** The lobby's and the end's paddles: a row of the original's spacing, a little smaller. */
 const SEAT_K = 0.8;
-/** Each seat's height: a lowered paddle stands on the floor's line. */
 const ROW_Y = 520;
-/** A seat's place: `x` from `rowOf`. */
 const seatAt = (x: number, y = ROW_Y) => [SEAT_K, 0, 0, SEAT_K, x, y];
 
-/** A player's name, on the floor under their paddle. */
+/** A player's name under their lobby paddle. */
 const NAME_AT = [1, 0, 0, 1, 0, 190];
 
 /** The lot's canvas in the painting (the original's 240 × 320 at 1.1875). */
 const CANVAS: CSSProperties = { left: 0, top: 0, width: 285, height: 380, borderRadius: 3 };
-/** The sold lot's title, under the painting (clear of the paddles, which stand right of it). */
+/** The sold lot's title, under the painting (our addition, DECIDED A4), clear of the chairs. */
 const TITLE: CSSProperties = {
-  left: 90,
-  top: 548,
-  width: 380,
-  fontSize: 28,
+  left: 243,
+  top: 492,
+  width: 300,
+  fontSize: 26,
   lineHeight: 1.15,
   color: '#1c1917',
   textAlign: 'left',
 };
 /** Text on the gallery wall. */
 const INK = '#1c1917';
-/** Text that starts at its layer's origin (the original's text fields). */
-const LEFT: CSSProperties = { transform: 'translate(0, -50%)' };
+/** The grey of the next ask and the calls under the amount. */
+const ASK_GREY = '#6b645b';
 /** The amount the auctioneer asks for next. */
 const nextAsk = (top: number | undefined) => (top ? top + BID_STEP : OPENING_BID);
 
-/** The host's words along the top (the row of seats is along the bottom), sized for a room. */
-const HOST_STRIP: CSSProperties = {
-  left: 290,
-  top: 8,
-  width: 700,
-  transform: 'scale(1.4)',
-  transformOrigin: '50% 0',
-};
-/** At the end, the host's words along the floor, clear of the title plates at the top. */
-const HOST_STRIP_END: CSSProperties = { ...HOST_STRIP, top: 650 };
 /**
- * During a lot, the host's words over the bidding column, clear of the painting, the LOT disc and
- * the strings they hang from.
+ * The original's three faces (private fonts from the manifest, loaded on the table screen only),
+ * with fallbacks for a manifest without them: the amounts, the labels and names, the headlines.
  */
-const HOST_STRIP_LOT: CSSProperties = {
-  left: 836,
-  top: 8,
-  width: 310,
-  transform: 'scale(1.4)',
-  transformOrigin: '0 0',
+const FONT = {
+  amount: "'go-amount', ui-sans-serif, system-ui, sans-serif",
+  label: "'go-label', 'Arial Narrow', 'Roboto Condensed', ui-sans-serif, sans-serif",
+  name: "'go-name', ui-sans-serif, system-ui, sans-serif",
 };
+/** A text field the original anchors at its top left (amounts, the next ask). */
+const FIELD: CSSProperties = { transform: 'none', left: 2, top: 2, lineHeight: 1 };
+
+/**
+ * The subtitles' band: kept clear in every scene so the words never cover the painting, the
+ * amounts, the names, the paddles, the stamp or the winner. Along the top during the game (the
+ * painting, the disc, the sign and the hourglass all hang below it), along the bottom at the end
+ * (the art and its titles fill the top). Two lines fit; longer lines are clipped to two.
+ */
+const BAND: CSSProperties = { left: 40, top: 6, width: 1200, height: 86 };
+const BAND_END: CSSProperties = { ...BAND, top: 628 };
+
+/** Where the countdown card stands in our lobby (the original's sign and easel are stage 2's). */
+const COUNTDOWN_AT = [0.42, 0, 0, 0.42, 640, 372];
 
 /** A part not on show. */
 const HIDDEN: CSSProperties = { opacity: 0 };
@@ -180,26 +173,18 @@ const ROOM: CSSProperties = { width: 1280, height: 720 };
 
 const WINNERS = ['One', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
 
-/** Where the row stands in this phase: right of the painting while a lot is on. */
-const rowWhere = (view: GoingOnceView): RowWhere =>
-  phaseOf(view) === 'auction' || phaseOf(view) === 'practice' ? 'lot' : 'room';
-
-/** The lot on the easel as the stage draws it: an auctioned lot or the practice lot. */
+/** The lot on the easel as the stage draws it. */
 function lotView(view: GoingOnceView) {
   const g = view.game;
   if (!g) return null;
-  if (g.stage === 'practice' && g.practice) {
-    const p = g.practice;
-    if (p.step === 'hint') return null;
-    return {
-      label: 'Practice',
-      bid: p.bid,
-      picture: { item: 'practice', drawing: null, house: p.house },
-    };
-  }
   const a = g.auction;
   if (!a || (g.stage !== 'auction' && g.stage !== 'sold')) return null;
-  return { label: `${a.lot + 1}/${g.lotCount}`, bid: a.bid, picture: a.picture };
+  return {
+    label: `${a.lot + 1}/${g.lotCount}`,
+    bid: a.bid,
+    picture: a.picture,
+    close: a.close,
+  };
 }
 
 /**
@@ -221,9 +206,33 @@ function useJoined(view: GoingOnceView, offset: number): Readonly<Record<string,
   return seen?.at ?? {};
 }
 
+/**
+ * The original's fonts, from the private manifest's `fonts` (`amount`, `label`, `name`: woff2
+ * paths), added to the page for the table screen only. A manifest without them keeps the fallbacks.
+ */
+function useShowFonts(manifest: unknown) {
+  useEffect(() => {
+    const fonts = (manifest as { fonts?: Record<string, unknown> } | null)?.fonts;
+    if (!fonts || typeof document === 'undefined' || typeof FontFace === 'undefined') return;
+    const added: FontFace[] = [];
+    for (const key of ['amount', 'label', 'name'] as const) {
+      const path = fonts[key];
+      if (typeof path !== 'string' || !path.trim()) continue;
+      const face = new FontFace(`go-${key}`, `url(${assetUrl(path.trim())})`);
+      document.fonts.add(face);
+      added.push(face);
+      void face.load().catch(() => undefined);
+    }
+    return () => {
+      for (const face of added) document.fonts.delete(face);
+    };
+  }, [manifest]);
+}
+
 export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
+  useShowFonts(manifest);
   useSound({
     view,
     manifest,
@@ -276,19 +285,26 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
         ) : (
           <Scene
             background={
-              bg ? (
-                <ProtectedImage
-                  src={bg}
-                  alt=""
-                  className="absolute left-0 top-0"
-                  style={{ ...ROOM, maxWidth: 'none' }}
-                />
-              ) : (
-                <div
-                  className="absolute left-0 top-0 bg-gradient-to-b from-stone-800 to-stone-950"
-                  style={ROOM}
-                />
-              )
+              <>
+                {bg ? (
+                  <ProtectedImage
+                    src={bg}
+                    alt=""
+                    className="absolute left-0 top-0"
+                    style={{ ...ROOM, maxWidth: 'none' }}
+                  />
+                ) : (
+                  <div
+                    className="absolute left-0 top-0 bg-gradient-to-b from-stone-800 to-stone-950"
+                    style={ROOM}
+                  />
+                )}
+                {/* The original darkens the wall alone (screws, the winner); the camera layer has
+                    no size of its own, so the dim gets the room's. */}
+                <div className="absolute left-0 top-0" style={ROOM}>
+                  <Dim name="walldim" />
+                </div>
+              </>
             }
             overlay={
               <>
@@ -301,20 +317,15 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
                     clockOffset={offset}
                   />
                 )}
-                <div
-                  className="absolute"
-                  style={
-                    rowWhere(view) === 'lot'
-                      ? HOST_STRIP_LOT
-                      : phase === 'end'
-                        ? HOST_STRIP_END
-                        : HOST_STRIP
-                  }
-                >
-                  {view.game && (
+                {view.game && (
+                  <div
+                    className="absolute flex items-center justify-center overflow-hidden [&_p]:line-clamp-2 [&_p]:max-w-full [&_p]:text-[26px] [&_p]:leading-[1.2]"
+                    style={phase === 'end' ? BAND_END : BAND}
+                    data-testid="go-stage-band"
+                  >
                     <HostStrip view={view} art={art} name={name} clockOffset={offset} tv />
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             }
           >
@@ -343,6 +354,7 @@ function Plain({
   host: number;
 }) {
   const { name: title } = usePosterInfo();
+  const logo = art.ui('logo');
   const g = view.game;
   const lot = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
@@ -353,7 +365,13 @@ function Plain({
       <Poster
         testId="go-stage-plain"
         eyebrow="Waiting for the host"
-        headline={title}
+        headline={
+          logo ? (
+            <ProtectedImage src={logo} alt={title} className="mx-auto h-[220px] w-auto" />
+          ) : (
+            title
+          )
+        }
         line={view.seats
           .filter((s) => s.playing)
           .map((s) => s.name)
@@ -523,9 +541,9 @@ const STAGE_MORE: Record<
 };
 
 const STAGE_WORDS: Record<string, string> = {
+  countdown: 'Get ready…',
   intro: 'How the auction works',
   draw: 'Look at your phone and draw',
-  practice: 'The practice lot',
   auction: 'The next lot is coming up',
   sold: 'Sold!',
   halftime: 'Half-time: screws are on',
@@ -552,12 +570,20 @@ function Room({
   const players: Pick<PlayerView, 'id' | 'name'>[] = g
     ? g.order.flatMap((id) => g.players.find((p) => p.id === id) ?? [])
     : view.seats.filter((s) => s.playing);
-  const seats = rowOf(rig.places, players.length, rowWhere(view));
   const a = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
   const lead = a?.bid?.by ?? null;
   const T = rig.tracks;
-  if (!g) return <Lobby view={view} rig={rig} manifest={manifest} seats={seats} />;
+  if (!g || g.stage === 'countdown')
+    return (
+      <Lobby
+        view={view}
+        rig={rig}
+        manifest={manifest}
+        seats={rowOf(rig.places, view.seats.filter((s) => s.playing).length, 'room')}
+        countdown={g?.stage === 'countdown'}
+      />
+    );
   if (g.stage === 'done' && g.final)
     return (
       <EndScene
@@ -569,24 +595,43 @@ function Room({
         clockOffset={room.clockOffset}
       />
     );
+  const chairs = chairsOf(rig.places, players.length);
+  // The chairs pop up as the drawing starts (the moment); from then on they are up.
+  const chairsUp = !(g.stage === 'draw' && !g.redraw && g.since > 0);
+  const painting = placeOf(rig, 'painting.at') ?? [1, 0, 0, 1, 243, 96];
+  const stampAt = placeOf(rig, 'painting.stamp') ?? [1, 0, 0, 1, 148, 175];
   return (
     <>
       {a && (
         <>
-          {/* The LOT disc, under the painting as the original layers them. */}
-          <Layer m={AT.lot}>
-            <Layer name="lot" moving style={startOf(T.lot?.Appear)}>
+          {/* The LOT disc on its strings, under the painting as the original layers them. */}
+          <Layer m={placeOf(rig, 'lot.at')}>
+            <Layer name="lot" moving style={a.close === 'intro' ? startOf(T.lot?.Appear) : HIDDEN}>
               <RigArt rig={rig} symbol="disc" />
-              <Layer m={[1, 0, 0, 1, 0, 12]}>
-                <Label name="lot.num" style={{ color: '#4a2f17', fontSize: 30 }}>
+              <Layer m={[1, 0, 0, 1, 0, 66]}>
+                <Label
+                  name="lot.num"
+                  style={{
+                    color: '#fff',
+                    fontSize: 120,
+                    lineHeight: 1,
+                    fontFamily: FONT.label,
+                    fontWeight: 400,
+                    textShadow: '0 2px 2px rgb(0 0 0 / 0.25)',
+                  }}
+                >
                   {a.label}
                 </Label>
               </Layer>
             </Layer>
           </Layer>
-          {/* The painting on the easel (the frame under the canvas), the stamp at its middle. */}
-          <Layer m={AT.painting}>
-            <Layer name="painting" moving style={startOf(T.painting?.Appear)}>
+          {/* The painting on the wall (the frame under the canvas), the stamp at its middle. */}
+          <Layer m={painting}>
+            <Layer
+              name="painting"
+              moving
+              style={a.close === 'intro' ? startOf(T.painting?.Appear) : undefined}
+            >
               <Layer m={placeOf(rig, 'painting.frame')}>
                 <RigArt rig={rig} symbol="painting.frame" />
               </Layer>
@@ -607,7 +652,7 @@ function Room({
               </div>
             </Layer>
           </Layer>
-          <Layer m={AT.stamp}>
+          <Layer m={compose(painting, stampAt)}>
             <Layer name="stampSpin">
               <Stamp rig={rig} line="below" />
             </Layer>
@@ -618,29 +663,54 @@ function Room({
               artist={sold.artistKnown && sold.artist ? name(sold.artist) : null}
             />
           )}
-          {/* The phone that rings while the tips go out. */}
+          {/* The phone that slides in and rings while the tips go out. */}
           <Layer m={placeOf(rig, 'phone.at')}>
             <Layer name="phone" moving style={startOf(T.phone?.Appear)}>
-              <RigArt rig={rig} symbol="ring-d7" />
+              <Layer name="ring" moving>
+                <RigArt rig={rig} symbol="ring-d7" />
+              </Layer>
             </Layer>
           </Layer>
-          {/* The bid: its label, the amount, the leader's shape, and the next ask. */}
-          <Layer m={AT.bidLabel}>
-            <Layer name="bidLabel" moving style={startOf(T.bidLabel?.Appear)}>
-              <Label name="bidLabel.text" style={{ ...LEFT, fontSize: 28, color: INK }}>
-                {sold ? 'Winning bid' : a.bid ? 'Current bid' : 'Opening bid'}
+          {/* The bid: its label, the huge amount, the leader's shape with TOP, the grey next ask. */}
+          <Layer m={placeOf(rig, 'bidLabel.at')}>
+            <Layer
+              name="bidLabel"
+              moving
+              style={a.close === 'intro' ? startOf(T.bidLabel?.Appear) : undefined}
+            >
+              <Label
+                name="bidLabel.text"
+                style={{
+                  transform: 'translate(0, -100%)',
+                  left: 4,
+                  top: 30,
+                  fontSize: 88,
+                  lineHeight: 1,
+                  color: INK,
+                  fontFamily: FONT.label,
+                  fontWeight: 400,
+                }}
+              >
+                {sold ? 'Winning Bid' : a.bid ? 'Current Bid' : 'Opening Bid'}
               </Label>
             </Layer>
           </Layer>
-          <Layer m={AT.bidAmount}>
-            <Layer name="bidAmount" moving style={startOf(T.bidAmount?.Appear)}>
-              <Label name="bidAmount.text" style={{ ...LEFT, fontSize: 64, color: INK }}>
+          <Layer m={placeOf(rig, 'bidAmount.at')}>
+            <Layer
+              name="bidAmount"
+              moving
+              style={a.close === 'intro' ? startOf(T.bidAmount?.Appear) : undefined}
+            >
+              <Label
+                name="bidAmount.text"
+                style={{ ...FIELD, fontSize: 160, color: INK, fontFamily: FONT.amount }}
+              >
                 {money(a.bid?.amount ?? OPENING_BID)}
               </Label>
             </Layer>
           </Layer>
-          <Layer m={AT.bidFrom}>
-            <Layer name="bidFrom" moving style={startOf(T.bidFrom?.Appear)}>
+          <Layer m={placeOf(rig, 'bidFrom.at')}>
+            <Layer name="bidFrom" moving style={lead ? undefined : HIDDEN}>
               {lead && (
                 <LeaderShape
                   rig={rig}
@@ -651,10 +721,15 @@ function Room({
               )}
             </Layer>
           </Layer>
-          <Layer m={AT.bidPrompt}>
-            <Layer name="bidPrompt" moving style={startOf(T.bidPrompt?.Appear)}>
-              <Label name="bidPrompt.text" style={{ ...LEFT, fontSize: 90, color: INK }}>
-                {`${money(nextAsk(a.bid?.amount))}?`}
+          <Layer m={placeOf(rig, 'bidPrompt.at')}>
+            <Layer name="bidPrompt" moving style={a.close === 'intro' || sold ? HIDDEN : undefined}>
+              <Label
+                name="bidPrompt.text"
+                style={{ ...FIELD, fontSize: 160, color: ASK_GREY, fontFamily: FONT.amount }}
+              >
+                {a.close === 'once' || a.close === 'twice'
+                  ? CALL_WORDS[a.close]
+                  : `${money(nextAsk(a.bid?.amount))}?`}
               </Label>
             </Layer>
           </Layer>
@@ -662,44 +737,31 @@ function Room({
       )}
       {g.stage === 'draw' && <DrawingProps view={view} rig={rig} />}
       {g.stage === 'bank' && <BankSign rig={rig} />}
-      {/* Half-time has no moment of its own in the show: its words go up on the wall. */}
-      {g.stage === 'halftime' && (
-        <div
-          className="absolute left-0 space-y-3 text-center"
-          style={{ top: 170, width: 1280, color: INK }}
-          data-testid="go-stage-halftime"
-        >
-          <p className="text-[30px] font-bold tracking-[0.12em] text-[#8a5a1c] uppercase">
-            {STAGE_MORE.halftime!.eyebrow}
-          </p>
-          <p className="font-display text-[96px] leading-none font-semibold">
-            Screws are unlocked!
-          </p>
-          <p className="mx-auto max-w-[56rem] text-[34px] leading-snug text-stone-700">
-            {STAGE_MORE.halftime!.line}
-          </p>
-        </div>
-      )}
+      {/* Half-time has no card on the table screen (the original's screws drop into the chairs
+          and the auctioneer explains); phones keep theirs. */}
+      {g.stage === 'halftime' && <span className="sr-only" data-testid="go-stage-halftime" />}
       {sold && !sold.buyer && (
         <p
           className="absolute left-0 text-center text-4xl font-black drop-shadow"
-          style={{ top: 470, width: 1280 }}
+          style={{ top: 470, width: 1280, fontFamily: FONT.name }}
           data-testid="go-stage-unsold"
         >
           Unsold – it was worth {money(sold.value)}
         </p>
       )}
-      {/* The players' row. */}
+      {/* The chairs along the bottom, each paddle parked behind its chair until it is used. */}
       <Layer>
         {players.map((p, i) => (
           <Seat
             key={p.id}
             rig={rig}
-            m={seats[i] === undefined ? undefined : seatAt(seats[i])}
+            m={chairs[i]}
             id={p.id}
             who={p.name}
             shape={g.paddles[p.id]}
             manifest={manifest}
+            up={chairsUp}
+            lead={lead === p.id && g.stage !== 'sold'}
             done={g.stage === 'draw' && g.players.some((x) => x.id === p.id && x.drawn)}
             screw={g.screwsOn && g.players.some((x) => x.id === p.id && x.screw)}
             gone={room.players.find((x) => x.id === p.id)?.connected === false}
@@ -722,16 +784,24 @@ function LeaderShape({
   who: string;
 }) {
   const colour = usePlayerColor(who);
-  const key = shapeKey(manifest, rig, shape);
-  if (!key) return null;
+  if (shape === undefined) return null;
   return (
     <Layer m={[0.6, 0, 0, 0.6, 0, 0]}>
-      <RigArt rig={rig} symbol={key} tint={PAINT[colour ?? ''] ?? '#e7e5e4'} />
+      <PaddleHead rig={rig} manifest={manifest} shape={shape} colour={colour} />
+      <Layer m={[1 / 0.6, 0, 0, 1 / 0.6, 0, 10]}>
+        <Label style={{ fontSize: 36, color: '#fff', fontFamily: FONT.label, fontWeight: 400 }}>
+          TOP
+        </Label>
+      </Layer>
     </Layer>
   );
 }
 
-/** A player's seat: their paddle (shape in their colour, the amount on it), name, screw, light. */
+/**
+ * A player's seat, as the original's: the paddle parked behind the chair (it rises for a bid, the
+ * winner and the artist), the chair with the name on its back (lit for the leader), the screw on
+ * the chair once screws are on, and the artist's pay rising from it.
+ */
 function Seat({
   rig,
   m,
@@ -739,6 +809,8 @@ function Seat({
   who,
   shape,
   manifest,
+  up,
+  lead,
   done,
   screw,
   gone,
@@ -749,6 +821,10 @@ function Seat({
   who: string;
   shape: number | undefined;
   manifest: unknown;
+  /** The chair is up (else it waits below for the drawing's moment to pop it up). */
+  up: boolean;
+  /** The top bidder: their name is lit. */
+  lead: boolean;
   /** Has sent both drawings (the drawing's tick). */
   done: boolean;
   /** Holds a screw, screws being on. */
@@ -756,8 +832,8 @@ function Seat({
   gone: boolean;
 }) {
   const colour = usePlayerColor(who);
-  const key = shapeKey(manifest, rig, shape);
   const T = rig.tracks;
+  const pose = (t: Track | undefined) => (up ? restOf(t) : startOf(t));
   return (
     <Layer m={m}>
       <Layer m={placeOf(rig, 'seat.paddle')}>
@@ -765,40 +841,91 @@ function Seat({
           <Layer m={placeOf(rig, 'paddle.wood')}>
             <RigArt rig={rig} symbol="wood" />
           </Layer>
-          {key && (
-            <Layer m={placeOf(rig, 'paddle.shape')}>
-              <RigArt rig={rig} symbol={key} tint={PAINT[colour ?? ''] ?? '#e7e5e4'} />
-            </Layer>
-          )}
+          <Layer m={placeOf(rig, 'paddle.shape')}>
+            <PaddleHead rig={rig} manifest={manifest} shape={shape} colour={colour} />
+          </Layer>
           <Layer m={placeOf(rig, 'paddle.num')}>
             <Label
               name={`pad:${id}.num`}
-              style={{ color: '#fff', fontSize: 22, textShadow: '0 1px 0 rgba(0,0,0,.5)' }}
+              style={{
+                color: '#fff',
+                fontSize: 58,
+                fontFamily: FONT.label,
+                fontWeight: 400,
+                textShadow: '0 1px 0 rgba(0,0,0,.5)',
+              }}
+            />
+          </Layer>
+          {/* The paddle's words (WINNER, ARTIST), smaller than an amount, as the original's. */}
+          <Layer m={placeOf(rig, 'paddle.num')}>
+            <Label
+              name={`pad:${id}.word`}
+              style={{
+                color: '#fff',
+                fontSize: 40,
+                fontFamily: FONT.label,
+                fontWeight: 400,
+                textShadow: '0 1px 0 rgba(0,0,0,.5)',
+              }}
             />
           </Layer>
         </Layer>
       </Layer>
-      <Layer m={[1, 0, 0, 1, 0, 43.4]}>
-        {/* A screw shows in the paddle once screws are on, while its player still holds it. */}
-        <Layer name={`screws:${id}`} moving style={screw ? restOf(T['screws-d1']?.Down) : HIDDEN}>
-          <RigArt rig={rig} symbol="screws-d1" />
-        </Layer>
+      <Layer name={`chair:${id}`} moving style={pose(T['seat-d7']?.Appear)}>
+        <RigArt rig={rig} symbol="seat-d7" />
       </Layer>
-      <Layer m={NAME_AT}>
+      <Layer name={`name:${id}.seat`} moving style={pose(T['seat-playerName']?.Appear)}>
+        <Layer
+          name={`name:${id}`}
+          moving
+          style={lead ? restOf(T.name?.Bid) : restOf(T.name?.Reset)}
+        >
+          <Label
+            style={{
+              fontSize: 38,
+              color: gone ? '#a8a29e' : '#fff',
+              fontFamily: FONT.label,
+              fontWeight: 400,
+              maxWidth: 140,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {who}
+          </Label>
+        </Layer>
         {done && (
-          <Layer m={[1, 0, 0, 1, 0, -34]}>
+          <Layer m={[1, 0, 0, 1, 0, -40]}>
             <Label style={{ fontSize: 30, color: '#4ade80', textShadow: '0 1px 2px #000' }}>
               ✓
             </Label>
           </Layer>
         )}
-        <Label style={{ ...NAME, color: gone ? '#78716c' : INK }}>{who}</Label>
+      </Layer>
+      <Layer m={[1, 0, 0, 1, 0, 43.4]}>
+        {/* A screw's head shows in the chair once screws are on, while its player still holds it
+            (the screw itself drops in at half-time and comes out to be aimed). */}
+        <Layer
+          name={`screwhead:${id}`}
+          moving
+          style={screw ? restOf(T['screws-mc']?.Down) : HIDDEN}
+        >
+          <ScrewHead rig={rig} colour={PAINT[colour ?? ''] ?? '#e7e5e4'} />
+        </Layer>
+        <Layer name={`screws:${id}`} moving style={screw ? restOf(T['screws-d1']?.Down) : HIDDEN}>
+          <RigArt rig={rig} symbol="screws-d1" />
+        </Layer>
       </Layer>
       <Layer m={placeOf(rig, 'seat.artpay')}>
         <Layer name={`artpay:${id}`} moving style={{ opacity: 0 }}>
           <Label
             name={`artpay:${id}.text`}
-            style={{ fontSize: 34, color: '#2f7d32', textShadow: '0 2px 0 #fff, 0 -1px 0 #fff' }}
+            style={{
+              fontSize: 44,
+              color: '#2f7d32',
+              fontFamily: FONT.amount,
+              textShadow: '0 2px 0 #fff, 0 -1px 0 #fff',
+            }}
           />
         </Layer>
       </Layer>
@@ -915,12 +1042,17 @@ function BankPart({ rig, part }: { rig: LoadedRig; part: string }) {
  */
 function RigPaddle({
   rig,
-  shapeKey: key,
+  manifest,
+  shape,
+  plain = false,
   who,
   stick = true,
 }: {
   rig: LoadedRig;
-  shapeKey: string | null;
+  manifest: unknown;
+  shape: number | undefined;
+  /** The original's plain round paddle (the lobby's, before paddles are dealt). */
+  plain?: boolean;
   who: string;
   stick?: boolean;
 }) {
@@ -932,12 +1064,80 @@ function RigPaddle({
           <RigArt rig={rig} symbol="wood" />
         </Layer>
       )}
-      {key && (
-        <Layer m={placeOf(rig, 'paddle.shape')}>
-          <RigArt rig={rig} symbol={key} tint={PAINT[colour ?? ''] ?? '#e7e5e4'} />
-        </Layer>
-      )}
+      <Layer m={placeOf(rig, 'paddle.shape')}>
+        {plain ? (
+          <RigArt rig={rig} symbol="shape.Boring" tint={PAINT[colour ?? ''] ?? '#e7e5e4'} />
+        ) : (
+          <PaddleHead rig={rig} manifest={manifest} shape={shape} colour={colour} />
+        )}
+      </Layer>
     </>
+  );
+}
+
+/**
+ * A screw's head in a chair, as the original's: a disc in the player's colour with its black cross
+ * (only the white fill takes the colour, which `RigArt`'s tint would give every path).
+ */
+function ScrewHead({ rig, colour }: { rig: LoadedRig; colour: string }) {
+  const html = useMemo(
+    () =>
+      symbolSource(rig, 'screws-mc').replace(/fill="rgb\(255,255,255\)"/g, 'style="fill:var(--c)"'),
+    [rig],
+  );
+  return (
+    <svg
+      width="1"
+      height="1"
+      aria-hidden="true"
+      overflow="visible"
+      className="absolute left-0 top-0"
+      style={{ overflow: 'visible', '--c': colour } as CSSProperties}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+/**
+ * A paddle's silhouette in the player's colour: the rig's, or for a shape the rig lacks (the
+ * manifest's list has one the original's paddles don't), the manifest's picture as a mask, the size
+ * of the rig's own silhouettes, so the table screen shows the shape the phones show.
+ */
+function PaddleHead({
+  rig,
+  manifest,
+  shape,
+  colour,
+}: {
+  rig: LoadedRig;
+  manifest: unknown;
+  shape: number | undefined;
+  colour: string | undefined | null;
+}) {
+  const tint = PAINT[colour ?? ''] ?? '#e7e5e4';
+  const key = shapeKey(manifest, rig, shape);
+  if (key) return <RigArt rig={rig} symbol={key} tint={tint} />;
+  const src = shape === undefined ? null : artFor(manifest as ManifestState).paddle(shape);
+  if (!src) return null;
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: -75,
+        top: -60,
+        width: 150,
+        height: 120,
+        background: tint,
+        maskImage: `url("${src}")`,
+        WebkitMaskImage: `url("${src}")`,
+        maskSize: 'contain',
+        WebkitMaskSize: 'contain',
+        maskRepeat: 'no-repeat',
+        WebkitMaskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        WebkitMaskPosition: 'center',
+      }}
+    />
   );
 }
 
@@ -948,42 +1148,82 @@ const FINALE_NAME_AT = [1, 0, 0, 1, 0, 163];
 const NAME: CSSProperties = { fontSize: 30, color: INK };
 
 /**
- * The lobby: the game's name and how to join, and each player's paddle popping up into the row
- * as they sit down (the plain round paddle: shapes are dealt when the game starts).
+ * The lobby: the logo (the original's, from the private rig; the room's title without it), how to
+ * join, and each player's paddle popping up into the row as they sit down (the plain round paddle:
+ * shapes are dealt when the game starts). After Start, the original's 3-2-1 card counts down here.
  */
 function Lobby({
   view,
   rig,
   seats,
+  countdown,
 }: {
   view: GoingOnceView;
   rig: LoadedRig;
   manifest: unknown;
   seats: number[];
+  countdown: boolean;
 }) {
+  const { name: title } = usePosterInfo();
   const seated = view.seats.filter((s) => s.playing);
   const T = rig.tracks;
+  const logo = !!rig.symbols.logo;
   return (
     <>
-      <div className="absolute text-center" style={{ left: 0, top: 120, width: 1280, color: INK }}>
-        <p className="text-7xl font-black tracking-tight">Going Once</p>
-        <p className="mt-4 text-3xl font-bold">Join on your phone: open the room’s link.</p>
+      {logo ? (
+        <div data-testid="go-stage-logo">
+          <Layer m={placeOf(rig, 'logo.at')}>
+            <Layer name="logo" style={restOf(T.logo?.Shrink)}>
+              <RigArt rig={rig} symbol="logo" />
+            </Layer>
+          </Layer>
+        </div>
+      ) : (
+        <p
+          className="absolute text-center text-7xl font-black tracking-tight"
+          style={{ left: 0, top: 110, width: 1280, color: INK }}
+          data-testid="go-stage-lobby-title"
+        >
+          {title}
+        </p>
+      )}
+      <div className="absolute text-center" style={{ left: 0, top: 214, width: 1280, color: INK }}>
+        <p className="text-3xl font-bold">Join on your phone: open the room’s link.</p>
         <p className="mt-2 text-2xl">
-          {seated.length < 3
-            ? `${3 - seated.length} more to start`
-            : `${seated.length} bidders · the host starts when everyone’s in`}
+          {countdown
+            ? 'Here we go!'
+            : seated.length < 3
+              ? `${3 - seated.length} more to start`
+              : `${seated.length} bidders · the host starts when everyone’s in`}
         </p>
       </div>
+      {countdown && (
+        <Layer m={COUNTDOWN_AT} className="go-stage-countdown">
+          <Layer name="countdown" moving style={startOf(T['countdown-d1']?.Countdown)}>
+            <RigArt rig={rig} symbol="countdown-d1" />
+          </Layer>
+          <Layer name="countdown.numL" moving style={startOf(T['countdown-num']?.Countdown)}>
+            <Layer m={[1, 0, 0, 1, 63.5, 56.7]}>
+              <Label
+                name="countdown.num"
+                style={{ fontSize: 120, color: '#000', fontFamily: FONT.amount, lineHeight: 1 }}
+              />
+            </Layer>
+          </Layer>
+        </Layer>
+      )}
       {seated.map((p, i) => (
         <Layer key={p.id} m={seats[i] === undefined ? undefined : seatAt(seats[i])}>
           <Layer m={placeOf(rig, 'seat.paddle')}>
             <Layer
               name={`login:${p.id}`}
               moving
-              style={{ ...startOf(T.login?.Appear), opacity: 0 }}
+              style={
+                countdown ? restOf(T.login?.Appear) : { ...startOf(T.login?.Appear), opacity: 0 }
+              }
             >
               <Layer m={[1, 0, 0, 1, 0, -130]}>
-                <RigPaddle rig={rig} shapeKey="shape.Boring" who={p.name} />
+                <RigPaddle rig={rig} manifest={null} shape={undefined} plain who={p.name} />
               </Layer>
             </Layer>
           </Layer>
@@ -1117,7 +1357,8 @@ function EndScene({
             >
               <RigPaddle
                 rig={rig}
-                shapeKey={shapeKey(manifest, rig, g.paddles[f.id])}
+                manifest={manifest}
+                shape={g.paddles[f.id]}
                 who={name(f.id)}
                 stick={false}
               />
@@ -1211,9 +1452,20 @@ function Lights({
               : `${g.winners.map(name).join(' & ')} share the win`
           } with ${money(final.find((f) => f.id === g.winners[0])?.score ?? 0)}!`}
         />
+        {/* The original's round beam in the middle of the darkened room. */}
+        {rig.symbols.beam && (
+          <Layer
+            name="beam"
+            moving
+            style={settled ? restOf(T.beam?.WinnerDarken) : hidden(T.beam?.WinnerDarken)}
+          >
+            <RigArt rig={rig} symbol="beam" />
+          </Layer>
+        )}
         <Layer m={placeOf(rig, 'winners.at')}>
           {g.winners.map((id, i) => (
             <Layer key={id} m={wins?.[i]}>
+              {/* The paddle with the winner's name on it, as the original's. */}
               <Layer
                 name={`win:${id}`}
                 moving
@@ -1223,14 +1475,34 @@ function Lights({
                     : hidden(T['winning-content']?.Appear)
                 }
               >
-                <RigPaddle
-                  rig={rig}
-                  shapeKey={shapeKey(manifest, rig, g.paddles[id])}
-                  who={name(id)}
-                />
-                <Layer m={[1, 0, 0, 1, 0, 100]}>
-                  <Label style={{ fontSize: 22, color: '#fff', textShadow: '0 1px 3px #000' }}>
+                <RigPaddle rig={rig} manifest={manifest} shape={g.paddles[id]} who={name(id)} />
+                <Layer m={placeOf(rig, 'paddle.num')}>
+                  <Label
+                    style={{
+                      fontSize: 30,
+                      color: '#fff',
+                      fontFamily: FONT.label,
+                      fontWeight: 400,
+                      maxWidth: 150,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      textShadow: '0 1px 2px rgb(0 0 0 / 0.4)',
+                    }}
+                  >
                     {name(id)}
+                  </Label>
+                </Layer>
+              </Layer>
+              {/* The WINNER! plate on the paddle's handle, in front of it. */}
+              <Layer
+                name={`win:${id}.plate`}
+                moving
+                style={settled ? restOf(T['winning-d9']?.Appear) : hidden(T['winning-d9']?.Appear)}
+              >
+                <RigArt rig={rig} symbol="winning-d9" />
+                <Layer m={[1, 0, 0, 1, 0, 1.8]}>
+                  <Label style={{ fontSize: 23, color: '#000', fontFamily: FONT.amount }}>
+                    WINNER!
                   </Label>
                 </Layer>
               </Layer>
@@ -1240,12 +1512,13 @@ function Lights({
       </>
     );
   }
-  const seats = rowOf(rig.places, g.order.length, rowWhere(view));
+  if (g.stage === 'countdown') return null;
+  const chairs = chairsOf(rig.places, g.order.length);
   return (
     <>
       {g.order.map((id, i) =>
-        seats[i] === undefined ? null : (
-          <Layer key={id} m={seatAt(seats[i])}>
+        chairs[i] === undefined ? null : (
+          <Layer key={id} m={chairs[i]}>
             <Layer m={placeOf(rig, 'seat.spot')}>
               <Spotlight rig={rig} name={`spot:${id}`} />
             </Layer>
@@ -1264,7 +1537,7 @@ function SoldTitle({ title, artist }: { title: string; artist: string | null }) 
   const by = useTarget('title.by');
   return (
     <p className="absolute font-black" style={TITLE} data-testid="go-stage-title">
-      <span className="line-clamp-3">“{unquote(title)}”</span>
+      <span className="line-clamp-2">“{unquote(title)}”</span>
       {artist && (
         <span ref={by} className="block text-2xl font-bold" style={HIDDEN}>
           by {artist}
@@ -1288,18 +1561,24 @@ function useReached(at: number | null, offset: number): boolean {
   return at !== null && reached === at;
 }
 
-/** The winner's line at the end: brought on by the winner moment, then shown for good (`shown`). */
+/**
+ * The winner's line at the end (ours: the original only shows the paddle), across the top in at
+ * most two lines, clear of the winners below: brought on by the winner moment, then shown for good.
+ */
 function WinLine({ text, shown }: { text: string; shown: boolean }) {
   const ref = useTarget('winline');
   return (
     <div
       ref={ref}
-      className="absolute text-center font-black"
+      className="absolute line-clamp-2 text-center"
       style={{
-        left: 0,
-        top: 24,
-        width: 1280,
-        fontSize: 64,
+        left: 40,
+        top: 14,
+        width: 1200,
+        fontSize: 44,
+        lineHeight: 1.1,
+        fontFamily: FONT.name,
+        fontWeight: 900,
         color: '#fff',
         textShadow: '0 3px 8px #000',
         opacity: shown ? 1 : 0,

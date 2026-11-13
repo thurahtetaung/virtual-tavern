@@ -64,7 +64,6 @@ import { Auction, GO_TABS, GO_TABS_ID, type GoTab, LotLog, useSeenDrawings } fro
 import { Draw } from './Draw.tsx';
 import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
-import { Practice } from './Practice.tsx';
 import { type NameOf, statusFor, unquote } from './text.ts';
 import { GoLobbySound, GoSoundButton } from './Sound.tsx';
 import { useGoVolumes, useSound } from './useSound.ts';
@@ -209,16 +208,22 @@ export function GoingOnceGame({
               )}
               <Alerts view={view} you={room.you} />
               {!quiet && screwBanner}
+              {/* The 3-2-1 after Start (the table screen shows it big). */}
+              {g.stage === 'countdown' && (
+                <div className="py-8 text-center" data-testid="go-countdown">
+                  <Countdown
+                    deadline={g.until}
+                    clockOffset={room.clockOffset}
+                    label="until the game starts"
+                  />
+                </div>
+              )}
               {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
               {g.introSkipped &&
-                (g.stage === 'practice' ||
-                  (g.stage === 'auction' &&
-                    g.auction?.lot === 0 &&
-                    g.auction.close === 'intro')) && <IntroSkipped />}
+                g.stage === 'auction' &&
+                g.auction?.lot === 0 &&
+                g.auction.close === 'intro' && <IntroSkipped />}
               {g.stage === 'draw' && <Draw view={view} room={room} act={act} quiet={quiet} />}
-              {g.stage === 'practice' && g.practice && (
-                <Practice view={view} room={room} act={act} art={art} name={name} />
-              )}
               {(g.stage === 'auction' || g.stage === 'sold') && (
                 <>
                   {/* Phones: the Sold card above the lot. Wide screens: at the top of the bidding
@@ -415,7 +420,6 @@ function Lobby({
               soundNow === 'off'
                 ? 'sound off'
                 : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
-              ...(view.gamesPlayed === 0 && view.settings.practice ? ['a practice lot first'] : []),
             ]}
             className="space-y-4"
           >
@@ -481,20 +485,6 @@ function Lobby({
                 />
               </div>
             </div>
-            <Switch
-              on={view.settings.practice}
-              editable={room.isHost && view.gamesPlayed === 0}
-              title="Practice lot"
-              help={
-                view.gamesPlayed === 0
-                  ? 'In this room’s first game: one lot for play money before lot 1, teaching the four things to know. Anyone can skip it.'
-                  : 'Only in a room’s first game: this room has played already.'
-              }
-              onChange={(v) =>
-                void act({ type: 'update-settings', practice: v }, { anchor: 'go-lobby' })
-              }
-              testId="go-practice-setting"
-            />
             <RefusalSlot anchor="go-lobby" />
           </LobbySettings>
           <GoLobbySound view={view} room={room} act={act} manifest={manifest} />

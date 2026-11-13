@@ -6,9 +6,16 @@ import {
   type GoingOnceView,
   type LotResult,
   OPENING_BID,
-  type PracticeView,
 } from '../logic/types.ts';
-import { FINALE_GAP_MS, RACKUP_BEAT_MS, SOLD_BEAT_MS, endTimes, soldBeatsOf } from './audio.ts';
+import {
+  BEAT,
+  FINALE_GAP_MS,
+  RACKUP_BEAT_MS,
+  endTimes,
+  lotOutAt,
+  soldBeatsOf,
+  soldOutAt,
+} from './audio.ts';
 
 // Going Once's show as data: every beat the table screen and the phones animate, built purely from
 // the view on the server clock (the same moments the sound in `audio.ts` keys its cues to: the
@@ -16,11 +23,13 @@ import { FINALE_GAP_MS, RACKUP_BEAT_MS, SOLD_BEAT_MS, endTimes, soldBeatsOf } fr
 // the same beat at the same instant and a device that arrives late lands on the same frame. The
 // parts named here are the rig's (`private-assets/tools/showkit_export.py`) and the layers
 // `Stage.tsx` and the phone's overlays register under these target names:
-//   camera, dim · lot, lot.num · painting, stamp, stamp.slab, stamp.word, stamp.lineL, stamp.line,
-//   title.by
+//   camera, dim, walldim, beam · logo, countdown, countdown.num · lot, lot.num, phone, ring ·
+//   painting, stamp, stamp.slab, stamp.word, stamp.lineL, stamp.line, title.by
 //   bidPrompt, bidAmount, bidFrom · phone · timer, timeNum, sign · bank-<part>
-//   seat:<id>, pad:<id>, pad:<id>.num, artpay:<id>, artpay:<id>.text, screws:<id>, spot:<id>
-//   finale:<id>, finale:<id>.debt, win:<id>, end:<buyer>, endpic:<item>, total:<buyer>, total.num
+//   chair:<id>, name:<id>, pad:<id>, pad:<id>.num, pad:<id>.word, artpay:<id>, artpay:<id>.text, screws:<id>,
+//   screwhead:<id>,
+//   spot:<id> · finale:<id>, finale:<id>.debt, win:<id>, win:<id>.plate, end:<buyer>, endpic:<item>,
+//   total:<buyer>, total.num
 // Moments only move things and set words; what lasts (whose paddle is whose, the amounts, the
 // names) the views render, so a moment that never ran leaves a correct page.
 
@@ -30,11 +39,8 @@ const FULL: Profile[] = ['stage', 'phone-full'];
 
 /** The original's clip lengths (30 fps) that timings below wait on. */
 const MS = {
-  stampGood: 733,
-  stampBad: 600,
-  paintingOut: 633,
-  flipEdge: 267,
-  lotIn: 867,
+  ...BEAT,
+  phoneIn: 533,
   zoom: 1033,
   screwFly: 933,
   bankFirst: 3233,
@@ -59,7 +65,7 @@ export interface ShowCtx {
   swaps?: Rig['swaps'];
 }
 
-/** The lot on the easel: the auction's, or the practice lot's (same beats, nothing counts). */
+/** The lot on the easel. */
 interface Lot {
   key: string;
   lot: number;
@@ -74,21 +80,6 @@ interface Lot {
 function lotOf(view: GoingOnceView): Lot | null {
   const g = view.game;
   if (!g) return null;
-  if (g.stage === 'practice' && g.practice) {
-    const p: PracticeView = g.practice;
-    if (p.step !== 'bid' && p.step !== 'sold' && p.step !== 'own' && p.step !== 'screw')
-      return null;
-    return {
-      key: `practice:${g.since}`,
-      lot: -1,
-      label: 'Practice',
-      bid: p.bid,
-      recent: p.recent,
-      close: p.close,
-      since: p.since,
-      intro: false,
-    };
-  }
   const a = g.auction;
   if (!a || (g.stage !== 'auction' && g.stage !== 'sold')) return null;
   return {
@@ -107,7 +98,10 @@ const anim = (t: number, target: string, track: `${string}.${string}`, more: Par
   ({ t, kind: 'anim', target, track, ...more }) as Step;
 const text = (t: number, target: string, words: string, more: Partial<Step> = {}) =>
   ({ t, kind: 'text', target, text: words, ...more }) as Step;
-/** The room darkening or lightening (the original tints the room; ours is a black veil). */
+/**
+ * The room darkening or lightening: a black veil over everything (ours, for the bank). The
+ * original's own darkens tint only the wall behind (`wall`).
+ */
 const dim = (t: number, to: number, ms = 300): Step => ({
   t,
   kind: 'css',
@@ -116,13 +110,35 @@ const dim = (t: number, to: number, ms = 300): Step => ({
   ms,
   on: STAGE,
 });
+/**
+ * The wall darkening (the original's `Darken*` tracks multiply only the wall, to 40 %; the
+ * paintings, chairs and paddles stay lit): a veil over the background alone.
+ */
+const wall = (t: number, dark: boolean, ms: number): Step => ({
+  t,
+  kind: 'css',
+  target: 'walldim',
+  keyframes: [{ opacity: dark ? WALL_DARK : 0 }],
+  ms,
+  on: STAGE,
+});
+/** The original's darkened wall: multiplied by 0.398. */
+export const WALL_DARK = 0.6;
 const set = (t: number, target: string, attr: string, value: string, more: Partial<Step> = {}) =>
   ({ t, kind: 'set', target, attr, value, ...more }) as Step;
 
-/** The lot coming up: the camera closes in, the LOT disc drops with its number, the phone rings. */
+/**
+ * The lot coming up, in the original's order: the camera closes in, the LOT disc drops with its
+ * number, the phone slides in and rings (the tips going out), and the disc rises away before the
+ * picture goes up (`paintingIn`, when the intro ends).
+ */
 function lotIn(view: GoingOnceView, l: Lot): Moment {
   const g = view.game!;
-  const at = g.auction && g.auction.lot === l.lot && l.lot >= 0 ? introAt(view) : l.since;
+  const a = g.auction!;
+  const at = introAt(view);
+  // The disc leaves as the intro ends (after it has landed), so the painting comes up on its own.
+  const out = a.close === 'intro' ? lotOutAt(a) : MS.lotIn + 600;
+  const phone = MS.lotIn - 300;
   return {
     id: `${l.key}:in`,
     at,
@@ -146,10 +162,15 @@ function lotIn(view: GoingOnceView, l: Lot): Moment {
         on: FULL,
       },
       // Last lot's amounts and the artist's sign come off the paddles.
-      ...g.order.map((id) => text(0, `pad:${id}.num`, '', { on: FULL })),
+      ...g.order.flatMap((id) => [
+        text(0, `pad:${id}.num`, '', { on: FULL }),
+        text(0, `pad:${id}.word`, '', { on: FULL }),
+      ]),
       anim(0, 'camera', 'stage.ZoomIn', { on: STAGE }),
       anim(0, 'lot', 'lot.Appear'),
-      ...(l.lot >= 0 ? [anim(250, 'phone', 'phone.Appear', { on: STAGE })] : []),
+      anim(phone, 'phone', 'phone.Appear', { on: STAGE }),
+      anim(phone + MS.phoneIn, 'ring', 'ring-d7.Ring', { on: STAGE }),
+      anim(out, 'lot', 'lot.Disappear', { on: STAGE }),
     ],
   };
 }
@@ -162,33 +183,53 @@ function introAt(view: GoingOnceView): number {
   return a.since - 60_000;
 }
 
-/** The picture going up on the easel (and the phone's ring going quiet). */
+/**
+ * The picture sliding in onto its spot (the phone going away), then, once it has landed, the
+ * opening bid sliding in beside it: the original's order.
+ */
 function paintingIn(view: GoingOnceView, l: Lot): Moment {
   const a = view.game!.auction;
   const opened = a && a.close === 'open' && !a.bid ? a.since : l.since - 60_000;
+  const t = MS.paintingIn;
   return {
     id: `${l.key}:painting`,
-    at: l.lot < 0 ? l.since - 60_000 : opened,
+    at: opened,
     steps: [
       anim(0, 'painting', 'painting.Appear'),
       anim(0, 'phone', 'phone.Disappear', { on: STAGE }),
-      text(0, 'bidLabel.text', 'Opening bid', { on: STAGE }),
+      text(0, 'bidLabel.text', 'Opening Bid', { on: STAGE }),
       text(0, 'bidAmount.text', money(OPENING_BID), { on: STAGE }),
       text(0, 'bidPrompt.text', `${money(OPENING_BID)}?`, { on: STAGE }),
-      anim(200, 'bidLabel', 'bidLabel.Appear', { on: STAGE }),
-      anim(250, 'bidAmount', 'bidAmount.Appear', { on: STAGE }),
-      anim(300, 'bidPrompt', 'bidPrompt.Appear', { on: STAGE }),
+      anim(t, 'bidLabel', 'bidLabel.Appear', { on: STAGE }),
+      anim(t + 50, 'bidAmount', 'bidAmount.Appear', { on: STAGE }),
+      anim(t + 100, 'bidPrompt', 'bidPrompt.Appear', { on: STAGE }),
     ],
   };
 }
 
+/** The auctioneer's calls in the grey line under the amount: "Going Once…", "Going Twice…". */
+export const CALL_WORDS = { once: 'Going Once…', twice: 'Going Twice…' } as const;
+
+function calls(l: Lot): Moment[] {
+  if (l.close !== 'once' && l.close !== 'twice') return [];
+  return [
+    {
+      id: `${l.key}:${l.close}${l.bid?.amount ?? 0}`,
+      at: l.since,
+      steps: [
+        anim(0, 'bidPrompt', 'bidPrompt.Swap', { on: STAGE }),
+        text(300, 'bidPrompt.text', CALL_WORDS[l.close], { on: STAGE }),
+      ],
+    },
+  ];
+}
+
 /**
- * The lot's newest bid: the bidder's paddle shoots up (their wobble from the amount), the one they
- * beat drops, the amount pops with the leader's shape spinning in. Only the newest gets a moment:
+ * The lot's newest bid: the bidder's paddle shoots up (their wobble from the amount) and comes back
+ * down a second later, the amount pops with the leader's shape spinning in. Only the newest gets a moment:
  * older bids are long played and their lasting result is already on the paddles; a moment that
- * leaves the list settles where it ended, so an old bid's moment leaving later (as `recent` drops
- * it) would raise its bidder's paddle again. The one leaving is always the bid just beaten, whose
- * end the new bid's moment animates on from.
+ * leaves the list settles where it ended (its paddle parked again), so a bid beaten within the
+ * second lands its paddle at once.
  */
 function bids(l: Lot): Moment[] {
   const i = l.recent.length - 1;
@@ -203,6 +244,8 @@ function bids(l: Lot): Moment[] {
     }),
     text(0, 'bidAmount.text', money(b.amount), { on: STAGE }),
     anim(0, 'bidAmount', 'bidAmount.Update', { on: STAGE }),
+    // The leader's name on their chair lights up (the one they beat dims).
+    anim(0, `name:${b.by}`, 'name.Bid', { on: STAGE }),
     anim(0, 'bidFrom', first ? 'bidFrom.Appear' : 'bidFrom.Update', { on: STAGE }),
     // The next ask swaps in as the bar slides back (the original swaps it at the turn).
     anim(0, 'bidPrompt', 'bidPrompt.Swap', { on: STAGE }),
@@ -211,20 +254,23 @@ function bids(l: Lot): Moment[] {
   if (first)
     steps.push(
       anim(0, 'bidLabel', 'bidLabel.Swap', { on: STAGE }),
-      text(160, 'bidLabel.text', 'Current bid', { on: STAGE }),
+      text(160, 'bidLabel.text', 'Current Bid', { on: STAGE }),
     );
+  // The paddle goes back down behind the chair (the original's: up and down again); the name and
+  // the TOP shape keep showing the leader.
+  steps.push(
+    anim(BEAT.paddleDown, `pad:${b.by}`, b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise', {
+      on: FULL,
+    }),
+  );
   if (before && before.by !== b.by)
-    steps.push(
-      anim(0, `pad:${before.by}`, b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise', {
-        on: FULL,
-      }),
-    );
+    steps.push(anim(0, `name:${before.by}`, 'name.Reset', { on: STAGE }));
   // Outbid and screwed buzzes are the phone's own (`Alerts`), so no personal steps here.
   const at = l.bid?.amount === b.amount ? l.since : l.since - 60_000;
   return [{ id: `${l.key}:bid${b.amount}`, at, steps }];
 }
 
-/** Aiming a screw: the room darkens and a spotlight drops on the screwer. */
+/** Aiming a screw: the wall darkens (the original's DarkenScrew) and a spotlight drops on the screwer. */
 function screwAim(view: GoingOnceView): Moment[] {
   const a = view.game?.auction;
   if (!a?.screw) return [];
@@ -234,9 +280,11 @@ function screwAim(view: GoingOnceView): Moment[] {
       id: `lot${a.lot}:aim${a.since}`,
       at: a.since,
       steps: [
-        dim(0, 0.55),
+        wall(0, true, 133),
         anim(0, `spot:${by}`, 'spot.Appear', { on: STAGE }),
         anim(0, `screws:${by}`, 'screws-d1.ScrewStart', { on: STAGE }),
+        // The screw's head leaves the chair as the screw comes out of it.
+        anim(0, `screwhead:${by}`, 'screws-mc.ScrewStart', { on: STAGE }),
       ],
     },
   ];
@@ -262,7 +310,7 @@ function screwOutcome(view: GoingOnceView): Moment[] {
       at: a.since,
       steps: [
         anim(0, `spot:${last.by}`, 'spot.Disappear', { on: STAGE }),
-        dim(0, 0),
+        wall(0, false, 133),
         anim(0, `screws:${last.by}`, ok ? fly : 'screws-d1.ScrewFail', { on: STAGE }),
       ],
     },
@@ -281,9 +329,7 @@ export function soldMoment(view: GoingOnceView): Moment | null {
   const g = view.game;
   const r: LotResult | undefined = g?.results.at(-1);
   if (!g || g.stage !== 'sold' || !r) return null;
-  const beat = SOLD_BEAT_MS * (view.rig?.scale ?? 1);
   const beats = soldBeatsOf(view, r.artistKnown && r.artist !== null);
-  const len = Math.max(beat * 5, g.until - g.since);
   const id = `sold${r.index}`;
   if (!r.buyer)
     return {
@@ -306,7 +352,7 @@ export function soldMoment(view: GoingOnceView): Moment | null {
         : 'BROKE EVEN';
   const spin = beats.value;
   const swap = spin + 300;
-  const out = len - Math.max(MS.paintingOut, profit >= 0 ? MS.stampGood : MS.stampBad) - 150;
+  const out = soldOutAt(view, profit);
   const steps: Step[] = [
     set(0, 'stamp', 'data-face', 'sold'),
     set(0, 'stamp.slab', 'data-tone', ''),
@@ -314,9 +360,14 @@ export function soldMoment(view: GoingOnceView): Moment | null {
     text(0, 'stamp.line', ''),
     anim(0, 'stamp', 'stamp.Appear'),
     anim(0, 'bidPrompt', 'bidPrompt.RackUp', { on: STAGE }),
-    text(0, 'bidLabel.text', 'Winning bid', { on: STAGE }),
+    text(0, 'bidLabel.text', 'Winning Bid', { on: STAGE }),
     anim(0, 'bidLabel', 'bidLabel.Swap', { on: STAGE }),
     anim(0, `pad:${r.buyer}`, 'paddle.Done', { on: FULL }),
+    // The buyer's paddle says WINNER, as the original's does (its words smaller than an amount),
+    // and the TOP shape goes with the bidding.
+    text(0, `pad:${r.buyer}.num`, '', { on: FULL }),
+    text(0, `pad:${r.buyer}.word`, 'WINNER', { on: FULL }),
+    anim(0, 'bidFrom', 'bidFrom.Disappear', { on: STAGE }),
     // The value: the table screen's stamp spins round to it and flies to the middle of the room;
     // a phone's stays on its picture and pops.
     // The original flies the value to the middle of the room; ours spins in place over the
@@ -386,20 +437,24 @@ export function soldMoment(view: GoingOnceView): Moment | null {
     },
     anim(out + 100, 'painting', 'painting.Disappear', { on: STAGE }),
     anim(out, 'bidAmount', 'bidAmount.Disappear', { on: STAGE }),
-    anim(out, 'bidFrom', 'bidFrom.Disappear', { on: STAGE }),
     anim(out, 'bidLabel', 'bidLabel.Disappear', { on: STAGE }),
     anim(out, `pad:${r.buyer}`, 'paddle.DoneOff', { on: FULL }),
+    anim(out, `name:${r.buyer}`, 'name.Reset', { on: STAGE }),
     // The lot's amounts come off the paddles as it leaves (the artist's sign comes off below).
     ...g.order
       .filter((id) => !(r.artistKnown && id === r.artist))
-      .map((id) => text(out, `pad:${id}.num`, '', { on: FULL })),
+      .flatMap((id) => [
+        text(out, `pad:${id}.num`, '', { on: FULL }),
+        text(out, `pad:${id}.word`, '', { on: FULL }),
+      ]),
   ];
   if (r.artistKnown && r.artist && beats.artist !== null) {
     const artist = r.artist;
     const at = beats.artist;
     steps.push(
       anim(at, `pad:${artist}`, 'paddle.Flip', { on: FULL }),
-      text(at + MS.flipEdge, `pad:${artist}.num`, 'ARTIST', { on: FULL }),
+      text(at + MS.flipEdge, `pad:${artist}.num`, '', { on: FULL }),
+      text(at + MS.flipEdge, `pad:${artist}.word`, 'ARTIST', { on: FULL }),
       // The title's "by …" waits for the flip, as the auctioneer reveals the artist.
       {
         t: at + MS.flipEdge,
@@ -410,7 +465,7 @@ export function soldMoment(view: GoingOnceView): Moment | null {
         on: STAGE,
       },
       // Back down once the flip has been seen (a short Sold card still lets it finish).
-      text(Math.max(out, at + 900), `pad:${artist}.num`, '', { on: FULL }),
+      text(Math.max(out, at + 900), `pad:${artist}.word`, '', { on: FULL }),
       anim(Math.max(out, at + 900), `pad:${artist}`, 'paddle.DoneOff', { on: FULL }),
     );
     if (r.commission > 0)
@@ -425,7 +480,10 @@ export function soldMoment(view: GoingOnceView): Moment | null {
   return { id, at: g.since, steps };
 }
 
-/** Half-time: the room darkens and every paddle gets its screw. */
+/**
+ * Half-time, as the original: the camera pulls back to the empty wall and a screw drops into every
+ * chair at once and drills in (no card on the table screen; the auctioneer explains).
+ */
 function halftime(view: GoingOnceView): Moment[] {
   const g = view.game!;
   if (g.stage !== 'halftime') return [];
@@ -435,12 +493,12 @@ function halftime(view: GoingOnceView): Moment[] {
       at: g.since,
       steps: [
         anim(0, 'camera', 'stage.ZoomOut', { on: STAGE }),
-        dim(0, 0.55),
-        ...g.order.flatMap((id, i) => [
-          anim(300 + i * 120, `screws:${id}`, 'screws-d1.Appear', { on: STAGE }),
-          anim(1100 + i * 120, `screws:${id}`, 'screws-d1.Down', { on: STAGE }),
+        ...g.order.flatMap((id) => [
+          anim(MS.screwsIn - 500, `screws:${id}`, 'screws-d1.Appear', { on: STAGE }),
+          anim(MS.screwsIn, `screws:${id}`, 'screws-d1.Down', { on: STAGE }),
+          // Its head shows in the chair once it has gone in (the original's mark of a screw held).
+          anim(MS.screwsIn, `screwhead:${id}`, 'screws-mc.Down', { on: STAGE }),
         ]),
-        dim(2600, 0, 500),
       ],
     },
   ];
@@ -487,7 +545,36 @@ function drawing(view: GoingOnceView): Moment[] {
       // instructions (as the original lowers its timer).
       steps: [
         anim(Math.max(0, g.drawFrom - g.since), 'timer', 'timer.Appear'),
-        anim(300, 'sign', 'sign.Appear', { on: STAGE }),
+        anim(MS.sign, 'sign', 'sign.Appear', { on: STAGE }),
+        // The chairs pop up from below with the names (not on a redraw: they are up already).
+        ...(g.redraw
+          ? []
+          : g.order.flatMap((id) => [
+              anim(0, `chair:${id}`, 'seat-d7.Appear', { on: STAGE }),
+              anim(0, `name:${id}.seat`, 'seat-playerName.Appear', { on: STAGE }),
+            ])),
+      ],
+    },
+  ];
+}
+
+/**
+ * The 3-2-1 after Start: the original's countdown card, its number popping 3, 2, 1 a second
+ * apart (the clip's own beats).
+ */
+function countdown(view: GoingOnceView): Moment[] {
+  const g = view.game!;
+  if (g.stage !== 'countdown') return [];
+  return [
+    {
+      id: `countdown:${g.since}`,
+      at: g.since,
+      steps: [
+        text(0, 'countdown.num', '3', { on: STAGE }),
+        anim(0, 'countdown', 'countdown-d1.Countdown', { on: STAGE }),
+        anim(0, 'countdown.numL', 'countdown-num.Countdown', { on: STAGE }),
+        text(1100, 'countdown.num', '2', { on: STAGE }),
+        text(2100, 'countdown.num', '1', { on: STAGE }),
       ],
     },
   ];
@@ -529,10 +616,10 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
         text(0, `endtotal:${i}.num`, money(grp.from), { on: STAGE }),
         ...grp.items.flatMap((_, k) => [
           anim(0, `end:${grp.index}:${k}`, `${endTrack(n, k)}.Appear`, { on: STAGE }),
-          anim(450 + k * 120, `end:${grp.index}:${k}.name`, 'endpic-drawingName.NameOn', {
+          anim(MS.endName + k * 120, `end:${grp.index}:${k}.name`, 'endpic-drawingName.NameOn', {
             on: STAGE,
           }),
-          anim(650 + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.ValueOn', {
+          anim(MS.endValue + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.ValueOn', {
             on: STAGE,
           }),
           anim(950 + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.Score', { on: STAGE }),
@@ -611,7 +698,9 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
     id: `end:${g.since}:winner`,
     at: times.winner,
     steps: [
-      dim(0, 0.6, 400),
+      // The original's WinnerDarken: the wall to 40 % and the round beam coming down in the middle.
+      wall(0, true, 367),
+      anim(0, 'beam', 'beam.WinnerDarken', { on: STAGE }),
       ...g.final.map((f) => anim(0, `finale:${f.id}`, 'finale-content.Disappear', { on: STAGE })),
       ...g.final.map((f) =>
         anim(0, `finale:${f.id}.scoreL`, 'finale-score.Disappear', { on: STAGE }),
@@ -624,11 +713,11 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
         ms: 300,
         on: STAGE,
       })),
-      ...g.winners.map((id, i) =>
+      ...g.winners.flatMap((id, i) => [
         anim(300 + i * 100, `win:${id}`, 'winning-content.Appear', { on: STAGE }),
-      ),
+        anim(300 + i * 100, `win:${id}.plate`, 'winning-d9.Appear', { on: STAGE }),
+      ]),
       { t: 300, kind: 'css', target: 'winline', keyframes: [{ opacity: 1 }], ms: 400, on: STAGE },
-      { t: 300, kind: 'confetti', n: 50, on: STAGE },
       ...(ctx.you && g.winners.includes(ctx.you)
         ? [
             {
@@ -677,12 +766,12 @@ function lobby(view: GoingOnceView, ctx: ShowCtx): Moment[] {
 export function moments(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   const g = view.game;
   if (view.phase === 'lobby' || !g) return lobby(view, ctx);
-  const out: Moment[] = [...drawing(view)];
+  const out: Moment[] = [...countdown(view), ...drawing(view)];
   const l = lotOf(view);
   if (l) {
     out.push(lotIn(view, l));
     if (!l.intro) out.push(paintingIn(view, l));
-    out.push(...bids(l), ...screwAim(view), ...screwOutcome(view));
+    out.push(...bids(l), ...calls(l), ...screwAim(view), ...screwOutcome(view));
   }
   const sold = soldMoment(view);
   if (sold) out.push(sold);
@@ -738,6 +827,30 @@ export function rowOf(places: Rig['places'], n: number, where: RowWhere): number
   const k = span ? Math.min(ROW_SPREAD, (hi - lo) / span) : 0;
   const mid = (xs[0]! + xs.at(-1)!) / 2;
   return xs.map((x) => (lo + hi) / 2 + (x - mid) * k);
+}
+
+/** Two affine matrices composed: `outer` applied after `inner` ([a b c d tx ty]). */
+export function compose(outer: readonly number[], inner: readonly number[]): number[] {
+  const [a, b, c, d, e, f] = outer as [number, number, number, number, number, number];
+  const [A, B, C, D, E, F] = inner as [number, number, number, number, number, number];
+  return [
+    a * A + c * B,
+    b * A + d * B,
+    a * C + c * D,
+    b * C + d * D,
+    a * E + c * F + e,
+    b * E + d * F + f,
+  ];
+}
+
+/**
+ * The chairs along the bottom of the room, as the original lays them out for three to six
+ * (`row.Three`…`row.Six`, inside `row.at`): one matrix per seat, the same in every phase.
+ */
+export function chairsOf(places: Rig['places'], n: number): number[][] {
+  const list = places[`row.${COUNT[Math.min(6, Math.max(3, n))]}`] as number[][] | undefined;
+  const at = (places['row.at'] as number[] | undefined) ?? [1, 0, 0, 1, 0, 0];
+  return (list ?? []).slice(0, n).map((m) => compose(at, m));
 }
 
 /** A title's text style on its plate at the end of the table screen (`plateText`). */

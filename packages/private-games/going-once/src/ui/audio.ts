@@ -52,8 +52,49 @@ export const RING_MS = 1800;
 export const RACKUP_BEAT_MS = 1800;
 
 /**
+ * The table screen's beats that a sound lands with (the motion in `show.ts` uses the same
+ * numbers): the original's clip lengths at 30 fps, and where ours put each beat.
+ */
+export const BEAT = {
+  /** The LOT disc's drop, and its rise away. */
+  lotIn: 867,
+  lotOut: 600,
+  /** The painting sliding in: the opening bid follows once it has landed. */
+  paintingIn: 933,
+  /** The Sold stamp leaving (a good buy shrinks away, a bad one spins off), the painting leaving. */
+  stampGood: 733,
+  stampBad: 600,
+  paintingOut: 633,
+  /** A bidder's paddle coming back down behind the chair after it went up (the original's). */
+  paddleDown: 1000,
+  /** The artist's paddle turned edge-on (its new words swap in). */
+  flipEdge: 267,
+  /** The drawing's sign coming down, ms into the drawing. */
+  sign: 300,
+  /** Half-time's screws drilling into the chairs, ms into it. */
+  screwsIn: 1200,
+  /** Each end group: its titles, then its values pop. */
+  endName: 450,
+  endValue: 650,
+} as const;
+
+/** When the LOT disc leaves, ms after the lot's intro began: as the intro ends, once it landed. */
+export const lotOutAt = (a: { closeAt: number; since: number }) =>
+  Math.max(BEAT.lotIn, a.closeAt - a.since - BEAT.lotOut);
+
+/**
+ * When the Sold card's stamp and picture leave, ms after it began (a beat or so before the card
+ * ends, so they are gone as the next lot comes).
+ */
+export function soldOutAt(view: GoingOnceView, profit: number): number {
+  const g = view.game!;
+  const len = Math.max(SOLD_BEAT_MS * (view.rig?.scale ?? 1) * 5, g.until - g.since);
+  return len - Math.max(BEAT.paintingOut, profit >= 0 ? BEAT.stampGood : BEAT.stampBad) - 150;
+}
+
+/**
  * The Sold card's beats for this view: the server's (`GameView.soldBeats`), else (a room saved
- * before, the practice lot) a text game's, one `SOLD_BEAT_MS` apart.
+ * before) a text game's, one `SOLD_BEAT_MS` apart.
  */
 export function soldBeatsOf(view: GoingOnceView, artist: boolean): SoldBeats {
   if (view.game?.soldBeats) return view.game.soldBeats;
@@ -204,8 +245,9 @@ export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: num
     case 'draw':
       // Every device picks the same track from when the drawing began.
       return { key: 'draw', pick: Math.floor(g.since / 1000) };
-    case 'practice':
-      return { key: 'auction', pick: 0 };
+    case 'countdown':
+      // The 3-2-1 has its own sound; the drawing's music starts after it.
+      return null;
     case 'auction':
     case 'sold':
     case 'halftime': {
@@ -277,12 +319,18 @@ const sfx = (id: string, at: number, key: string, more: Partial<Cue> = {}): Cue 
   ...more,
 });
 
-/** The sound of a bid: the paddle, then the bidder's own yelp (a screwed bid drills first). */
+/**
+ * The sound of a bid: the paddle, then the bidder's own yelp (a screwed bid drills first); the
+ * amount racking up, the next ask swapping in, and the paddle going back down.
+ */
 function bidCues(view: GoingOnceView, id: string, at: number, by: string, forced: boolean) {
   return [
     ...(forced ? [sfx(`${id}:drill`, at, 'screw-drill')] : []),
     sfx(`${id}:paddle`, at, 'bid'),
+    sfx(`${id}:rackup`, at, 'bid-rackup'),
     sfx(`${id}:yelp`, at + (forced ? 600 : 80), 'bidder-voice', { pick: yelp(view, by) }),
+    sfx(`${id}:next`, at + 300, 'next-bid'),
+    sfx(`${id}:down`, at + BEAT.paddleDown, 'paddle-down'),
   ];
 }
 
@@ -295,6 +343,7 @@ function soldCues(
   at: number,
   sale: { buyer: string | null; price: number; value: number; commission: number },
   beats: SoldBeats,
+  leave: number,
 ) {
   if (!sale.buyer) return [sfx(`${id}:unsold`, at + 600, 'unsold-out')];
   const profit = sale.value - sale.price;
@@ -302,12 +351,19 @@ function soldCues(
   const out = profit > 0 ? 'profit-out' : profit < 0 ? 'loss-out' : 'even-out';
   return [
     sfx(`${id}:sold`, at, 'sold'),
-    ...(beats.artist !== null ? [sfx(`${id}:artist`, at + beats.artist, 'paddle-flip')] : []),
-    ...(sale.commission && beats.artist !== null
-      ? [sfx(`${id}:cash`, at + beats.artist + 500, 'cha-ching')]
+    ...(beats.artist !== null
+      ? [
+          sfx(`${id}:artist`, at + beats.artist, 'paddle-flip'),
+          // ARTIST turning to face the room, then the pay (or the nothing an unsold artist gets).
+          sfx(`${id}:artistWord`, at + beats.artist + BEAT.flipEdge, 'artist'),
+          sale.commission
+            ? sfx(`${id}:cash`, at + beats.artist + 500, 'cha-ching')
+            : sfx(`${id}:nothing`, at + beats.artist + 500, 'zero-commission'),
+        ]
       : []),
     sfx(`${id}:spin`, at + beats.value, spin),
     sfx(`${id}:out`, at + beats.profit, out),
+    sfx(`${id}:away`, at + leave + 100, 'painting-out'),
   ];
 }
 
@@ -323,8 +379,15 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
   const out: Cue[] = [];
   if (g.introSkippedAt) out.push(sfx(`intro:skip`, g.introSkippedAt, 'skip'));
   switch (g.stage) {
+    case 'countdown':
+      out.push(sfx(`countdown:${g.since}`, g.since, 'countdown'));
+      break;
     case 'draw': {
       const id = `draw:${g.since}`;
+      // The 3-2-1 card leaving and the chairs popping up (not again on a redraw), the sign.
+      if (!g.redraw)
+        out.push(sfx(`${id}:start`, g.since, 'start'), sfx(`${id}:chairs`, g.since, 'chairs'));
+      out.push(sfx(`${id}:sign`, g.since + BEAT.sign, 'sign'));
       out.push(sfx(`${id}:in`, g.since, 'timer-in'));
       for (let s = 10; s >= 1; s--) {
         const at = g.until - s * 1000 * scale;
@@ -333,44 +396,13 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       out.push(sfx(`${id}:out`, g.until, 'timer-out'));
       break;
     }
-    case 'practice': {
-      const p = g.practice;
-      if (!p) break;
-      const id = `practice:${g.since}`;
-      if (p.step === 'hint' && view.mine)
-        out.push(
-          sfx(`${id}:ring`, p.since + 250, 'message', {
-            pick: RING[view.mine.contact],
-            maxMs: RING_MS,
-            local: true,
-          }),
-        );
-      if (p.step === 'bid') {
-        if (!p.bid && p.close === 'open') out.push(sfx(`${id}:in`, p.since, 'painting-in'));
-        const last = p.recent.at(-1);
-        if (p.close === 'quiet' && last)
-          out.push(...bidCues(view, `${id}:bid${p.seq}`, p.since, last.by, false));
-        if (p.close === 'once') out.push(sfx(`${id}:once${p.seq}`, p.since, 'going-once'));
-        if (p.close === 'twice') out.push(sfx(`${id}:twice${p.seq}`, p.since, 'going-twice'));
-      }
-      if (p.step === 'sold' && p.bid)
-        out.push(
-          ...soldCues(
-            `${id}:sold`,
-            p.since,
-            { buyer: p.bid.by, price: p.bid.amount, value: p.value, commission: 0 },
-            soldBeatsOf(view, false),
-          ),
-        );
-      if (p.step === 'screw') out.push(sfx(`${id}:screw`, p.since + 300, 'screw-lost'));
-      break;
-    }
     case 'auction': {
       const a = g.auction;
       if (!a) break;
       const id = `lot${a.lot}`;
       if (a.close === 'intro') {
         out.push(sfx(`${id}:in`, a.since, 'lot-in'));
+        out.push(sfx(`${id}:out`, a.since + lotOutAt(a), 'lot-out'));
         const m = view.mine?.messages.at(-1);
         if (m && m.lot === a.lot)
           out.push(
@@ -400,7 +432,11 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const last = view.log.at(-1);
       if (last?.kind === 'screw' && last.lot === a.lot && last.outcome !== 'forced')
         out.push(sfx(`${id}:lost${last.id}`, a.since, 'screw-lost'));
-      if (a.close === 'open' && !a.bid) out.push(sfx(`${id}:open`, a.since, 'painting-in'));
+      if (a.close === 'open' && !a.bid)
+        out.push(
+          sfx(`${id}:open`, a.since, 'painting-in'),
+          sfx(`${id}:opening`, a.since + BEAT.paintingIn, 'opening-bid'),
+        );
       const top = a.recent.at(-1);
       if (a.close === 'quiet' && top && a.bid)
         out.push(...bidCues(view, `${id}:bid${a.seq}`, a.since, top.by, top.forced));
@@ -417,16 +453,24 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
           g.since,
           { buyer: r.buyer, price: r.price, value: r.value, commission: r.commission },
           soldBeatsOf(view, r.artistKnown && r.artist !== null),
+          soldOutAt(view, r.value - r.price),
         ),
       );
       break;
     }
     case 'halftime':
       out.push(sfx(`half:${g.since}:out`, g.since, 'screws-out'));
-      out.push(sfx(`half:${g.since}:in`, g.since + 700, 'screws-in'));
+      out.push(sfx(`half:${g.since}:in`, g.since + BEAT.screwsIn, 'screws-in'));
       break;
     case 'bank': {
       out.push(sfx(`bank:${g.since}`, g.since, 'bank-ring'));
+      // The bank's sign going away and its music cut off as its time runs out (a beat early, so
+      // they still play as the next stage takes over).
+      if (g.until > g.since)
+        out.push(
+          sfx(`bank:${g.since}:away`, g.until - 200, 'bank-away'),
+          sfx(`bank:${g.since}:cutoff`, g.until - 200, 'bank-cutoff'),
+        );
       // Voiced: the loan people's bumper on their first visit, and their jingle once they've spoken.
       const host = g.host;
       if (g.voiced && host?.clips?.length && host.at !== undefined) {
@@ -445,11 +489,22 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       if (!end) break;
       const id = `end:${g.since}`;
       out.push(sfx(`${id}:in`, end.start, 'player-in'));
-      for (const grp of end.groups.slice(1))
-        out.push(sfx(`${id}:art${grp.index}`, grp.at, 'painting-value'));
+      const step = RACKUP_BEAT_MS * scale;
+      for (const grp of end.groups) {
+        out.push(
+          sfx(`${id}:art${grp.index}`, grp.at, 'painting-in-end'),
+          sfx(`${id}:name${grp.index}`, grp.at + BEAT.endName, 'painting-name'),
+          sfx(`${id}:value${grp.index}`, grp.at + BEAT.endValue, 'painting-value'),
+        );
+        // The buyer's total leaving after their last group.
+        if (end.groups[grp.index + 1]?.buyer !== grp.buyer)
+          out.push(sfx(`${id}:out${grp.index}`, grp.at + step - 300, 'player-out'));
+      }
       out.push(sfx(`${id}:sum`, end.sum, 'score-rackup'));
       if (end.debt) out.push(sfx(`${id}:shark`, end.debtAt, 'debt-shark'));
       out.push(sfx(`${id}:winner`, end.winner, 'winner-centre'));
+      // The WINNER! plate springing up with the winner's paddle.
+      out.push(sfx(`${id}:plate`, end.winner + 300, 'winner'));
       break;
     }
   }
@@ -749,9 +804,11 @@ export function musicClips(audio: AudioManifest | undefined, view: GoingOnceView
   if (view.phase === 'lobby' || !g) next.push({ key: 'tutorial', pick: 0 });
   else
     switch (g.stage) {
+      case 'countdown':
+        next.push({ key: 'draw', pick: 0 });
+        break;
       case 'intro':
       case 'draw':
-      case 'practice':
         next.push({ key: 'auction', pick: 0 });
         break;
       case 'auction':
