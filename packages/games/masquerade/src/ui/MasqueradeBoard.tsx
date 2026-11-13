@@ -966,10 +966,7 @@ function useBoardHeight(panel: RefObject<HTMLDivElement | null>, on: boolean) {
   const [height, setHeight] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
     const el = panel.current;
-    if (!on || !el) {
-      setHeight(undefined);
-      return;
-    }
+    if (!on || !el) return;
     const measure = () => {
       const tiles = [...el.querySelectorAll('section[aria-label="Locations"] ul > li')].map((li) =>
         li.getBoundingClientRect(),
@@ -998,7 +995,7 @@ function useBoardHeight(panel: RefObject<HTMLDivElement | null>, on: boolean) {
       window.removeEventListener('resize', measure);
     };
   }, [panel, on]);
-  return height;
+  return on ? height : undefined;
 }
 
 export function MasqueradeBoard({
