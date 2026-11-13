@@ -9,7 +9,6 @@ import {
   Superlatives,
   useAbandonGame,
   useSpectatorPrompt,
-  useWideScreen,
   cn,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo } from 'react';
@@ -48,7 +47,6 @@ export function TavernBrawlGame({
     };
   }, [setYourMove, tabAlert]);
 
-  const wide = useWideScreen();
   const seatedInGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !seatedInGame);
   useSpectatorPrompt(
@@ -66,8 +64,6 @@ export function TavernBrawlGame({
 
   if (view.phase === 'lobby' || !view.game)
     return <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />;
-  // Phones: the table is one of the end's tabs, so the end fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
   const table = <Table view={view} room={room} act={act} art={art} name={name} status={status} />;
   return (
     <div className="flex flex-col gap-3">
@@ -79,10 +75,12 @@ export function TavernBrawlGame({
           art={art}
           name={name}
           status={status}
-          table={phoneEnd ? table : null}
+          // The finished table (its log, hand and powers) is one of the end's tabs on every
+          // width, so the finale isn't followed by a long log.
+          table={table}
         />
       )}
-      {!phoneEnd && table}
+      {view.phase !== 'over' && table}
     </div>
   );
 }
@@ -102,7 +100,7 @@ function End({
   art: Art;
   name: NameOf;
   status: Status;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The table, as one of the end's tabs. */
   table: ReactNode;
 }) {
   const g = view.game!;
@@ -111,7 +109,10 @@ function End({
   const kos = g.knockouts;
   const card = (id: string | null) => (id ? art.card(id) : null);
   return (
-    <Panel className="mx-auto flex w-full max-w-3xl flex-col gap-3" style={heroVars(hero)}>
+    <Panel
+      className="mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl"
+      style={heroVars(hero)}
+    >
       {/* The finale: the winner's hero large in their own colour, the line under it. */}
       <div className="flex flex-col items-center gap-2 pt-1 text-center">
         {hero && <Portrait hero={hero} art={art} size={128} className="shadow-vt-2 ring-4" />}
@@ -126,6 +127,27 @@ function End({
       </div>
       <EndTabs
         tabs={[
+          kos.length > 0 && {
+            id: 'knockouts',
+            label: '💥 KOs',
+            content: (
+              <section aria-label="Knockouts">
+                <h3 className="text-sm font-semibold">Knockouts</h3>
+                <ol className="text-sm">
+                  {kos.map((k) => (
+                    <li key={`${k.player}-${k.turn}`}>
+                      💥 {name(k.player)}, turn {k.turn}
+                      {k.removed
+                        ? ' (removed)'
+                        : k.by === k.player
+                          ? `: ${card(k.card) ?? 'their own card'} (their own)`
+                          : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ),
+          },
           {
             id: 'players',
             label: '❤️ Players',
@@ -159,27 +181,6 @@ function End({
                     </li>
                   ))}
               </ul>
-            ),
-          },
-          kos.length > 0 && {
-            id: 'knockouts',
-            label: '💥 KOs',
-            content: (
-              <section aria-label="Knockouts">
-                <h3 className="text-sm font-semibold">Knockouts</h3>
-                <ol className="text-sm">
-                  {kos.map((k) => (
-                    <li key={`${k.player}-${k.turn}`}>
-                      💥 {name(k.player)}, turn {k.turn}
-                      {k.removed
-                        ? ' (removed)'
-                        : k.by === k.player
-                          ? `: ${card(k.card) ?? 'their own card'} (their own)`
-                          : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
-                    </li>
-                  ))}
-                </ol>
-              </section>
             ),
           },
           !!room.superlatives?.length && {
