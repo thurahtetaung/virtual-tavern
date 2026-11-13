@@ -38,7 +38,8 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
   }, [up, g.players.length]);
   return (
     <ul
-      // Four a row on phones, five wider, the last row centred (no card left alone at the edge).
+      // Three a row on phones (the roles' art and names large enough to read), five wider, the
+      // last row centred.
       className="flex flex-wrap justify-center gap-2 sm:gap-3"
       aria-label="Everyone’s role"
     >
@@ -48,7 +49,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
           // min-w-0: a long role name wraps in its column instead of widening the grid.
           <li
             key={p.id}
-            className="flex w-[calc((100%-1.5rem)/4)] min-w-0 flex-col items-center gap-1 text-center sm:w-[calc((100%-3rem)/5)]"
+            className="flex w-[calc((100%-1rem)/3)] min-w-0 flex-col items-center gap-1 text-center sm:w-[calc((100%-3rem)/5)]"
           >
             <FlipCard
               up={i < up}
@@ -56,7 +57,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
               front={<RoleFace role={role} art={end.art[p.id] ?? 0} seed={g.artSeed} c={c} />}
               className={cn('w-full', p.dead && 'grayscale')}
             />
-            <span className="flex w-full min-w-0 items-center justify-center gap-1 text-xs font-semibold">
+            <span className="flex w-full min-w-0 items-center justify-center gap-1 text-sm font-semibold sm:text-xs">
               <span className="truncate">
                 {p.dead && '✝ '}
                 {p.name}

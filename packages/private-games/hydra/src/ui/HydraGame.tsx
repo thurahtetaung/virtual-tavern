@@ -400,15 +400,21 @@ function TableRing({
   return (
     <div className="space-y-3">
       {seats(top, half)}
-      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner">
-        <Pile label="Deck" count={g.deckCount} c={c} />
+      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner xl:grid-cols-1">
+        <div className="xl:hidden">
+          <Pile label="Deck" count={g.deckCount} c={c} />
+        </div>
         {/* The boards' width follows the window's height, so both seat rows and the dock (with
-            its ballots) fit a laptop screen (the art is about three times as wide as it is tall). */}
-        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2">
+            its ballots) fit a laptop screen (the art is about three times as wide as it is tall).
+            Wide desktops lay them side by side across the whole felt, larger and shorter (the
+            deck and discard counts are in the chip under the table). */}
+        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2 xl:grid xl:max-w-none xl:grid-cols-2 xl:gap-3 xl:space-y-0">
           <Board team="red" g={g} c={c} />
           <Board team="blue" g={g} c={c} />
         </div>
-        <Pile label="Discard" count={g.discardCount} c={c} />
+        <div className="xl:hidden">
+          <Pile label="Discard" count={g.discardCount} c={c} />
+        </div>
       </div>
       {seats(bottom, Math.max(1, ids.length - half))}
     </div>

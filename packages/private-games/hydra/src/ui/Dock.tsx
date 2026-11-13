@@ -131,7 +131,7 @@ export function Dock({
             <BallotFace
               ballot={b}
               c={c}
-              className="h-10 sm:h-14 lg:h-[clamp(4rem,calc(100dvh-53rem),5rem)]"
+              className="h-10 sm:h-14 lg:h-[clamp(4rem,calc(100dvh-53rem),5rem)] xl:h-[clamp(4rem,calc(100dvh-47rem),7rem)]"
             />
             {g.myVote === b && (
               <span
