@@ -23,7 +23,7 @@ import {
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { tokenWords } from '../logic/outcome.ts';
-import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
+import { type EnigmaAction, type EnigmaView, TOKENS_TO_END, type Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
@@ -244,8 +244,17 @@ export function EnigmaGame({
       : myTeam === view.winner
         ? 'win'
         : 'loss';
-  const endEmblem =
-    view.winner === 'draw' ? '🤝' : view.winner === 'red' ? '🔴' : view.winner ? '🔵' : null;
+  // The emblem says how the game was won: an interception, the other side's miscommunications,
+  // the showdown, or the score at the last round (the title carries the team's colour).
+  const endEmblem = (() => {
+    const w = view.winner;
+    if (!w) return null;
+    if (w === 'draw') return '🤝';
+    if (view.showdown) return '🔐';
+    if (view.teams[w].intercepts >= TOKENS_TO_END) return '🕵️';
+    if (view.teams[w === 'red' ? 'blue' : 'red'].misses >= TOKENS_TO_END) return '💥';
+    return '🏆';
+  })();
   const tokenLines = (
     <ul className="space-y-0.5 text-small">
       {(['red', 'blue'] as const).map((team) => (
@@ -291,6 +300,14 @@ export function EnigmaGame({
     <EndLayout hero={hero}>
       <EndTabs
         tabs={[
+          // Phones open on the last round's codes (the scoreboard above already has the tokens).
+          ...(wide
+            ? []
+            : lastReveal.map((tx) => ({
+                id: tx.team,
+                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+                content: <TransmissionCard view={view} tx={tx} act={act} />,
+              }))),
           {
             id: 'score',
             label: '🏆 Score',
@@ -338,11 +355,7 @@ export function EnigmaGame({
                   },
                 ]
               : []
-            : lastReveal.map((tx) => ({
-                id: tx.team,
-                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
-                content: <TransmissionCard view={view} tx={tx} act={act} />,
-              }))),
+            : []),
           wide && {
             id: 'clues',
             label: '🗝️ Clues',

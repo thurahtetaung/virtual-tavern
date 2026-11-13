@@ -119,14 +119,17 @@ const NoteList = memo(function NoteList({
   onRemove: (id: string) => void;
   disabled: boolean;
 }) {
-  const end = useRef<HTMLLIElement>(null);
+  const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    // Block body: scrollIntoView may return a Promise, which React must not treat as a cleanup.
-    void end.current?.scrollIntoView({ block: 'nearest' });
+    // Scroll the list itself to its newest note: scrollIntoView would also scroll the sheets'
+    // fitted area, which hid the top of the clue sheets behind the code picker.
+    const ul = list.current;
+    if (ul) ul.scrollTop = ul.scrollHeight;
   }, [items.length]);
   return (
     // Focusable, so the list scrolls from the keyboard too.
     <ul
+      ref={list}
       aria-label="Team notes"
       tabIndex={0}
       className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-card p-1 text-small ring-1 ring-line"
@@ -157,7 +160,6 @@ const NoteList = memo(function NoteList({
           No notes yet. Jot down hunches about their keywords.
         </li>
       )}
-      <li ref={end} aria-hidden />
     </ul>
   );
 });
@@ -249,7 +251,7 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
         {keywords.map((word, i) => (
           <div key={i} className="rounded-lg bg-card p-2 shadow-vt-1 ring-1 ring-line">
             <p className="text-caption font-bold text-ink-muted">#{i + 1}</p>
-            <p className="text-body font-extrabold tracking-wide break-words uppercase sm:text-sub">
+            <p className="font-display text-body font-bold tracking-wide break-words uppercase sm:text-sub">
               {word}
             </p>
             {guesses[i]?.trim() && (

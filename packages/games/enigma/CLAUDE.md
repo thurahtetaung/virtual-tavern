@@ -6,4 +6,4 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`;
 
 - **Enigma** (`packages/games/enigma`): votes only resolve when every eligible teammate has picked the same code and pressed Lock in. Team chat and shared notes live in game state and are filtered per team by `view()`.
 
-- **UI:** Team-note removal targets are at least 44 px; end explanations use secondary body text beneath the result headline.
+- **UI:** Team-note removal targets are at least 44 px; end explanations use secondary body text beneath the result headline. The team notes scroll only their own list to the newest note (never the fitted sheets area). The end's emblem says how the game was won (🕵️ interceptions, 💥 the other side's miscommunications, 🔐 showdown, 🏆 score, 🤝 draw); phones open the end on the last round's codes. Keywords and clues are set in the display face; result stamps sit on their own line on phones.

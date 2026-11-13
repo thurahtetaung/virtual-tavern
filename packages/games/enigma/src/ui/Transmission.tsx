@@ -218,7 +218,7 @@ function CodePicker({
       {tx.clues?.map((clue, row) => (
         <div key={row}>
           <p className="text-small">
-            Clue {row + 1}: <b className="text-body">“{clue}”</b>
+            Clue {row + 1}: <b className="font-display text-sub">“{clue}”</b>
           </p>
           <div className="mt-1 grid grid-cols-4 gap-1">
             {[1, 2, 3, 4].map((digit) => {
@@ -337,7 +337,7 @@ function tokensSoFar(view: EnigmaView, tx: TransmissionView, kind: 'miss' | 'int
 /** A rubber-stamp word in the line's own colour: the round's verdict at a glance. */
 function Stamp({ children }: { children: string }) {
   return (
-    <span className="mr-2 inline-block -rotate-3 rounded border-2 border-current px-1.5 align-middle text-caption font-black tracking-widest uppercase">
+    <span className="mr-2 inline-block -rotate-3 rounded border-2 border-current px-1.5 align-middle text-caption font-black tracking-widest uppercase max-sm:mb-1.5 max-sm:block max-sm:w-fit">
       {children}
     </span>
   );
@@ -517,7 +517,8 @@ export function TransmissionCard({
         <ol className="space-y-1">
           {tx.clues?.map((c, i) => (
             <li key={i}>
-              <span className="text-ink-muted">{i + 1}.</span> <b>“{c}”</b>
+              <span className="text-ink-muted">{i + 1}.</span>{' '}
+              <b className="font-display text-sub">“{c}”</b>
             </li>
           ))}
         </ol>
