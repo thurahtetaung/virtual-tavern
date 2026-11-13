@@ -1,5 +1,15 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndHero, EndTabs, NameDot, StickyBar, Superlatives, cn } from '@vt/ui';
+import {
+  Button,
+  EndHero,
+  EndLayout,
+  EndTabs,
+  NameDot,
+  StickyBar,
+  Superlatives,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { claimLied, presidentLies } from '../logic/claims.ts';
@@ -176,55 +186,9 @@ export function End({
   const end = g.end!;
   const leader = Object.entries(end.roles).find(([, r]) => r === 'leader')?.[0];
   const won = view.role ? view.role.team === end.winner : null;
-  return (
-    <div className="space-y-4 max-lg:space-y-3" role="region" aria-label="Game over">
-      <EndHero
-        tone="neutral"
-        emblem={end.winner === 'blue' ? '🕊️' : '☠️'}
-        titleTestId="winner"
-        title={
-          <span className={cn(TEAM_TEXT[end.winner], DISPLAY)}>
-            {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
-          </span>
-        }
-        superlatives={timeline ? undefined : room.superlatives}
-      >
-        <p>
-          {c.copy(`end.reason.${end.reason}`)}{' '}
-          {leader && (
-            <Rich
-              text={c.copy(
-                end.reason.startsWith('leader-') ? 'end.leaderWasThem' : 'end.leaderWas',
-                {
-                  player: nameOf(view, leader),
-                },
-              )}
-            />
-          )}
-        </p>
-        {won !== null && (
-          <p className="mt-1 font-semibold text-ink">{c.copy(won ? 'end.won' : 'end.lost')}</p>
-        )}
-      </EndHero>
-      {timeline ? (
-        // Phones: the roles, the awards, the truth and the timeline one at a time, with Play
-        // again always below, so the end fits the screen.
-        <EndTabs
-          tabs={[
-            { id: 'roles', label: '🎭 Roles', content: <RoleReveal view={view} c={c} /> },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            { id: 'truth', label: '📜 Truth', content: <TruthLog view={view} c={c} /> },
-            { id: 'timeline', label: '🕰️ Timeline', content: timeline },
-            !!c.credit && { id: 'credits', label: '©️ Credits', content: <CreditBlock c={c} /> },
-          ]}
-        />
-      ) : (
-        <RoleReveal view={view} c={c} />
-      )}
+  const wide = useWideScreen();
+  const buttons = (
+    <>
       {room.isHost ? (
         <StickyBar className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
@@ -238,7 +202,66 @@ export function End({
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
       <p className="text-center text-xs text-ink-muted">{c.copy('end.playAgain')}</p>
-      {!timeline && <CreditBlock c={c} />}
+    </>
+  );
+  return (
+    <div className="space-y-4 max-lg:space-y-3" role="region" aria-label="Game over">
+      <EndLayout
+        hero={
+          <EndHero
+            tone="neutral"
+            emblem={end.winner === 'blue' ? '🕊️' : '☠️'}
+            titleTestId="winner"
+            title={
+              <span className={cn(TEAM_TEXT[end.winner], DISPLAY)}>
+                {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
+              </span>
+            }
+            superlatives={timeline ? undefined : room.superlatives}
+            // Wide screens: Play again at the foot of the finale, beside the roles.
+            actions={wide && <div className="space-y-2">{buttons}</div>}
+          >
+            <p>
+              {c.copy(`end.reason.${end.reason}`)}{' '}
+              {leader && (
+                <Rich
+                  text={c.copy(
+                    end.reason.startsWith('leader-') ? 'end.leaderWasThem' : 'end.leaderWas',
+                    {
+                      player: nameOf(view, leader),
+                    },
+                  )}
+                />
+              )}
+            </p>
+            {won !== null && (
+              <p className="mt-1 font-semibold text-ink">{c.copy(won ? 'end.won' : 'end.lost')}</p>
+            )}
+          </EndHero>
+        }
+      >
+        {timeline ? (
+          // Phones: the roles, the awards, the truth and the timeline one at a time, with Play
+          // again always below, so the end fits the screen.
+          <EndTabs
+            tabs={[
+              { id: 'roles', label: '🎭 Roles', content: <RoleReveal view={view} c={c} /> },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              { id: 'truth', label: '📜 Truth', content: <TruthLog view={view} c={c} /> },
+              { id: 'timeline', label: '🕰️ Timeline', content: timeline },
+              !!c.credit && { id: 'credits', label: '©️ Credits', content: <CreditBlock c={c} /> },
+            ]}
+          />
+        ) : (
+          <RoleReveal view={view} c={c} />
+        )}
+        {!wide && buttons}
+        {!timeline && <CreditBlock c={c} />}
+      </EndLayout>
     </div>
   );
 }

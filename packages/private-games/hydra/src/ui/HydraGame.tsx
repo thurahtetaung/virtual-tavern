@@ -20,7 +20,7 @@ import {
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
 import {
   LEADER_ZONE,
@@ -284,8 +284,33 @@ function tipFor(
   return tip ? [tip[0], c.copy(`tip.${tip[0]}`)] : null;
 }
 
-/** Phones show one board at a time (swipe), jumping to the one that just changed. */
+const TALL = '(min-height: 800px)';
+const tallNow = () => typeof window !== 'undefined' && !!window.matchMedia?.(TALL).matches;
+const onTall = (change: () => void) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(TALL);
+  mq.addEventListener('change', change);
+  return () => mq.removeEventListener('change', change);
+};
+
+/**
+ * Phones: both boards stacked when the screen is tall enough for them and the seats (up to six
+ * players); otherwise one board at a time (swipe), jumping to the one that just changed.
+ */
 function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
+  const g = view.game!;
+  const tall = useSyncExternalStore(onTall, tallNow, () => false);
+  if (tall && g.players.length <= 6)
+    return (
+      <div className="space-y-1" aria-label="Boards">
+        <Board team="red" g={g} c={c} compact />
+        <Board team="blue" g={g} c={c} compact />
+      </div>
+    );
+  return <BoardSwipe view={view} c={c} />;
+}
+
+function BoardSwipe({ view, c }: { view: HydraView; c: Content }) {
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(0);
@@ -444,6 +469,8 @@ export function HydraGame({
   const seatsRef = useRef<HTMLElement>(null);
   // Phones: a big table's seats scroll inside their panel rather than the page.
   useFitToScreen(seatsRef, { phone: true, min: 160 });
+  const railRef = useRef<HTMLElement>(null);
+  useFitToScreen(railRef, { on: wide, min: 320 });
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
@@ -797,9 +824,13 @@ export function HydraGame({
           />
         </div>
         <aside
+          ref={railRef}
           className={cn('min-w-0 space-y-3', onTab('log'))}
           {...(!wide && tabPanelProps(TABS_ID, 'log'))}
         >
+          {/* Desktops: the timeline first, then your role and the quick reference, the rail
+              scrolling on its own so the page fits the window. */}
+          {wide && <Timeline view={view} c={c} />}
           {view.stage !== 'reveal' && (
             <div className="hidden lg:block">
               <MeTab
@@ -814,7 +845,7 @@ export function HydraGame({
               />
             </div>
           )}
-          <Timeline view={view} c={c} />
+          {!wide && <Timeline view={view} c={c} />}
         </aside>
       </div>
       {!wide && (

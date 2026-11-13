@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { NameDot, cn } from '@vt/ui';
+import { NameDot, TAP_BAND, cn } from '@vt/ui';
 import type { HydraView, Ineligible } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import type { Suspicions } from './storage.ts';
@@ -200,7 +200,9 @@ export function Seats({
                 aria-label={`Your private mark on ${p.name}: ${mark === 'trust' ? 'trusted' : mark === 'doubt' ? 'suspected' : 'none'}`}
                 title="Your private note: ⭐ trust, ✕ suspect (only you see it)"
                 className={cn(
-                  // The whole corner is the button: 40 px on a compact seat, 44 px otherwise.
+                  // The whole corner is the button: 40 px on a compact seat (a 44 px tap band
+                  // around it on touch screens), 44 px otherwise.
+                  TAP_BAND,
                   'absolute top-0 right-0 flex items-center justify-center',
                   compact ? 'size-10' : 'size-11',
                 )}

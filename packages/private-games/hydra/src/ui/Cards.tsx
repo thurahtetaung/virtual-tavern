@@ -352,7 +352,8 @@ export function Pips({
           className={cn(
             'inline-flex items-center justify-center rounded-[3px] text-white shadow-sm',
             size === 'sm' ? 'h-5 w-4 text-xs' : 'h-7 w-5 text-sm',
-            x === 'blue' ? 'bg-sky-600' : 'bg-red-600',
+            // vt-palette: the two policy colours (white glyphs at 4.5:1 or better).
+            x === 'blue' ? 'bg-sky-700' : 'bg-red-600',
           )}
         >
           {x === 'blue' ? '✦' : '✕'}
