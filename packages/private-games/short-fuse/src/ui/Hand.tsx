@@ -19,7 +19,8 @@ function phoneLayout(n: number, room: number, free: number | null) {
   let best: { w: number; cols: number } | null = null;
   for (const rows of [1, 2]) {
     const cols = Math.ceil(n / rows);
-    const byWidth = Math.floor((room - GAP * (cols - 1)) / cols);
+    // The list's own 4 px side padding stays inside the section's width.
+    const byWidth = Math.floor((room - 8 - GAP * (cols - 1)) / cols);
     const byHeight = Math.floor(((height - GAP * (rows - 1)) / rows) * (5 / 7));
     const w = Math.min(96, byWidth, byHeight);
     if (w >= 64 && (!best || w > best.w)) best = { w, cols };
