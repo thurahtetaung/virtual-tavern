@@ -765,7 +765,7 @@ function Play({
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className={cn('self-start py-1 text-xs text-ink-muted underline', TAP_BAND)}
+          className={cn('self-start text-xs text-ink-muted underline lg:py-1', TAP_BAND)}
           onClick={() => showGuide('cards')}
         >
           What beats what?
