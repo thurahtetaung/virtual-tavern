@@ -763,7 +763,11 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           {hostTools}
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} ·{' '}
-            <button type="button" className="min-h-11 px-2 underline" onClick={() => showGuide()}>
+            <button
+              type="button"
+              className="min-h-11 min-w-11 px-2 underline"
+              onClick={() => showGuide()}
+            >
               rules
             </button>
           </p>

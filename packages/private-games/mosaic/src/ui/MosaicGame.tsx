@@ -46,7 +46,7 @@ import {
   ROW_BONUS,
 } from '../logic/types.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
-import { MosaicStyles, Tile } from './Pieces.tsx';
+import { BoardView, MosaicStyles, Tile } from './Pieces.tsx';
 import { type Act, TIPS_KEY, Table, tipsSeen } from './Table.tsx';
 import { Tiling } from './Tiling.tsx';
 import { type NameOf, statusFor } from './text.ts';
@@ -417,6 +417,19 @@ function End({
           ) || 'Game over'
         }
         eyebrow={winners.length ? undefined : null}
+        // Phones: the winner's wall in the finale (wide screens show every wall beside it).
+        art={
+          !wide &&
+          winners[0] && (
+            <BoardView
+              board={winners[0]}
+              art={art}
+              size="sm"
+              owner={winners[0].id}
+              grey={!!view.settings.grey}
+            />
+          )
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
