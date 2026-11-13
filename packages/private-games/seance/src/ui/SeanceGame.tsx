@@ -457,7 +457,7 @@ function RevealPanel({
       aria-label="The ghost answers"
     >
       {g.lockedHow && <p className="text-sm font-semibold">{LOCKED_BY[g.lockedHow]}</p>}
-      <Verdicts view={view} content={content} />
+      <Verdicts view={view} content={content} cards />
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-xs text-ink-muted">
           {allDone
