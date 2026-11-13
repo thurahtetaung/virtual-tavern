@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Countdown,
+  EndHero,
   EndTabs,
   FitArea,
   Hint,
@@ -1682,7 +1683,6 @@ export function Reveal({
           {line}
         </p>
       ))}
-      {wide && <Superlatives lines={room.superlatives} className="mt-2" />}
     </Panel>
   );
   const cardsPanel = (
@@ -1851,9 +1851,64 @@ export function Reveal({
       </ol>
     </Panel>
   );
+  const wonLines = teamLines(result).filter((t) => t.won);
+  const me = view.me?.id;
+  const meSeated = !!me && !!result.identities[me];
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
+    <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
       <Hint>{status.text}</Hint>
+      <EndHero
+        title={
+          wonLines.length
+            ? wonLines.map((t) => teamOutcome(t.team, true)).join(' · ')
+            : 'Nobody wins'
+        }
+        emblem={wonLines.length ? '🏆' : '🌑'}
+        // The viewer's own result lights the card; watchers get the quiet lamp.
+        tone={!meSeated ? 'neutral' : result.winners.includes(me) ? 'win' : 'loss'}
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost && blocker && seatedNow >= 3 && (
+              <p className="text-sm" data-testid="play-again-blocker">
+                {blocker} The table changed since the deal.
+              </p>
+            )}
+            {room.isHost && (
+              <StickyBar className="flex flex-wrap gap-2">
+                {blocker && seatedNow >= 3 ? (
+                  <Button
+                    size="lg"
+                    onClick={() =>
+                      void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
+                        (ok) => ok && act({ type: 'play-again' }),
+                      )
+                    }
+                  >
+                    Play again with the recommended cards for {seatedNow}
+                  </Button>
+                ) : (
+                  <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+                    Play again
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </StickyBar>
+            )}
+            {!room.isHost && (
+              <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
+                {waitingForHost(room, 'play again or change the setup')}
+              </p>
+            )}
+          </>
+        }
+      />
       {wide ? (
         <>
           {resultPanel}
@@ -1891,39 +1946,6 @@ export function Reveal({
             { id: 'night', label: '🌙 Night', content: nightPanel },
           ]}
         />
-      )}
-      {room.isHost && blocker && seatedNow >= 3 && (
-        <p className="text-sm" data-testid="play-again-blocker">
-          {blocker} The table changed since the deal.
-        </p>
-      )}
-      {room.isHost && (
-        <StickyBar className="flex flex-wrap gap-2">
-          {blocker && seatedNow >= 3 ? (
-            <Button
-              size="lg"
-              onClick={() =>
-                void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
-                  (ok) => ok && act({ type: 'play-again' }),
-                )
-              }
-            >
-              Play again with the recommended cards for {seatedNow}
-            </Button>
-          ) : (
-            <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-              Play again
-            </Button>
-          )}
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </StickyBar>
-      )}
-      {!room.isHost && (
-        <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
-          {waitingForHost(room, 'play again or change the setup')}
-        </p>
       )}
     </div>
   );
