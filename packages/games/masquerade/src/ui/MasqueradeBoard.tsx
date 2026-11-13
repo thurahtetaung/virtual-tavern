@@ -1091,13 +1091,15 @@ export function MasqueradeBoard({
             <FitArea
               on={view.phase === 'playing' && (wide || (fit && tab === 'locations'))}
               resetKey={stepKey}
+              // On a wide screen the ideas follow below, so the board keeps at least three rows.
+              {...(wide ? { min: 340 } : {})}
             >
               <LocationsBoard view={view} display={display} act={act} />
             </FitArea>
           </div>
           <div {...panel('ideas')}>
             <FitArea
-              on={view.phase === 'playing' && (wide || (fit && tab === 'ideas'))}
+              on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
               resetKey={stepKey}
             >
               <IdeasBoard view={view} display={display} />
