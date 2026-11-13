@@ -332,7 +332,7 @@ function KeepSheet({ view, room, act }: PlayProps) {
       </p>
       {/* Two a row on phones, three wider: tapes large enough to read their titles. */}
       <ul
-        className="mx-auto grid max-w-[19.5rem] grid-cols-2 gap-2 sm:max-w-xl sm:grid-cols-3"
+        className="mx-auto grid max-w-[18rem] grid-cols-2 gap-2 sm:max-w-lg sm:grid-cols-3"
         aria-label="Your cards"
       >
         {hand.offered.map((c) => {
