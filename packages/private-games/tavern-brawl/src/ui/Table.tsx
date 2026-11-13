@@ -588,7 +588,7 @@ function Hand({
     room < 700 && n >= 4 && n <= 8 && free !== null
       ? Math.min(
           Math.floor((room - GAP * (cols - 1)) / cols),
-          Math.floor((((free - 20 - GAP) / 2) * 400) / 630),
+          Math.floor((((free - 40 - GAP) / 2) * 400) / 630),
           184,
         )
       : 0;
