@@ -10,6 +10,7 @@ import {
   StickyBar,
   Switch,
   TimerSettings,
+  TAP_BAND,
   cn,
   LobbySettings,
   timersLine,
@@ -91,7 +92,7 @@ export function Lobby({
                 role="switch"
                 aria-checked={!plain}
                 onClick={() => setPlain(!plain)}
-                className="mt-1 text-xs font-semibold text-white/70 underline"
+                className={cn('mt-1 text-xs font-semibold text-white/80 underline', TAP_BAND)}
               >
                 Themed lettering: {plain ? 'off' : 'on'}
               </button>
