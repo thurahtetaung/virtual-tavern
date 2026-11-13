@@ -564,7 +564,7 @@ function Play({
   const tableSection = turn && turn.table.length > 0 && (
     <section aria-label="Table">
       <h3 className="mb-2 font-bold">On the table</h3>
-      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(8rem,11rem))]">
+      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(10rem,min(14rem,24dvh)))] lg:justify-center lg:gap-3">
         {turn.table.map((t, i) => (
           <li key={i} className="space-y-1">
             <Card
@@ -847,10 +847,10 @@ function Play({
                             // What else shares the phone's height: the clue form once the
                             // storyteller has picked, the table's face-down cards while others pick.
                             turn?.phase === 'pick'
-                              ? 'max-sm:max-h-[calc(100dvh-27rem)]'
+                              ? 'max-sm:max-h-[calc(100dvh-28rem)]'
                               : storyPick !== null
-                                ? 'max-sm:max-h-[calc(100dvh-23rem)]'
-                                : 'max-sm:max-h-[calc(100dvh-18rem)]',
+                                ? 'max-sm:max-h-[calc(100dvh-26rem)]'
+                                : 'max-sm:max-h-[calc(100dvh-19rem)]',
                           )
                         : 'flex gap-2 overflow-x-auto px-1 py-1.5',
                     )}
