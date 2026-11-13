@@ -403,8 +403,9 @@ function Play({
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
-            // Three lines of cards fit the screen's height on any desktop.
-            style={{ maxWidth: 'min(48rem, 62dvh)' }}
+            // Three lines of cards fit the screen's height on any desktop; once the round is done
+            // they make room for its results and Next round below.
+            style={{ maxWidth: r.stage === 'done' ? 'min(48rem, 40dvh)' : 'min(48rem, 62dvh)' }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
