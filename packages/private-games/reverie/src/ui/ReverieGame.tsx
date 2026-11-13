@@ -34,6 +34,8 @@ import {
   LobbyPitch,
   LobbyStart,
   ProtectedImage,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -297,7 +299,15 @@ function Seats({
   };
   return (
     <Panel className="space-y-2">
-      <h3 className="font-bold">Players ({playing.length}/8)</h3>
+      <SeatHeading title={`Players (${playing.length}/8)`}>
+        {me && canChange && (
+          <SeatToggle
+            id={SEAT_CONTROL_ID}
+            playing={me.playing}
+            onChange={(playing) => void sit(playing)}
+          />
+        )}
+      </SeatHeading>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center">
@@ -318,16 +328,6 @@ function Seats({
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
-      {me && canChange && (
-        <Button
-          id={SEAT_CONTROL_ID}
-          size="sm"
-          variant={me.playing ? 'ghost' : 'primary'}
-          onClick={() => void sit(!me.playing)}
-        >
-          {me.playing ? 'Watch instead' : 'Take a seat'}
-        </Button>
-      )}
       {note && (
         <p role="status" className="text-sm font-semibold text-success-ink">
           {note}
@@ -601,9 +601,16 @@ function Play({
         style={
           wide && turn.table.length <= 4
             ? {
-                gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, min(16rem, ${
-                  turn.phase === 'reveal' ? 30 : 34
-                }dvh)))`,
+                // While everyone studies the table to vote, the cards take the height the
+                // collapsed hand leaves (a table of three or fewer grows to 22 rem; four fill
+                // the column's width).
+                gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, ${
+                  turn.phase === 'reveal'
+                    ? 'min(16rem, 30dvh)'
+                    : turn.phase === 'vote'
+                      ? 'min(22rem, 46dvh)'
+                      : 'min(16rem, 34dvh)'
+                }))`,
               }
             : undefined
         }
