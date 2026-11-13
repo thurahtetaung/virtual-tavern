@@ -167,7 +167,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         >
           <span
             className={cn(
-              'flex h-4 min-w-6 items-center justify-center rounded-sm text-[11px] font-black tabular-nums ring-1',
+              'flex h-4 min-w-6 items-center justify-center rounded-sm text-xs font-black tabular-nums ring-1',
               p.bonuses[g] ? 'bg-card text-ink ring-line' : 'text-ink-muted ring-transparent',
             )}
             title="Cards (lasting discount)"
@@ -188,7 +188,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         role="group"
         aria-label={`Gold: ${p.tokens.gold}`}
       >
-        <span className="h-4 text-[11px] text-ink-muted">wild</span>
+        <span className="h-4 text-xs text-ink-muted">wild</span>
         <TokenChip
           token="gold"
           art={art}
@@ -502,7 +502,7 @@ function Bank({
           >
             <TokenChip token={gem} art={art} count={n - picked} size={40} dim={n - picked === 0} />
             {picked > 0 && (
-              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-[11px] font-black text-accent-fg">
+              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-xs font-black text-accent-fg">
                 +{picked}
               </span>
             )}
@@ -1135,7 +1135,7 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
             {([3, 2, 1] as const).map((l) => (
               <div
                 key={l}
-                className="grid grid-cols-[2.25rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
+                className="grid grid-cols-[2.75rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
               >
                 <CardBack
                   level={l}
@@ -1184,7 +1184,7 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
             {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
-            <button type="button" className="min-h-11 underline" onClick={() => showGuide()}>
+            <button type="button" className="min-h-11 px-2 underline" onClick={() => showGuide()}>
               rules
             </button>
           </p>

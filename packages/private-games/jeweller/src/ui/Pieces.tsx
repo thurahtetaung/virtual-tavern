@@ -64,11 +64,11 @@ export const TokenChip = memo(function TokenChip({
     <span
       role="img"
       aria-label={count === undefined ? TOKEN_NAME[token] : `${count} ${TOKEN_NAME[token]}`}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.46) }}
+      style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.46)) }}
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center rounded-full font-black tabular-nums shadow-sm ring-2',
-        TOKEN_FILL[token],
-        dim && 'opacity-35',
+        // None left: a neutral surface rather than a faded chip, so the 0 stays readable.
+        dim && !src ? 'bg-sunk text-ink-muted ring-line' : TOKEN_FILL[token],
         className,
       )}
     >
@@ -76,7 +76,10 @@ export const TokenChip = memo(function TokenChip({
         <ProtectedImage
           src={src}
           alt=""
-          className="absolute inset-0 size-full rounded-full object-cover"
+          className={cn(
+            'absolute inset-0 size-full rounded-full object-cover',
+            dim && 'opacity-35',
+          )}
         />
       )}
       {count !== undefined && (
@@ -117,7 +120,7 @@ function Pip({
   return (
     <span
       className={cn(
-        'inline-flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-black tabular-nums ring-1 sm:size-5 sm:text-xs lg:size-6 lg:text-sm',
+        'inline-flex size-4 items-center justify-center rounded-full text-xs leading-none font-black tabular-nums ring-1 sm:size-5 lg:size-6 lg:text-sm',
         TOKEN_FILL[gem],
         covered && 'opacity-30',
         short && 'ring-2 ring-offset-1 ring-offset-card',
@@ -171,7 +174,7 @@ function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-[11px] font-black text-ink shadow-md ring-2',
+        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-xs font-black text-ink shadow-md ring-2',
         hold.mine ? 'ring-accent' : 'ring-ink/60',
         size === 'lg' && 'gap-1 px-2 py-1 text-base',
       )}
@@ -180,7 +183,7 @@ function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
       <StrongholdIcon art={hold.art} size={size === 'lg' ? 28 : 16} />
       <span className="tabular-nums">×{hold.n}</span>
       {hold.color && <PlayerDot color={hold.color} label={false} />}
-      {!hold.mine && <span className="text-[10px]">🔒</span>}
+      {!hold.mine && <span className="text-xs">🔒</span>}
     </span>
   );
 }
@@ -358,7 +361,7 @@ export function CardBack({
         {'•'.repeat(level)}
       </span>
       {count !== undefined && (
-        <span className="relative rounded bg-card/80 px-1 text-[11px] font-bold tabular-nums text-ink">
+        <span className="relative rounded bg-card/80 px-1 text-xs font-bold tabular-nums text-ink">
           {count}
         </span>
       )}
@@ -426,7 +429,7 @@ export const NobleTile = memo(function NobleTile({
           <span key={g} className="flex items-center gap-0.5">
             <span
               className={cn(
-                'inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[10px] font-black ring-1',
+                'inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-xs font-black ring-1',
                 size === 'lg' && 'h-6 min-w-6 text-sm',
                 TOKEN_FILL[g],
               )}
@@ -434,7 +437,7 @@ export const NobleTile = memo(function NobleTile({
               {noble.requires[g]}
             </span>
             {bonuses && (
-              <span className="rounded bg-card/85 px-0.5 text-[10px] font-semibold tabular-nums text-ink-muted">
+              <span className="rounded bg-card/85 px-0.5 text-xs font-semibold tabular-nums text-ink-muted">
                 {Math.min(bonuses[g], noble.requires[g])}
               </span>
             )}
@@ -469,7 +472,7 @@ export const NobleTile = memo(function NobleTile({
 
 /** A City's requirement pips, by tile size. */
 const PIP = {
-  sm: 'h-3.5 min-w-3.5 text-[9px] sm:h-4 sm:min-w-4 sm:text-[10px]',
+  sm: 'h-4 min-w-4 text-xs',
   lg: 'h-6 min-w-6 text-sm',
 } as const;
 
@@ -555,7 +558,7 @@ export const CityTile = memo(function CityTile({
         </span>
       )}
       {met && (
-        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line">
+        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-xs font-black text-success-ink ring-1 ring-success-line">
           ✓
         </span>
       )}
