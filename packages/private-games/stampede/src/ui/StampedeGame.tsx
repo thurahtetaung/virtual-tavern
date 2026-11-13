@@ -205,6 +205,7 @@ export function StampedeGame({
   }
 
   const props = { view, room, act, names, online };
+  const answering = view.round?.stage === 'answer' && view.round.myAnswer === null;
   return (
     <div className="space-y-3">
       <StampedeStyles />
@@ -234,7 +235,15 @@ export function StampedeGame({
           {view.phase === 'over' ? (
             <GameOver {...props} />
           ) : (
-            <Panel>
+            <Panel
+              // Wide screens: the question and the herd sit in the middle of the free height;
+              // phones centre the question above the answer bar while you answer.
+              className={cn(
+                'lg:flex lg:min-h-[calc(100dvh-14rem)] lg:flex-col lg:justify-center',
+                answering &&
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-31.5rem)] max-sm:flex-col max-sm:justify-center',
+              )}
+            >
               <Stage {...props} />
             </Panel>
           )}

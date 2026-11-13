@@ -10,7 +10,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rulings:** a tie for biggest scores nobody but a lone answer still takes the Pink Cow; blanks and late answers match nothing and are never alone; only players without the Pink Cow count for the win; a tie at the target raises it (house rule `sharedWin`: they share); house rule `holderPicks` lets the holder pass it on.
   - **`view()`:** only "answered" ticks until the writing ends; the seed and the question history never leave the server.
 
-- **UI:** The main answering prompt uses display typography and wraps long words above the fixed answer form.
+- **UI:** The main answering prompt uses display typography and wraps long words above the fixed answer form; on phones it sits centred above that form while you answer, and on wide screens the question and the reveal sit in the middle of the free height, with the herd as a big card and the question above it in the display face too.
 
 ## Assets
 

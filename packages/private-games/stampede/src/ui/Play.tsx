@@ -50,7 +50,7 @@ export function Question({ prompt, small = false }: { prompt: string; small?: bo
       className={cn(
         'text-center leading-snug font-bold text-balance break-words',
         small
-          ? 'text-lg sm:text-xl lg:text-2xl'
+          ? 'font-display text-xl sm:text-2xl lg:text-3xl'
           : 'font-display text-3xl sm:text-4xl lg:py-4 lg:text-5xl',
       )}
     >
@@ -294,7 +294,7 @@ function GroupRow({
         'sp-rise rounded-xl px-3 py-2 ring-1',
         // The herd is the big card across the board; the strays are smaller cards beside it.
         herd
-          ? 'bg-success-soft px-4 py-4 text-success-ink shadow-vt-2 ring-success-line lg:col-span-2 lg:px-6 lg:py-6'
+          ? 'bg-success-soft px-4 py-4 text-success-ink shadow-vt-2 ring-success-line lg:col-span-2 lg:px-8 lg:py-10'
           : 'bg-card shadow-vt-1 ring-line',
         mine && !herd && 'ring-2 ring-accent',
       )}
@@ -302,11 +302,11 @@ function GroupRow({
       <p
         className={cn(
           'font-bold',
-          herd ? 'flex items-center gap-3 text-2xl lg:text-4xl' : 'text-lg lg:text-2xl',
+          herd ? 'flex items-center gap-3 text-2xl lg:gap-5 lg:text-5xl' : 'text-lg lg:text-2xl',
         )}
       >
         {herd && (
-          <span aria-hidden className="text-5xl leading-none">
+          <span aria-hidden className="text-5xl leading-none lg:text-7xl">
             🐄
           </span>
         )}
