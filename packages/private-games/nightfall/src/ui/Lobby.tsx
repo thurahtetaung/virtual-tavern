@@ -9,6 +9,8 @@ import {
   PlayerTag,
   RefusalSlot,
   StickyBar,
+  Switch,
+  TAP_BAND,
   cn,
   LobbySettings,
 } from '@vt/ui';
@@ -227,7 +229,7 @@ function RoleTile({
             aria-label={`One less ${deck.name(role)}`}
             disabled={count === 0}
             onClick={() => onChange(count - 1)}
-            className="size-11 rounded-full bg-sunk font-bold disabled:opacity-30"
+            className="size-11 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
           >
             −
           </button>
@@ -237,7 +239,7 @@ function RoleTile({
             aria-label={`One more ${deck.name(role)}`}
             disabled={count >= max}
             onClick={() => onChange(count + 1)}
-            className="size-11 rounded-full bg-sunk font-bold disabled:opacity-30"
+            className="size-11 rounded-full bg-sunk text-lg font-bold text-ink ring-1 ring-line transition-colors enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60"
           >
             +
           </button>
@@ -326,7 +328,10 @@ function AlienOptions({
                         aria-label={`Less likely: ${ENTRY_LABEL[t][key] ?? key}`}
                         disabled={value <= 0}
                         onClick={() => set(t, key, value - WEIGHT_STEP)}
-                        className="size-7 rounded-full bg-sunk font-bold disabled:opacity-30"
+                        className={cn(
+                          TAP_BAND,
+                          'size-7 rounded-full bg-sunk font-bold text-ink ring-1 ring-line enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60',
+                        )}
                       >
                         −
                       </button>
@@ -340,7 +345,10 @@ function AlienOptions({
                         aria-label={`More likely: ${ENTRY_LABEL[t][key] ?? key}`}
                         disabled={value >= MAX_WEIGHT}
                         onClick={() => set(t, key, value + WEIGHT_STEP)}
-                        className="size-7 rounded-full bg-sunk font-bold disabled:opacity-30"
+                        className={cn(
+                          TAP_BAND,
+                          'size-7 rounded-full bg-sunk font-bold text-ink ring-1 ring-line enabled:hover:bg-accent-soft disabled:text-ink-muted disabled:opacity-60',
+                        )}
                       >
                         +
                       </button>
@@ -639,32 +647,25 @@ export function Lobby({
         <p className="text-xs text-ink-muted" data-testid="narration-help">
           {NARRATION_HELP[s.narration]}
         </p>
-        <div className="flex flex-wrap gap-4">
-          <label
-            className={cn('flex items-center gap-2 text-sm', s.narration === 'off' && 'opacity-50')}
-          >
-            <input
-              type="checkbox"
-              checked={s.music}
-              disabled={!editable || s.narration === 'off'}
-              onChange={(e) => void act({ type: 'update-settings', music: e.target.checked })}
-            />
-            Background music
-            {s.narration === 'off' && (
-              <span className="text-xs">
-                (plays on the narrating phones, so it needs narration)
-              </span>
-            )}
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={s.loneWolf}
-              disabled={!editable}
-              onChange={(e) => void act({ type: 'update-settings', loneWolf: e.target.checked })}
-            />
-            A lone werewolf may look at a centre card
-          </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Switch
+            on={s.music}
+            editable={editable && s.narration !== 'off'}
+            title="Background music"
+            help={
+              s.narration === 'off'
+                ? 'Plays on the narrating phones, so it needs narration.'
+                : 'Plays on the narrating phones through the night.'
+            }
+            onChange={(music) => void act({ type: 'update-settings', music })}
+          />
+          <Switch
+            on={s.loneWolf}
+            editable={editable}
+            title="Lone werewolf peeks"
+            help="A lone werewolf may look at a centre card."
+            onChange={(loneWolf) => void act({ type: 'update-settings', loneWolf })}
+          />
         </div>
         {s.roles.includes('curator') && (
           <div className="space-y-1">

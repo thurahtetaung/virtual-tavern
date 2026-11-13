@@ -1512,9 +1512,12 @@ export function artifactEffect(id: ArtifactId, deck: Deck): string {
 function CentreCards({
   reveal,
   deck,
+  wide = false,
 }: {
   reveal: NonNullable<NightfallView['reveal']>;
   deck: Deck;
+  /** A wide screen: the cards at reading size. */
+  wide?: boolean;
 }) {
   const open = useRoleDetails();
   return (
@@ -1528,7 +1531,7 @@ function CentreCards({
               onClick={() => open(c.card.role)}
               aria-label={`Read ${deck.name(c.card.role)}`}
             >
-              <CardFace role={c.card.role} deck={deck} size="sm" />
+              <CardFace role={c.card.role} deck={deck} size={wide ? 'md' : 'sm'} />
             </button>
             {c.kind === 'wolf' ? 'Wolf slot' : `Centre ${i + 1}`}
           </li>
@@ -1689,7 +1692,12 @@ export function Reveal({
         <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
         decides their team.
       </p>
-      <ul className="space-y-2" aria-label="Everyone’s cards">
+      {/* Wide screens: two players a row, each with their card at reading size (the reveal is
+          the night's payoff). */}
+      <ul
+        className={cn(wide ? 'grid grid-cols-2 gap-2' : 'space-y-2')}
+        aria-label="Everyone’s cards"
+      >
         {view.table!.map((p) => {
           const card = reveal.cards[p.id]!;
           const id = result.identities[p.id]!;
@@ -1707,7 +1715,12 @@ export function Reveal({
               data-won={won}
               className="flex items-start gap-2 rounded-lg bg-sunk px-2 py-1.5 text-sm"
             >
-              <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
+              <CardFace
+                role={card.role}
+                deck={deck}
+                size={wide ? 'md' : 'sm'}
+                className={wide ? undefined : 'w-12'}
+              />
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1 font-semibold">
@@ -1782,7 +1795,7 @@ export function Reveal({
           );
         })}
       </ul>
-      <CentreCards reveal={reveal} deck={deck} />
+      <CentreCards reveal={reveal} deck={deck} wide={wide} />
     </Panel>
   );
   const nightPanel = (
