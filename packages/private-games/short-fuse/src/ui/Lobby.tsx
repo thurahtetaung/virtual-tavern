@@ -3,18 +3,20 @@ import { GAME as SOUND_GAME, ShortFuseLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  cn,
+  FoldSummary,
   GuideLink,
   Hint,
   HostOnlyNote,
-  Panel,
-  PlayerTag,
-  Switch,
-  FoldSummary,
-  cn,
-  LobbySettings,
   LobbyLayout,
   LobbyPitch,
+  LobbySettings,
   LobbyStart,
+  Panel,
+  PlayerTag,
+  SeatHeading,
+  SeatToggle,
+  Switch,
 } from '@vt/ui';
 import {
   DECISION_SECONDS_OPTIONS,
@@ -357,9 +359,15 @@ export function Lobby({
         </Hint>
       )}
       <Panel className="space-y-2">
-        <h3 className="font-bold text-ink">
-          Players ({n}/{MAX_SEATS})
-        </h3>
+        <SeatHeading title={`Players (${n}/${MAX_SEATS})`}>
+          {view.me && (
+            <SeatToggle
+              id="sf-seat"
+              playing={view.me.playing}
+              onChange={(sit) => void act({ type: 'sit', playing: sit }, { anchor: 'seat' })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-wrap gap-1.5">
           {playing.map((p) => (
             <li key={p.id} className="rounded-full bg-card px-3 py-1 text-sm ring-1 ring-line">
@@ -379,18 +387,6 @@ export function Lobby({
               <PlayerTag key={w.id} name={w.name} />
             ))}
           </p>
-        )}
-        {view.me && (
-          <Button
-            id="sf-seat"
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              void act({ type: 'sit', playing: !view.me!.playing }, { anchor: 'seat' })
-            }
-          >
-            {view.me.playing ? 'Watch instead' : 'Take a seat'}
-          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? c.names.title} onClick={showGuide} />

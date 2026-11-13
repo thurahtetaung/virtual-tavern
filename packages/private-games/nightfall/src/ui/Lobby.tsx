@@ -3,17 +3,19 @@ import { useMemo } from 'react';
 import { NightfallLobbySound } from './Sound.tsx';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
-  Panel,
-  PlayerTag,
-  Switch,
-  TAP_BAND,
-  cn,
-  LobbySettings,
   LobbyLayout,
   LobbyPitch,
+  LobbySettings,
   LobbyStart,
+  Panel,
+  PlayerTag,
+  SeatHeading,
+  SeatToggle,
+  Switch,
+  TAP_BAND,
 } from '@vt/ui';
 import { makeGuide } from '../logic/guide.ts';
 import { nightEstimateMs } from '../logic/narration.ts';
@@ -716,9 +718,14 @@ export function Lobby({
     >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
-        <h3 className="font-bold">
-          Players ({seated.length}/{MAX_PLAYERS})
-        </h3>
+        <SeatHeading title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+          {view.me && (
+            <SeatToggle
+              playing={view.me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {seated.map((p, i) => (
             <li key={p.id} className="inline-flex items-center gap-1">
@@ -748,15 +755,6 @@ export function Lobby({
                 />
               ))}
           </p>
-        )}
-        {view.me && (
-          <Button
-            size="sm"
-            variant={view.me.playing ? 'ghost' : 'primary'}
-            onClick={() => void act({ type: 'sit', playing: !view.me!.playing })}
-          >
-            {view.me.playing ? 'Watch instead' : 'Take a seat'}
-          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Nightfall'} onClick={showGuide} />

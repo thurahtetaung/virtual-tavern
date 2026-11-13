@@ -1,17 +1,18 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   NameDot,
   Panel,
   PlayerTag,
   RefusalSlot,
-  cn,
-  LobbySettings,
-  LobbyLayout,
-  LobbyPitch,
-  LobbyStart,
+  SeatToggle,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import {
@@ -371,6 +372,13 @@ export function Lobby({
               ({seated.length}/{MAX_PLAYERS})
             </span>
           </h3>
+          {me && (
+            <SeatToggle
+              id="seance-sit"
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
         </div>
         <p className="text-sm text-ink-muted">
           {seated.length >= 3
@@ -408,28 +416,15 @@ export function Lobby({
             </li>
           ))}
         </ul>
-        {me && (
-          // Side by side, so the two 44 px buttons take one row of a phone's lobby.
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              id="seance-sit"
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'sit', playing: !me.playing })}
-            >
-              {me.playing ? 'Watch instead' : 'Take a seat'}
-            </Button>
-            {me.playing && (
-              <Button
-                variant={me.volunteer ? 'primary' : 'secondary'}
-                size="sm"
-                aria-pressed={me.volunteer}
-                onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
-              >
-                👻 {me.volunteer ? 'You volunteered' : 'I’ll be the ghost'}
-              </Button>
-            )}
-          </div>
+        {me?.playing && (
+          <Button
+            variant={me.volunteer ? 'primary' : 'secondary'}
+            size="sm"
+            aria-pressed={me.volunteer}
+            onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
+          >
+            👻 {me.volunteer ? 'You volunteered' : 'I’ll be the ghost'}
+          </Button>
         )}
         {me?.playing && (
           <section className="space-y-1" aria-label="Your psychic">

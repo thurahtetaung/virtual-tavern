@@ -3,17 +3,18 @@ import {
   Button,
   type Choice,
   ChoicePicker,
+  cn,
   GuideLink,
   Hint,
-  LobbySettings,
-  Panel,
-  RefusalSlot,
-  Switch,
-  cn,
   LobbyLayout,
   LobbyPitch,
+  LobbySettings,
   LobbyStart,
+  Panel,
   ProtectedImage,
+  RefusalSlot,
+  SeatToggle,
+  Switch,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { KINDS, type PackKind } from '../logic/content.ts';
@@ -318,9 +319,8 @@ export function Teams({
       )}
       <div className="flex flex-wrap gap-2">
         {mine && lobby && (
-          <Button size="sm" variant="quiet" onClick={() => join(null)}>
-            Watch instead
-          </Button>
+          // Teams take a seat with Join; watching is the shared seat control.
+          <SeatToggle playing onChange={() => join(null)} />
         )}
         {room.isHost && lobby && (
           <Button size="sm" variant="secondary" onClick={() => void act({ type: 'shuffle-teams' })}>

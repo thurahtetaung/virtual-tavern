@@ -2,18 +2,19 @@ import { volumeShare } from '@vt/ui/sound';
 import { GAME as SOUND_GAME, HydraLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
-  Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbySettings,
+  LobbyStart,
   Panel,
   PlayerTag,
+  SeatHeading,
+  SeatToggle,
   Switch,
-  TimerSettings,
   TAP_BAND,
-  cn,
-  LobbySettings,
-  LobbyLayout,
-  LobbyStart,
+  TimerSettings,
   timersLine,
 } from '@vt/ui';
 import { RED_COUNT, setupFor, trackFor } from '../logic/tables.ts';
@@ -209,29 +210,15 @@ export function Lobby({
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
 
       <Panel className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold">
-            Players ({n}/{MAX_SEATS})
-          </h3>
-          {view.me &&
-            (view.me.playing ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void act({ type: 'sit', playing: false })}
-              >
-                Watch instead
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => void act({ type: 'sit', playing: true })}
-                disabled={n >= MAX_SEATS}
-              >
-                Take a seat
-              </Button>
-            ))}
-        </div>
+        <SeatHeading title={`Players (${n}/${MAX_SEATS})`}>
+          {view.me && (
+            <SeatToggle
+              playing={view.me.playing}
+              full={n >= MAX_SEATS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm" data-testid="seat-order">
           {playing.map((x) => (
             <li key={x.id} className="inline-flex items-center gap-1.5">

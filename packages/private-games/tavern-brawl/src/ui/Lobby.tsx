@@ -1,20 +1,22 @@
 import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   Panel,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  SeatHeading,
+  SeatToggle,
   TimerSettings,
-  cn,
-  LobbySettings,
-  usePhone,
   timersLine,
-  LobbyLayout,
-  LobbyPitch,
-  LobbyStart,
+  usePhone,
 } from '@vt/ui';
 import { memo, useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
@@ -268,11 +270,15 @@ export function Lobby({
             </Hint>
           )}
           <Panel className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-bold">
-                Players ({seated.length}/{MAX_PLAYERS})
-              </h2>
-            </div>
+            <SeatHeading as="h2" title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+              {me && (me.playing || seated.length < MAX_PLAYERS) && (
+                <SeatToggle
+                  id="tb-sit"
+                  playing={me.playing}
+                  onChange={(playing) => void act({ type: 'sit', playing })}
+                />
+              )}
+            </SeatHeading>
             <ul className="flex flex-col gap-1.5" aria-label="Seats">
               {seated.map((s) => (
                 <li key={s.id} className="flex items-center gap-2" data-seat={s.id}>
@@ -289,23 +295,14 @@ export function Lobby({
                     </div>
                   </div>
                   {s.id === room.you && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => pick('random')}
-                        aria-label="Random hero"
-                      >
-                        🎲
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void act({ type: 'sit', playing: false })}
-                      >
-                        Watch instead
-                      </Button>
-                    </>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => pick('random')}
+                      aria-label="Random hero"
+                    >
+                      🎲
+                    </Button>
                   )}
                 </li>
               ))}
@@ -317,15 +314,6 @@ export function Lobby({
                   <PlayerTag key={s.id} name={s.name} />
                 ))}
               </p>
-            )}
-            {me && !me.playing && seated.length < MAX_PLAYERS && (
-              <Button
-                id="tb-sit"
-                variant="soft"
-                onClick={() => void act({ type: 'sit', playing: true })}
-              >
-                Take a seat
-              </Button>
             )}
           </Panel>
           {/* Phones have the room bar's Rules button, and this lobby must fit the screen. */}

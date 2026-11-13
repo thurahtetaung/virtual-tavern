@@ -1,22 +1,23 @@
 import { type GameRoomInfo, lobbyStatus } from '@vt/game-sdk';
 import { cardSetChoices, useManifest as useReverieManifest } from '@vt/private-reverie/card';
 import {
-  Button,
   type Choice,
   ChoicePicker,
+  cn,
   GuideLink,
   Hint,
-  LobbySettings,
   LobbyLayout,
   LobbyPitch,
+  LobbySettings,
   LobbyStart,
   Panel,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  SeatHeading,
+  SeatToggle,
   Switch,
   TimerSettings,
-  cn,
   timersLine,
 } from '@vt/ui';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -262,11 +263,14 @@ export function Lobby({
     >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({seated.length}/{MAX_PLAYERS})
-          </h2>
-        </div>
+        <SeatHeading as="h2" title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+          {me && (me.playing || seated.length < MAX_PLAYERS) && (
+            <SeatToggle
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <div className="flex gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <ul className="flex flex-col gap-1.5" aria-label="Seats">
@@ -279,15 +283,6 @@ export function Lobby({
                     offline={offline(x.id)}
                     className="flex-1"
                   />
-                  {x.id === room.you && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void act({ type: 'sit', playing: false })}
-                    >
-                      Watch instead
-                    </Button>
-                  )}
                 </li>
               ))}
             </ul>
@@ -298,11 +293,6 @@ export function Lobby({
                   <PlayerTag key={x.id} name={x.name} />
                 ))}
               </p>
-            )}
-            {me && !me.playing && seated.length < MAX_PLAYERS && (
-              <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-                Take a seat
-              </Button>
             )}
             <div className="flex items-start gap-3">
               <DrawPile

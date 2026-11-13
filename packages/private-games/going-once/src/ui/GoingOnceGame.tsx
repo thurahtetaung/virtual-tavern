@@ -11,31 +11,33 @@ import {
 } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   Countdown,
+  END_ART,
   EndHero,
   EndLayout,
   EndTabs,
   FitArea,
   GuideLink,
+  Hint,
   LobbyLayout,
   LobbyPitch,
-  LobbyStart,
-  Hint,
   LobbySettings,
+  LobbyStart,
   Panel,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  SeatHeading,
+  SeatToggle,
   Standings,
   StickyBar,
   Superlatives,
   Switch,
   TabBar,
-  cn,
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
-  END_ART,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
@@ -507,11 +509,14 @@ function Lobby({
     >
       {status && <Hint tone={status.me ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Bidders ({seated.length}/{MAX_PLAYERS})
-          </h2>
-        </div>
+        <SeatHeading as="h2" title={`Bidders (${seated.length}/${MAX_PLAYERS})`}>
+          {me && (me.playing || seated.length < MAX_PLAYERS) && (
+            <SeatToggle
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -523,15 +528,6 @@ function Lobby({
                 offline={offline(s.id)}
                 className="flex-1"
               />
-              {s.id === room.you && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void act({ type: 'sit', playing: false })}
-                >
-                  Watch instead
-                </Button>
-              )}
             </li>
           ))}
         </ul>
@@ -542,11 +538,6 @@ function Lobby({
               <PlayerTag key={s.id} name={s.name} />
             ))}
           </p>
-        )}
-        {me && !me.playing && seated.length < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Going Once'} onClick={showGuide} />

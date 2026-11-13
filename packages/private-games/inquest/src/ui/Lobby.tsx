@@ -1,18 +1,19 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   NameDot,
   Panel,
   PlayerTag,
-  RefusalSlot,
-  cn,
-  LobbySettings,
-  LobbyLayout,
-  LobbyPitch,
-  LobbyStart,
   ProtectedImage,
+  RefusalSlot,
+  SeatToggle,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
@@ -421,6 +422,13 @@ export function Lobby({
               ({seated.length}/{max})
             </span>
           </h3>
+          {me && (
+            <SeatToggle
+              id="inquest-sit"
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
         </div>
         <p className="text-sm text-ink-muted">
           {rolesSummary(seated.length, view, content) || `4 to ${max} can play.`}
@@ -454,27 +462,15 @@ export function Lobby({
             </li>
           ))}
         </ul>
-        {me && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              id="inquest-sit"
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'sit', playing: !me.playing })}
-            >
-              {me.playing ? 'Watch instead' : 'Take a seat'}
-            </Button>
-            {me.playing && (
-              <Button
-                variant={me.volunteer ? 'primary' : 'secondary'}
-                size="sm"
-                aria-pressed={me.volunteer}
-                onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
-              >
-                🔬 {me.volunteer ? 'You volunteered' : 'I’ll be the Forensic Scientist'}
-              </Button>
-            )}
-          </div>
+        {me?.playing && (
+          <Button
+            variant={me.volunteer ? 'primary' : 'secondary'}
+            size="sm"
+            aria-pressed={me.volunteer}
+            onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
+          >
+            🔬 {me.volunteer ? 'You volunteered' : 'I’ll be the Forensic Scientist'}
+          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Inquest'} onClick={showGuide} />

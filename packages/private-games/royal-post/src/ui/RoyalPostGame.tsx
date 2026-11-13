@@ -2,35 +2,37 @@ import { type GameRoomInfo, type GameUiProps, waitingForHost } from '@vt/game-sd
 import {
   Badge,
   Button,
+  cn,
   Countdown,
+  END_ART,
+  EndHero,
+  EndLayout,
+  EndTabs,
+  Fold as SharedFold,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   Modal,
+  NameDot,
   Panel,
   PlayerTag,
   RefusalSlot,
-  EndHero,
-  EndLayout,
-  LobbyLayout,
-  LobbyPitch,
-  LobbyStart,
-  EndTabs,
+  SeatHeading,
+  SeatToggle,
   Standings,
   StickyBar,
   Superlatives,
-  TimerSettings,
-  cn,
-  useSpectatorPrompt,
-  useAbandonGame,
-  LobbySettings,
-  NameDot,
-  useWideScreen,
-  Fold as SharedFold,
   TabBar,
   type TabBarItem,
-  Tabs,
   tabPanelProps,
-  END_ART,
+  Tabs,
+  TimerSettings,
+  useAbandonGame,
+  useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -172,9 +174,15 @@ function Seats({
   const watching = view.seats.filter((s) => !s.playing);
   return (
     <Panel className="space-y-2">
-      <h3 className="font-bold">
-        {title} ({playing.length}/{max})
-      </h3>
+      <SeatHeading title={`${title} (${playing.length}/${max})`}>
+        {me && view.phase !== 'playing' && (me.playing || me.waiting || playing.length < max) && (
+          <SeatToggle
+            // A player waiting for a full table's next seat can stop waiting the same way.
+            playing={me.playing || (!!me.waiting && playing.length >= max)}
+            onChange={(sit) => void act({ type: 'sit', playing: sit })}
+          />
+        )}
+      </SeatHeading>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center gap-1.5">
@@ -202,35 +210,10 @@ function Seats({
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
-      {me && view.phase !== 'playing' && (
-        <div className="flex flex-wrap items-center gap-2">
-          {me.playing ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void act({ type: 'sit', playing: false })}
-            >
-              Watch instead
-            </Button>
-          ) : playing.length < max ? (
-            <Button size="sm" onClick={() => void act({ type: 'sit', playing: true })}>
-              Take a seat
-            </Button>
-          ) : (
-            <span className="text-sm text-ink-muted">
-              The table is full{me.waiting ? ': you’ll get the next free seat' : ''}.
-            </span>
-          )}
-          {!me.playing && me.waiting && playing.length >= max && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void act({ type: 'sit', playing: false })}
-            >
-              Watch instead
-            </Button>
-          )}
-        </div>
+      {me && view.phase !== 'playing' && !me.playing && playing.length >= max && (
+        <p className="text-sm text-ink-muted">
+          The table is full{me.waiting ? ': you’ll get the next free seat' : ''}.
+        </p>
       )}
     </Panel>
   );
