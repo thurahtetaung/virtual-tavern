@@ -701,8 +701,8 @@ function Room({
     <Layout wide room playtest={playtest}>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
           icon over a one-word label; on a phone with four, narrower). A long name takes a smaller
-          size and up to two lines, breaking only between words (`RoomTitle`), and on a phone the
-          emblem gets smaller to give it room. */}
+          size to stay on one line, and only a name still too long wraps to a second, breaking only
+          between words (`RoomTitle`); on a phone the emblem gets smaller to give it room. */}
       <div
         ref={roomHeader}
         data-ui="room-header"
@@ -724,9 +724,7 @@ function Room({
         <h1
           className={cn(
             'group/title flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
-            game.name.length > 12 || headerButtons > 3
-              ? 'text-sub sm:text-heading'
-              : 'text-heading',
+            headerButtons > 3 ? 'text-sub sm:text-heading' : 'text-heading',
           )}
         >
           <span
@@ -998,11 +996,22 @@ const backToTheDoor = (roomId: string, reason: LockReason) =>
   `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&locked=${reason}`;
 
 /**
- * Font sizes a room title steps down through when it doesn't fit the header in two lines, or one of
- * its words is wider than the space (the first is the size the header gave it); past the last, the
- * title is cut with an ellipsis.
+ * The steps a room title takes until it fits: first on one line, from the size the header gave it
+ * down to 16 px, so a name like "Tavern Brawl" stays one line on a phone; only a name still too long
+ * then wraps to two lines (breaking between words) and steps down to 13 px; past the last step it is
+ * cut with an ellipsis at the end of its second line.
  */
-const TITLE_SIZES = [undefined, 17, 16, 15, 14, 13] as const;
+const TITLE_STEPS = [
+  { size: undefined, lines: 1 },
+  { size: 20, lines: 1 },
+  { size: 18, lines: 1 },
+  { size: 17, lines: 1 },
+  { size: 16, lines: 1 },
+  { size: 16, lines: 2 },
+  { size: 15, lines: 2 },
+  { size: 14, lines: 2 },
+  { size: 13, lines: 2 },
+] as const;
 
 /**
  * The game's name in the room header: up to two lines, breaking only between words. A name that
@@ -1018,7 +1027,7 @@ function RoomTitle({ name }: { name: string }) {
     const el = ref.current;
     if (
       el &&
-      step < TITLE_SIZES.length &&
+      step < TITLE_STEPS.length &&
       (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight + 1)
     )
       setFit((f) => ({ ...f, step: f.step + 1 }));
@@ -1035,16 +1044,20 @@ function RoomTitle({ name }: { name: string }) {
       observer.disconnect();
     };
   }, []);
-  const cut = step >= TITLE_SIZES.length;
-  const last = TITLE_SIZES[TITLE_SIZES.length - 1];
+  const cut = step >= TITLE_STEPS.length;
+  const { size, lines } = TITLE_STEPS[Math.min(step, TITLE_STEPS.length - 1)]!;
   return (
     <span
       ref={ref}
       title={cut ? name : undefined}
       data-fit={cut ? 'cut' : step}
       data-long={step > 0 || undefined}
-      className={cn('line-clamp-2 min-w-0', cut && 'break-words')}
-      style={{ fontSize: cut ? `${last}px` : TITLE_SIZES[step] && `${TITLE_SIZES[step]}px` }}
+      className={cn(
+        'min-w-0',
+        lines === 1 ? 'line-clamp-1 break-normal' : 'line-clamp-2',
+        cut && 'break-words',
+      )}
+      style={{ fontSize: size && `${size}px` }}
     >
       {name}
     </span>
