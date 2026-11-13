@@ -62,7 +62,7 @@ function Choice({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
+        'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
           ? 'bg-accent text-accent-fg ring-accent'
           : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:opacity-60',

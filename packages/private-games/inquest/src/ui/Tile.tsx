@@ -19,7 +19,7 @@ export function BulletIcon({ className }: { className?: string }) {
 
 const accent = (tile: number) =>
   tile === CAUSE_TILE
-    ? 'text-fuchsia-300'
+    ? 'text-fuchsia-200'
     : LOCATION_TILES.includes(tile) || tile === UNKNOWN_LOCATION_TILE
       ? 'text-emerald-300'
       : 'text-amber-300';

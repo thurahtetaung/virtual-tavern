@@ -242,7 +242,7 @@ export function AllSuspects(props: Common) {
  */
 export function CrimePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
   const bar =
-    'flex min-h-10 items-center gap-1.5 rounded-xl bg-card px-3 text-xs text-ink-muted ring-1 ring-line';
+    'flex min-h-11 items-center gap-1.5 rounded-xl bg-card px-3 text-xs text-ink-muted ring-1 ring-line';
   return (
     <div data-testid="crime-peek">
       <Peek
