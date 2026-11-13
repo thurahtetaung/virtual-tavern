@@ -476,9 +476,9 @@ function Teammates({
             <span
               className="grid gap-1"
               style={{
-                // Each card takes its share of the row (a 44 px+ target on phones), capped by the
-                // screen's height so five hands still fit.
-                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, ${others.length >= 4 ? 5 : 6.5}dvh)))`,
+                // Each card takes its share of the row, capped by the screen's height: larger with
+                // two or three hands, smaller with four so they fit (the tap band keeps 44 px).
+                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, ${others.length >= 4 ? 4.4 : 6.5}dvh)))`,
               }}
             >
               {hand.map((s) => {
@@ -490,7 +490,10 @@ function Teammates({
                     onClick={() =>
                       s.card && onDetail({ kind: 'card', card: s.card, holder: id, id: s.id })
                     }
-                    className="flex min-w-0 flex-col items-center gap-0.5 rounded-md"
+                    className={cn(
+                      TAP_BAND,
+                      'flex min-w-0 flex-col items-center gap-0.5 rounded-md',
+                    )}
                     aria-label={`${p.name}’s ${s.card ? cardLabel(s.card) : 'card'}${s.know && marksText(s.know) ? `, told: ${marksText(s.know)}` : ''}`}
                     data-card={s.id}
                   >
