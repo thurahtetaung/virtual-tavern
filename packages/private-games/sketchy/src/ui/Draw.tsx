@@ -82,7 +82,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   // A new prompt is a new sheet: the draft is kept per prompt.
   const draftKey = `sketchy.draft.${g.round}.${g.myPrompt}`;
   return (
-    <div ref={pad} className="mx-auto flex w-full max-w-md flex-col gap-3 lg:max-w-none">
+    <div ref={pad} className="mx-auto flex w-full max-w-md flex-col gap-2 lg:max-w-none lg:gap-3">
       {dialog}
       {/* Desktops show the prompt in the tool column (the pad's `aside`), phones above the sheet. */}
       {!wide && (
@@ -103,7 +103,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 shrink-0 px-3"
+              className="h-9 min-h-9 shrink-0 px-3"
               disabled={busy}
               onClick={() => void reroll()}
             >

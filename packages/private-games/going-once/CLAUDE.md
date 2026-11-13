@@ -4,7 +4,6 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 ## Rules and boundaries
 
-- Phone rig SVG passes through DOMPurify before insertion; wrapper groups and transforms are React elements.
 - Seat changes accept only own entries in the seat map and reject prototype keys before mutation.
 
 - **Going Once** (`packages/private-games/going-once`, id `going-once`) is a drawing and live auction game for 3 to 6: everyone draws two pictures from secret titles, then each goes up for a live auction; secret values, wish lists, hints, screws and loans; most money wins. Never write its host character or any of its text either.

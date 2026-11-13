@@ -360,7 +360,7 @@ function ToolGroup({
   children: ReactNode;
 }) {
   return (
-    <div className={cn('flex flex-col gap-2', dense && 'lg:gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-1 lg:gap-2', dense && 'lg:gap-1.5', className)}>
       <span className="text-caption leading-none font-semibold tracking-wide text-ink-muted uppercase">
         {label}
         {value && (
@@ -370,7 +370,7 @@ function ToolGroup({
           </>
         )}
       </span>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+      <div className="flex flex-wrap items-center gap-1.5 lg:gap-2">{children}</div>
     </div>
   );
 }
@@ -629,7 +629,7 @@ export function DrawingPad({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-3 lg:flex-row lg:items-stretch lg:justify-center lg:gap-6',
+        'flex flex-col items-center gap-2 lg:flex-row lg:items-stretch lg:justify-center lg:gap-6',
         className,
       )}
     >
@@ -690,14 +690,14 @@ export function DrawingPad({
       </div>
       <div
         className={cn(
-          'flex w-full flex-col gap-3 lg:w-68 lg:shrink-0 lg:rounded-xl lg:bg-panel lg:p-4 lg:ring-1 lg:ring-line',
+          'flex w-full flex-col gap-2 lg:w-68 lg:shrink-0 lg:gap-3 lg:rounded-xl lg:bg-panel lg:p-4 lg:ring-1 lg:ring-line',
           dense && 'lg:gap-2.5 lg:p-3',
         )}
       >
         {aside && <div className="max-lg:hidden">{aside}</div>}
         <div
           className={cn(
-            'grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 rounded-xl bg-panel p-3 ring-1 ring-line lg:flex lg:flex-col lg:gap-3.5 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0',
+            'grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-xl bg-panel px-3 py-2 ring-1 ring-line lg:flex lg:flex-col lg:gap-3.5 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0',
             dense && 'lg:gap-2.5',
           )}
         >
@@ -742,7 +742,11 @@ export function DrawingPad({
             </div>
           </ToolGroup>
           <ToolGroup label="Size" value={DRAWING_WIDTHS[width]?.name} dense={dense}>
-            <div className="flex items-center gap-2" role="radiogroup" aria-label="Line width">
+            <div
+              className="flex items-center gap-1.5 lg:gap-2"
+              role="radiogroup"
+              aria-label="Line width"
+            >
               {DRAWING_WIDTHS.map((w, i) => (
                 <button
                   key={w.id}
@@ -781,7 +785,10 @@ export function DrawingPad({
             <Button
               variant="secondary"
               size="sm"
-              className={cn('h-10 gap-1.5', dense && 'lg:h-9 lg:min-h-9')}
+              className={cn(
+                'h-10 min-h-10 gap-1 px-2 lg:gap-1.5 lg:px-3',
+                dense && 'lg:h-9 lg:min-h-9',
+              )}
               aria-label="Undo"
               title="Undo (or tap with two fingers)"
               onClick={undo}
@@ -795,7 +802,10 @@ export function DrawingPad({
             <Button
               variant="secondary"
               size="sm"
-              className={cn('h-10 gap-1.5', dense && 'lg:h-9 lg:min-h-9')}
+              className={cn(
+                'h-10 min-h-10 gap-1 px-2 lg:gap-1.5 lg:px-3',
+                dense && 'lg:h-9 lg:min-h-9',
+              )}
               aria-label="Clear the page"
               title="Clear"
               onClick={() => void clear()}
@@ -810,7 +820,8 @@ export function DrawingPad({
         </div>
         <div
           className={cn(
-            'flex flex-col gap-3 lg:mt-auto lg:border-t lg:border-line lg:pt-3.5',
+            // Phones: Send is in the bar, so the foot holds no more than the note.
+            'flex flex-col gap-3 max-sm:contents lg:mt-auto lg:border-t lg:border-line lg:pt-3.5',
             dense && 'lg:gap-2 lg:pt-2.5',
           )}
         >
