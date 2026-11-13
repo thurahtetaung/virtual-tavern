@@ -1,4 +1,14 @@
-import { Button, FoldSummary, Hint, RefusalSlot, StickyBar, cn, useFitToScreen } from '@vt/ui';
+import {
+  Button,
+  FoldSummary,
+  Hint,
+  MoreBelow,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useFitToScreen,
+  useMarkMore,
+} from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
@@ -159,7 +169,7 @@ interface Pending {
 }
 
 /** The six tiles, with whatever the viewer can do to them right now. */
-/** "Full bullet timeline", folded: under the tiles on phones, in the rail on desktops. */
+/** "Full bullet timeline", folded, under the tiles. */
 export function TimelineFold({
   g,
   content,
@@ -193,6 +203,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
   // Phones: the tiles and what follows them scroll inside, so the page itself never scrolls.
   const below = useRef<HTMLDivElement>(null);
   useFitToScreen(below, { phone: true, min: 160 });
+  useMarkMore(below, []);
   const [tipOpen, dismissTip] = useTip('scene');
   const [fsTipOpen, dismissFsTip] = useTip('fs-picker');
   const [paceTipOpen, dismissPaceTip] = useTip('fs-pacing');
@@ -421,64 +432,71 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
           </div>
         </div>
       )}
-      <div ref={below} className="space-y-2 max-sm:overflow-y-auto max-sm:overscroll-contain">
-        {g.slots.length > 0 && (
-          <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
-            {g.slots.map((_, i) => (
-              <Tile
-                key={`${i}-${g.slots[i]!.tile}`}
-                slot={i}
-                className="scroll-mt-20 scroll-mb-[calc(var(--vt-sticky-h,0px)+var(--vt-tabbar-h,0px)+1rem)] lg:scroll-mb-24"
-                {...tileProps(i)}
-              />
-            ))}
-          </div>
-        )}
-        {confirm ? (
-          // Phones keep the move in the bar at the foot of the screen, above the tab bar.
-          <StickyBar fixed refusal="inquest-scene">
-            <div
-              role="group"
-              aria-label="Confirm"
-              className="rounded-xl sm:sticky sm:bottom-2 sm:z-10 sm:bg-card sm:p-1.5 sm:shadow-vt-2 sm:ring-1 sm:ring-accent"
-            >
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="md"
-                  className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
-                  onClick={confirm.run}
-                >
-                  {confirm.label}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => pick(null)}>
-                  Cancel
-                </Button>
-              </div>
-              {confirm.note && (
-                <p className="px-1 pt-0.5 text-caption leading-tight text-ink-muted">
-                  {confirm.note}
-                </p>
-              )}
-            </div>
-          </StickyBar>
-        ) : (
-          <RefusalSlot anchor="inquest-scene" />
-        )}
-        {g.bullets.length > 0 && <Timeline g={g} content={content} />}
-        {g.removed.length > 0 && (
-          <details className="group rounded-xl bg-sunk text-sm">
-            <FoldSummary className="px-3 font-semibold">
-              Removed tiles ({g.removed.length})
-            </FoldSummary>
-            <div className="grid grid-cols-2 gap-1.5 px-2 pb-2 sm:grid-cols-3">
-              {g.removed.map((s, i) => (
-                <Tile key={i} tile={s.tile} bullet={s.bullet} content={content} dim />
+      <div className="relative min-w-0">
+        <div
+          ref={below}
+          className="peer space-y-2 max-sm:overflow-y-auto max-sm:overscroll-contain"
+        >
+          {g.slots.length > 0 && (
+            <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
+              {g.slots.map((_, i) => (
+                <Tile
+                  key={`${i}-${g.slots[i]!.tile}`}
+                  slot={i}
+                  className="scroll-mt-20 scroll-mb-[calc(var(--vt-sticky-h,0px)+var(--vt-tabbar-h,0px)+1rem)] lg:scroll-mb-24"
+                  {...tileProps(i)}
+                />
               ))}
             </div>
-          </details>
-        )}
-        {/* Desktops keep this fold in the rail (`TimelineFold`), so the tiles end above the fold. */}
-        {g.bullets.length > 0 && <TimelineFold g={g} content={content} className="lg:hidden" />}
+          )}
+          {confirm ? (
+            // Phones keep the move in the bar at the foot of the screen, above the tab bar.
+            <StickyBar fixed refusal="inquest-scene">
+              <div
+                role="group"
+                aria-label="Confirm"
+                className="rounded-xl sm:sticky sm:bottom-2 sm:z-10 sm:bg-card sm:p-1.5 sm:shadow-vt-2 sm:ring-1 sm:ring-accent"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="md"
+                    className="h-auto! min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
+                    onClick={confirm.run}
+                  >
+                    {confirm.label}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => pick(null)}>
+                    Cancel
+                  </Button>
+                </div>
+                {confirm.note && (
+                  <p className="px-1 pt-0.5 text-caption leading-tight text-ink-muted">
+                    {confirm.note}
+                  </p>
+                )}
+              </div>
+            </StickyBar>
+          ) : (
+            <RefusalSlot anchor="inquest-scene" />
+          )}
+          {g.bullets.length > 0 && <Timeline g={g} content={content} />}
+          {g.removed.length > 0 && (
+            <details className="group rounded-xl bg-sunk text-sm">
+              <FoldSummary className="px-3 font-semibold">
+                Removed tiles ({g.removed.length})
+              </FoldSummary>
+              <div className="grid grid-cols-2 gap-1.5 px-2 pb-2 sm:grid-cols-3">
+                {g.removed.map((s, i) => (
+                  <Tile key={i} tile={s.tile} bullet={s.bullet} content={content} dim />
+                ))}
+              </div>
+            </details>
+          )}
+          {/* Under the tiles (closed by default), so the tiles stay above the fold. */}
+          {g.bullets.length > 0 && <TimelineFold g={g} content={content} />}
+        </div>
+        {/* Phones: More below while the fitted tiles have more under their fold. */}
+        <MoreBelow column={below} compact />
       </div>
       {g.slots.length === 0 && g.stage !== 'night' && mode !== 'location' && (
         <Hint>The Forensic Scientist is laying out the tiles…</Hint>
