@@ -582,8 +582,17 @@ function Play({
         <FitArea on={phone} resetKey={`${r.no}-${r.stage}`} className="flex flex-col gap-3">
           {r.stage === 'choose' && (
             <>
-              <Choose view={view} room={room} act={act} name={name} />
-              <Scores view={view} room={room} />
+              {/* Wide screens, for everyone waiting: the wait and the scores share one short row,
+                  so the board under them gets the height (icons about 64 px instead of 53). */}
+              <div
+                className={cn(
+                  'flex flex-col gap-3',
+                  !r.givers.includes(room.you) && 'md:grid md:grid-cols-2 md:items-start',
+                )}
+              >
+                <Choose view={view} room={room} act={act} name={name} />
+                <Scores view={view} room={room} />
+              </div>
               {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
               {/* Everyone waiting studies the icons while the clue givers pick (read-only). */}
               {!r.givers.includes(room.you) && (
@@ -723,7 +732,7 @@ function Choose({
   );
   if (!isGiver || !card) {
     return (
-      <Panel className="flex flex-col items-center gap-3 text-center">
+      <Panel className="flex flex-col items-center gap-3 text-center md:gap-2 md:py-3">
         <p className="text-lg font-semibold">
           {andList(r.givers.map(name))} {pair ? 'are' : 'is'} picking a word from their card
         </p>
@@ -1369,7 +1378,12 @@ function Reveal({
   const body = (
     <>
       <Panel
-        className="ic-reveal flex flex-col items-center gap-2 text-center"
+        // Phones: the word stands in the middle of the free height, not a strip at the top (the
+        // clue strip and the scores stay under it).
+        className={cn(
+          'ic-reveal flex flex-col items-center gap-2 text-center',
+          !wide && 'min-h-[max(16rem,calc(100dvh-19rem))] justify-center',
+        )}
         data-testid="ic-reveal"
       >
         <p className="text-sm uppercase tracking-wide text-ink-muted">
