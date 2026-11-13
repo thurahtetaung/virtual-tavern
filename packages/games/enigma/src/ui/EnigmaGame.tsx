@@ -8,6 +8,7 @@ import {
   Notice,
   Panel,
   StickyBar,
+  TAP_BAND,
   Superlatives,
   TabBar,
   type TabBarItem,
@@ -74,7 +75,7 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
             aria-expanded={legend}
             aria-controls="enigma-legend"
             onClick={() => setToggled(!legend)}
-            className="rounded px-1 underline decoration-dotted underline-offset-2"
+            className={cn('rounded px-1 underline decoration-dotted underline-offset-2', TAP_BAND)}
           >
             Round {view.round} of {view.maxRounds} <span aria-hidden>ⓘ</span>
             <span className="sr-only"> (what do the scores mean?)</span>
@@ -367,8 +368,10 @@ export function EnigmaGame({
               </div>
             </section>
           )}
+          {/* On wide screens the play panel keeps its height (it holds the move); the clue sheets
+              below it take what is left and scroll. */}
           <FitArea
-            on={view.phase === 'playing' && (wide || (fit && tab === 'play'))}
+            on={view.phase === 'playing' && !wide && fit && tab === 'play'}
             resetKey={stepKey}
             className="space-y-4"
           >
