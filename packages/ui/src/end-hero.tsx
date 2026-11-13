@@ -58,7 +58,11 @@ export function EndHero({
       aria-label="Result"
       className={cn(
         'vt-end-hero relative overflow-hidden rounded-2xl border px-4 py-5 text-center shadow-vt-2 sm:px-6',
-        inColumn ? 'lg:px-6 lg:py-6' : 'lg:px-10 lg:py-8',
+        // Beside the rest on wide screens, the finale stands the height of the window (as it fills
+        // a phone), its content centred, instead of stopping at the top with empty space under it.
+        inColumn
+          ? 'lg:flex lg:min-h-[min(calc(100dvh-8.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
+          : 'lg:px-10 lg:py-8',
         tone === 'loss'
           ? 'border-danger-line'
           : tone === 'success'
@@ -84,19 +88,29 @@ export function EndHero({
             {eyebrow}
           </p>
         )}
-        {emblem && (
-          <div
-            aria-hidden
-            className={cn(
-              'vt-end-pop text-5xl leading-none',
-              inColumn && art ? 'lg:text-5xl' : 'lg:text-6xl',
-            )}
-          >
-            {emblem}
-          </div>
-        )}
+        {/* An emoji emblem sits on the sunk tile game emblems use everywhere, so it reads as the
+            game's badge rather than a loose glyph; a piece of art stands on its own. */}
+        {emblem &&
+          (typeof emblem === 'string' ? (
+            <div
+              aria-hidden
+              className={cn(
+                'vt-end-pop mx-auto flex size-16 items-center justify-center rounded-2xl bg-sunk text-[2.5rem] leading-none shadow-vt-1 ring-1 ring-line',
+                inColumn && art ? 'lg:size-20 lg:text-5xl' : 'lg:size-24 lg:text-6xl',
+              )}
+            >
+              {emblem}
+            </div>
+          ) : (
+            <div aria-hidden className="vt-end-pop text-5xl leading-none lg:text-6xl">
+              {emblem}
+            </div>
+          ))}
         <h2
-          className="font-display text-display font-semibold text-balance text-ink"
+          className={cn(
+            'font-display text-display font-semibold text-balance text-ink',
+            inColumn && 'xl:text-[3.25rem]',
+          )}
           data-testid={titleTestId}
         >
           {title}
