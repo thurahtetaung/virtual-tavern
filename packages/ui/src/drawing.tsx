@@ -683,9 +683,10 @@ export function DrawingPad({
           )}
         </svg>
       </div>
+      {/* Phones: a few px under the tools, so a scrolling play area's rounding never cuts the panel. */}
       <div
         className={cn(
-          'flex w-full flex-col gap-2 lg:w-68 lg:shrink-0 lg:gap-3 lg:rounded-xl lg:bg-panel lg:p-4 lg:ring-1 lg:ring-line',
+          'flex w-full flex-col gap-2 max-sm:pb-1 lg:w-68 lg:shrink-0 lg:gap-3 lg:rounded-xl lg:bg-panel lg:p-4 lg:ring-1 lg:ring-line',
           dense && 'lg:gap-2.5 lg:p-3',
         )}
       >

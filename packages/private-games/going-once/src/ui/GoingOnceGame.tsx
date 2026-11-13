@@ -36,6 +36,7 @@ import {
   Switch,
   TabBar,
   useAbandonGame,
+  useSecondsLeft,
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
@@ -87,7 +88,11 @@ export function GoingOnceGame({
     const map = new Map(names.split('|').map((kv) => kv.split('=') as [string, string]));
     return (id) => (id ? (map.get(id) ?? 'Someone') : 'Someone');
   }, [names]);
-  const status = statusFor(view, room.you, name, art.names);
+  // The pads open when the auctioneer calls for the drawings (the clock's start, on the server's
+  // clock); until then the status line says to listen.
+  const drawFrom = view.game?.stage === 'draw' ? view.game.drawFrom : null;
+  const drawOpen = (useSecondsLeft(drawFrom, room.clockOffset) ?? 0) <= 0;
+  const status = statusFor(view, room.you, name, art.names, drawOpen);
   const [volumes, setVolume] = useGoVolumes();
   useHostVolumes({
     game: GAME_ID,
