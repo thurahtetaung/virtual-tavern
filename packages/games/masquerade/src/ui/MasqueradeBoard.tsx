@@ -33,14 +33,7 @@ import {
   useAbandonGame,
   useWideScreen,
 } from '@vt/ui';
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   ANSWER_TIP,
   GENERIC_QUESTIONS,
@@ -784,7 +777,7 @@ function LocationsBoard({
           )}
           <ul
             aria-label={groups.length > 1 ? g.label : undefined}
-            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]"
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
           >
             {g.ids.map((id) => {
               const mark = marks[id];
@@ -957,47 +950,6 @@ const TABS_ID = 'masquerade-play';
 
 // ---- The whole game ----
 
-/**
- * On a wide screen the question ideas follow the board in the same column, so fitting the page
- * would squeeze the board to a sliver. The board keeps the screen's height below its top, and
- * never less than its first three rows of places.
- */
-function useBoardHeight(panel: RefObject<HTMLDivElement | null>, on: boolean) {
-  const [height, setHeight] = useState<number | undefined>(undefined);
-  useLayoutEffect(() => {
-    const el = panel.current;
-    if (!on || !el) return;
-    const measure = () => {
-      const tiles = [...el.querySelectorAll('section[aria-label="Locations"] ul > li')].map((li) =>
-        li.getBoundingClientRect(),
-      );
-      if (!tiles.length) return;
-      const top = el.getBoundingClientRect().top;
-      const rows = [...new Set(tiles.map((b) => Math.round(b.top)))].sort((a, b) => a - b);
-      const third = rows[Math.min(2, rows.length - 1)]!;
-      const threeRows = Math.max(
-        ...tiles.filter((b) => Math.round(b.top) <= third).map((b) => b.bottom),
-      );
-      // The board may be scrolled inside; two px more for the scroller's inner padding.
-      const scrolled = el.firstElementChild?.scrollTop ?? 0;
-      const rowsHeight = Math.ceil(threeRows + scrolled - top) + 2;
-      const screenLeft = Math.floor(window.innerHeight - (top + window.scrollY) - 16);
-      const next = Math.max(rowsHeight, screenLeft);
-      setHeight((h) => (h !== undefined && Math.abs(h - next) <= 1 ? h : next));
-    };
-    measure();
-    const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    const section = el.querySelector('section[aria-label="Locations"]');
-    if (section) sizes?.observe(section);
-    window.addEventListener('resize', measure);
-    return () => {
-      sizes?.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [panel, on]);
-  return on ? height : undefined;
-}
-
 export function MasqueradeBoard({
   view,
   room,
@@ -1026,8 +978,6 @@ export function MasqueradeBoard({
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wide = useWideScreen();
   const phoneEnd = view.phase === 'over' && !wide;
-  const boardPanel = useRef<HTMLDivElement>(null);
-  const boardHeight = useBoardHeight(boardPanel, wide && view.phase === 'playing');
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {
@@ -1073,15 +1023,10 @@ export function MasqueradeBoard({
     <div className="space-y-3">
       <TopBar view={view} room={room} />
       <Nudge view={view} room={room} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div {...panel('play')} className={cn('min-w-0 space-y-3', panel('play').className)}>
           <StatusHint view={view} room={room} />
-          <FitArea
-            // On a wide screen the page scrolls for the ideas, so this column keeps its own height.
-            on={view.phase === 'playing' && !wide && fit && tab === 'play'}
-            resetKey={stepKey}
-            className="space-y-3"
-          >
+          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-3">
             {round?.redealtAfter && round.stage === 'talk' && (
               <p className="text-center text-small text-ink-muted">
                 {round.redealtAfter} left while a spy, so the round was dealt again.
@@ -1138,21 +1083,13 @@ export function MasqueradeBoard({
           </FitArea>
         </div>
         <div className="min-w-0 space-y-4">
-          <div ref={boardPanel} {...panel('locations')}>
-            <FitArea
-              on={view.phase === 'playing' && (wide || (fit && tab === 'locations'))}
-              resetKey={stepKey}
-              // On a wide screen the ideas follow below, so the board keeps the screen's height.
-              {...(wide && boardHeight ? { min: boardHeight } : {})}
-            >
+          <div {...panel('locations')}>
+            <FitArea on={fit && tab === 'locations'} resetKey={stepKey}>
               <LocationsBoard view={view} display={display} act={act} />
             </FitArea>
           </div>
           <div {...panel('ideas')}>
-            <FitArea
-              on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
-              resetKey={stepKey}
-            >
+            <FitArea on={fit && tab === 'ideas'} resetKey={stepKey}>
               <IdeasBoard view={view} display={display} />
             </FitArea>
           </div>

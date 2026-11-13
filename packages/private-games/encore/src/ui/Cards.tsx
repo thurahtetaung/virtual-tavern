@@ -1,4 +1,4 @@
-import { ProtectedImage, cn, useScrollEnds, scrollFadeMask } from '@vt/ui';
+import { ProtectedImage, cn } from '@vt/ui';
 import { type CSSProperties, memo } from 'react';
 import { type HandCard, downOf, segments } from '../logic/rules.ts';
 import type { Art } from './assets.ts';
@@ -177,25 +177,16 @@ export function Hand({
   label = 'Your hand',
   className,
 }: HandProps) {
-  const { ref: stripRef, ends: stripEnds } = useScrollEnds(cards.map((c) => c.id).join(','));
   const segs = segments(cards);
   const segOf = (i: number) => segs.find((s) => s.from <= i && i <= s.to);
-  // Preserve card order and readable faces; long rows scroll instead of shrinking tap targets.
+  // One row up to 15 cards (a phone fits them all), then two even rows.
   const cols =
     columns ?? (cards.length <= 15 ? Math.max(4, cards.length) : Math.ceil(cards.length / 2));
   return (
     <ol
       aria-label={label}
-      ref={stripRef}
-      className={cn(
-        'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-3 pb-2',
-        onGap && 'pr-11',
-        className,
-      )}
-      style={{
-        ...scrollFadeMask(stripEnds),
-        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : '3.6rem'})`,
-      }}
+      className={cn('grid gap-x-1 gap-y-2.5', className)}
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 3.6rem))` }}
     >
       {cards.map((c, i) => {
         const seg = segOf(i);
@@ -215,11 +206,7 @@ export function Hand({
         return (
           <li
             key={`${c.id}`}
-            className={cn(
-              'relative flex flex-col items-stretch gap-1',
-              onGap && 'pl-11',
-              turning && 'en-turn',
-            )}
+            className={cn('relative flex flex-col items-stretch gap-1', turning && 'en-turn')}
             style={turning ? { animationDelay: `${Math.min(i * 20, 240)}ms` } : undefined}
           >
             {onCard ? (
@@ -257,11 +244,7 @@ export function Hand({
                 type="button"
                 onClick={() => onGap(i)}
                 aria-label={`Put it before card ${i + 1}`}
-                aria-pressed={preview === i}
-                className={cn(
-                  'en-gap absolute top-0 left-0 z-10 h-11 w-11 rounded-lg',
-                  preview === i && 'ring-2 ring-accent',
-                )}
+                className="en-gap absolute top-0 -left-[0.45rem] z-10 h-[calc(100%-0.5rem)] w-3.5 rounded-full"
                 data-gap={i}
               />
             )}
@@ -270,7 +253,7 @@ export function Hand({
                 type="button"
                 onClick={() => onGap(i + 1)}
                 aria-label="Put it after the last card"
-                className="en-gap absolute top-0 -right-11 z-10 h-11 w-11 rounded-lg"
+                className="en-gap absolute top-0 -right-[0.45rem] z-10 h-[calc(100%-0.5rem)] w-3.5 rounded-full"
                 data-gap={i + 1}
               />
             )}
@@ -282,7 +265,7 @@ export function Hand({
           <button
             type="button"
             onClick={() => onGap(0)}
-            className="en-gap h-16 w-11 rounded-md"
+            className="en-gap h-16 w-8 rounded-md"
             aria-label="Put it in your hand"
             data-gap={0}
           />

@@ -78,18 +78,11 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
       <span className="text-sm font-semibold">{picker ? 'Your word' : 'Your notebook'}</span>
     </span>
   );
-  // The paper art is cream in both themes, so on it the page prints in fixed dark ink
-  // (vt-palette: card art's own colours, which never follow the theme).
-  const paper = !!art.notebookPage;
-  const muted = paper ? 'text-[#5c5248]' : 'text-ink-muted';
   return (
     <div data-testid="rh-notebook">
       <Peek what={picker ? 'your word' : 'your notebook'} cover={cover} inline>
         <div
-          className={cn(
-            'relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center shadow-inner ring-1 ring-line',
-            paper ? 'text-[#2a2420]' : 'text-ink',
-          )}
+          className="relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-ink shadow-inner ring-1 ring-line"
           data-testid="rh-notebook-page"
         >
           {art.notebookPage && (
@@ -99,7 +92,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
               className="absolute inset-0 size-full object-cover"
             />
           )}
-          {topic && <span className={cn('relative text-xs', muted)}>Topic: {topic}</span>}
+          {topic && <span className="relative text-xs text-ink-muted">Topic: {topic}</span>}
           {word !== null ? (
             <span
               className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
@@ -116,7 +109,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
             </span>
           )}
           {!picker && (
-            <span className={cn('relative text-xs', muted)}>
+            <span className="relative text-[11px] text-ink-muted">
               {word !== null
                 ? 'You’re a Detective: find who doesn’t know this word.'
                 : 'You don’t know the word. Blend in with your cards and your explanation.'}
@@ -263,8 +256,6 @@ export function Table({
           className={cn(
             'grid gap-1.5 sm:gap-2',
             many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
-            // Four at a desktop table sit in one row, so your hand stays on the screen.
-            r.order.length === 4 && 'lg:grid-cols-4',
           )}
         >
           {r.order.map((id) => {

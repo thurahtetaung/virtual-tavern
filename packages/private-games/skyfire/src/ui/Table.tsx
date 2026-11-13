@@ -437,7 +437,7 @@ function Teammates({
   return (
     <ul
       aria-label="The other hands"
-      className="flex flex-col gap-0.5 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(min(100%,26rem),1fr))] lg:gap-2"
+      className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-2"
     >
       {others.map((id) => {
         const p = g.players.find((x) => x.id === id)!;
@@ -475,7 +475,7 @@ function Teammates({
             <span
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.2rem, 9.5vw, 5rem)))`,
+                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.2rem, 9.5vw, 4rem)))`,
               }}
             >
               {hand.map((s) => {
@@ -1290,7 +1290,7 @@ export function Discards({
                         'flex h-7 w-full items-center justify-center gap-0.5 rounded tabular-nums',
                         lost && 'bg-danger-soft font-bold text-danger-ink',
                         last && 'bg-warn-soft font-bold text-warn-ink ring-1 ring-warn-line',
-                        !lost && !last && onFirework && 'text-ink-2',
+                        !lost && !last && onFirework && 'text-ink-muted opacity-60',
                       )}
                       title={`${SUIT_NAME[suit]} ${rank}: ${gone} of ${total} discarded`}
                     >

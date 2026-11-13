@@ -85,7 +85,9 @@ test('the host pairs a table screen, the phones hear of it, and the host removes
   await tv.getByRole('button', { name: '▶ Start the show' }).click();
   await expect(tv).toHaveURL(new RegExp(`/stage/${roomId}$`));
   const scene = tv.getByTestId('scene');
-  await expect(scene.getByText('Everything in this game happens on your phones.')).toBeVisible();
+  await expect(
+    scene.getByText('This game has no table screen yet', { exact: false }),
+  ).toBeVisible();
   await expect(scene.getByText('Hana', { exact: true })).toBeVisible();
   await expect(scene.getByText('Ana', { exact: true })).toBeVisible();
   if (shots) {

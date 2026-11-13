@@ -407,7 +407,7 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
           className={cn('size-2 rounded-full', i < tokens ? 'bg-danger' : 'bg-line-strong')}
         />
       ))}
-      <span aria-hidden className="ml-1 text-xs font-semibold text-ink-muted tabular-nums">
+      <span aria-hidden className="ml-1 text-[0.65rem] font-semibold text-ink-muted tabular-nums">
         {tokens}/{target}
       </span>
     </span>
@@ -475,23 +475,22 @@ function PlayerTile({
       className={cn(
         'min-w-0 space-y-1 rounded-xl px-2 py-1.5 ring-1',
         isTurn ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
-        // Out: a sunk seat with its name struck through, its text kept at full contrast.
-        p.out && 'bg-sunk',
+        p.out && 'opacity-60',
       )}
     >
       <div className="flex items-center gap-1 text-sm">
         <span
           className={cn(
             'min-w-0 truncate font-semibold',
-            p.out && 'text-ink-2 line-through',
-            !online && !p.left && 'text-ink-2',
+            p.out && 'line-through',
+            !online && !p.left && 'opacity-60',
           )}
         >
           {p.name}
         </span>
         <NameDot name={p.name} className="order-first" />
         {me && <span className="text-xs text-ink-muted">(you)</span>}
-        {!online && !p.left && <Badge className="px-1.5 py-0 text-xs">offline</Badge>}
+        {!online && !p.left && <Badge className="px-1.5 py-0 text-[0.65rem]">offline</Badge>}
         <span
           className="ml-auto flex shrink-0 items-center gap-0.5"
           aria-label={
@@ -500,7 +499,7 @@ function PlayerTile({
           role={p.out ? undefined : 'img'}
         >
           {p.out ? (
-            <Badge className="px-1.5 py-0 text-xs">{p.left ? 'left' : 'out'}</Badge>
+            <Badge className="px-1.5 py-0 text-[0.65rem]">{p.left ? 'left' : 'out'}</Badge>
           ) : (
             Array.from({ length: p.handCount }, (_, i) => (
               <CardBack key={i} deck={deck} className="w-3.5 rounded-sm" />
@@ -511,19 +510,19 @@ function PlayerTile({
       {(isTurn || p.protected || spy) && (
         <div className="flex flex-wrap gap-1">
           {isTurn && (
-            <Badge className="bg-accent-soft px-1.5 py-0 text-xs text-accent-text">
+            <Badge className="bg-accent-soft px-1.5 py-0 text-[0.65rem] text-accent-text">
               {me ? 'your turn' : 'their turn'}
             </Badge>
           )}
           {p.protected && (
-            <Badge className="bg-danger-soft px-1.5 py-0 text-xs text-danger-ink">
+            <Badge className="bg-danger-soft px-1.5 py-0 text-[0.65rem] text-danger-ink">
               <span aria-label="protected" title="Protected by the Handmaid until their next turn">
                 🌸 protected
               </span>
             </Badge>
           )}
           {spy && (
-            <Badge className="bg-sunk px-1.5 py-0 text-xs text-ink">
+            <Badge className="bg-sunk px-1.5 py-0 text-[0.65rem] text-ink">
               <span
                 aria-label="played a Spy"
                 title="Played a Spy: gains a token if the only player still in who did"
@@ -761,8 +760,7 @@ function Table({
                 </div>
                 <ul className="flex shrink-0 gap-2">
                   {view.hand.map((role, i) => (
-                    // Big enough to read the card's art and name without opening it.
-                    <li key={`${role}-${i}`} className="w-28 lg:w-36">
+                    <li key={`${role}-${i}`} className="w-20 sm:w-24">
                       <Card
                         role={role}
                         rank={rankIn(edition, role)}
@@ -1016,7 +1014,7 @@ function PlaySheet({
                         <b className="tabular-nums">{c.rank}</b>
                         <span className="truncate">{deck.name(c.role)}</span>
                       </span>
-                      <span className="text-xs font-normal text-ink-muted">
+                      <span className="text-[0.65rem] font-normal text-ink-muted">
                         {c.unseen === 0 ? 'all seen' : `${c.unseen} unseen`}
                       </span>
                     </button>

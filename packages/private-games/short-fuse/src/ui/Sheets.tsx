@@ -109,11 +109,11 @@ export function PlaceSheet({
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
         <div className="flex w-24 flex-col items-center gap-1">
           <CardFace card={prompt.card} art={art} c={c} size="sm" className="sf-slide" />
-          <span className="text-xs text-ink-muted">top</span>
+          <span className="text-[0.65rem] text-ink-muted">top</span>
           <span className="w-20" key={pos}>
             <StackSide edges={edges} voidEdge={null} gap={gapEdge} />
           </span>
-          <span className="text-xs text-ink-muted">bottom</span>
+          <span className="text-[0.65rem] text-ink-muted">bottom</span>
         </div>
         <div className="space-y-3">
           <p className="text-sm text-ink">

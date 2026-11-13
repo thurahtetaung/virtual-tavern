@@ -1,17 +1,7 @@
 import { storageKey } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import {
-  Button,
-  Modal,
-  Panel,
-  PlayerTag,
-  RefusalSlot,
-  StickyBar,
-  cn,
-  useScrollEnds,
-  scrollFadeMask,
-} from '@vt/ui';
-import { useEffect, useRef, useState } from 'react';
+import { Button, Modal, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
 import type { Trick } from '../logic/checks.ts';
 import {
@@ -388,10 +378,11 @@ export function PlayTable({
   const showLast = !a.current.length && last && last.no === a.trickCount;
   const canHold = !a.signalBlock && !a.current.length && !a.holds.includes(me) && a.turn !== me;
   const order = a.crew.map((c) => c.id);
-  const { ref: seatsRef, ends: seatsEnds } = useScrollEnds(order.join(','));
   // The viewer's signal is spent (their own token, or the shared ones): show the used side.
   const tokenUsed =
     a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
+  // Phones keep the hand on one row, overlapping the cards as much as it takes (a w-11 card each).
+  const overlap = `min(0.375rem, calc((100% - ${hand.length} * 2.75rem) / ${Math.max(hand.length - 1, 1)}))`;
 
   return (
     <div className="space-y-3">
@@ -401,11 +392,7 @@ export function PlayTable({
           ? '🗣️ Open table'
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
       </p>
-      <ul
-        ref={seatsRef}
-        style={scrollFadeMask(seatsEnds)}
-        className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible"
-      >
+      <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible">
         {order.map((seat) => (
           <Seat
             key={seat}
@@ -481,7 +468,10 @@ export function PlayTable({
 
       {inCrew && (
         <div className="space-y-2" data-testid="mc-hand">
-          <div className="flex flex-wrap justify-center gap-1.5 pt-2 sm:pt-0">
+          <div
+            className="flex justify-center pt-2 max-sm:[&>*+*]:ml-(--mc-overlap) sm:flex-wrap sm:gap-1.5 sm:pt-0"
+            style={{ '--mc-overlap': overlap } as CSSProperties}
+          >
             {hand.map((c) => {
               const signalled = a.signals.some((s) => s.card === c && !s.played);
               const state =

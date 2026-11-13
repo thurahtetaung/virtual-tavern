@@ -11,8 +11,6 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules (the owner's rulings):** the lost disc is secret (random from another's thorn, the Challenger's choice from their own); a revealed thorn that was its owner's last disc knocks its owner out. A player who leaves is away, not out (skipped, discs kept, an away Challenger waited for); the host's `remove` takes them out. Strict timers never put a disc down except a round's first.
   - **`view()`:** your own discs only, others' as counts, turned-over and shown discs public, lost discs only to their owner.
 
-- **UI:** Desktop mats use a fluid grid with taller art areas and larger discs; phone sizing stays compact.
-
 ## Assets
 
 **Thorns** (`node scripts/r2-upload.mjs thorns <folder>`, dry-run first): each set's disc faces and back in `discs/` (240×240) with `discs/thumb/` copies (120×120), the Last Chance face (+ thumb), each set's two mat sides in `mats/` (300×300) with `mats/thumb/` (150×150), `box/cover.webp`, and a `manifest.json` of the form `{ "title": "…", "names": { "rose", "roses", "thorn", "thorns", "chance" }, "sets": [{ "id", "name", "rose", "thorn", "back", "mat", "matScored", "thumbs": { "rose", "thorn", "back", "mat", "matScored" } }, …], "chance": { "face", "faceThumb", "back": null }, "lobby": "box/cover.webp", "credit": { "title", "paragraphs": […] } }` (shape in `packages/private-games/thorns/src/logic/manifest.ts`). Sets go round the table in seat order; a Last Chance disc without a back shows its face (it is marked anyway). Every field is optional: without the manifest, discs are emoji on each player's colour. Once it is uploaded, set the title with the `thorns` id.

@@ -109,7 +109,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                               note={`hour ${roman(v.hour)}`}
                               onTap={() => open(i + 1)}
                             />
-                            <p className="text-center text-xs leading-none text-ink-2">
+                            <p className="text-center text-[10px] leading-none text-ink-muted">
                               hour {roman(v.hour)}
                             </p>
                           </div>
@@ -130,7 +130,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                             note={`wrong guess, hour ${roman(v.hour)}`}
                             onTap={() => open(1 + visions.length + i)}
                           />
-                          <p className="text-center text-xs leading-none text-ink-2">
+                          <p className="text-center text-[10px] leading-none text-ink-muted">
                             miss, hour {roman(v.hour)}
                           </p>
                         </div>
@@ -174,7 +174,7 @@ export function EndScreen({
     </Panel>
   );
   return (
-    <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
+    <div className="mx-auto max-w-3xl space-y-3">
       <Panel
         className={cn(
           'space-y-2 text-center max-lg:p-3',
@@ -213,11 +213,10 @@ export function EndScreen({
         )}
       </Panel>
       {wide ? (
-        // Desktops: the final and what the ghost meant side by side, so the end isn't one long column.
-        <div className={cn('grid items-start gap-3', shared && 'grid-cols-2')}>
+        <>
           {shared}
           {meant}
-        </div>
+        </>
       ) : (
         // Phones: the awards, the final line-up and what the ghost meant one at a time, so the
         // end fits the screen.

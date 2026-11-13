@@ -295,8 +295,7 @@ function ActionBar({
 
   if (empty && !onSameCrew) return null;
   return (
-    // On phones an even grid of two a row (a last odd one spans the row), so no button is squeezed.
-    <div className="sticky bottom-0 -mx-4 mt-auto -mb-4 grid grid-cols-2 gap-2 border-t border-line bg-panel/95 px-4 py-3 *:leading-tight [&>:last-child:nth-child(odd)]:col-span-2 sm:flex sm:flex-wrap">
+    <div className="sticky bottom-0 -mx-4 mt-auto -mb-4 flex flex-wrap gap-2 border-t border-line bg-panel/95 px-4 py-3">
       {!empty && (
         <Button className="min-h-11 flex-1" onClick={() => void copy()}>
           📋 Copy for chat

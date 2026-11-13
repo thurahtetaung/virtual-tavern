@@ -60,34 +60,3 @@ export async function votes(ballots: [Page, string][]) {
     }
   }
 }
-
-/**
- * At 1440 × 900 the Locations board shows at least three full rows of places: the question ideas
- * below it never squeeze it. Puts the page back to its own size afterwards.
- */
-export async function expectBoardRowsOnDesktop(page: Page) {
-  const size = page.viewportSize();
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const board = document.querySelector('section[aria-label="Locations"]');
-          if (!board) return 0;
-          let clip = board.parentElement;
-          while (clip && getComputedStyle(clip).overflowY !== 'auto') clip = clip.parentElement;
-          const top = clip ? clip.getBoundingClientRect().top : 0;
-          const bottom = Math.min(
-            clip ? clip.getBoundingClientRect().bottom : innerHeight,
-            innerHeight,
-          );
-          const shown = [...board.querySelectorAll('ul > li')]
-            .map((li) => li.getBoundingClientRect())
-            .filter((b) => b.top >= top - 0.5 && b.bottom <= bottom + 0.5);
-          return new Set(shown.map((b) => Math.round(b.top))).size;
-        }),
-      { message: 'full rows of places on the board at 1440 × 900' },
-    )
-    .toBeGreaterThanOrEqual(3);
-  if (size) await page.setViewportSize(size);
-}

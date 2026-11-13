@@ -134,11 +134,10 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
           footer={clock('to draw')}
           refusal={DRAW_ANCHOR}
           bar
-          // The sheet is as big as the screen allows with everything else in view (on a phone
-          // about 515 px of room, tabs, a one-line prompt, pens and Send around it; on a desktop
-          // about 560 px with the site's header and the note under Send; plus the prompt's extra
-          // lines), never too small to draw.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_515px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_560px_-_var(--extra))_*_0.8))]"
+          // On a phone the sheet is as big as the screen allows with everything else in view
+          // (about 515 px of room, tabs, a one-line prompt, pens and Send around it, plus the
+          // prompt's extra lines), never too small to draw.
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_515px_-_var(--extra))_*_0.8))]"
         />
         <p className="text-xs text-ink-muted">
           Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.

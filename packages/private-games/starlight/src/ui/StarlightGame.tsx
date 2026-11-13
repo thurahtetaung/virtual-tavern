@@ -2,7 +2,6 @@ import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk'
 import { Card, cardSetChoices, useManifest } from '@vt/private-reverie/card';
 import {
   Button,
-  TAP_BAND,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -404,7 +403,7 @@ function Play({
         >
           <ul
             // Three lines of cards fit the screen's height on any desktop.
-            style={{ maxWidth: 'min(48rem, 62dvh)' }}
+            style={{ maxWidth: 'min(48rem, 68dvh)' }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
@@ -621,9 +620,15 @@ function GridCard({
       </button>
       <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
         {posName(pos)}
-        {marked && <span aria-hidden> · ✕</span>}
       </span>
-
+      {marked && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-accent text-sm font-black text-accent-fg shadow"
+        >
+          ✕
+        </span>
+      )}
       {fresh && (
         <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
           New
@@ -641,10 +646,7 @@ function GridCard({
         type="button"
         onClick={onZoom}
         aria-label={`Zoom card ${posName(pos)}`}
-        className={cn(
-          TAP_BAND,
-          'absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white',
-        )}
+        className="absolute right-0.5 bottom-0.5 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white"
       >
         🔍
       </button>

@@ -119,7 +119,7 @@ function Mat({
         )}
       </div>
       <div
-        className="relative flex min-h-14 lg:min-h-32 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
+        className="relative flex min-h-14 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
         {matArt && (
@@ -143,7 +143,7 @@ function Mat({
                 art={art}
                 size={36}
                 flip={d.up}
-                className={cn('lg:size-14!', i > 0 && '-ml-4', you && !d.up && 'opacity-80')}
+                className={cn(i > 0 && '-ml-4', you && !d.up && 'opacity-80')}
               />
             ))
           )}
@@ -473,10 +473,7 @@ export function Table(props: TableProps) {
             )}
           </div>
         )}
-        <ul
-          className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))]"
-          aria-label="The table"
-        >
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="The table">
           {g.players.map((p, seat) => (
             <li key={p.id} className="min-w-0">
               <Mat

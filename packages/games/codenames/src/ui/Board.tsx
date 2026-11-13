@@ -59,7 +59,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                 // Phones show no caption (the legend under the board says what each colour is). The
                 // caption and the mark are capped by the card's width, so larger browser text can't
                 // push them into the word, and are never under 12 px.
-                '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:clamp(12px,9cqw,16px)] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
+                '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:max(12px,min(0.75rem,7cqw))] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
                 '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[5/2] motion-reduce:transition-none',
                 face,
                 interactive &&

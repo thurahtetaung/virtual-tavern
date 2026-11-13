@@ -39,7 +39,7 @@ function SecretWord({ word, label = 'The word' }: { word: string; label?: string
       <span className="block text-small text-ink-muted">{label}</span>
       <span
         data-testid="secret-word"
-        className="block font-display text-title lg:text-[44px] font-bold tracking-wide break-words uppercase"
+        className="block font-display text-title font-bold tracking-wide break-words uppercase"
       >
         {word}
       </span>
@@ -369,12 +369,10 @@ export function Stage({ view, act, room }: Props) {
       return <PickCards turn={turn} act={act} mine={guessing} />;
     case 'clues':
       return (
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
+        <div className="space-y-3">
           {turn.word && <SecretWord word={turn.word} />}
           {writer ? <ClueForm key={cardKey} turn={turn} act={act} /> : null}
-          <div className="lg:col-span-2">
-            <Progress turn={turn} room={room} act={act} />
-          </div>
+          <Progress turn={turn} room={room} act={act} />
         </div>
       );
     case 'guess':
@@ -387,7 +385,7 @@ export function Stage({ view, act, room }: Props) {
         );
       }
       return (
-        <div className="grid gap-3 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-3">
           {turn.word && <SecretWord word={turn.word} />}
           <ClueList view={view} clues={turn.clues} />
         </div>

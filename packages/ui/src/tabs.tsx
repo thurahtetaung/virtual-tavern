@@ -1,11 +1,4 @@
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { cn } from './cn.ts';
 import { Icon, type IconName } from './icon.tsx';
 import { useReservedHeight } from './reserve.ts';
@@ -59,59 +52,10 @@ function arrowKeys<T extends string>(
   });
 }
 
-/** How wide the fade is at an edge of a strip with more tabs past it. */
-const FADE_PX = 28;
-
-/**
- * Which ends of a sideways-scrolling strip have more past them, kept up to date as it scrolls or
- * changes size; and its chosen item (`[aria-selected="true"]`) is scrolled into view whenever
- * `value` changes. Give the strip the returned `ref` (a callback, so a strip that appears later
- * is followed too) and `style={scrollFadeMask(ends)}`, so a cut-off strip shows there is more.
- */
-export function useScrollEnds(value = '') {
-  const [el, ref] = useState<HTMLElement | null>(null);
-  const [ends, setEnds] = useState({ start: false, end: false });
-  useLayoutEffect(() => {
-    if (!el) return;
-    const read = () => {
-      const start = el.scrollLeft > 1;
-      const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-      setEnds((e) => (e.start === start && e.end === end ? e : { start, end }));
-    };
-    read();
-    el.addEventListener('scroll', read, { passive: true });
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(read);
-    ro?.observe(el);
-    return () => {
-      el.removeEventListener('scroll', read);
-      ro?.disconnect();
-    };
-  }, [el]);
-  useEffect(() => {
-    const tab = el?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!el || !tab || el.scrollWidth <= el.clientWidth) return;
-    // Only the strip scrolls (never the page): the tab ends up whole, clear of the fades.
-    const box = tab.getBoundingClientRect();
-    const left = box.left - el.getBoundingClientRect().left + el.scrollLeft;
-    if (left < el.scrollLeft + FADE_PX) el.scrollTo({ left: Math.max(0, left - FADE_PX) });
-    else if (left + box.width > el.scrollLeft + el.clientWidth - FADE_PX)
-      el.scrollTo({ left: left + box.width - el.clientWidth + FADE_PX });
-  }, [el, value]);
-  return { ref, ends };
-}
-
-/** A mask that fades a strip out at each end with more past it (from `useScrollEnds`). */
-export const scrollFadeMask = ({ start, end }: { start: boolean; end: boolean }) => {
-  if (!start && !end) return undefined;
-  const image = `linear-gradient(to right, transparent 0, #000 ${start ? FADE_PX : 0}px, #000 calc(100% - ${end ? FADE_PX : 0}px), transparent 100%)`;
-  return { maskImage: image, WebkitMaskImage: image };
-};
-
 /**
  * An underline tab strip: 44 px tabs, the chosen one in the accent with a 2 px underline, counts
- * as pills. Too many for the screen and it scrolls sideways rather than wrapping, fading out at
- * an end with more tabs past it, and keeps the chosen tab in view. `id` names the strip; the shown
- * panel takes `tabPanelProps(id, value)`.
+ * as pills. Too many for the screen and it scrolls sideways rather than wrapping. `id` names the
+ * strip; the shown panel takes `tabPanelProps(id, value)`.
  */
 export function Tabs<T extends string>({
   id,
@@ -132,16 +76,12 @@ export function Tabs<T extends string>({
   testId?: string;
   className?: string;
 }) {
-  const { ref, ends } = useScrollEnds(value);
   return (
     <div
-      ref={ref}
       role="tablist"
       aria-label={label}
       data-testid={testId}
-      data-more={ends.end ? (ends.start ? 'both' : 'end') : ends.start ? 'start' : undefined}
       onKeyDown={(e) => arrowKeys(e, tabs, value, onChange)}
-      style={scrollFadeMask(ends)}
       className={cn(
         'flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,

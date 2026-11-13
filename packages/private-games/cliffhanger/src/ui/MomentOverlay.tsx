@@ -33,12 +33,10 @@ export function MomentOverlay({
   view,
   clockOffset,
   big = false,
-  inline = false,
 }: {
   view: CliffhangerView;
   clockOffset: number;
   big?: boolean;
-  inline?: boolean;
 }) {
   const moment = useMoment(view, clockOffset);
   const art = useArt();
@@ -60,9 +58,9 @@ export function MomentOverlay({
       data-testid="moment"
       data-moment={moment.kind}
       className={cn(
-        'pointer-events-none z-40 flex items-center justify-center',
+        'pointer-events-none inset-0 z-40 flex items-center justify-center',
         // On the table screen it sits over the poster (in its 1920 × 1080 units).
-        inline ? 'relative h-[160px]' : big ? 'absolute inset-0' : 'fixed inset-0',
+        big ? 'absolute' : 'fixed',
       )}
     >
       <div key={key} className="cl-pop flex flex-col items-center gap-2">
@@ -79,7 +77,7 @@ export function MomentOverlay({
               moment.kind === 'times-up'
                 ? 'bg-danger text-on-fill' // vt-palette
                 : 'bg-card text-ink',
-              big ? 'text-[120px]' : moment.kind === 'count' ? 'text-8xl' : 'text-5xl',
+              big ? 'text-[140px]' : moment.kind === 'count' ? 'text-8xl' : 'text-5xl',
             )}
           >
             {words}

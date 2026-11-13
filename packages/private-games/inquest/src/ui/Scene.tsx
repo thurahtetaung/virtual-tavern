@@ -119,7 +119,7 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
       aria-label="Bullets on the table"
       // A scrolling strip: keyboard users reach it to scroll it.
       tabIndex={0}
-      className="flex gap-1 overflow-x-auto py-0.5 text-xs [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']"
+      className="flex gap-1 overflow-x-auto py-0.5 text-[11px] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']"
     >
       {current.map(({ s, seq }) => (
         <li

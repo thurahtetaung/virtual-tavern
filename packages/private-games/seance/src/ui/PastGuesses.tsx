@@ -41,7 +41,9 @@ export function PastGuesses({
   return (
     <div className="space-y-0.5">
       {viewer}
-      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Past guesses</p>
+      <p className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
+        Past guesses
+      </p>
       <ul
         tabIndex={0}
         aria-label={`${p.name}’s past guesses`}
@@ -87,7 +89,7 @@ export function PastGuesses({
                   </span>
                 </Card>
               )}
-              <p className="text-xs leading-none text-ink-2">hour {roman(x.hour)}</p>
+              <p className="text-[10px] leading-none text-ink-muted">hour {roman(x.hour)}</p>
             </li>
           );
         })}

@@ -172,8 +172,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         </span>
       </div>
       {shown === null && <HostTools view={view} room={room} act={act} art={art} name={name} />}
-      {/* Desktops keep the tips in the rail, so the table starts at the top. */}
-      {inGame && !wide && <Tips />}
+      {inGame && <Tips />}
       {inGame && shown === null && <Notebook view={view} you={you} art={art} />}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <div
@@ -187,12 +186,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           <Table view={view} room={room} art={art} name={name} />
           {inGame && handOnTable && <HandStrip view={view} act={act} art={art} you={you} />}
         </div>
-        {wide && (
-          <aside className="flex flex-col gap-3">
-            {inGame && <Tips />}
-            {side}
-          </aside>
-        )}
+        {wide && <aside className="flex flex-col gap-3">{side}</aside>}
         {shown === 'me' && (
           <div className="flex min-w-0 flex-col gap-2" {...tabPanelProps(PLAY_TABS_ID, 'me')}>
             {inGame ? (

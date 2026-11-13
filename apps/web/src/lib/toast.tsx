@@ -68,10 +68,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {/* On phones only the newest shows, at most three tight lines tall, in the site's title bar
           between the site title and the theme button, where it covers neither. In a room, where
-          that bar is hidden on phones, the room sets --vt-toast-top / --vt-toast-side /
-          --vt-toast-end so it sits over the end of the room's name instead, clear of the header
-          buttons and of the game's status line under the header. */}
-      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:top-[var(--vt-toast-top,0.375rem)] max-sm:items-end max-sm:pr-[var(--vt-toast-end,var(--vt-toast-side,4rem))] max-sm:pl-[var(--vt-toast-side,12rem)] max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
+          that bar is hidden on phones, the room sets --vt-toast-top / --vt-toast-side so it sits
+          just under the room's header instead, clear of its buttons. */}
+      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:top-[var(--vt-toast-top,0.375rem)] max-sm:items-end max-sm:pr-[var(--vt-toast-side,4rem)] max-sm:pl-[var(--vt-toast-side,12rem)] max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
         {toasts.map((t) => (
           <div
             key={t.id}
