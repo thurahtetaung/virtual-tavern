@@ -30,7 +30,7 @@ import {
   type ShortFuseView,
 } from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
-import { CardFace } from './Card.tsx';
+import { CardFace, WIDTH } from './Card.tsx';
 import { End } from './End.tsx';
 import { playSfx, useBuzz } from './fx.ts';
 import { Hand } from './Hand.tsx';
@@ -632,9 +632,17 @@ export function ShortFuseGame({
   );
   const table = (
     <div className="space-y-2">
-      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3">
-        <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} onInspect={openVoidTop} />
-        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted">
+      {/* Desktop: the two piles at 160 px, centred in the table with the turn between them. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3 lg:grid-cols-[auto_minmax(0,24rem)_auto] lg:items-center lg:justify-center lg:gap-8 lg:p-5">
+        <Pile
+          pile={g.pile}
+          c={c}
+          art={g.art}
+          shuffling={shuffling}
+          onInspect={openVoidTop}
+          size="table"
+        />
+        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted lg:order-3">
           {top ? (
             <button
               type="button"
@@ -643,10 +651,15 @@ export function ShortFuseGame({
               aria-label={`Top of the discard pile: ${c.name(top.t)}. Details`}
               data-testid="discard-top"
             >
-              <CardFace card={top} art={g.art} c={c} size="md" />
+              <CardFace card={top} art={g.art} c={c} size="table" />
             </button>
           ) : (
-            <span className="block aspect-[5/7] w-16 rounded-[0.55rem] border-2 border-dashed border-line sm:w-24" />
+            <span
+              className={cn(
+                'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line',
+                WIDTH.table,
+              )}
+            />
           )}
           <button
             type="button"
@@ -661,7 +674,7 @@ export function ShortFuseGame({
             Discard ({g.discard.length})
           </button>
         </div>
-        <div className="flex w-full min-w-0 flex-col items-start gap-2">
+        <div className="flex w-full min-w-0 flex-col items-start gap-2 lg:order-2 lg:items-center lg:text-center">
           <LastAction view={view} c={c} />
           {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
             <Countdown

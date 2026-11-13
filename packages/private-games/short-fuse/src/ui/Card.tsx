@@ -4,13 +4,15 @@ import type { CardType } from '../logic/cards.ts';
 import type { Art, Card } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 
-export type CardSize = 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type CardSize = 'xxs' | 'xs' | 'sm' | 'md' | 'table' | 'lg' | 'xl';
 
-const WIDTH: Record<CardSize, string> = {
+export const WIDTH: Record<CardSize, string> = {
   xxs: 'w-6',
   xs: 'w-9',
   sm: 'w-14',
   md: 'w-16 sm:w-24',
+  // The draw and discard piles: a little bigger on phones, 160 px across a desktop's table.
+  table: 'w-[4.5rem] sm:w-24 lg:w-40',
   lg: 'w-28 sm:w-32',
   xl: 'w-44 sm:w-56',
 };
