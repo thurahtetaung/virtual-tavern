@@ -198,7 +198,7 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
   const opacity = t < 0 ? 0 : Math.min(1, t / BINDER[how].fade);
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-black"
       onClick={() => {
         if (!done) setSkip(true);
       }}
@@ -206,7 +206,9 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
       data-done={done ? 'yes' : 'no'}
     >
       <div
-        className="relative aspect-square w-[min(100vw,100dvh)]"
+        // The sheet is about 89 % of the page's art: on a phone held upright the page grows until
+        // the sheet is the screen's width less 16 px a side (its blank edges run off the screen).
+        className="relative aspect-square w-[min(100vw,100dvh)] portrait:w-[min(calc((100vw-32px)/0.887),100dvh)]"
         style={{ containerType: 'size', opacity }}
         data-testid="binder-page"
       >
