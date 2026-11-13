@@ -4,9 +4,11 @@ import {
   lobbyStatus,
   playersNeeded,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   GuideLink,
   Hint,
@@ -562,101 +564,118 @@ function End({
   table: ReactNode;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
   return (
-    <Panel className="cv-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  score: p.score,
-                  note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
-                }))}
-                you={room.you}
-                lowerIsBetter={g.golf}
-              />
-            ),
-          },
-          !!g.dessertRows && {
-            id: 'desserts',
-            label: '🍮 Desserts',
-            content: (
-              <details className="group text-sm" open>
-                <FoldSummary className="-my-1 px-0 font-semibold">Desserts at the end</FoldSummary>
-                <div className="mt-2">
-                  <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
-                </div>
-              </details>
-            ),
-          },
-          {
-            id: 'rounds',
-            label: '📋 Rounds',
-            content: (
-              <details className="group text-sm">
-                <FoldSummary className="-my-1 px-0 font-semibold">Round by round</FoldSummary>
-                <table className="mt-2 w-full text-left tabular-nums">
-                  <thead>
-                    <tr>
-                      <th className="font-semibold">Player</th>
-                      {g.results.map((r) => (
-                        <th key={r.round}>R{r.round}</th>
-                      ))}
-                      <th>🍮</th>
-                      <th>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.players.map((p) => (
-                      <tr key={p.id}>
-                        <td>{name(p.id)}</td>
-                        {g.results.map((r) => (
-                          <td key={r.round}>{r.rows.find((x) => x.id === p.id)?.points ?? 0}</td>
-                        ))}
-                        <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
-                        <td className="font-bold">{p.score}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🍣 Table', content: table },
-        ]}
+    <div className="flex flex-col gap-3">
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="🍣"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' }, { anchor: 'cv-end' })}
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+            )}
+            <RefusalSlot anchor="cv-end" />
+          </>
+        }
       />
-      {room.isHost ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            size="lg"
-            className="min-w-0"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'cv-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="min-w-0"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="cv-end" />
-    </Panel>
+      <Panel className="cv-rise flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={g.players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: p.score,
+                    note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
+                  }))}
+                  you={room.you}
+                  lowerIsBetter={g.golf}
+                />
+              ),
+            },
+            !!g.dessertRows && {
+              id: 'desserts',
+              label: '🍮 Desserts',
+              content: (
+                <details className="group text-sm" open>
+                  <FoldSummary className="-my-1 px-0 font-semibold">
+                    Desserts at the end
+                  </FoldSummary>
+                  <div className="mt-2">
+                    <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
+                  </div>
+                </details>
+              ),
+            },
+            {
+              id: 'rounds',
+              label: '📋 Rounds',
+              content: (
+                <details className="group text-sm">
+                  <FoldSummary className="-my-1 px-0 font-semibold">Round by round</FoldSummary>
+                  <table className="mt-2 w-full text-left tabular-nums">
+                    <thead>
+                      <tr>
+                        <th className="font-semibold">Player</th>
+                        {g.results.map((r) => (
+                          <th key={r.round}>R{r.round}</th>
+                        ))}
+                        <th>🍮</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.players.map((p) => (
+                        <tr key={p.id}>
+                          <td>{name(p.id)}</td>
+                          {g.results.map((r) => (
+                            <td key={r.round}>{r.rows.find((x) => x.id === p.id)?.points ?? 0}</td>
+                          ))}
+                          <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
+                          <td className="font-bold">{p.score}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              ),
+            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+            !!table && { id: 'table', label: '🍣 Table', content: table },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }
