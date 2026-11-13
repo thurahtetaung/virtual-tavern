@@ -206,6 +206,7 @@ function Factory({
       </div>
     );
   const big = tiles.length > 4;
+  const sorted = [...tiles].sort((a, b) => TILES.indexOf(a) - TILES.indexOf(b));
   return (
     <div
       className={cn(
@@ -247,8 +248,16 @@ function Factory({
           ✦ {SPECIAL_CHIP[special.kind]}
         </button>
       )}
-      <div className={cn('relative grid gap-0.5', big ? 'grid-cols-3' : 'grid-cols-2')}>
-        {tiles.map((t, i) => {
+      <div
+        className={cn(
+          // On touch screens the tiles touch and each one's padding fills its share of the disc,
+          // so a thumb never lands in a gap; same colours sit together, so a near miss still picks
+          // the colour meant (a pick takes every tile of its colour anyway).
+          'relative grid gap-0.5 pointer-coarse:gap-0',
+          big ? 'grid-cols-3' : 'grid-cols-2',
+        )}
+      >
+        {sorted.map((t, i) => {
           const lit = hover?.source === index && hover.colour === t;
           const n = tiles.filter((x) => x === t).length;
           return onPick ? (
@@ -260,6 +269,7 @@ function Factory({
               onPointerLeave={() => setHover(null)}
               className={cn(
                 'rounded-[18%] focus-visible:outline-2 focus-visible:outline-accent',
+                big ? 'pointer-coarse:p-px' : 'pointer-coarse:p-[3px]',
                 lit && 'outline-2 outline-offset-1 outline-accent',
               )}
               aria-label={`${n} ${COLOUR_NAME[t]} from factory ${index + 1}`}

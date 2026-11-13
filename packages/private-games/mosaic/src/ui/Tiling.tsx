@@ -48,11 +48,14 @@ export function Tiling({
   room,
   act,
   art,
+  size,
 }: {
   view: MosaicView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
+  /** The boards' size on wider screens (the end's finale shows them larger). */
+  size?: Size;
 }) {
   const g = view.game!;
   const s = g.scoring;
@@ -106,7 +109,7 @@ export function Tiling({
       {large.length > 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
           {large.map((p) => (
-            <div key={p.id}>{card(p, compact ? 'md' : 'sm')}</div>
+            <div key={p.id}>{card(p, compact ? 'md' : (size ?? 'sm'))}</div>
           ))}
         </div>
       )}

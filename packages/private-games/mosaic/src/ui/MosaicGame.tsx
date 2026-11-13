@@ -403,7 +403,8 @@ function End({
     return p.score * 100 - (g.winners.includes(id) ? 0 : 1);
   };
   return (
-    <div className="flex flex-col gap-2 lg:mx-auto lg:max-w-4xl">
+    // Wide screens: the standings beside every final wall, shown large.
+    <div className="flex flex-col gap-2 lg:mx-auto lg:grid lg:w-full lg:max-w-6xl lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
       <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
         <EndTabs
           tabs={[
@@ -465,7 +466,7 @@ function End({
         )}
         <RefusalSlot anchor="mo-end" />
       </Panel>
-      {wide && <Tiling view={view} room={room} act={act} art={art} />}
+      {wide && <Tiling view={view} room={room} act={act} art={art} size="md" />}
     </div>
   );
 }
