@@ -242,6 +242,9 @@ export function StampedeGame({
                 'lg:flex lg:min-h-[calc(100dvh-14rem)] lg:flex-col lg:justify-center',
                 answering &&
                   'max-sm:flex max-sm:min-h-[calc(100dvh-31.5rem)] max-sm:flex-col max-sm:justify-center',
+                // Phones: the reveal, the herd its centre, sits in the middle of the free height.
+                (view.round?.stage === 'reveal' || view.round?.stage === 'pick') &&
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-19.5rem)] max-sm:flex-col max-sm:justify-center',
               )}
             >
               <Stage {...props} />

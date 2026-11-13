@@ -302,21 +302,32 @@ function GroupRow({
       <p
         className={cn(
           'font-bold',
-          herd ? 'flex items-center gap-3 text-2xl lg:gap-5 lg:text-5xl' : 'text-lg lg:text-2xl',
+          // The herd's answer in the display face, big on phones too; strays in it, smaller.
+          'font-display',
+          herd
+            ? 'flex flex-wrap items-center gap-x-3 text-[2.125rem] leading-tight lg:gap-5 lg:text-5xl'
+            : 'text-xl lg:text-2xl',
         )}
       >
         {herd && (
-          <span aria-hidden className="text-5xl leading-none lg:text-7xl">
+          <span aria-hidden className="text-6xl leading-none lg:text-7xl">
             🐄
           </span>
         )}
-        {g.label} <span className="font-normal opacity-70">×{g.members.length}</span>
+        <span className="whitespace-nowrap">
+          {g.label} <span className="font-normal opacity-70">×{g.members.length}</span>
+        </span>
         {alone && (
           <span className="ml-1 text-base font-normal" title="On its own">
             🐺
           </span>
         )}
-        {mine && <span className="ml-2 text-sm font-normal">(you)</span>}
+        {/* The herd's member line already marks you, so its big row keeps to the answer. */}
+        {mine && !herd && (
+          <span className="ml-2 self-center whitespace-nowrap font-sans text-sm font-normal">
+            (you)
+          </span>
+        )}
       </p>
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
         {g.members.map((id) => (
@@ -513,7 +524,21 @@ export function GameOver(props: Props) {
           <EndHero
             title={title}
             eyebrow={won ? undefined : null}
-            emblem="🐄"
+            // A win shows the winner's herd: their cows, counted big.
+            emblem={
+              won ? (
+                <span className="block font-display font-black tabular-nums">
+                  <span className="text-6xl leading-none lg:text-7xl" aria-hidden>
+                    🐄
+                  </span>
+                  <span className="ml-2 text-[3.5rem] leading-none lg:text-[4.5rem]">
+                    {view.scores.find((s) => s.id === view.winners[0])?.cows ?? 0}
+                  </span>
+                </span>
+              ) : (
+                '🐄'
+              )
+            }
             superlatives={wide ? room.superlatives : undefined}
             actions={
               room.isHost ? (
