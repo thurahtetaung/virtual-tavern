@@ -438,7 +438,10 @@ function Discards({
       <ul aria-label="Discards" className="flex min-w-0">
         {/* The newest cards matter most: show the last few, newest on top. */}
         {p.discards.slice(-5).map((role, i) => (
-          <li key={i} className={cn('w-7 shrink-0 sm:w-9', i > 0 && '-ml-3 sm:-ml-2')}>
+          <li
+            key={i}
+            className={cn('w-9 shrink-0 sm:w-12 lg:w-16', i > 0 && '-ml-4 sm:-ml-5 lg:-ml-6')}
+          >
             <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
           </li>
         ))}
@@ -743,8 +746,8 @@ function Table({
               aria-label="Your hand"
               className="rounded-xl bg-card ring-1 ring-line max-sm:rounded-none max-sm:bg-transparent max-sm:ring-0"
             >
-              <div className="mx-auto flex max-w-4xl items-end gap-3 px-3 py-2 max-sm:p-0">
-                <div className="min-w-0 flex-1 space-y-1 text-xs text-ink-muted">
+              <div className="mx-auto flex max-w-4xl items-end justify-center gap-3 px-3 py-2 max-sm:p-0">
+                <div className="min-w-0 shrink space-y-1 text-xs text-ink-muted">
                   <p className="font-semibold">Your hand</p>
                   {me && <Tokens tokens={me.tokens} target={view.target} />}
                   {/* The status line says it's your turn; this names the card you must play. */}
