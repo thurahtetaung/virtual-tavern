@@ -599,20 +599,29 @@ function Play({
           turn.table.length > 4 && 'lg:grid-cols-[repeat(auto-fit,minmax(10rem,min(14rem,24dvh)))]',
         )}
         style={
-          wide && turn.table.length <= 4
+          !wide && turn.table.length <= 4
             ? {
-                // While everyone studies the table to vote, the cards take the height the
-                // collapsed hand leaves (a table of three or fewer grows to 22 rem; four fill
-                // the column's width).
-                gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, ${
-                  turn.phase === 'reveal'
-                    ? 'min(16rem, 30dvh)'
-                    : turn.phase === 'vote'
-                      ? 'min(22rem, 46dvh)'
-                      : 'min(16rem, 34dvh)'
-                }))`,
+                // Phones: a table of four or fewer fits the height above the hand bar, so every
+                // card (and, at the reveal, its owner and votes) shows without scrolling.
+                gridTemplateColumns: `repeat(2, minmax(0, min(50%, calc((100dvh - 23.5rem - ${
+                  turn.phase === 'reveal' ? '7rem' : '2rem'
+                }) / 2 * 366 / 512))))`,
+                justifyContent: 'center',
               }
-            : undefined
+            : wide && turn.table.length <= 4
+              ? {
+                  // While everyone studies the table to vote, the cards take the height the
+                  // collapsed hand leaves (a table of three or fewer grows to 22 rem; four fill
+                  // the column's width).
+                  gridTemplateColumns: `repeat(${turn.table.length}, minmax(0, ${
+                    turn.phase === 'reveal'
+                      ? 'min(18rem, 36dvh)'
+                      : turn.phase === 'vote'
+                        ? 'min(22rem, 46dvh)'
+                        : 'min(16rem, 34dvh)'
+                  }))`,
+                }
+              : undefined
         }
       >
         {turn.table.map((t, i) => (
