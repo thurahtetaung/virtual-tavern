@@ -2,6 +2,7 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   CardViewer,
+  Chip,
   Countdown,
   Modal,
   PlayerTag,
@@ -870,17 +871,17 @@ function Play({
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-bold">{title}</h2>
             {selectable && !giveStep && (
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={preview}
-                  onChange={(e) => {
-                    setPreview(e.target.checked);
-                    write(PREVIEW_KEY, e.target.checked);
-                  }}
-                />
+              // The shared on/off chip, pulled into the heading's line so the hand doesn't move.
+              <Chip
+                pressed={preview}
+                className="-my-2 min-h-11"
+                onClick={() => {
+                  setPreview(!preview);
+                  write(PREVIEW_KEY, !preview);
+                }}
+              >
                 Points now
-              </label>
+              </Chip>
             )}
           </div>
           {choices.length ? (
@@ -1026,24 +1027,28 @@ function Play({
         />
       )}
       {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
-        <p className="text-center text-sm text-ink-muted">
-          {waitingFor(waiting, room.players, { you: room.you })}
-          {room.isHost &&
-            waiting
-              .filter((id) => id !== room.you)
-              .slice(0, 3)
-              .map((id) => (
-                <Button
-                  key={id}
-                  size="sm"
-                  variant="secondary"
-                  className="ml-1"
-                  onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })}
-                >
-                  Act for {name(id)}
-                </Button>
-              ))}
-        </p>
+        <div className="space-y-2 text-center text-sm text-ink-muted">
+          <p>{waitingFor(waiting, room.players, { you: room.you })}</p>
+          {room.isHost && waiting.some((id) => id !== room.you) && (
+            // One even row of the host's Act for buttons under the waiting line.
+            <div className="flex flex-wrap justify-center gap-2">
+              {waiting
+                .filter((id) => id !== room.you)
+                .slice(0, 3)
+                .map((id) => (
+                  <Button
+                    key={id}
+                    size="sm"
+                    variant="secondary"
+                    className="min-w-28"
+                    onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })}
+                  >
+                    Act for {name(id)}
+                  </Button>
+                ))}
+            </div>
+          )}
+        </div>
       )}
       {selectable && me && (
         <StickyBar fixed refusal="cv-play" refusalKey={key}>
