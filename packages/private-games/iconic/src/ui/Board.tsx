@@ -36,8 +36,8 @@ export const SET_NAME: Record<SetId, string> = {
 
 // vt-palette: the five clue sets' colours are the pieces themselves, not decoration.
 export const SET_CHIP: Record<SetId, string> = {
-  main: 'bg-emerald-600 text-white', // vt-palette
-  sub1: 'bg-sky-600 text-white', // vt-palette
+  main: 'bg-emerald-700 text-white', // vt-palette
+  sub1: 'bg-sky-700 text-white', // vt-palette
   sub2: 'bg-red-600 text-white', // vt-palette
   sub3: 'bg-amber-300 text-stone-950', // vt-palette
   sub4: 'bg-stone-900 text-white ring-1 ring-stone-400 dark:ring-stone-300',
@@ -63,7 +63,7 @@ export function PieceChip({
     <span
       className={cn(
         'inline-flex shrink-0 items-center justify-center font-bold leading-none tabular-nums shadow-sm',
-        size === 'sm' ? 'h-[18px] min-w-[18px] px-1 text-[11px]' : 'h-7 min-w-7 px-1.5 text-sm',
+        size === 'sm' ? 'h-5 min-w-5 px-1 text-xs' : 'h-7 min-w-7 px-1.5 text-sm',
         marker ? 'rounded-full' : 'rounded-[4px]',
         SET_CHIP[set],
         className,
@@ -115,7 +115,7 @@ export function IconFace({ icon, art, className }: { icon: number; art: Art; cla
         className,
       )}
     >
-      <span className="text-[9px] uppercase tracking-wide opacity-70">Icon</span>
+      <span className="text-xs uppercase tracking-wide">Icon</span>
       <span className="text-base leading-none">{icon}</span>
     </span>
   );
@@ -436,7 +436,7 @@ export function ClueStrip({ board, art }: { board: Board; art: Art }) {
                   <span aria-hidden className="text-ink-muted">
                     ·
                   </span>
-                  <span className="text-[11px] text-ink-muted">{i + 1}</span>
+                  <span className="text-xs text-ink-muted">{i + 1}</span>
                   <IconWord icon={cube.icon} art={art} />
                   {cube.n > 1 && <span className="text-xs font-semibold">×{cube.n}</span>}
                 </span>

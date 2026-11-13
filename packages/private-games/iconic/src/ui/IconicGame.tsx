@@ -14,6 +14,7 @@ import {
   EndTabs,
   FitArea,
   Fold,
+  FoldSummary,
   GuideLink,
   Hint,
   Input,
@@ -1350,7 +1351,7 @@ function Reveal({
         />
         {r.card && (
           <details className="w-full text-left">
-            <summary className="cursor-pointer text-sm text-ink-muted">The whole card</summary>
+            <FoldSummary className="px-0 text-ink-muted">The whole card</FoldSummary>
             <div className="mt-2">
               <WordCard card={r.card} chosen={res.word} />
             </div>
@@ -1370,11 +1371,9 @@ function Scores({ view, room, open }: { view: IconicView; room: GameRoomInfo; op
     .map((p) => ({ ...p, value: scoring ? p.score : p.guessed }))
     .sort((a, b) => b.value - a.value);
   return (
-    <details className="rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-line" open={open}>
-      <summary className="cursor-pointer font-semibold">
-        {scoring ? 'Scores' : 'Words guessed'}
-      </summary>
-      <ul className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3">
+    <details className="rounded-xl bg-panel text-sm ring-1 ring-line" open={open}>
+      <FoldSummary className="font-semibold">{scoring ? 'Scores' : 'Words guessed'}</FoldSummary>
+      <ul className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3">
         {rows.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2">
             <PlayerTag name={p.name} you={p.id === room.you} className="min-w-0 truncate" />
