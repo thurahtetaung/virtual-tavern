@@ -971,11 +971,12 @@ export function ShortFuseGame({
               />
             )}
           </div>
-          <aside className="hidden space-y-4 lg:block">
-            <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">
+          {/* The rail fits the window: what only you know, then the log, which scrolls inside. */}
+          <aside className="hidden max-h-[calc(100dvh-14rem)] min-h-0 flex-col gap-4 lg:flex">
+            <div className="min-h-0 overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
               <MeTab view={view} c={c} />
             </div>
-            <div className="max-h-[32rem] overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
+            <div className="min-h-40 flex-1 overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
               <Log view={view} c={c} />
             </div>
           </aside>
