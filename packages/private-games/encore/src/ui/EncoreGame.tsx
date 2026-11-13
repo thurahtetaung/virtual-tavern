@@ -35,7 +35,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
 import { wordsOf } from '../logic/names.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
-import { EncoreStyles, Hand } from './Cards.tsx';
+import { CardFace, EncoreStyles, Hand } from './Cards.tsx';
 import { type Act, ScoreTable, TIPS_KEY, Table, tipsSeen } from './Table.tsx';
 import { WordsContext, useSay } from './say.ts';
 import { type NameOf, statusFor } from './text.ts';
@@ -373,12 +373,28 @@ function End({
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
+  const finale = g.results.at(-1)?.last ?? [];
   return (
     <div className="flex flex-col gap-3">
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="🎪"
+        emblem={finale.length ? null : '🎪'}
+        // The show the last round ended on: the night's closing act.
+        art={
+          finale.length > 0 && (
+            <ul
+              aria-label="The closing show"
+              className="flex flex-wrap justify-center gap-1.5 lg:gap-2"
+            >
+              {finale.map((c) => (
+                <li key={c.id}>
+                  <CardFace card={c} art={art} size="float" className="shadow-vt-2 lg:w-24" />
+                </li>
+              ))}
+            </ul>
+          )
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>

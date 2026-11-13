@@ -189,14 +189,17 @@ export function Hand({
       ref={stripRef}
       className={cn(
         'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-3 pb-2',
+        // Tall phones have the height for wider cards (the lane scrolls a little more).
+        'max-sm:[@media(min-height:800px)]:[--en-card-min:4.5rem]',
         onGap && 'pr-11',
         className,
       )}
       style={{
         ...scrollFadeMask(stripEnds),
         // Cards take the width there is, up to a readable 6rem on a wide screen, and never below
-        // 3.6rem: past that the lane scrolls (the order can't change, so it never wraps).
-        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : 'minmax(3.6rem, 6rem)'})`,
+        // 3.6rem (4.5rem on a tall phone): past that the lane scrolls (the order can't change, so
+        // it never wraps).
+        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : 'minmax(var(--en-card-min, 3.6rem), 6rem)'})`,
       }}
     >
       {cards.map((c, i) => {

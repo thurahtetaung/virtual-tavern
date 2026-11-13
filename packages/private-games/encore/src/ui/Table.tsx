@@ -880,6 +880,16 @@ function ScoresStep({
       >
         <p className="font-semibold">👏 Round {r.round} is over</p>
         <p className="text-sm">{say(endLine(r, name))}</p>
+        {/* The show the round ended on, as it was played. */}
+        {r.last.length > 0 && (
+          <ul aria-label="The last show" className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {r.last.map((c) => (
+              <li key={c.id}>
+                <CardFace card={c} art={art} size="table" className="shadow-vt-1" />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">
         <RoundBreakdown g={g} round={r.round} name={name} you={room.you} art={art} />
