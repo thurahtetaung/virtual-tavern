@@ -64,8 +64,8 @@ export function EndHero({
   // Beside the rest of the end (`EndLayout` on wide screens): sized for a column, not the page.
   const inColumn = useContext(EndColumns);
   // With no art to show, a column the height of the window would be mostly empty: on wide screens
-  // the finale is a banner across the top instead (emblem, result, Play again in one row), and
-  // `EndLayout` puts the rest under it at full width.
+  // the finale is the same lit card across the top instead (emblem, result and Play again centred
+  // under its light), and `EndLayout` puts the rest under it at full width.
   const banner = useContext(EndBanner) && inColumn && !art;
   return (
     <section
@@ -78,7 +78,7 @@ export function EndHero({
         // Beside the rest on wide screens, the finale stands the height of the window (as it fills
         // a phone), its content centred, instead of stopping at the top with empty space under it.
         banner
-          ? 'lg:flex lg:flex-wrap lg:items-center lg:gap-x-8 lg:px-8 lg:py-6 lg:text-left'
+          ? 'lg:px-10 lg:py-9'
           : inColumn
             ? 'lg:flex lg:min-h-[min(calc(100dvh-8.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
             : 'lg:px-10 lg:py-8',
@@ -92,18 +92,11 @@ export function EndHero({
         className,
       )}
     >
-      <div
-        className={cn(
-          'vt-end-in relative space-y-2 lg:space-y-3',
-          banner &&
-            'lg:grid lg:min-w-0 lg:flex-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:gap-y-1 lg:space-y-0',
-        )}
-      >
+      <div className={cn('vt-end-in relative space-y-2 lg:space-y-3')}>
         {eyebrow && (
           <p
             className={cn(
               'text-caption font-semibold tracking-[0.08em] uppercase',
-              banner && 'lg:col-start-2',
               tone === 'loss'
                 ? 'text-danger-ink'
                 : tone === 'success'
@@ -123,19 +116,12 @@ export function EndHero({
               className={cn(
                 'vt-end-pop mx-auto flex size-16 items-center justify-center rounded-2xl bg-sunk text-[2.5rem] leading-none shadow-vt-1 ring-1 ring-line',
                 inColumn && art ? 'lg:size-20 lg:text-5xl' : 'lg:size-24 lg:text-6xl',
-                banner && 'lg:col-start-1 lg:row-span-3 lg:row-start-1',
               )}
             >
               {emblem}
             </div>
           ) : (
-            <div
-              aria-hidden
-              className={cn(
-                'vt-end-pop text-5xl leading-none lg:text-6xl',
-                banner && 'lg:col-start-1 lg:row-span-3 lg:row-start-1',
-              )}
-            >
+            <div aria-hidden className="vt-end-pop text-5xl leading-none lg:text-6xl">
               {emblem}
             </div>
           ))}
@@ -143,7 +129,6 @@ export function EndHero({
           className={cn(
             'font-display text-display font-semibold text-balance text-ink',
             inColumn && 'xl:text-[3.25rem]',
-            banner && 'lg:col-start-2',
           )}
           data-testid={titleTestId}
         >
@@ -151,10 +136,7 @@ export function EndHero({
         </h2>
         {children && (
           <div
-            className={cn(
-              'mx-auto max-w-prose text-small text-balance text-ink-2 lg:text-body',
-              banner && 'lg:col-start-2 lg:mx-0',
-            )}
+            className={cn('mx-auto max-w-prose text-small text-balance text-ink-2 lg:text-body')}
           >
             {children}
           </div>
@@ -169,14 +151,10 @@ export function EndHero({
         <AwardTiles
           lines={superlatives}
           narrow={inColumn && !banner}
-          className={banner ? 'lg:order-last lg:basis-full' : undefined}
+          className={banner ? 'lg:mx-auto lg:max-w-5xl' : undefined}
         />
       )}
-      {actions && (
-        <div className={cn('relative mt-4 lg:mt-6', banner && 'lg:mt-0 lg:shrink-0')}>
-          {actions}
-        </div>
-      )}
+      {actions && <div className="relative mt-4 lg:mt-6">{actions}</div>}
     </section>
   );
 }
