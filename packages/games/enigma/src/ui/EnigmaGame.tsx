@@ -36,25 +36,47 @@ import {
   startBlocker,
   statusFor,
 } from './status.ts';
-import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
 export type EnigmaUiProps = GameUiProps<EnigmaView, EnigmaAction>;
 
 const other = (t: Team): Team => (t === 'red' ? 'blue' : 'red');
 
-/** One token type as "icon n/2": the count reads in any colour scheme, and the image role names it. */
-function Tokens({ count, icon, label }: { count: number; icon: string; label: string }) {
+/**
+ * One token type as a pill in the team's soft surface: icon and "n/2" (and the word on wide
+ * screens); the count reads in any colour scheme, and the image role names it.
+ */
+function Tokens({
+  count,
+  icon,
+  word,
+  label,
+  team,
+}: {
+  count: number;
+  icon: string;
+  word: string;
+  label: string;
+  team: Team;
+}) {
   return (
     <span
       role="img"
       aria-label={`${count} of 2 ${label}`}
       title={label}
-      className="inline-flex items-center gap-0.5 text-small sm:text-body"
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-small ring-1 sm:gap-1 sm:px-2 sm:text-body',
+        TEAM_PANEL[team],
+        count > 0 && 'shadow-vt-1',
+      )}
     >
       <span aria-hidden>{icon}</span>
       <span aria-hidden className="font-bold tabular-nums">
         {count}/2
+      </span>
+      <span aria-hidden className="hidden text-small font-semibold lg:inline">
+        {word}
       </span>
     </span>
   );
@@ -69,8 +91,20 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
   const side = (team: Team) => (
     <div className={cn('flex items-center gap-1 sm:gap-2', TEAM_TEXT[team])}>
       <span className="text-small font-bold sm:text-body">{TEAM_LABEL[team]}</span>
-      <Tokens count={view.teams[team].intercepts} icon="🕵️" label="intercepts (2 win)" />
-      <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 lose)" />
+      <Tokens
+        count={view.teams[team].intercepts}
+        icon="🕵️"
+        word="intercepts"
+        label="intercepts (2 win)"
+        team={team}
+      />
+      <Tokens
+        count={view.teams[team].misses}
+        icon="💥"
+        word="misses"
+        label="miscommunications (2 lose)"
+        team={team}
+      />
     </div>
   );
   const strict = view.settings.timerMode === 'strict';

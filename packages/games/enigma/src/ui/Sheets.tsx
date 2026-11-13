@@ -249,7 +249,7 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
       </h3>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {keywords.map((word, i) => (
-          <div key={i} className="rounded-lg bg-card p-2 shadow-vt-1 ring-1 ring-line">
+          <div key={i} className="rounded-lg bg-card p-2 shadow-vt-1-edge ring-1 ring-line">
             <p className="text-caption font-bold text-ink-muted">#{i + 1}</p>
             <p className="font-display text-body font-bold tracking-wide break-words uppercase sm:text-sub">
               {word}
