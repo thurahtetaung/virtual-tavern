@@ -551,10 +551,11 @@ export function Chip({
         'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3.5 text-small font-semibold whitespace-nowrap',
         'transition-colors duration-[120ms] motion-safe:active:scale-[0.98]',
         FOCUS_RING,
+        // A guest sees the host's choice as it is (still filled); the rest go quiet, at ≥ 4.5:1.
         pressed
           ? 'border-ink bg-ink text-page'
-          : 'border-line-strong bg-card text-ink hover:bg-panel',
-        'disabled:cursor-not-allowed disabled:border-line disabled:bg-sunk disabled:text-ink-muted',
+          : 'border-line-strong bg-card text-ink hover:bg-panel disabled:border-line disabled:bg-sunk disabled:text-ink-2',
+        'disabled:cursor-not-allowed',
         className,
       )}
       {...props}
