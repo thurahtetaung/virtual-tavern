@@ -223,8 +223,11 @@ function Answering(props: Props) {
     <div className="space-y-4">
       {dialog}
       {/* The question as the round's card, the herd waiting under it. */}
-      <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12">
-        <p aria-hidden className="pb-2 text-center text-5xl leading-none lg:text-6xl">
+      <div className="rounded-2xl bg-card px-4 py-3 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12">
+        <p
+          aria-hidden
+          className="pb-1 text-center text-3xl leading-none sm:pb-2 sm:text-5xl lg:text-6xl"
+        >
           🐄🐄🐄
         </p>
         <Question prompt={round.prompt} />
