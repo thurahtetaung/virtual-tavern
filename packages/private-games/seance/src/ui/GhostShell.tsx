@@ -318,6 +318,7 @@ export function HandPanel({
                 n={c}
                 content={content}
                 onLook={() => look(cardsOf('vision', hand), i, 'Your hand')}
+                compact={!wide}
                 pick={
                   pickable
                     ? {

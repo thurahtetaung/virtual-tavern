@@ -1,7 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Panel, StickyBar, cn, useWideScreen } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
-import { PILLARS } from '../logic/cards.ts';
+import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { Avatar, Card, CardBack } from './Card.tsx';
@@ -479,6 +479,8 @@ export function GhostShared({
           ? [...cards, c]
           : cards,
     });
+  const tag = (c: number, pl: Pillar) =>
+    setDraft({ ...draft, tags: { ...draft.tags, [c]: draft.tags[c] === pl ? null : pl } });
   const doing =
     group === null
       ? wide
@@ -642,27 +644,50 @@ export function GhostShared({
                           }
                         />
                       </span>
-                      <div className="min-w-0 flex-1 space-y-0.5 lg:space-y-1">
-                        <p className="sr-only">Card {i + 1} means:</p>
-                        {PILLARS.map((pl) => (
-                          <Button
-                            key={pl}
-                            size="sm"
-                            variant={draft.tags[c] === pl ? 'primary' : 'secondary'}
-                            className="w-full justify-start h-7 min-h-7 min-w-7 px-2 text-xs max-lg:justify-center"
-                            aria-pressed={draft.tags[c] === pl}
-                            onClick={() =>
-                              setDraft({
-                                ...draft,
-                                tags: { ...draft.tags, [c]: draft.tags[c] === pl ? null : pl },
-                              })
-                            }
-                          >
-                            {content.pillarIcon(pl)}{' '}
-                            <span className="max-lg:sr-only">{content.pillarName(pl)}</span>
-                          </Button>
-                        ))}
-                      </div>
+                      {wide ? (
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="sr-only">Card {i + 1} means:</p>
+                          {PILLARS.map((pl) => (
+                            <Button
+                              key={pl}
+                              size="sm"
+                              variant={draft.tags[c] === pl ? 'primary' : 'secondary'}
+                              className="h-7 min-h-7 w-full justify-start px-2 text-xs"
+                              aria-pressed={draft.tags[c] === pl}
+                              onClick={() => tag(c, pl)}
+                            >
+                              {content.pillarIcon(pl)} {content.pillarName(pl)}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        // Phones: one joined three-way switch per card, its parts edge to edge
+                        // so no tap reaches a neighbour.
+                        <div
+                          role="group"
+                          aria-label={`Card ${i + 1} means`}
+                          className="flex min-w-0 flex-1 flex-col divide-y divide-line-strong overflow-hidden rounded-lg ring-1 ring-line-strong"
+                        >
+                          {PILLARS.map((pl) => (
+                            <button
+                              key={pl}
+                              type="button"
+                              aria-pressed={draft.tags[c] === pl}
+                              aria-label={`${content.pillarIcon(pl)} ${content.pillarName(pl)}`}
+                              onClick={() => tag(c, pl)}
+                              className={cn(
+                                'grid h-9 touch-manipulation place-items-center text-base',
+                                'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent',
+                                draft.tags[c] === pl
+                                  ? 'bg-accent text-accent-fg'
+                                  : 'bg-card text-ink',
+                              )}
+                            >
+                              {content.pillarIcon(pl)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

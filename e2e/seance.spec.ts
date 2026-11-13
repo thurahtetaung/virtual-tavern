@@ -171,6 +171,24 @@ test('a ghost and three psychics find everything, read the shared vision in stag
     ghost.page.getByRole('button', { name: /Compare/ }),
   ]);
   await expectPhoneFit(ghost.page, 'seance ghost shared');
+  // Phones: each card's tags are one joined switch, at least 36 px a part, none overlapping;
+  // the hand's picks are round corner marks.
+  await ghost.page.setViewportSize({ width: 390, height: 844 });
+  const parts = pick.getByRole('group', { name: 'Card 1 means' }).getByRole('button');
+  await expect(parts).toHaveCount(3);
+  const boxes = await parts.evaluateAll((els) =>
+    els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, height: r.height };
+    }),
+  );
+  for (const [k, b] of boxes.entries()) {
+    expect(b.height).toBeGreaterThanOrEqual(36);
+    if (k > 0) expect(b.top).toBeGreaterThanOrEqual(boxes[k - 1]!.bottom - 0.5);
+  }
+  await expect(
+    pick.getByRole('list', { name: 'Your hand' }).locator('button[data-pick]').first(),
+  ).toHaveText(/^[+✓]$/);
   await ghost.page.setViewportSize({ width: 1280, height: 800 });
   await pick.getByRole('button', { name: '👻 Send the shared vision' }).click();
   // The vote: the shared vision (the cards still face down for them dimmed, with their tags)

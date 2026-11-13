@@ -50,4 +50,17 @@ describe('the ghost’s hand: looking and picking are separate', () => {
     expect(page).toMatch(/data-pick="vision-22"[^>]*disabled=""/);
     expect(page).not.toMatch(/data-pick="vision-11"[^>]*disabled=""/);
   });
+
+  it('on a phone the pick is a round corner mark, a 44 px square, not the worded pill', () => {
+    const page = panel({ picked: [22], pickable: () => true });
+    const picks = page.match(/<button[^>]*data-pick="vision-\d+"[^>]*>.*?<\/button>/g)!;
+    expect(picks).toHaveLength(3);
+    for (const b of picks) {
+      expect(b).toContain('size-11');
+      expect(b).not.toContain('Picked</button>');
+    }
+    expect(picks.find((b) => b.includes('vision-22'))).toMatch(/>✓<\/span>/);
+    expect(picks.find((b) => b.includes('vision-11'))).toMatch(/>\+<\/span>/);
+    expect(picks.find((b) => b.includes('vision-11'))).toContain('aria-label="Pick: vision 11"');
+  });
 });

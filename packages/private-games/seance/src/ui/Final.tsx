@@ -121,19 +121,7 @@ export function SharedRow({
 }
 
 /** The line-up: one numbered group per psychic, with vote buttons when it's the viewer's turn. */
-export function Lineup({
-  view,
-  act,
-  content,
-  draft,
-  setDraft,
-}: {
-  view: SeanceView;
-  act: Act;
-  content: Content;
-  draft?: SharedDraft;
-  setDraft?: (d: SharedDraft) => void;
-}) {
+export function Lineup({ view, act, content }: { view: SeanceView; act: Act; content: Content }) {
   const g = view.game!;
   const f = g.final!;
   const { look, viewer } = useLook(content);
@@ -149,20 +137,14 @@ export function Lineup({
   const me = myPsychic(view);
   const myTurn =
     !!me && g.stage === 'vote' && me.voteStage === f.revealed && f.myVote === undefined;
-  const picking = g.myRole === 'ghost' && g.stage === 'shared' && !!setDraft;
   const over = g.stage === 'done';
   // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
   const [choice, setChoice] = useState<number | null>(null);
   const cast = castable(g, myTurn, choice);
-  // Phones: each group is a name line, with its action (Choose, or the ghost's Culprit) at its
-  // end, over its three cards at the full width, so the cards stay big enough to read and tap
-  // and no group needs a button row of its own. Wide screens: the groups side by side, at equal
-  // size, each with its action under its cards.
+  // Phones: each group is a name line, with Choose at its end, over its three cards at the full
+  // width, so the cards stay big enough to read and tap and no group needs a button row of its
+  // own. Wide screens: the groups side by side, at equal size, each with its action under its cards.
   const wide = useWideScreen();
-  // Phones: once the ghost has named the culprit's group, the groups fold to their name lines
-  // (each still with its Culprit button), so the hand to pick from is right under them.
-  const [showCards, setShowCards] = useState(false);
-  const folded = !wide && picking && draft?.group != null && !showCards;
   const castBar = myTurn && (
     // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
     <StickyBar fixed refusal="seance-vote">
@@ -181,16 +163,13 @@ export function Lineup({
   return (
     <div className="space-y-2">
       {/* Desktops: two groups a row with two or four, three with three, five or six, so every
-          group is on screen at once, the cards large; beside the ghost's picker the groups share
-          half the width. */}
+          group is on screen at once, the cards large. */}
       <ul
         className={cn(
           'grid grid-cols-1 gap-2',
-          picking
-            ? 'lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]'
-            : f.groups.length === 2 || f.groups.length === 4
-              ? 'lg:grid-cols-2 lg:gap-3'
-              : 'lg:grid-cols-3 lg:gap-3',
+          f.groups.length === 2 || f.groups.length === 4
+            ? 'lg:grid-cols-2 lg:gap-3'
+            : 'lg:grid-cols-3 lg:gap-3',
         )}
         aria-label="Line-up"
       >
@@ -200,7 +179,6 @@ export function Lineup({
           const cards = groupCards(g, i);
           const culprit = over ? g.result?.culprit === i : g.myRole === 'ghost' && f.culprit === i;
           const chosen = over && g.result?.chosen === i;
-          const selected = picking && draft?.group === i;
           const votes = over ? (g.result?.tally[i] ?? 0) : null;
           const action = myTurn ? (
             <Button
@@ -218,23 +196,6 @@ export function Lineup({
                 : wide
                   ? `Choose group ${i + 1}`
                   : 'Choose'}
-            </Button>
-          ) : picking ? (
-            <Button
-              size="sm"
-              variant={selected ? 'primary' : 'secondary'}
-              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
-              aria-pressed={selected}
-              aria-label={
-                selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`
-              }
-              onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
-            >
-              {selected
-                ? '👻 The culprit’s group'
-                : wide
-                  ? `This is the culprit (group ${i + 1})`
-                  : 'Culprit'}
             </Button>
           ) : null;
           // Phones while you vote: each group is one row (its number and psychic, its three
@@ -275,13 +236,12 @@ export function Lineup({
               <div
                 className={cn(
                   'rounded-xl p-2 ring-1 ring-line',
-                  (selected || culprit || (myTurn && choice === i)) &&
-                    'ring-2 ring-special bg-special/10',
+                  (culprit || (myTurn && choice === i)) && 'ring-2 ring-special bg-special/10',
                   chosen && !culprit && 'ring-2 ring-danger',
                 )}
                 aria-label={`Group ${i + 1}`}
               >
-                <div className={cn('flex min-h-7 items-center gap-2', !folded && 'mb-1.5')}>
+                <div className="mb-1.5 flex min-h-7 items-center gap-2">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
@@ -302,7 +262,7 @@ export function Lineup({
                   )}
                   {!wide && action}
                 </div>
-                <div className={cn('grid grid-cols-3 gap-1', folded && 'hidden')}>
+                <div className="grid grid-cols-3 gap-1">
                   {cards.map((c, k) => (
                     <Card
                       key={k}
@@ -319,16 +279,6 @@ export function Lineup({
           );
         })}
       </ul>
-      {!wide && picking && draft?.group != null && (
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-expanded={showCards}
-          onClick={() => setShowCards(!showCards)}
-        >
-          {showCards ? 'Fold the groups' : 'Show the groups’ cards'}
-        </Button>
-      )}
       {castBar}
     </div>
   );

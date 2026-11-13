@@ -1,4 +1,4 @@
-import { Panel, cn } from '@vt/ui';
+import { cn } from '@vt/ui';
 import type { CSSProperties } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, PsychicView } from '../logic/types.ts';
@@ -153,39 +153,5 @@ export function CandidatesRow({
         })}
       </ul>
     </>
-  );
-}
-
-/** Desktop only: one row per pillar the psychics are looking for, every candidate marked. */
-export function TableOverview({ g, content }: { g: GameView; content: Content }) {
-  const pillars = PILLARS.filter((pl) => searchingFor(g, pl).length > 0);
-  if (!pillars.length) return null;
-  return (
-    <Panel
-      role="region"
-      aria-label="Candidates on the table"
-      className="hidden space-y-2 p-3 lg:block"
-    >
-      {pillars.map((pl) => {
-        const who = searchingFor(g, pl);
-        return (
-          <div key={pl} className="space-y-1">
-            <h3 className="text-sm font-semibold">
-              {content.pillarPlural(pl)} on the table{' '}
-              <span className="font-normal text-ink-muted">
-                · {who.map((p) => p.name).join(', ')} {who.length === 1 ? 'is' : 'are'} looking
-              </span>
-            </h3>
-            <CandidatesRow
-              g={g}
-              pillar={pl}
-              content={content}
-              label={`${content.pillarPlural(pl)} on the table`}
-              small
-            />
-          </div>
-        );
-      })}
-    </Panel>
   );
 }
