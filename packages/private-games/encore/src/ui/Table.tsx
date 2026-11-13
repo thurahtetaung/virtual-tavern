@@ -627,6 +627,8 @@ function Play({
                 ? Math.ceil(shownHand.length / 2)
                 : undefined
             }
+            // Wide screens: cards about 104 × 146 px.
+            cardMax={wide && !recruiting ? '6.5rem' : undefined}
             turning={turning}
             art={art}
             selected={choosingShow ? sel : null}

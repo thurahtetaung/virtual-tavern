@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `ENCORE_TEST_DECK` (e.g. `3:1/2 4/1 …`, each card up-number first) deals that order every round.
   - **Phones:** Table (with your hand), Log and Scores on the shared `TabBar`; the turn's actions and Ready sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
-- **UI:** The recruit preview fits the phone height above the hand and action bar. Hand cards keep their width in an ordered horizontal scroll lane; insertion gaps reserve separate 44 px targets. Do not animate the ancestor of the fixed round-score actions with a transform. Wide screens wrap a hand of more than 8 cards into two rows of bigger cards (one row while recruiting), put the first-time tips in the rail, and give the flip step the whole width with both hands side by side and the rail's parts in a row under it. Seat chips label their counts (cards, captured, chips) from tablets up.
+- **UI:** The recruit preview fits the phone height above the hand and action bar. Hand cards keep their width in an ordered horizontal scroll lane; insertion gaps reserve separate 44 px targets. Do not animate the ancestor of the fixed round-score actions with a transform. Wide screens wrap a hand of more than 8 cards into two rows of bigger cards (up to 6.5 rem, about 104 × 146 px; one row while recruiting), put the first-time tips in the rail, and give the flip step the whole width with both hands side by side and the rail's parts in a row under it. Seat chips label their counts (cards, captured, chips) from tablets up.
 
 ## Assets
 
