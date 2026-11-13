@@ -260,7 +260,8 @@ function DiscussBar({
           {canStart ? (
             <Button
               size="md"
-              className={cn(late && 'animate-pulse motion-reduce:animate-none')}
+              // Time's up: a ring, not a pulse, so the label never fades below its contrast.
+              className={cn(late && 'ring-2 ring-accent ring-offset-2 ring-offset-card')}
               onClick={() => void act({ type: 'end-discussion' }, { anchor: 'inquest-discuss' })}
             >
               {endDiscussionLabel(view)}
@@ -538,7 +539,6 @@ export function InquestGame({
       <TableScreen view={view} room={room} content={content} onExit={() => setTableScreen(false)} />
     );
 
-  const sceneless = g.stage === 'night';
   const solvePanel = (
     <>
       {g.stage === 'night' && <NightPanel view={view} content={content} act={act} room={room} />}
@@ -582,26 +582,25 @@ export function InquestGame({
           when a panel (the Murderer's crime choice) leaves the tab too little room. */}
       <FitArea on={!wide} resetKey={`${stepKey}-${tab}`} className="space-y-2">
         {solvePanel}
-        {/* Desktops: the scene and your role on the left, the suspects beside them. From xl the
-            scene's tiles take one row across, the suspects the width under them, and your role a
-            rail on the right, so the cards are large and all of it is in view. */}
-        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,1fr)_18rem]">
+        {/* Desktops: the scene's tiles and your role on the left, the suspects' cards beside
+            them from the top, at the full height, so what players study to solve (or to name the
+            Witness) is in view at every step. */}
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
           <div
-            className={cn(
-              'min-w-0 lg:col-start-1 lg:row-start-1',
-              // Night: no tiles yet, so the suspects take the scene's column too.
-              sceneless && 'xl:hidden',
-              onTab('scene'),
-            )}
+            className={cn('min-w-0 lg:col-start-1 lg:row-start-1', onTab('scene'))}
             {...(!wide && tabPanelProps(TABS_ID, 'scene'))}
           >
             <Scene view={view} content={content} act={act} />
+            {/* Phones, while the Forensic Scientist lays out the first tiles: the suspects' cards
+                under the wait, to study instead of an empty tab. */}
+            {!wide && !fs && g.slots.length === 0 && g.stage === 'collect' && (
+              <div className="mt-2">
+                <Suspects {...common} />
+              </div>
+            )}
           </div>
           <div
-            className={cn(
-              'min-w-0 lg:col-start-1 lg:row-start-2 xl:sticky xl:top-3 xl:col-start-2 xl:row-span-2 xl:row-start-1',
-              onTab('me'),
-            )}
+            className={cn('min-w-0 lg:col-start-1 lg:row-start-2', onTab('me'))}
             {...(!wide && tabPanelProps(TABS_ID, 'me'))}
           >
             <MeTab
@@ -613,8 +612,7 @@ export function InquestGame({
           </div>
           <div
             className={cn(
-              'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1 xl:col-start-1 xl:row-span-1 xl:row-start-2',
-              sceneless && 'xl:row-start-1',
+              'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1',
               onTab('suspects'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}

@@ -583,7 +583,7 @@ export function ReversalPanel({
                 .map((t) => nameOf(view, t.id))
                 .join(', ')}.`}
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
             {candidates.map((p) => {
               const theirs = tappedBy(p.id);
               return (
@@ -654,8 +654,8 @@ export function OverScreen({
   const wide = useWideScreen();
   const whoWasWho = (
     <Panel className="space-y-1">
-      <h3 className="text-sm font-bold">Who was who</h3>
-      <ul className="grid grid-cols-2 gap-1 text-sm">
+      <h3 className="text-sm font-bold lg:text-sub">Who was who</h3>
+      <ul className="grid grid-cols-2 gap-1 text-sm lg:gap-x-4 lg:gap-y-2 lg:text-body">
         {ranked.map((p) => (
           <li key={p.id} className={cn('min-w-0', r.winners.includes(p.id) && 'font-semibold')}>
             {/* Truncated in its column: a long name never pushes the page sideways. */}
@@ -675,7 +675,7 @@ export function OverScreen({
       <AlliesReveal view={view} content={content} />
       {g.final && (
         <Panel className="space-y-1">
-          <h3 className="text-sm font-bold">Final accusations</h3>
+          <h3 className="text-sm font-bold lg:text-sub">Final accusations</h3>
           <FinalList view={view} content={content} />
         </Panel>
       )}
@@ -683,7 +683,7 @@ export function OverScreen({
   );
   const bullets = (
     <Panel className="space-y-1">
-      <h3 className="text-sm font-bold">How the bullets fell</h3>
+      <h3 className="text-sm font-bold lg:text-sub">How the bullets fell</h3>
       <Timeline g={g} content={content} full />
     </Panel>
   );
@@ -742,8 +742,9 @@ export function OverScreen({
         }
       >
         {wide ? (
-          // Wide screens: the roles, the attempts and the bullet timeline beside the finale.
-          <div className="space-y-3">
+          // Wide screens: the roles, the attempts and the bullet timeline beside the finale, at
+          // body size.
+          <div className="space-y-3 lg:text-body">
             {whoWasWho}
             {attempts}
             {bullets}
