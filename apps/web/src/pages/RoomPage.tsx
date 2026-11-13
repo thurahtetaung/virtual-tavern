@@ -711,6 +711,16 @@ function Room({
           playtest ? 'mb-1.5' : 'mb-3',
         )}
       >
+        {/* From `sm` up the site's own bar makes way (its 56 px go to the table): the mug leads
+            home, as the wordmark did, and the theme switch joins the header buttons. */}
+        <Link
+          to="/"
+          aria-label="Virtual Tavern home"
+          title="Virtual Tavern home"
+          className="-mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-accent-text hover:bg-sunk focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus max-sm:hidden"
+        >
+          <Icon name="beer" size={24} />
+        </Link>
         <h1
           className={cn(
             'group/title flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
@@ -758,6 +768,9 @@ function Room({
           ) : (
             <HeaderButton icon="book-open" label="Rules" onClick={() => showGuide()} />
           )}
+          <span className="contents max-sm:hidden">
+            <ThemeSwitch className={HEADER_BUTTON} labelClassName={HEADER_LABEL} />
+          </span>
         </div>
       </div>
 
@@ -881,7 +894,7 @@ function Room({
         <Link
           to={`/rules/${game.id}`}
           target="_blank"
-          className="mt-6 block text-sm text-accent-text underline"
+          className="mt-4 flex min-h-11 items-center text-sm text-accent-text underline underline-offset-2"
         >
           Open the rules in a new tab
         </Link>
@@ -926,6 +939,7 @@ function Room({
                 title: 'Leave this room?',
                 body: 'You can come back with the same link.',
                 confirmLabel: 'Leave',
+                danger: true,
               });
               if (!yes) return;
               await leave();
@@ -947,10 +961,10 @@ function Room({
 }
 
 /**
- * On phones the site header (where toasts sit) is hidden in a room, so toasts sit over the room's
- * own header instead: over the end of the game's name, clear of the header buttons, so they never
- * cover the game's status line or clock under it. The header tells the toast layer where it is
- * while the room is open.
+ * In a room the site header (where toasts sit on other pages) is hidden, so on phones toasts sit
+ * just under the room's own header, centred, over the top of the game's status line for the few
+ * seconds they show: never over the game's name or the header buttons. The header tells the toast
+ * layer where it is while the room is open.
  */
 function useToastsOverHeader() {
   // A callback ref: the header only appears once the room has loaded.
@@ -959,25 +973,19 @@ function useToastsOverHeader() {
     const root = document.documentElement.style;
     const place = () => {
       const header = el.getBoundingClientRect();
-      const buttons = el.lastElementChild?.getBoundingClientRect();
-      root.setProperty('--vt-toast-top', `${header.top + window.scrollY + 4}px`);
+      root.setProperty('--vt-toast-top', `${Math.max(header.bottom + window.scrollY + 4, 6)}px`);
       root.setProperty('--vt-toast-side', '1rem');
-      root.setProperty(
-        '--vt-toast-end',
-        `${buttons ? window.innerWidth - buttons.left + 8 : 16}px`,
-      );
+      root.setProperty('--vt-toast-end', '1rem');
+      root.setProperty('--vt-toast-align', 'center');
     };
     place();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
     observer?.observe(el);
-    if (el.lastElementChild) observer?.observe(el.lastElementChild);
     window.addEventListener('resize', place);
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', place);
-      root.removeProperty('--vt-toast-top');
-      root.removeProperty('--vt-toast-side');
-      root.removeProperty('--vt-toast-end');
+      for (const k of ['top', 'side', 'end', 'align']) root.removeProperty(`--vt-toast-${k}`);
     };
   }, []);
 }
@@ -1123,7 +1131,10 @@ function HostAway({ snapshot, clockOffset }: { snapshot: RoomSnapshot; clockOffs
       <b>{host.name}</b> (host) is away.{' '}
       {left > 0 ? (
         <>
-          Someone else takes over in <span className="font-mono tabular-nums">{clock(left)}</span>.
+          Someone else takes over{' '}
+          <span className="whitespace-nowrap">
+            in <span className="font-mono tabular-nums">{clock(left)}</span>.
+          </span>
         </>
       ) : (
         'Handing the host role to someone who is here…'
@@ -1267,25 +1278,35 @@ function People({
         {renaming ? (
           <>
             {!playtest && (
+              // One Done for the sheet: it saves a changed name and closes; colour taps apply
+              // at once.
               <NameForm
+                id="rename-form"
                 initial={me?.name}
-                submitLabel="Save"
                 onSubmit={(n) =>
-                  void call('room:rename', n).then((res) => {
-                    if (res.ok) {
-                      onRename(n);
-                      setRenaming(false);
-                      setRenameError(null);
-                    } else setRenameError(res.error.message);
-                  })
+                  n === me?.name
+                    ? setRenaming(false)
+                    : void call('room:rename', n).then((res) => {
+                        if (res.ok) {
+                          onRename(n);
+                          setRenaming(false);
+                          setRenameError(null);
+                        } else setRenameError(res.error.message);
+                      })
                 }
               />
             )}
             {renameError && <Refusal>{renameError}</Refusal>}
             <ColorChoice snapshot={snapshot} recolor={recolor} />
-            <Button variant="secondary" className="min-h-11" onClick={() => setRenaming(false)}>
-              Done
-            </Button>
+            {playtest ? (
+              <Button variant="secondary" className="min-h-11" onClick={() => setRenaming(false)}>
+                Done
+              </Button>
+            ) : (
+              <Button type="submit" form="rename-form" className="min-h-11">
+                Done
+              </Button>
+            )}
           </>
         ) : (
           <div className="flex flex-wrap gap-2">

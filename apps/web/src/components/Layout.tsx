@@ -21,8 +21,7 @@ export function Layout({
   children: ReactNode;
   wide?: boolean;
   /**
-   * A game room: on phones the site header makes way for the room's own (its 56 px go to the
-   * table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
+   * A game room: the site header makes way for the room's own (its 56 px go to the table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
    */
   room?: boolean;
   /** The tavern keeper's pages: a wider column for the side navigation and charts. */
@@ -35,7 +34,9 @@ export function Layout({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className={`${room ? 'max-sm:hidden ' : ''}border-b border-line`}>
+      {/* In a room the room's own header carries the way home and the theme switch, so the game
+          gets these 56 px on every screen (on phones the switch is in the Players sheet). */}
+      <header className={`${room ? 'hidden ' : ''}border-b border-line`}>
         <div
           className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
         >
@@ -61,7 +62,7 @@ export function Layout({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'} sm:pt-6` : 'py-6'} ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'}` : 'py-6'} ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
       >
         {children}
       </main>
@@ -70,7 +71,10 @@ export function Layout({
           A cosy corner of the internet for game nights with friends.{' '}
           <Link
             to="/faq"
-            className={cn('text-accent-text underline-offset-2 hover:underline', TAP_BAND)}
+            className={cn(
+              'inline-block py-1.5 text-accent-text underline-offset-2 hover:underline',
+              TAP_BAND,
+            )}
           >
             Questions?
           </Link>
@@ -92,7 +96,16 @@ const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
  * choice can always be undone, and every tap but that last one visibly changes the page. It shows
  * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
-export function ThemeSwitch({ inSheet = false }: { inSheet?: boolean }) {
+export function ThemeSwitch({
+  inSheet = false,
+  className,
+  labelClassName,
+}: {
+  inSheet?: boolean;
+  /** A room header's button classes (an icon over a one-word label, as its other buttons). */
+  className?: string;
+  labelClassName?: string;
+}) {
   const { theme, resolved, setTheme } = useTheme();
   const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
   const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';
@@ -100,6 +113,23 @@ export function ThemeSwitch({ inSheet = false }: { inSheet?: boolean }) {
   const next: Theme = theme !== 'system' && theme === device ? 'system' : other;
   const label = next === 'system' ? "Follow your device's theme" : `Switch to ${next} theme`;
   const state = THEME_STATE[theme];
+  if (className) {
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        className={className}
+        aria-label={`Theme: ${state.text}. ${label}`}
+        title={label}
+        onClick={() => setTheme(next)}
+      >
+        <span aria-hidden className="text-[22px] leading-6">
+          {state.icon}
+        </span>
+        <span className={labelClassName}>{state.text}</span>
+      </Button>
+    );
+  }
   return (
     <Button
       variant={inSheet ? 'secondary' : 'ghost'}

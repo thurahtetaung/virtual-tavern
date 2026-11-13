@@ -170,7 +170,7 @@ test('a room code typed with spaces joins the room, and a taken name gets a numb
   await expect(drawer.getByText('Kim 2', { exact: true })).toBeVisible();
   await drawer.getByRole('button', { name: 'Change name or colour' }).click();
   await drawer.getByRole('textbox').fill('kim');
-  await drawer.getByRole('button', { name: 'Save' }).click();
+  await drawer.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(drawer.getByRole('alert')).toHaveText(
     'Someone here is already called kim. Pick another name.',
   );
@@ -246,15 +246,13 @@ test('on a touch phone toasts stay clear of the room header and tap bands stop a
   await invite.click();
   const toast = page.getByRole('status').filter({ hasText: "Couldn't copy the link" });
   await expect(toast).toBeVisible();
-  // In a room the site's title bar is hidden on phones, so the toast sits over the end of the
-  // room's name, clear of its buttons and of the game's status line under the header.
+  // In a room the site's title bar is hidden, so the toast sits centred just under the room's
+  // header: never over the game's name or the header buttons.
   const toastBox = (await toast.boundingBox())!;
-  const header = page.locator('[data-ui="room-header"]');
-  const headerBox = (await header.boundingBox())!;
-  const buttonsBox = (await header.locator(':scope > div').boundingBox())!;
-  expect(toastBox.y).toBeGreaterThanOrEqual(headerBox.y);
-  expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height + 8);
-  expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(buttonsBox.x);
+  const headerBox = (await page.locator('[data-ui="room-header"]').boundingBox())!;
+  expect(toastBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+  expect(toastBox.y).toBeLessThanOrEqual(headerBox.y + headerBox.height + 12);
+  expect(Math.abs(toastBox.x + toastBox.width / 2 - 195)).toBeLessThanOrEqual(2);
 
   // The invisible touch band makes a small button 44 px tall, never more. The room's header
   // buttons are 52 px already, so there the band only fills the button (inside its border).
