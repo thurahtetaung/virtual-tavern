@@ -20,7 +20,15 @@ import {
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
 import {
   LEADER_ZONE,
@@ -295,12 +303,27 @@ const onTall = (change: () => void) => {
 
 /**
  * Phones: both boards stacked when the screen is tall enough for them and the seats (up to six
- * players); otherwise one board at a time (swipe), jumping to the one that just changed.
+ * players) and the page still fits the window; otherwise one board at a time (swipe), jumping to
+ * the one that just changed. Each new step tries the stack again.
  */
 function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
   const g = view.game!;
   const tall = useSyncExternalStore(onTall, tallNow, () => false);
-  if (tall && g.players.length <= 6)
+  const step = `${view.stage}:${g.players.length}`;
+  const [tooTall, setTooTall] = useState<string | null>(null);
+  const stack = tall && g.players.length <= 6 && tooTall !== step;
+  useLayoutEffect(() => {
+    if (!stack || typeof ResizeObserver === 'undefined') return;
+    const page = document.scrollingElement ?? document.documentElement;
+    // Runs once laid out (before paint) and whenever the page's size changes.
+    const check = () => {
+      if (page.scrollHeight > window.innerHeight + 1) setTooTall(step);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, [stack, step]);
+  if (stack)
     return (
       <div className="space-y-1" aria-label="Boards">
         <Board team="red" g={g} c={c} compact />
