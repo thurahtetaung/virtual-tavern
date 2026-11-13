@@ -430,29 +430,37 @@ function Play({
           </ul>
           {r.stage === 'mark' && playing && (
             <StickyBar fixed refusal={SLATE_ANCHOR} refusalKey={r.locked.length}>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <span className="text-sm font-semibold" data-testid="starlight-count">
-                  {marks.length} marked
-                  <span className="font-normal text-ink-muted">
-                    {' '}
-                    ({MIN_MARKS}–{MAX_MARKS})
-                  </span>
-                </span>
+              {/* The main action, full width on phones like every game's, its count under it. */}
+              <div className="flex flex-col items-center gap-1 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-2">
                 {locked ? (
                   <Button
                     variant="secondary"
+                    size="lg"
+                    className="max-sm:w-full"
                     onClick={() => void act({ type: 'unlock' }, { anchor: SLATE_ANCHOR })}
                   >
                     Unlock to change
                   </Button>
                 ) : (
                   <Button
+                    size="lg"
+                    className="max-sm:w-full"
                     disabled={marks.length < MIN_MARKS}
                     onClick={() => void act({ type: 'lock' }, { anchor: SLATE_ANCHOR })}
                   >
                     Lock my slate
                   </Button>
                 )}
+                <span
+                  className="text-sm font-semibold sm:order-first"
+                  data-testid="starlight-count"
+                >
+                  {marks.length} marked
+                  <span className="font-normal text-ink-muted">
+                    {' '}
+                    ({MIN_MARKS}–{MAX_MARKS})
+                  </span>
+                </span>
                 {note && <p className="w-full text-center text-sm text-ink-muted">{note}</p>}
               </div>
             </StickyBar>
@@ -480,7 +488,8 @@ function Play({
     <div className="space-y-3">
       {confirmDialog}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <header className="space-y-1">
+      {/* At the end the finale says it all (the last word included), so there's one title. */}
+      <header className={cn('space-y-1', view.phase === 'over' && 'hidden')}>
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
           <span className="flex items-center gap-1">
             {view.phase === 'over' ? (
@@ -929,12 +938,25 @@ function Final({
   const you = view.me?.id;
   const wide = useWideScreen();
   const title = winnersTitle(view.seats, you) || 'Game over';
+  const last = view.round;
+  // The last round's favourite: the shown picture the most players had marked.
+  const top = last?.shown.reduce<(typeof last.shown)[number] | null>(
+    (best, s) => (!best || s.markers.length > best.markers.length ? s : best),
+    null,
+  );
   return (
     <>
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="🌟"
+        emblem={top ? null : '🌟'}
+        art={
+          top && (
+            <div className="w-28 lg:w-40">
+              <Card card={top.card} big />
+            </div>
+          )
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           room.isHost ? (
@@ -968,7 +990,13 @@ function Final({
             <p>{waitingForHost(room, 'start the next game')}</p>
           )
         }
-      />
+      >
+        {last && (
+          <p>
+            The last word: <b className="font-serif">{last.word}</b>
+          </p>
+        )}
+      </EndHero>
       <Panel className="max-lg:p-3">
         <div className="space-y-3 text-center">
           <EndTabs
