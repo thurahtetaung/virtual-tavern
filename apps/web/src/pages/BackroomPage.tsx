@@ -46,8 +46,6 @@ function usePrivateGames(unlocked: boolean) {
 function useCover(gameId: string) {
   const box = useRef<HTMLDivElement>(null);
   const [cover, setCover] = useState<GameCover | null>(null);
-  // Whether the manifest has answered: until then the card keeps a strip for the cover to come.
-  const [known, setKnown] = useState(false);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -56,7 +54,6 @@ function useCover(gameId: string) {
       void loadManifest(gameId).then((m) => {
         if (!live) return;
         setCover(coverOf(gameId, m));
-        setKnown(true);
       });
     if (typeof IntersectionObserver === 'undefined') {
       load();
@@ -78,12 +75,12 @@ function useCover(gameId: string) {
       near.disconnect();
     };
   }, [gameId]);
-  return { box, cover, known };
+  return { box, cover };
 }
 
 /**
- * One game in the lobby: its cover in the art strip (its emblem while the manifest loads). A game
- * without a cover has no strip at all, rather than an emoji on an empty slab.
+ * One game in the lobby: its cover in the art strip, or its emblem on a tile in the same slot, so
+ * every card in a row is the same height on wide screens (phones drop an emblem-only strip).
  */
 function BackroomGameCard({
   game,
@@ -95,7 +92,7 @@ function BackroomGameCard({
   onCreate: (id: string) => void;
 }) {
   const guide = useGameGuide(game);
-  const { box, cover, known } = useCover(game.id);
+  const { box, cover } = useCover(game.id);
   return (
     <div ref={box} className="flex">
       <GameCard
@@ -105,7 +102,7 @@ function BackroomGameCard({
         meta={`${guide.players} · ${guide.duration}`}
         tagline={guide.tagline}
         cover={cover}
-        strip={!known || !!cover}
+        strip
         createAriaLabel={`Create ${article(game.name)} ${game.name} room`}
         creating={creating === game.id}
         disabled={creating !== null}

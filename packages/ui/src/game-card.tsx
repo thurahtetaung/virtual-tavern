@@ -88,9 +88,11 @@ export function GameCard({
             <div
               aria-hidden
               data-ui="game-card-emblem-strip"
-              className="grid aspect-video place-items-center rounded-lg text-5xl leading-none max-sm:aspect-[21/9]"
+              className="grid aspect-video place-items-center rounded-lg max-sm:aspect-[21/9]"
             >
-              {emblem}
+              <span className="grid size-24 place-items-center rounded-2xl bg-card text-6xl leading-none shadow-vt-1 ring-1 ring-line">
+                {emblem}
+              </span>
             </div>
           )}
         </div>
