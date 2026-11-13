@@ -799,7 +799,9 @@ function Play({
               <div className="flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
                 <span>
                   Your hand
-                  {handOpen && handMore && <span className="font-normal"> · swipe for more →</span>}
+                  {handOpen && handMore && !handNeeded && (
+                    <span className="font-normal"> · swipe for more →</span>
+                  )}
                 </span>
                 {canGive && view.cardsToGive === 2 ? (
                   picked.length === 2 ? (
@@ -834,15 +836,27 @@ function Play({
                   <ul
                     ref={handList}
                     onScroll={measureMore}
-                    className="flex gap-2 overflow-x-auto px-1 py-1.5"
+                    className={cn(
+                      handNeeded
+                        ? // While cards are being chosen the hand is the screen's art: a grid that
+                          // takes the free height (two across a phone, scrolling down if it must;
+                          // four across a wider screen), not a strip under an empty table.
+                          cn(
+                            'mx-auto grid max-w-[48rem] grid-cols-2 gap-3 px-1 py-1.5 sm:grid-cols-3 lg:grid-cols-4',
+                            'max-sm:overflow-y-auto',
+                            // What else shares the phone's height: the clue form once the
+                            // storyteller has picked, the table's face-down cards while others pick.
+                            turn?.phase === 'pick'
+                              ? 'max-sm:max-h-[calc(100dvh-27rem)]'
+                              : storyPick !== null
+                                ? 'max-sm:max-h-[calc(100dvh-23rem)]'
+                                : 'max-sm:max-h-[calc(100dvh-18rem)]',
+                          )
+                        : 'flex gap-2 overflow-x-auto px-1 py-1.5',
+                    )}
                   >
                     {view.hand.map((card) => (
-                      // While cards are being chosen the hand is the screen's art, so it is as
-                      // large on phones as on wider screens.
-                      <li
-                        key={card}
-                        className={cn('shrink-0 sm:w-36', handNeeded ? 'w-36' : 'w-24')}
-                      >
+                      <li key={card} className={cn(!handNeeded && 'w-24 shrink-0 sm:w-36')}>
                         <Card
                           card={card}
                           eager
@@ -853,7 +867,7 @@ function Play({
                       </li>
                     ))}
                   </ul>
-                  {handMore && (
+                  {handMore && !handNeeded && (
                     <span
                       aria-hidden
                       className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-panel"
