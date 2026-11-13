@@ -14,7 +14,7 @@ interface Props {
   onPick: ((index: number) => void) | null;
   /**
    * Phones: `fill` grows the cells into the height a waiting screen leaves free (no clue form or
-   * guess bar under the board); `short` keeps the whole key above the end's tab bar.
+   * guess bar under the board); `short` keeps the whole key above the end's tab bar (a rem height, so larger text still fits).
    */
   size?: 'fill' | 'short';
 }
@@ -69,7 +69,8 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
                 '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-30rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
                 size === 'fill' &&
                   'max-sm:aspect-auto max-sm:h-[clamp(3.3rem,calc((100dvh-22rem)/5-0.4rem),5.5rem)]',
-                size === 'short' && 'max-sm:aspect-[2/1]',
+                // In rem, so a larger text size grows the cards with their words.
+                size === 'short' && 'max-sm:aspect-auto max-sm:h-[2.8rem]',
                 face,
                 interactive &&
                   'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',
