@@ -112,13 +112,14 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
     };
   }, []);
   const defuser = v.seats.find((p) => p.id === v.defuser)?.name ?? 'Someone';
-  // The manual's cover, faint behind the posters (the pages themselves stay on the phones).
+  // The manual's cover, faint at the right edge behind the posters, clear of their headline (the
+  // pages themselves stay on the phones).
   const cover = art.page(1);
   const backdrop = cover && (
     <ProtectedImage
       src={cover}
       alt=""
-      className="absolute top-1/2 right-[5%] h-[78%] w-auto -translate-y-1/2 rotate-6 rounded-xl object-contain opacity-15 shadow-vt-3"
+      className="absolute top-1/2 right-[1%] h-[70%] w-auto -translate-y-1/2 rotate-6 rounded-xl object-contain opacity-10 shadow-vt-3"
     />
   );
   const [closed, setClosed] = useState(-1);

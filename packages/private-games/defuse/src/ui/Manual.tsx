@@ -520,8 +520,9 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
       className={cn('grid gap-1.5', rail ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 sm:gap-2')}
     >
       {found.map((p) => {
-        // Desktops' index: each page with its module's face, as the printed manual shows it.
-        const face = wide && !rail && p !== 'appendix' ? art.module(p)?.base : null;
+        // The index: each page with its module's face, as the printed manual shows it (small on
+        // phones, large on desktops).
+        const face = !rail && p !== 'appendix' ? art.module(p)?.base : null;
         return (
           <button
             key={p}
@@ -540,7 +541,7 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
               <ProtectedImage
                 src={face}
                 alt=""
-                className="size-16 shrink-0 rounded-lg object-contain"
+                className="size-8 shrink-0 rounded-md object-contain lg:size-16 lg:rounded-lg"
               />
             )}
             <span className="flex min-w-0 flex-col items-start">
