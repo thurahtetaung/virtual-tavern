@@ -599,7 +599,10 @@ function End({
                         art={art}
                         size="tray"
                         flipped={!!c.flipped}
-                        className="shadow-vt-1 lg:w-20"
+                        className={cn(
+                          'shadow-vt-1',
+                          winnerTray.length <= 3 ? 'lg:w-28' : 'lg:w-20',
+                        )}
                       />
                     </li>
                   ))}

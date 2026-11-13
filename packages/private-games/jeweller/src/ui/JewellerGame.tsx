@@ -32,6 +32,7 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  cn,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -408,21 +409,30 @@ function End({
   };
   const wide = useWideScreen();
   const winners = g.players.filter((p) => g.winners.includes(p.id));
+  const nobleCount = winners.reduce((n, p) => n + p.nobles.length, 0);
   const winnerArt = winners.flatMap((p) =>
     p.nobles.length
       ? p.nobles.map((n) => (
-          <NobleTile key={`${p.id}-${n}`} id={n} art={art} className="!size-28 lg:!size-40" />
+          <NobleTile
+            key={`${p.id}-${n}`}
+            id={n}
+            art={art}
+            // One noble stands large on wide screens; several keep a size that sits in one row.
+            className={cn(
+              '!size-28',
+              nobleCount === 1 ? 'lg:!size-[min(13rem,30vh)]' : 'lg:!size-40',
+            )}
+          />
         ))
-      : p.cards
-          .slice(-3)
-          .map((c) => (
-            <CardTile
-              key={`${p.id}-${c}`}
-              id={c}
-              art={art}
-              className="!w-24 shadow-vt-2 lg:!w-36"
-            />
-          )),
+      : p.cards.slice(-3).map((c) => (
+          <CardTile
+            key={`${p.id}-${c}`}
+            id={c}
+            art={art}
+            // The shared finale's row-of-three size (END_ART[3]); the tile sets its own width.
+            className="!w-24 shadow-vt-2 lg:!w-[min(31%,11rem,calc(45vh*0.72))]"
+          />
+        )),
   );
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||

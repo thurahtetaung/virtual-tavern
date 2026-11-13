@@ -128,7 +128,7 @@ function End({
                 <Portrait
                   hero={hero}
                   art={art}
-                  size={wide ? 144 : 88}
+                  size={wide ? 192 : 88}
                   className="mx-auto shadow-vt-2 ring-4"
                 />
               ) : (

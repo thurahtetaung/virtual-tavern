@@ -1,6 +1,7 @@
 import { type ActOptions, type GameUiProps, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import {
   Button,
+  END_ART,
   FitArea,
   ChoicePicker,
   Countdown,
@@ -717,7 +718,7 @@ function Play({
                 emblem={storyCard ? null : '🏆'}
                 art={
                   storyCard && (
-                    <figure className="flex w-28 flex-col items-center gap-1.5 lg:w-40">
+                    <figure className={cn('flex flex-col items-center gap-1.5', END_ART[1])}>
                       <Card
                         card={storyCard.card}
                         eager

@@ -33,6 +33,7 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  END_ART,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
@@ -399,11 +400,21 @@ function End({
               finale.length > 0 && (
                 <ul
                   aria-label="The closing show"
-                  className="flex flex-wrap justify-center gap-1.5 lg:gap-2"
+                  className="flex w-full flex-wrap justify-center gap-1.5 lg:gap-2"
                 >
                   {finale.map((c) => (
-                    <li key={c.id}>
-                      <CardFace card={c} art={art} size="float" className="shadow-vt-2 lg:w-24" />
+                    <li
+                      key={c.id}
+                      // A short closing show stands at the shared finale sizes; a long one stays in a row.
+                      className={
+                        finale.length <= 3
+                          ? END_ART[finale.length as 1 | 2 | 3]
+                          : finale.length <= 5
+                            ? 'w-16 sm:w-20 lg:w-28'
+                            : 'w-16 sm:w-20 lg:w-24'
+                      }
+                    >
+                      <CardFace card={c} art={art} size="float" className="!w-full shadow-vt-2" />
                     </li>
                   ))}
                 </ul>

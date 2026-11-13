@@ -1487,7 +1487,7 @@ function End({
                 <ProtectedImage
                   src={art.box}
                   alt=""
-                  className="h-36 w-auto rounded-xl object-contain shadow-vt-2 lg:h-52"
+                  className="h-36 w-auto rounded-xl object-contain shadow-vt-2 lg:h-[min(45vh,22rem)]"
                 />
               )
             }

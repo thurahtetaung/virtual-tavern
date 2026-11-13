@@ -2,6 +2,7 @@ import { type ActOptions, type GameUiProps, waitingForHost, winnersTitle } from 
 import { Card, cardSetChoices, useManifest } from '@vt/private-reverie/card';
 import {
   Button,
+  END_ART,
   TAP_BAND,
   ChoicePicker,
   Countdown,
@@ -985,7 +986,7 @@ function Final({
             emblem={top ? null : '🌟'}
             art={
               top && (
-                <div className="w-28 lg:w-40">
+                <div className={END_ART[1]}>
                   <Card card={top.card} big />
                 </div>
               )
