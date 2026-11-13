@@ -404,8 +404,9 @@ export function HandStrip({
           // Phones: your pick gets two rows of large cards (the table above scrolls in what is left).
           'grid gap-1 sm:grid-cols-6',
           canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
+          // Desktops: as large as the window's height allows across the page (6 across).
           r.stage === 'card' || r.stage === 'play'
-            ? 'lg:max-w-[clamp(36rem,100vh,58rem)]'
+            ? 'lg:mx-auto lg:max-w-[clamp(32rem,calc((100vh-44rem)*3.4),72rem)]'
             : 'lg:max-w-xl',
         )}
       >
