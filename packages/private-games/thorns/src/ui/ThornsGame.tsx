@@ -102,7 +102,7 @@ export function ThornsGame({
     <div
       className={
         view.phase !== 'lobby'
-          ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl'
+          ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-[84rem]'
           : 'mx-auto flex w-full max-w-3xl flex-col gap-3'
       }
     >

@@ -137,7 +137,12 @@ function Mat({
           g.players.length <= 4
             ? 'min-h-[clamp(3.5rem,13dvh,8rem)]'
             : 'min-h-[clamp(3.5rem,10dvh,6rem)]',
-          ended ? 'lg:min-h-28' : 'lg:min-h-[clamp(9rem,30dvh,18rem)]',
+          ended
+            ? 'lg:min-h-28'
+            : // Wide screens: three mats a row; more than three players take two rows, so shorter.
+              g.players.length > 3
+              ? 'lg:min-h-[clamp(7rem,17dvh,12rem)]'
+              : 'lg:min-h-[clamp(9rem,30dvh,18rem)]',
         )}
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
@@ -160,10 +165,10 @@ function Mat({
                 seat={seat}
                 color={color}
                 art={art}
-                size={wide ? (ended ? 64 : 88) : 48}
+                size={wide ? (ended ? 64 : 110) : 48}
                 flip={d.up}
                 className={cn(
-                  i > 0 && (wide ? (ended ? '-ml-8' : '-ml-11') : '-ml-6'),
+                  i > 0 && (wide ? (ended ? '-ml-8' : '-ml-14') : '-ml-6'),
                   you && !d.up && 'opacity-80',
                 )}
               />
@@ -303,7 +308,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
   const r = g.round;
   const mine = view.mine;
   const me = g.players.find((p) => p.id === room.you);
-  const disc = useWideScreen() ? 96 : 64;
+  const disc = useWideScreen() ? 110 : 64;
   if (!mine || !me) return null;
   const seat = g.order.indexOf(room.you);
   const color = colorOf(room, room.you);
@@ -520,7 +525,7 @@ export function Table(props: TableProps) {
             'grid grid-cols-2 gap-2 sm:grid-cols-3',
             ended
               ? 'lg:grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))]'
-              : 'lg:grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))]',
+              : 'lg:grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))]',
           )}
           aria-label="The table"
         >
