@@ -370,19 +370,38 @@ function Plain({
         }
         line="Final count: cash plus art, less any loans."
         // The final standings at poster size, best first.
+        // The final standings at poster size, best first, each with the priciest lot they bought.
         choices={[...g.final]
           .sort((a, b) => b.score - a.score)
-          .map((f, i) => (
-            <PosterSlate
-              key={f.id}
-              state={g.winners.includes(f.id) ? 'won' : 'open'}
-              className="min-w-[240px]"
-            >
-              <span className="text-[24px] text-ink-muted">{i + 1}.</span>
-              <span className="block text-[32px]">{name(f.id)}</span>
-              <span className="block font-display text-[44px] tabular-nums">{money(f.score)}</span>
-            </PosterSlate>
-          ))}
+          .map((f, i) => {
+            const best = g.results
+              .filter((r) => r.buyer === f.id)
+              .sort((a, b) => b.price - a.price)[0];
+            return (
+              <PosterSlate
+                key={f.id}
+                state={g.winners.includes(f.id) ? 'won' : 'open'}
+                className="min-w-[300px] content-start gap-2 px-8 py-6"
+              >
+                {best && (best.drawing || best.house) && (
+                  <div className="mx-auto mb-2 w-[220px]">
+                    <Picture
+                      drawing={best.drawing ?? null}
+                      house={best.house}
+                      art={art}
+                      label={best.title}
+                      tv
+                    />
+                  </div>
+                )}
+                <span className="text-[28px] text-ink-muted">{i + 1}.</span>
+                <span className="block text-[40px]">{name(f.id)}</span>
+                <span className="block font-display text-[64px] leading-none tabular-nums">
+                  {money(f.score)}
+                </span>
+              </PosterSlate>
+            );
+          })}
         footer={{ icon: 'hand', text: 'Every lot and award is on your phone.' }}
       />
     );

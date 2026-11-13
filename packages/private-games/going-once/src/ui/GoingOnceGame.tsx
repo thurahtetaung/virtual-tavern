@@ -13,13 +13,18 @@ import {
   Button,
   Countdown,
   EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   GuideLink,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
   Hint,
   LobbySettings,
   Panel,
   PlayerTag,
+  ProtectedImage,
   RefusalSlot,
   Standings,
   StickyBar,
@@ -51,7 +56,7 @@ import type { Act } from './act.ts';
 import { soundModeIn } from './audio.ts';
 import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
-import { Auction, GO_TABS, GO_TABS_ID, type GoTab, useSeenDrawings } from './Auction.tsx';
+import { Auction, GO_TABS, GO_TABS_ID, type GoTab, LotLog, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
 import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
@@ -143,7 +148,7 @@ export function GoingOnceGame({
       <div
         className={cn(
           'mx-auto flex w-full flex-col gap-3',
-          wide ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl',
+          wide || view.phase === 'lobby' || !g ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl',
         )}
       >
         {view.phase === 'lobby' || !g ? (
@@ -217,8 +222,21 @@ export function GoingOnceGame({
                   />
                 </>
               )}
-              {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
-              {g.stage === 'bank' && <Bank view={view} room={room} act={act} art={art} />}
+              {(g.stage === 'halftime' || g.stage === 'bank') && (
+                // While the auction pauses: the lots so far, to study before it goes on
+                // (under the card on phones, beside it on desktops).
+                <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+                  {g.stage === 'halftime' ? (
+                    <Halftime view={view} room={room} act={act} />
+                  ) : (
+                    <Bank view={view} room={room} act={act} art={art} />
+                  )}
+                  <Panel aria-label="The lots so far" className="space-y-2">
+                    <h2 className="text-sm font-bold">🖼 The lots so far</h2>
+                    <LotLog view={view} room={room} art={art} name={name} seen={seen} />
+                  </Panel>
+                </div>
+              )}
             </FitArea>
             {g.stage === 'done' && (
               <End view={view} room={room} act={act} art={art} name={name} seen={seen} />
@@ -346,8 +364,131 @@ function Lobby({
     : !me.playing
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobby;
+  const easel = artFor(manifest).ui('easel');
   return (
-    <>
+    <LobbyLayout
+      className="w-full"
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Going Once'}
+          emblem="🔨"
+          art={
+            easel && (
+              <ProtectedImage src={easel} alt="" className="w-full rounded-lg object-contain" />
+            )
+          }
+        >
+          Draw two quick pictures from secret titles, then bid on everyone’s art. Each artist’s two
+          drawings are worth $4,500 together. Best with 4–6 players.
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              `${view.settings.drawSeconds} s to draw`,
+              voiceSetsPace ? 'the auctioneer’s pace' : `${PACE_NAME[view.settings.pace]} pace`,
+              soundNow === 'off'
+                ? 'sound off'
+                : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
+              ...(view.gamesPlayed === 0 && view.settings.practice ? ['a practice lot first'] : []),
+            ]}
+            className="space-y-4"
+          >
+            <Segmented
+              label="Drawing time (both drawings)"
+              values={DRAW_SECONDS}
+              value={view.settings.drawSeconds}
+              format={(v) => `${v} s`}
+              editable={room.isHost}
+              onChange={(v) =>
+                void act({ type: 'update-settings', drawSeconds: v }, { anchor: 'go-lobby' })
+              }
+            />
+            <div className="flex flex-col gap-1">
+              <div
+                className={cn(voiceSetsPace && 'opacity-50')}
+                aria-disabled={voiceSetsPace || undefined}
+              >
+                <Segmented
+                  label="Auction pace"
+                  values={PACES}
+                  value={view.settings.pace}
+                  format={(v) => PACE_NAME[v]}
+                  editable={room.isHost && !voiceSetsPace}
+                  onChange={(v) =>
+                    void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })
+                  }
+                />
+              </div>
+              <p className="text-xs text-ink-muted" data-testid="go-pace-help">
+                {voiceSetsPace
+                  ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'
+                  : PACE_HELP[view.settings.pace]}
+                {!voiceSetsPace &&
+                  !view.settings.paceChosen &&
+                  ' Fast is the default at 3 players, Normal otherwise.'}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2" data-testid="go-sound-settings">
+              <Segmented
+                label="Where sound plays"
+                values={SOUND_MODES.filter(
+                  (m) => m !== 'stage' || stagePresent || soundNow === 'stage',
+                )}
+                value={soundNow}
+                format={(v) => SOUND_NAME[v]}
+                editable={room.isHost}
+                onChange={(v) =>
+                  void act({ type: 'update-settings', sound: v }, { anchor: 'go-lobby' })
+                }
+              />
+              <p className="text-xs text-ink-muted">{SOUND_HELP[soundNow]}</p>
+              <div className="grid gap-2">
+                <Switch
+                  on={view.settings.voice}
+                  editable={room.isHost && view.settings.sound !== 'off'}
+                  title="The auctioneer speaks and sets the pace"
+                  help="A welcome, a short tutorial anyone can skip, every call, and players called by their colour. His chants set the auction’s pace. Each player sets their own volume under Sound."
+                  onChange={(v) =>
+                    void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
+                  }
+                  testId="go-voice"
+                />
+              </div>
+            </div>
+            <Switch
+              on={view.settings.practice}
+              editable={room.isHost && view.gamesPlayed === 0}
+              title="Practice lot"
+              help={
+                view.gamesPlayed === 0
+                  ? 'In this room’s first game: one lot for play money before lot 1, teaching the four things to know. Anyone can skip it.'
+                  : 'Only in a room’s first game: this room has played already.'
+              }
+              onChange={(v) =>
+                void act({ type: 'update-settings', practice: v }, { anchor: 'go-lobby' })
+              }
+              testId="go-practice-setting"
+            />
+            <RefusalSlot anchor="go-lobby" />
+          </LobbySettings>
+          <GoLobbySound view={view} room={room} act={act} manifest={manifest} />
+          {view.rigAllowed && room.isHost && <RigPanel view={view} act={act} />}
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'go-start' })}
+            refusal="go-start"
+            testId="go-start"
+          />
+        )
+      }
+    >
       {status && <Hint tone={status.me ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -391,119 +532,9 @@ function Lobby({
             Take a seat
           </Button>
         )}
-        <p className="text-sm text-ink-muted">
-          Draw two quick pictures from secret titles, then bid on everyone’s art. Each artist’s two
-          drawings are worth $4,500 together. Best with 4–6 players.
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Going Once'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          `${view.settings.drawSeconds} s to draw`,
-          voiceSetsPace ? 'the auctioneer’s pace' : `${PACE_NAME[view.settings.pace]} pace`,
-          soundNow === 'off'
-            ? 'sound off'
-            : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
-          ...(view.gamesPlayed === 0 && view.settings.practice ? ['a practice lot first'] : []),
-        ]}
-        className="space-y-4"
-      >
-        <Segmented
-          label="Drawing time (both drawings)"
-          values={DRAW_SECONDS}
-          value={view.settings.drawSeconds}
-          format={(v) => `${v} s`}
-          editable={room.isHost}
-          onChange={(v) =>
-            void act({ type: 'update-settings', drawSeconds: v }, { anchor: 'go-lobby' })
-          }
-        />
-        <div className="flex flex-col gap-1">
-          <div
-            className={cn(voiceSetsPace && 'opacity-50')}
-            aria-disabled={voiceSetsPace || undefined}
-          >
-            <Segmented
-              label="Auction pace"
-              values={PACES}
-              value={view.settings.pace}
-              format={(v) => PACE_NAME[v]}
-              editable={room.isHost && !voiceSetsPace}
-              onChange={(v) =>
-                void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })
-              }
-            />
-          </div>
-          <p className="text-xs text-ink-muted" data-testid="go-pace-help">
-            {voiceSetsPace
-              ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'
-              : PACE_HELP[view.settings.pace]}
-            {!voiceSetsPace &&
-              !view.settings.paceChosen &&
-              ' Fast is the default at 3 players, Normal otherwise.'}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2" data-testid="go-sound-settings">
-          <Segmented
-            label="Where sound plays"
-            values={SOUND_MODES.filter(
-              (m) => m !== 'stage' || stagePresent || soundNow === 'stage',
-            )}
-            value={soundNow}
-            format={(v) => SOUND_NAME[v]}
-            editable={room.isHost}
-            onChange={(v) =>
-              void act({ type: 'update-settings', sound: v }, { anchor: 'go-lobby' })
-            }
-          />
-          <p className="text-xs text-ink-muted">{SOUND_HELP[soundNow]}</p>
-          <div className="grid gap-2">
-            <Switch
-              on={view.settings.voice}
-              editable={room.isHost && view.settings.sound !== 'off'}
-              title="The auctioneer speaks and sets the pace"
-              help="A welcome, a short tutorial anyone can skip, every call, and players called by their colour. His chants set the auction’s pace. Each player sets their own volume under Sound."
-              onChange={(v) =>
-                void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
-              }
-              testId="go-voice"
-            />
-          </div>
-        </div>
-        <Switch
-          on={view.settings.practice}
-          editable={room.isHost && view.gamesPlayed === 0}
-          title="Practice lot"
-          help={
-            view.gamesPlayed === 0
-              ? 'In this room’s first game: one lot for play money before lot 1, teaching the four things to know. Anyone can skip it.'
-              : 'Only in a room’s first game: this room has played already.'
-          }
-          onChange={(v) =>
-            void act({ type: 'update-settings', practice: v }, { anchor: 'go-lobby' })
-          }
-          testId="go-practice-setting"
-        />
-        <RefusalSlot anchor="go-lobby" />
-      </LobbySettings>
-      <GoLobbySound view={view} room={room} act={act} manifest={manifest} />
-      {view.rigAllowed && room.isHost && <RigPanel view={view} act={act} />}
-      {room.isHost && (
-        <StickyBar refusal="go-start">
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'go-start' })}
-            data-testid="go-start"
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-        </StickyBar>
-      )}
-    </>
+    </LobbyLayout>
   );
 }
 
@@ -970,52 +1001,57 @@ function End({
   // The priciest lot of the night, large, beside the result.
   const star = [...g.results].filter((r) => r.buyer).sort((a, b) => b.price - a.price)[0];
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
-      {g.ended !== 'no-drawings' && champs.length > 0 && (
-        <EndHero
-          className="lg:col-span-2"
-          emblem="🔨"
-          title={`${listNames(champs.map((f) => (f.id === room.you ? 'You' : name(f.id))))} ${champs.length > 1 || champs[0]!.id === room.you ? 'win' : 'wins'}!`}
-          art={
-            wide &&
-            star && (
-              <figure className="w-48 space-y-1 xl:w-56">
-                <Picture
-                  drawing={star.drawing ?? seen.get(star.item) ?? null}
-                  house={star.house}
-                  art={art}
-                  label={star.title}
-                  className="w-full shadow-vt-2 ring-1 ring-line"
-                />
-                <figcaption className="text-small text-ink-2">
-                  Top lot: <span className="font-semibold text-ink">{star.title}</span>,{' '}
-                  {money(star.price)}
-                </figcaption>
-              </figure>
-            )
-          }
-        >
-          {money(best ?? 0)} at the final count, after {g.results.length} lots.
-        </EndHero>
-      )}
-      <EndTabs
-        testId="go-end-tab"
-        tabs={[
-          { id: 'scores', label: '🏆 Scores', content: scores },
-          !wide &&
-            awards && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: (
-                <Panel data-testid="go-end-awards">
-                  <Superlatives lines={room.superlatives} />
-                </Panel>
-              ),
-            },
-          { id: 'gallery', label: '🖼 Gallery', content: gallery },
-        ]}
-      />
-      {!wide && <div className="flex flex-col gap-2">{endButtons}</div>}
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      <EndLayout
+        hero={
+          g.ended !== 'no-drawings' &&
+          champs.length > 0 && (
+            <EndHero
+              emblem="🔨"
+              title={`${listNames(champs.map((f) => (f.id === room.you ? 'You' : name(f.id))))} ${champs.length > 1 || champs[0]!.id === room.you ? 'win' : 'wins'}!`}
+              art={
+                wide &&
+                star && (
+                  <figure className="w-48 space-y-1 xl:w-56">
+                    <Picture
+                      drawing={star.drawing ?? seen.get(star.item) ?? null}
+                      house={star.house}
+                      art={art}
+                      label={star.title}
+                      className="w-full shadow-vt-2 ring-1 ring-line"
+                    />
+                    <figcaption className="text-small text-ink-2">
+                      Top lot: <span className="font-semibold text-ink">{star.title}</span>,{' '}
+                      {money(star.price)}
+                    </figcaption>
+                  </figure>
+                )
+              }
+            >
+              {money(best ?? 0)} at the final count, after {g.results.length} lots.
+            </EndHero>
+          )
+        }
+      >
+        <EndTabs
+          testId="go-end-tab"
+          tabs={[
+            { id: 'scores', label: '🏆 Scores', content: scores },
+            !wide &&
+              awards && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: (
+                  <Panel data-testid="go-end-awards">
+                    <Superlatives lines={room.superlatives} />
+                  </Panel>
+                ),
+              },
+            { id: 'gallery', label: '🖼 Gallery', content: gallery },
+          ]}
+        />
+        {!wide && <div className="flex flex-col gap-2">{endButtons}</div>}
+      </EndLayout>
     </div>
   );
 }

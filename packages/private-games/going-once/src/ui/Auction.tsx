@@ -391,7 +391,7 @@ export function resultLine(r: LotResult, name: NameOf, you: string): string {
   return `${who} paid ${money(r.price)} · worth ${money(r.value)}`;
 }
 
-function LotLog({
+export function LotLog({
   view,
   room,
   art,
