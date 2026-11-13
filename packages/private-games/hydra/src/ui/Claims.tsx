@@ -175,7 +175,7 @@ export function ClaimForm({
                   )}
                 >
                   <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                  <span className="text-[0.7rem] leading-tight font-semibold text-ink">
+                  <span className="text-xs leading-tight font-semibold text-ink">
                     {cardsText(c, bluesCards(b, n))}
                   </span>
                   <span className="flex items-center gap-1 text-xs text-ink-muted">
@@ -210,7 +210,7 @@ export function ClaimForm({
                 )}
               >
                 <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                <span className="text-[0.7rem] leading-tight font-semibold text-ink">
+                <span className="text-xs leading-tight font-semibold text-ink">
                   {cardsText(c, bluesCards(b, n))}
                 </span>
               </button>

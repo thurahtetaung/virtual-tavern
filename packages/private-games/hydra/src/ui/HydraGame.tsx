@@ -109,7 +109,7 @@ function HeaderStrip({
       </button>
       <div className="ml-auto flex min-w-0 grow items-center justify-end gap-2">
         <span
-          className="max-w-40 min-w-0 truncate text-right text-[0.7rem] leading-tight whitespace-nowrap text-white/80"
+          className="max-w-40 min-w-0 truncate text-right text-xs leading-tight whitespace-nowrap text-white/80"
           data-testid="next-president"
         >
           {view.phase === 'playing' && (
@@ -139,7 +139,10 @@ function HeaderStrip({
           <button
             type="button"
             onClick={onRole}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
+            className={cn(
+              'flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm',
+              TAP_BAND,
+            )}
             aria-label="My role"
           >
             🎭
@@ -347,7 +350,9 @@ function TableRing({
       {seats(top, half)}
       <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner">
         <Pile label="Deck" count={g.deckCount} c={c} />
-        <div className="space-y-2">
+        {/* The boards' width follows the window's height, so both seat rows and the dock fit a
+            laptop screen (the art is about three times as wide as it is tall). */}
+        <div className="mx-auto w-full max-w-[max(24rem,calc((100dvh-37rem)*1.5))] space-y-2">
           <Board team="red" g={g} c={c} />
           <Board team="blue" g={g} c={c} />
         </div>

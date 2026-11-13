@@ -27,7 +27,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
     };
   }, [up, g.players.length]);
   return (
-    <ul className="grid grid-cols-5 gap-2 sm:gap-3" aria-label="Everyone’s role">
+    <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3" aria-label="Everyone’s role">
       {g.players.map((p, i) => {
         const role = end.roles[p.id]!;
         return (

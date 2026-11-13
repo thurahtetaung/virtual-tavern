@@ -351,7 +351,7 @@ export function Pips({
           key={i}
           className={cn(
             'inline-flex items-center justify-center rounded-[3px] text-white shadow-sm',
-            size === 'sm' ? 'h-4 w-3 text-[0.5rem]' : 'h-6 w-4 text-[0.65rem]',
+            size === 'sm' ? 'h-5 w-4 text-xs' : 'h-7 w-5 text-sm',
             x === 'blue' ? 'bg-sky-600' : 'bg-red-600',
           )}
         >
