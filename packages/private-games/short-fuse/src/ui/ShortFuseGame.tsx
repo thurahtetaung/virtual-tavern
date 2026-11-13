@@ -621,6 +621,15 @@ export function ShortFuseGame({
   const pileShown = pileCard && g.discard.some((x) => x.id === pileCard.id) ? pileCard : null;
   const top = g.discard.at(-1);
 
+  const nopePanel = view.stage === 'window' && g.window && g.pending && (
+    <NopePanel
+      view={view}
+      c={c}
+      clockOffset={room.clockOffset}
+      act={act}
+      bar={!myTurn && !(nowOnly && selCards.length > 0)}
+    />
+  );
   const table = (
     <div className="space-y-2">
       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3">
@@ -668,17 +677,11 @@ export function ShortFuseGame({
                   })}
             />
           )}
+          {/* Desktop: the countdown fills the room beside the piles, so the hand stays in view. */}
+          {wide && nopePanel && <div className="w-full">{nopePanel}</div>}
         </div>
       </div>
-      {view.stage === 'window' && g.window && g.pending && (
-        <NopePanel
-          view={view}
-          c={c}
-          clockOffset={room.clockOffset}
-          act={act}
-          bar={!myTurn && !(nowOnly && selCards.length > 0)}
-        />
-      )}
+      {!wide && nopePanel}
     </div>
   );
 
