@@ -301,7 +301,7 @@ function GroupRow({
               <span className="opacity-70">“{g.answers[id]}”</span>
             )}
             {herd && (
-              <span className="sp-fly font-semibold" aria-label={`+1 ${names.cow}`}>
+              <span className="sp-fly font-semibold text-ink" aria-label={`+1 ${names.cow}`}>
                 +1 🐄
               </span>
             )}
