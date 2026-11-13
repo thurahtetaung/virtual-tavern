@@ -30,6 +30,7 @@ import {
   type TabBarItem,
   Tabs,
   tabPanelProps,
+  END_ART,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -632,6 +633,11 @@ function Table({
   const recent = view.phase === 'playing' && round?.stage !== 'over' ? sinceMyTurn(view) : [];
   const pile = round?.players.find((p) => p.id === pileOf) ?? null;
   const { read } = useCardReader();
+  const lastPlay = round
+    ? roundEntries(view).findLast(
+        (e): e is Extract<LogEntry, { kind: 'play' }> => e.kind === 'play',
+      )
+    : undefined;
 
   const wide = useWideScreen();
   // The table, the log and the seats are parts of the end (tabs on phones, the end's right column
@@ -688,7 +694,32 @@ function Table({
         </div>
       )}
 
-      {recent.length > 0 && <Recent view={view} entries={recent} />}
+      {/* Phones: the last card played, large, beside the moves since your turn, so the band above
+          the hand shows the table's latest card rather than empty space. */}
+      {lastPlay && view.phase === 'playing' && round?.stage !== 'over' ? (
+        <div className="flex items-start gap-3">
+          <figure className="w-28 shrink-0 space-y-1 sm:hidden">
+            <Card
+              role={lastPlay.card}
+              rank={rankIn(edition, lastPlay.card)}
+              deck={deck}
+              size="md"
+              reads
+              onClick={() => read(lastPlay.card)}
+            />
+            <figcaption className="text-center text-[0.7rem] leading-tight font-semibold text-ink-muted">
+              Last played by {lastPlay.by === me?.id ? 'you' : nameOf(view, lastPlay.by)}
+            </figcaption>
+          </figure>
+          {recent.length > 0 && (
+            <div className="min-w-0 flex-1">
+              <Recent view={view} entries={recent} />
+            </div>
+          )}
+        </div>
+      ) : (
+        recent.length > 0 && <Recent view={view} entries={recent} />
+      )}
 
       {/* Wider screens keep the history in the side column; the end's table tab keeps it too. */}
       {view.phase !== 'playing' && journal}
@@ -1636,7 +1667,10 @@ function Podium({
             champions
               .filter((e) => lastCards[e.id])
               .map((e) => (
-                <figure key={e.id} className="w-32 space-y-1 lg:w-52 xl:w-60">
+                <figure
+                  key={e.id}
+                  className={cn('space-y-1', END_ART[champions.length > 1 ? 2 : 1])}
+                >
                   <Card
                     role={lastCards[e.id]!}
                     rank={rankIn(edition, lastCards[e.id]!)}
