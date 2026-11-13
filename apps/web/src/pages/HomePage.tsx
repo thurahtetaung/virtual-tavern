@@ -102,7 +102,8 @@ export function HomePage() {
         onClear={filter.clear}
         className="mb-4"
       />
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* From xl the shelf steps out of the page column, three across, as the back room's does. */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:mx-[calc(50%_-_min(50vw_-_2rem,38rem))] xl:grid-cols-3">
         {games.length === 0 && <NoMatch onClear={filter.clear} />}
         {games.map((game) => (
           <ShelfCard
