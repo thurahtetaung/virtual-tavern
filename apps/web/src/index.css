@@ -549,6 +549,13 @@
 
 /* Inside a room, the page keeps room at its foot for the fixed sticky bar and tab bar (their
    heights are set while they are on screen), so they never cover the last of the content. */
+/* A guest's view of the host's lobby settings (LobbySettings) is read-only, not disabled: the
+   options keep their full contrast, the host's choice its selected fill. Unlayered, so it beats a
+   game's own `opacity-*` / `disabled:opacity-*` utilities. */
+[data-readonly] :is(button, label):is(:disabled, [aria-disabled='true'], .opacity-50, .opacity-60) {
+  opacity: 1;
+  cursor: default;
+}
 .vt-room-main {
   padding-bottom: calc(1.5rem + var(--vt-sticky-h, 0px) + var(--vt-tabbar-h, 0px));
 }
