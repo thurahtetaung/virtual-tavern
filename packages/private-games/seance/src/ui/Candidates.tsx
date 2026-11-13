@@ -99,7 +99,7 @@ export function CandidatesRow({
               >
                 {target &&
                   (one ? (
-                    <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-[10px] font-bold text-white uppercase">
+                    <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-xs font-bold text-white uppercase">
                       Target
                     </span>
                   ) : (
@@ -116,7 +116,7 @@ export function CandidatesRow({
                     </span>
                   ))}
                 {marks.guessedBy.length > 0 && (
-                  <span className="absolute right-1 bottom-1 flex items-center gap-0.5 rounded-full bg-black/70 py-0.5 pr-1.5 pl-0.5 text-[10px] font-bold text-white">
+                  <span className="absolute right-1 bottom-1 flex items-center gap-0.5 rounded-full bg-black/70 py-0.5 pr-1.5 pl-0.5 text-xs font-bold text-white">
                     <span className="flex -space-x-1.5">
                       {marks.guessedBy.map((p) => (
                         <Avatar

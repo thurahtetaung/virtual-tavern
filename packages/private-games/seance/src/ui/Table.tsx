@@ -87,7 +87,7 @@ export function Progress({
                     }
                   >
                     {found !== undefined && (
-                      <span className="absolute right-0.5 bottom-0.5 rounded bg-success px-1 text-[10px] font-bold text-white">
+                      <span className="absolute right-0.5 bottom-0.5 rounded bg-success px-1 text-xs font-bold text-white">
                         ✓
                       </span>
                     )}
@@ -142,7 +142,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
           />
         ))}
       </div>
-      <p className="flex flex-wrap justify-between gap-x-2 text-[11px] text-ink-muted">
+      <p className="flex flex-wrap justify-between gap-x-2 text-xs text-ink-2">
         <span>0–{mid - 1}: you vote after card 1</span>
         <span>
           {mid}+: after card 2 · {high}+: after card 3

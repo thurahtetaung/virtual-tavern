@@ -70,7 +70,7 @@ function Choice({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
+        'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
           ? 'bg-accent text-accent-fg ring-accent'
           : 'bg-card text-ink-2 ring-line hover:bg-sunk disabled:opacity-60',
@@ -325,7 +325,7 @@ export function Lobby({
               >
                 {s.sets.includes(id) ? '✓ ' : ''}
                 {content.setName(id)}{' '}
-                <span className="font-normal opacity-70">({CARD_SETS[id].vision.length})</span>
+                <span className="font-normal">({CARD_SETS[id].vision.length})</span>
               </Choice>
             ))}
           </div>
@@ -340,7 +340,7 @@ export function Lobby({
             {THIRDS.map((t) => (
               <Choice key={t} on={third === t} disabled={!host} onClick={() => set({ third: t })}>
                 {t === 'object' ? 'Objects' : 'Stories'}{' '}
-                <span className="font-normal opacity-70">({poolOf(s.sets, t).length})</span>
+                <span className="font-normal">({poolOf(s.sets, t).length})</span>
               </Choice>
             ))}
           </div>
@@ -362,7 +362,7 @@ export function Lobby({
               >
                 {pools.includes(id) ? '✓ ' : ''}
                 {content.poolName(id)}{' '}
-                <span className="font-normal opacity-70">
+                <span className="font-normal">
                   ({POOL_CARDS[id].length}
                   {id === 'pool-r' ? ', lower resolution' : ''})
                 </span>
@@ -379,7 +379,7 @@ export function Lobby({
             <Choice on={extras} disabled={!host} onClick={() => set({ extras: !extras })}>
               {extras ? '✓ ' : ''}
               {content.extrasName}{' '}
-              <span className="font-normal opacity-70">
+              <span className="font-normal">
                 (+{EXTRA_CARDS.suspect.length} suspects, +{EXTRA_CARDS.place.length} places)
               </span>
             </Choice>

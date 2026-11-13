@@ -146,7 +146,7 @@ function PsychicSheet({
                       note={`hour ${roman(v.hour)}`}
                       onTap={() => open(visionStart + i)}
                     />
-                    <p className="text-center text-[11px] text-ink-muted">
+                    <p className="text-center text-xs text-ink-muted">
                       {visionCaptions(p, g.hour)[v.card]}
                     </p>
                   </li>
@@ -301,7 +301,7 @@ export function GhostPsychics({
                   note={`${p.name}’s target`}
                   onTap={() => open(0)}
                 >
-                  <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-[10px] font-bold text-white uppercase">
+                  <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-xs font-bold text-white uppercase">
                     Target
                   </span>
                 </Card>
@@ -360,7 +360,7 @@ export function GhostPsychics({
                           Choose
                         </Button>
                       ) : pillar && sending && !isEmpty(p) ? (
-                        <span className="shrink-0 rounded-full bg-sunk px-2 text-[11px] font-semibold">
+                        <span className="shrink-0 rounded-full bg-sunk px-2 text-xs font-semibold">
                           {p.ready ? 'ready' : 'sent'}
                         </span>
                       ) : null}
@@ -409,11 +409,11 @@ export function GhostPsychics({
                           </span>
                         </button>
                         {needs ? (
-                          <span className="rounded-full bg-accent-line px-2 text-[11px] font-bold text-ink">
+                          <span className="rounded-full bg-accent-line px-2 text-xs font-bold text-ink">
                             {isAway ? 'away · needs a vision' : 'needs a vision'}
                           </span>
                         ) : pillar && sending && !isEmpty(p) ? (
-                          <span className="rounded-full bg-sunk px-2 text-[11px] font-semibold">
+                          <span className="rounded-full bg-sunk px-2 text-xs font-semibold">
                             {p.ready ? 'ready' : 'sent'}
                           </span>
                         ) : null}

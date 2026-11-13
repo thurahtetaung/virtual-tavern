@@ -333,7 +333,7 @@ export function TriedStamp({ hour }: { hour: number }) {
   return (
     <span
       aria-hidden
-      className="absolute top-1 right-1 rounded bg-danger px-1 text-[10px] leading-snug font-bold text-white shadow"
+      className="absolute top-1 right-1 rounded bg-danger px-1 text-xs leading-snug font-bold text-white shadow"
     >
       ✗ tried in hour {roman(hour)}
     </span>
@@ -600,7 +600,7 @@ export function OthersTab({
                           }
                         />
                       ) : (
-                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-center text-[11px] text-ink-muted">
+                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-center text-xs text-ink-muted">
                           no guess yet
                         </div>
                       )}

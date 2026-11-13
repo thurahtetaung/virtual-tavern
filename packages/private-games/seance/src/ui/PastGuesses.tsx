@@ -79,7 +79,7 @@ export function PastGuesses({
                   <span
                     aria-hidden
                     className={cn(
-                      'absolute top-0.5 right-0.5 rounded px-0.5 text-[10px] leading-tight font-black text-white',
+                      'absolute top-0.5 right-0.5 rounded px-0.5 text-xs leading-tight font-black text-white',
                       x.correct ? 'bg-success' : 'bg-danger',
                     )}
                   >

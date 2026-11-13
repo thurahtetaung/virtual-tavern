@@ -309,7 +309,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       className="rounded-xl bg-card/70 px-3 py-2 ring-1 ring-line"
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-xs font-semibold text-ink-muted">
+        <span className="shrink-0 text-xs font-semibold text-ink-2">
           {final ? 'The final' : `Hour ${roman(g.hour)}`}
         </span>
         <ol className="flex flex-1 flex-wrap items-center gap-1 text-xs font-semibold">
@@ -337,7 +337,10 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             aria-expanded={more}
             aria-label={more ? 'Show less' : 'What happens in this step?'}
             onClick={() => setMore(!more)}
-            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel"
+            className={cn(
+              '-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel',
+              TAP_BAND,
+            )}
           >
             {more ? '▴' : '?'}
           </button>
