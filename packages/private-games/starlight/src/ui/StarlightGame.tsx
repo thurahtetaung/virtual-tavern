@@ -546,7 +546,10 @@ function Play({
                   className="text-sm font-semibold sm:order-first"
                   data-testid="starlight-count"
                 >
-                  {marks.length} marked
+                  <span className="font-display text-xl font-bold tabular-nums">
+                    {marks.length}
+                  </span>{' '}
+                  marked
                   <span className="font-normal text-ink-muted">
                     {' '}
                     ({MIN_MARKS}–{MAX_MARKS})
@@ -709,7 +712,8 @@ function GridCard({
         </span>
       )}
       {outcome && shown && (
-        <span className="pointer-events-none absolute inset-x-1 top-7 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-xs font-bold text-white">
+        // Along the picture's foot, so the art's middle stays clear on small cards.
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 flex min-h-7 flex-wrap items-center gap-0.5 rounded-b-xl bg-stone-950/80 py-0.5 pr-7 pl-1 text-xs font-bold text-white">
           <span aria-hidden>{outcome.icon}</span>
           {shown.markers.map((id) => (
             <NameDot key={id} name={nameOf(view, id)} />
@@ -722,7 +726,9 @@ function GridCard({
         aria-label={`Zoom card ${posName(pos)}`}
         className={cn(
           TAP_BAND,
-          'absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white',
+          'absolute flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white',
+          // Once the round's results sit along the foot, the zoom sits at the strip's end.
+          outcome ? 'right-0.5 bottom-0.5 size-6' : 'right-2 bottom-2',
         )}
       >
         🔍
