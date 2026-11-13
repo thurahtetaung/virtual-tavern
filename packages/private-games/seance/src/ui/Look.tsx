@@ -91,10 +91,10 @@ export function PickButton({
       className={cn(
         'rounded-full font-bold shadow-lg ring-1 touch-manipulation disabled:cursor-not-allowed disabled:bg-stone-600/80 disabled:text-stone-300 disabled:shadow-none disabled:ring-stone-400/40',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-        // On a card it is a small chip in the corner, so it never hides much of the picture.
-        // No invisible touch band: on a small card it would reach the middle and catch the
-        // taps meant to open the card.
-        big ? 'min-h-12 px-6 text-base' : 'min-h-8 px-2.5 text-xs',
+        // On a card it is a chip in the corner, 44 px tall so it is an easy tap, kept narrow so
+        // most of the picture shows. No invisible touch band: on a small card it would reach the
+        // middle and catch the taps meant to open the card.
+        big ? 'min-h-12 px-6 text-base' : 'min-h-11 px-3 text-xs',
         on ? 'bg-accent-line text-ink ring-black/20' : 'bg-black/70 text-white ring-white/30',
         className,
       )}

@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndTabs, Panel, Superlatives, cn, useWideScreen } from '@vt/ui';
+import { Button, EndHero, EndTabs, Panel, Superlatives, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS } from '../logic/cards.ts';
 import type { SeanceAction, SeanceView } from '../logic/types.ts';
@@ -83,7 +83,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                 return (
                   <li
                     key={pillar}
-                    className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2"
+                    className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2 lg:grid-cols-[8rem_minmax(0,1fr)] lg:gap-3"
                   >
                     <Card
                       kind={content.kindOf(pillar)}
@@ -101,7 +101,10 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                     >
                       {visions.length ? (
                         visions.map((v, i) => (
-                          <div key={`${v.card}-${i}`} className="w-12 shrink-0 space-y-0.5 sm:w-16">
+                          <div
+                            key={`${v.card}-${i}`}
+                            className="w-14 shrink-0 space-y-0.5 sm:w-20 lg:w-24"
+                          >
                             <Card
                               kind="vision"
                               n={v.card}
@@ -120,7 +123,10 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                       {misses.map((v, i) => (
                         <div
                           key={`miss-${v.hour}`}
-                          className={cn('w-16 shrink-0 space-y-0.5 sm:w-20', i === 0 && 'ml-2')}
+                          className={cn(
+                            'w-16 shrink-0 space-y-0.5 sm:w-20 lg:w-24',
+                            i === 0 && 'ml-2',
+                          )}
                         >
                           <Card
                             kind={content.kindOf(pillar)}
@@ -175,43 +181,39 @@ export function EndScreen({
   );
   return (
     <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
-      <Panel
-        className={cn(
-          'space-y-2 text-center max-lg:p-3',
-          r.win ? 'bg-special-soft ring-special-line' : 'bg-sunk',
-        )}
+      <EndHero
+        tone={r.win ? 'success' : 'loss'}
+        emblem={r.win ? '🕊️' : '🌫️'}
+        title={r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          room.isHost ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </div>
+          ) : (
+            <p className="text-small text-ink-muted">
+              {waitingForHost(room, 'start another game')}
+            </p>
+          )
+        }
       >
-        <p className="text-4xl" aria-hidden>
-          {r.win ? '🕊️' : '🌫️'}
-        </p>
-        <h2 className="text-xl font-bold">
-          {r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
-        </h2>
         <p role="status">{resultLine(g)}</p>
         {breaker && (
-          <p className="text-sm text-ink-muted">
+          <p className="mt-1 text-ink-muted">
             The vote was tied: {breaker.name}, furthest along the track, decided it.
           </p>
         )}
-        {wide && <Superlatives lines={room.superlatives} />}
-        {!room.isHost && (
-          <p className="text-sm text-ink-muted">{waitingForHost(room, 'start another game')}</p>
-        )}
-        {room.isHost && (
-          <div className="flex flex-wrap justify-center gap-2 pt-1">
-            <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        )}
-      </Panel>
+      </EndHero>
       {wide ? (
         // Desktops: the final and what the ghost meant side by side, so the end isn't one long column.
         <div className={cn('grid items-start gap-3', shared && 'grid-cols-2')}>

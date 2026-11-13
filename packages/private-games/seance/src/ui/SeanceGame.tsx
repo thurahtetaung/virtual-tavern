@@ -41,6 +41,7 @@ import {
   isEmpty,
   myPsychic,
   nameOf,
+  resultLine,
   roman,
   statusFor,
   stepOf,
@@ -270,7 +271,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             <span className="flex-1">📣 {latest.text}</span>
             <button
               type="button"
-              className={cn('rounded-lg px-2 text-xs font-bold', TAP_BAND)}
+              className={cn('min-h-7 rounded-lg px-2 text-xs font-bold', TAP_BAND)}
               onClick={() => setSeen(latest.id)}
             >
               OK
@@ -338,7 +339,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             aria-label={more ? 'Show less' : 'What happens in this step?'}
             onClick={() => setMore(!more)}
             className={cn(
-              '-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel',
+              '-my-1 inline-flex min-h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel',
               TAP_BAND,
             )}
           >
@@ -583,6 +584,9 @@ function SeanceTable({
     />
   );
 
+  // A watcher's table screen stays up at the end, with the result at poster size.
+  if (g.stage === 'done' && !inGame && tableScreen && g.result)
+    return <SeanceTableEnd view={view} content={content} onExit={() => setTableScreen(false)} />;
   if (g.stage === 'done')
     return (
       <>
@@ -980,6 +984,56 @@ function SeanceTableScreen({
           } · ${g.deckCount} in the pile`,
         }}
         footerEnd={{ icon: 'tv', text: 'The visions stay on the phones.' }}
+      />
+    </PosterOverlay>
+  );
+}
+
+/** The table screen once the game ends: the result at poster size and each psychic's finds. */
+function SeanceTableEnd({
+  view,
+  content,
+  onExit,
+}: {
+  view: SeanceView;
+  content: Content;
+  onExit: () => void;
+}) {
+  const g = view.game!;
+  const r = g.result!;
+  return (
+    <PosterOverlay>
+      <Poster
+        label="Table screen"
+        meta={`Hour ${roman(g.hour)} of VII`}
+        corner={
+          <Button variant="secondary" size="lg" className="text-[24px]" onClick={onExit}>
+            Leave table screen
+          </Button>
+        }
+        eyebrow="Game over"
+        headline={
+          <span data-testid="seance-tv-result">
+            {r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
+          </span>
+        }
+        line={resultLine(g)}
+        choices={g.psychics.map((p) => (
+          <PosterSlate
+            key={p.color}
+            state={p.finishedHour !== null ? 'won' : 'open'}
+            className="w-[240px] content-start gap-3"
+          >
+            <Avatar color={p.color} content={content} name={p.name} size="lg" />
+            <span className="block truncate text-[32px]">{p.name}</span>
+            <span className="block text-[24px] font-medium">
+              {p.finishedHour !== null
+                ? `All three by hour ${roman(p.finishedHour)}`
+                : `${p.found.length} of 3 found`}
+            </span>
+          </PosterSlate>
+        ))}
+        footerEnd={{ icon: 'tv', text: 'What the ghost meant is on the phones.' }}
       />
     </PosterOverlay>
   );

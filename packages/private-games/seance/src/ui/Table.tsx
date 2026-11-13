@@ -17,11 +17,12 @@ export function Clock({ g }: { g: GameView }) {
           aria-current={h === g.hour ? 'step' : undefined}
           className={cn(
             'flex h-7 min-w-7 flex-1 items-center justify-center rounded-md px-1 font-serif text-xs font-bold',
+            // Past hours: a filled tile in full ink (≥ 4.5:1); the coming ones quieter on sunk.
             h < g.hour
-              ? 'bg-line-strong text-ink-muted'
+              ? 'bg-line-strong text-ink'
               : h === g.hour
                 ? 'bg-special text-white ring-2 ring-special-line'
-                : 'bg-sunk text-ink-muted',
+                : 'bg-sunk text-ink-2',
             h === HOURS && h !== g.hour && 'ring-1 ring-danger/60',
           )}
         >
@@ -209,7 +210,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
               </span>
               {v.guess !== null && (
                 // The guessed card itself: at the table, the card is the moment.
-                <span className="w-14 shrink-0 sm:w-16">
+                <span className="w-20 shrink-0 sm:w-24">
                   <Card
                     kind={content.kindOf(pillar)}
                     n={v.guess}

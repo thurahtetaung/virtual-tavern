@@ -371,7 +371,7 @@ export function GhostPsychics({
                       type="button"
                       aria-expanded
                       onClick={toggle}
-                      className="mb-1 w-full rounded-lg py-0.5 text-right text-xs font-semibold text-ink-muted lg:hidden"
+                      className="mb-1 min-h-11 w-full rounded-lg text-right text-xs font-semibold text-ink-muted lg:hidden"
                     >
                       Show less ▴
                     </button>
