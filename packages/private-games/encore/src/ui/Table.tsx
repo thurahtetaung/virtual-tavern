@@ -729,7 +729,7 @@ function Play({
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className="self-start text-xs text-ink-muted underline"
+          className="min-h-11 self-start text-sm text-ink-muted underline"
           onClick={() => showGuide('cards')}
         >
           What beats what?
