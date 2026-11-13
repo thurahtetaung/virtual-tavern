@@ -2,6 +2,7 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndHero,
   EndTabs,
   GuideLink,
   Fold,
@@ -235,43 +236,34 @@ function InGame({
       {waitingForHost(room, 'start the next game')}
     </p>
   );
-  const winner = view.winner && (
-    <p className={cn('font-display text-title font-bold', TEAM_TEXT[view.winner])}>
-      🏆 {TEAM_LABEL[view.winner]} team wins!
-    </p>
-  );
-  const yourTeam = me?.team && (
-    <b>{me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}</b>
-  );
-  // Wide screens: one finale panel in the winner's colours, short enough that the whole key
-  // stays above the fold of a laptop screen.
-  const overPanel = (
-    <Panel
-      className={cn(
-        'space-y-2 py-3 text-center shadow-vt-1',
-        view.winner === 'red' && 'bg-team-a-soft ring-team-a-line',
-        view.winner === 'blue' && 'bg-team-b-soft ring-team-b-line',
-      )}
+  // The viewer's side lights the card: ember when their team won, danger when it lost, quiet
+  // for watchers (the title carries the winning team's colour).
+  const tone = !me?.team || !view.winner ? 'neutral' : me.team === view.winner ? 'win' : 'loss';
+  const hero = (
+    <EndHero
+      title={
+        view.winner ? (
+          <span className={TEAM_TEXT[view.winner]}>{TEAM_LABEL[view.winner]} team wins!</span>
+        ) : (
+          'Game over'
+        )
+      }
+      eyebrow={view.winner ? undefined : null}
+      tone={tone}
+      superlatives={wide ? room.superlatives : undefined}
+      actions={endButtons}
     >
-      {winner}
-      <p>
-        {winHow(view)}.{yourTeam && <> {yourTeam}</>}
-      </p>
-      <Superlatives lines={room.superlatives} />
-      {endButtons}
-    </Panel>
+      {winHow(view)}.{' '}
+      {me?.team && (
+        <b>{me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}</b>
+      )}
+    </EndHero>
   );
   // Phones: the result and Play again, then the board, awards, log and teams one at a time, so
   // the end fits the screen.
   const phoneEnd = (
     <>
-      <Panel className="space-y-1 text-center max-lg:p-3">
-        {winner}
-        <p className="text-small">
-          {winHow(view)}.{' '}
-          {me?.team && (me.team === view.winner ? 'Your team won!' : 'Your team lost this time.')}
-        </p>
-      </Panel>
+      {hero}
       <EndTabs
         tabs={[
           {
@@ -306,7 +298,6 @@ function InGame({
           },
         ]}
       />
-      {endButtons}
     </>
   );
 
@@ -397,7 +388,7 @@ function InGame({
         )}
 
         {/* Above the board, so the result and Play again need no scroll past the key. */}
-        {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
+        {view.phase === 'over' && (wide ? hero : phoneEnd)}
         {(wide || view.phase !== 'over') && (
           <Board
             view={view}
