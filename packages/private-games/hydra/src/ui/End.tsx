@@ -1,11 +1,11 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndTabs, NameDot, StickyBar, Superlatives, cn } from '@vt/ui';
+import { Button, EndHero, EndTabs, NameDot, StickyBar, Superlatives, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { claimLied, presidentLies } from '../logic/claims.ts';
 import type { HydraAction, HydraView, Truth } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { FlipCard, Pips, RoleBack, RoleFace, TEAM_SOFT, TEAM_TEXT } from './Cards.tsx';
+import { FlipCard, Pips, RoleBack, RoleFace, TEAM_TEXT } from './Cards.tsx';
 import { ClaimLine } from './Claims.tsx';
 import { prefersReducedMotion } from './fx.ts';
 import { CreditBlock } from './Me.tsx';
@@ -178,15 +178,18 @@ export function End({
   const won = view.role ? view.role.team === end.winner : null;
   return (
     <div className="space-y-4 max-lg:space-y-3" role="region" aria-label="Game over">
-      <div
-        className={cn('hy-pop rounded-2xl px-4 py-4 text-center ring-1', TEAM_SOFT[end.winner])}
-        data-testid="winner"
+      <EndHero
+        tone="neutral"
+        emblem={end.winner === 'blue' ? '🕊️' : '☠️'}
+        titleTestId="winner"
+        title={
+          <span className={cn(TEAM_TEXT[end.winner], DISPLAY)}>
+            {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
+          </span>
+        }
+        superlatives={timeline ? undefined : room.superlatives}
       >
-        <p className={cn('text-3xl font-black', TEAM_TEXT[end.winner], DISPLAY)}>
-          {end.winner === 'blue' ? '🕊️' : '☠️'}{' '}
-          {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
-        </p>
-        <p className="mt-1 text-sm">
+        <p>
           {c.copy(`end.reason.${end.reason}`)}{' '}
           {leader && (
             <Rich
@@ -200,9 +203,9 @@ export function End({
           )}
         </p>
         {won !== null && (
-          <p className="mt-1 text-sm font-semibold">{c.copy(won ? 'end.won' : 'end.lost')}</p>
+          <p className="mt-1 font-semibold text-ink">{c.copy(won ? 'end.won' : 'end.lost')}</p>
         )}
-      </div>
+      </EndHero>
       {timeline ? (
         // Phones: the roles, the awards, the truth and the timeline one at a time, with Play
         // again always below, so the end fits the screen.
@@ -220,10 +223,7 @@ export function End({
           ]}
         />
       ) : (
-        <>
-          <RoleReveal view={view} c={c} />
-          <Superlatives lines={room.superlatives} />
-        </>
+        <RoleReveal view={view} c={c} />
       )}
       {room.isHost ? (
         <StickyBar className="flex flex-wrap justify-center gap-2">

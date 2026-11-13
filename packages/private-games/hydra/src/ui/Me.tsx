@@ -227,7 +227,7 @@ export function MeTab({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
-            className="text-sm font-semibold text-accent-text underline"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline"
             onClick={showGuide}
           >
             Rules →
@@ -237,7 +237,7 @@ export function MeTab({
             role="switch"
             aria-checked={moments}
             onClick={() => setMoments(!moments)}
-            className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
+            className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
           >
             Big moments: {moments ? 'on' : 'off'}
           </button>
@@ -247,7 +247,7 @@ export function MeTab({
               role="switch"
               aria-checked={!plain}
               onClick={() => setPlain(!plain)}
-              className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
+              className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
             >
               Themed lettering: {plain ? 'off' : 'on'}
             </button>
@@ -271,7 +271,9 @@ export function CreditBlock({ c }: { c: Content }) {
       <p>{cr.text}</p>
       {cr.changes.length > 0 && (
         <details className="mt-1">
-          <summary className="cursor-pointer font-semibold">What we changed</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
+            What we changed
+          </summary>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {cr.changes.map((x) => (
               <li key={x}>{x}</li>

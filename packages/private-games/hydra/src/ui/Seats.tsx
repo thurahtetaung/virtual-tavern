@@ -110,9 +110,9 @@ export function Seats({
               className={cn(
                 // A card that looks like something to tap: its own surface, an edge and a shadow.
                 'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow transition active:scale-[0.98]',
-                compact ? 'min-h-[2.9rem] pr-7 pl-2' : 'min-h-[3.4rem] pr-9 pl-2.5',
+                compact ? 'min-h-[2.9rem] pr-9 pl-2' : 'min-h-[3.4rem] pr-11 pl-2.5',
                 p.dead
-                  ? 'bg-sunk opacity-60 grayscale ring-1 ring-line-strong'
+                  ? 'bg-sunk text-ink-muted grayscale ring-1 ring-line-strong'
                   : selected
                     ? 'bg-accent-soft ring-2 ring-accent'
                     : pick && !why
@@ -133,7 +133,7 @@ export function Seats({
                     ✝
                   </span>
                 )}
-                <span className={cn('truncate', offline && 'opacity-60')}>{p.name}</span>
+                <span className={cn('truncate', offline && 'text-ink-muted')}>{p.name}</span>
                 {/* The room colour, so every card reads as a person's seat. */}
                 <NameDot name={p.name} className="order-first" />
                 {me && (
@@ -200,8 +200,9 @@ export function Seats({
                 aria-label={`Your private mark on ${p.name}: ${mark === 'trust' ? 'trusted' : mark === 'doubt' ? 'suspected' : 'none'}`}
                 title="Your private note: ⭐ trust, ✕ suspect (only you see it)"
                 className={cn(
+                  // The whole corner is the button: 40 px on a compact seat, 44 px otherwise.
                   'absolute top-0 right-0 flex items-center justify-center',
-                  compact ? 'size-8' : 'size-10',
+                  compact ? 'size-10' : 'size-11',
                 )}
               >
                 <span

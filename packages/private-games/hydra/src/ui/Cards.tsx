@@ -372,7 +372,7 @@ export function Pips({
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1 align-middle">
       {pips}
-      <span className="text-[0.75em] font-semibold text-ink-muted">
+      <span className="text-[max(12px,0.75em)] font-semibold text-ink-muted">
         {cardsText(c, cards, text === 'order')}
       </span>
     </span>
