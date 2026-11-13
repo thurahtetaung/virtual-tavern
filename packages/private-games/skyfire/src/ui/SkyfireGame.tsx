@@ -169,7 +169,7 @@ function Tips() {
     >
       <button
         type="button"
-        className="min-w-0 flex-1 truncate text-left font-semibold underline-offset-2 hover:underline"
+        className="min-h-11 min-w-0 flex-1 truncate text-left font-semibold underline-offset-2 hover:underline"
         onClick={() => setOpen(true)}
       >
         💡 New here? Three things to know

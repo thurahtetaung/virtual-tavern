@@ -246,7 +246,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'clues' })}
-        className="flex items-center gap-0.5"
+        className={cn(TAP_BAND, 'flex items-center gap-0.5')}
         aria-label={`${g.clues} of ${CLUE_TOKENS} clue tokens`}
         data-testid="sf-clues"
         data-clues={g.clues}
@@ -272,7 +272,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'fuses' })}
-        className="flex items-center gap-0.5"
+        className={cn(TAP_BAND, 'flex items-center gap-0.5')}
         aria-label={`${g.fuses} of ${FUSES} fuses burned`}
         data-testid="sf-fuses"
         data-fuses={g.fuses}
@@ -292,7 +292,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'deck' })}
-        className="tabular-nums"
+        className={cn(TAP_BAND, 'tabular-nums')}
         aria-label={`${g.deck} cards in the deck`}
         data-testid="sf-deck"
       >
@@ -366,7 +366,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-8 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
+                  className="relative flex aspect-[5/7] w-11 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
@@ -476,7 +476,9 @@ function Teammates({
             <span
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.2rem, 9.5vw, 5rem)))`,
+                // Each card takes its share of the row (a 44 px+ target on phones), capped by the
+                // screen's height so five hands still fit.
+                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, 7dvh)))`,
               }}
             >
               {hand.map((s) => {

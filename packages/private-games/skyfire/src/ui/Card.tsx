@@ -12,11 +12,12 @@ import type { Art } from './assets.ts';
 export const SUIT_STYLE: Record<Suit, { bg: string; fg: string }> = {
   red: { bg: '#cf3b36', fg: '#ffffff' },
   yellow: { bg: '#efc23a', fg: '#2b2105' },
-  green: { bg: '#3c9248', fg: '#ffffff' },
+  // One step darker than the printed green, so the white number and symbol clear 4.5:1.
+  green: { bg: '#2f7d3b', fg: '#ffffff' },
   blue: { bg: '#2d6cc9', fg: '#ffffff' },
   white: { bg: '#f3efe6', fg: '#2a2620' },
   multi: {
-    bg: 'linear-gradient(135deg, #cf3b36 0%, #efc23a 30%, #3c9248 55%, #2d6cc9 80%, #f3efe6 100%)',
+    bg: 'linear-gradient(135deg, #cf3b36 0%, #efc23a 30%, #2f7d3b 55%, #2d6cc9 80%, #f3efe6 100%)',
     fg: '#ffffff',
   },
   black: { bg: '#23211e', fg: '#f3efe6' },
@@ -27,7 +28,7 @@ export type CardSize = 'hand' | 'row' | 'stack' | 'mini';
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
   row: 'aspect-[5/7] w-full',
-  stack: 'aspect-[5/7] w-8 sm:w-14',
+  stack: 'aspect-[5/7] w-11 sm:w-14',
   mini: 'aspect-[5/7] w-6',
 };
 
@@ -93,7 +94,7 @@ export const CardFace = memo(function CardFace({
             style={{ background: s.bg, color: s.fg, ...textShadow(card.suit) }}
           >
             {card.rank}
-            <span className="ml-0.5 text-[.7em]">{SUIT_SYMBOL[card.suit]}</span>
+            <span className="ml-0.5 text-[max(.75em,12px)]">{SUIT_SYMBOL[card.suit]}</span>
           </span>
         )}
       </span>
