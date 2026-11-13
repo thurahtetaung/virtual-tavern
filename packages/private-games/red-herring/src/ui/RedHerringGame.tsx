@@ -2,6 +2,7 @@ import { type GameUiProps, type PlayerId, waitingFor, waitingForHost } from '@vt
 import {
   Button,
   Countdown,
+  EndHero,
   EndTabs,
   Hint,
   Panel,
@@ -378,6 +379,30 @@ export function ScoreList({ view, you, art }: { view: RedHerringView; you: strin
 function End({ view, room, act, name }: PartProps) {
   const g = view.game!;
   const fun = view.settings.scoring === 'fun';
+  const wide = useWideScreen();
+  const best = Math.max(...g.players.map((p) => p.score));
+  const champs = g.players.filter((p) => p.score === best);
+  const caught = g.history.filter((h) => h.caught).length;
+  const buttons = room.isHost ? (
+    <div className="flex flex-wrap justify-center gap-2">
+      <Button
+        size="lg"
+        className="max-sm:flex-1"
+        onClick={() => void act({ type: 'play-again' }, { anchor: 'rh-end' })}
+      >
+        Play again
+      </Button>
+      <Button
+        variant="secondary"
+        size="lg"
+        onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'rh-end' })}
+      >
+        Change setup
+      </Button>
+    </div>
+  ) : (
+    <p className="text-small text-ink-muted">{waitingForHost(room, 'start the next game')}</p>
+  );
   const rounds = (
     <section
       aria-label="Every round"
@@ -401,53 +426,55 @@ function End({ view, room, act, name }: PartProps) {
     </section>
   );
   return (
-    <Panel className="flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          !fun && {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  score: p.score,
-                  note: `scored in ${p.tokens} ${p.tokens === 1 ? 'round' : 'rounds'}`,
-                }))}
-                you={room.you}
-              />
-            ),
-          },
-          { id: 'rounds', label: '🐟 Rounds', content: rounds },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'rh-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'rh-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="rh-end" />
-    </Panel>
+    <div className="flex flex-col gap-3">
+      <EndHero
+        emblem="🐟"
+        eyebrow={fun ? null : undefined}
+        title={
+          fun
+            ? 'Game over'
+            : `${champs.map((p) => (p.id === room.you ? 'You' : p.name)).join(' and ')} ${champs.length > 1 || champs[0]?.id === room.you ? 'win' : 'wins'}!`
+        }
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {buttons}
+            <RefusalSlot anchor="rh-end" />
+          </>
+        }
+      >
+        {caught} of {g.history.length} Conspirators caught
+        {!fun && ` · ${best} ${best === 1 ? 'point' : 'points'} on top`}.
+      </EndHero>
+      <Panel className="flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          columns
+          tabs={[
+            !fun && {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={g.players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: p.score,
+                    note: `scored in ${p.tokens} ${p.tokens === 1 ? 'round' : 'rounds'}`,
+                  }))}
+                  you={room.you}
+                />
+              ),
+            },
+            { id: 'rounds', label: '🐟 Rounds', content: rounds },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }

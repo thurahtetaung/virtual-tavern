@@ -401,9 +401,11 @@ export function HandStrip({
       </p>
       <ul
         className={cn(
-          'grid grid-cols-6 gap-1',
+          // Phones: your pick gets two rows of large cards (the table above scrolls in what is left).
+          'grid gap-1 sm:grid-cols-6',
+          canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
           r.stage === 'card' || r.stage === 'play'
-            ? 'lg:max-w-[clamp(36rem,90vh,52rem)]'
+            ? 'lg:max-w-[clamp(36rem,100vh,58rem)]'
             : 'lg:max-w-xl',
         )}
       >
