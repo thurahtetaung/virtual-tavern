@@ -1655,7 +1655,15 @@ function Podium({
               .map((e) => (
                 <figure
                   key={e.id}
-                  className={cn('space-y-1', END_ART[champions.length > 1 ? 2 : 1])}
+                  className={cn(
+                    'space-y-1',
+                    END_ART[champions.length > 1 ? 2 : 1],
+                    // Under the long title and its caption, a little shorter than the shared size,
+                    // so the card stays whole in a 900 px window.
+                    champions.length > 1
+                      ? 'lg:w-[min(46%,15rem,calc(34vh*0.72))]'
+                      : 'lg:w-[min(100%,18rem,calc(34vh*0.72))]',
+                  )}
                 >
                   <Card
                     role={lastCards[e.id]!}

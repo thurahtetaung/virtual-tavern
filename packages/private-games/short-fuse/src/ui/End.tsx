@@ -186,7 +186,7 @@ export function End({
                         art={g.art}
                         c={c}
                         size="md"
-                        className="lg:w-[min(31%,9rem)]"
+                        className="lg:w-[min(31%,9rem,11vh)]"
                       />
                     ))
                 : undefined
