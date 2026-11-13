@@ -42,7 +42,7 @@ export function CardChip({ role, className }: { role: Role; className?: string }
       }}
       className={cn(
         // The visible chip stays inline-sized; the shared tap band makes it a 44 px target.
-        'inline-flex items-baseline gap-0.5 rounded px-0.5 font-semibold whitespace-nowrap text-danger-ink underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+        'inline-flex items-baseline gap-0.5 rounded px-0.5 py-0.5 font-semibold whitespace-nowrap text-danger-ink underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
         TAP_BAND,
         className,
       )}

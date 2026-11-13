@@ -1482,7 +1482,7 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   return (
     <ul aria-label="Final hands" className="flex flex-wrap justify-center gap-3">
       {Object.entries(result.hands).map(([id, role]) => (
-        <li key={id} className="w-20 space-y-1 text-xs sm:w-24 lg:w-28">
+        <li key={id} className="w-20 space-y-1 text-xs sm:w-24 lg:w-36 xl:w-40">
           <Card
             role={role}
             rank={rankIn(edition, role)}
@@ -1604,11 +1604,26 @@ function Podium({
   const name = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
   const lastCards = view.round?.result?.hands ?? {};
   const edition = view.settings.edition;
+  // Phones: the winner's last card, small, in place of the emblem (wide screens show it large).
+  const firstLast = champions.find((e) => lastCards[e.id]);
   return (
     <EndLayout
       hero={
         <EndHero
-          emblem="💌"
+          emblem={
+            !wide && firstLast ? (
+              <span className="mx-auto block w-20">
+                <Card
+                  role={lastCards[firstLast.id]!}
+                  rank={rankIn(edition, lastCards[firstLast.id]!)}
+                  deck={deck}
+                  size="sm"
+                />
+              </span>
+            ) : (
+              '💌'
+            )
+          }
           title={
             champions.length
               ? `${listNames(champions.map((e) => name(e.id)))} ${champions.length > 1 || champions[0]!.id === view.me?.id ? 'win' : 'wins'} the game!`
@@ -1621,7 +1636,7 @@ function Podium({
             champions
               .filter((e) => lastCards[e.id])
               .map((e) => (
-                <figure key={e.id} className="w-32 space-y-1 lg:w-40">
+                <figure key={e.id} className="w-32 space-y-1 lg:w-52 xl:w-60">
                   <Card
                     role={lastCards[e.id]!}
                     rank={rankIn(edition, lastCards[e.id]!)}
