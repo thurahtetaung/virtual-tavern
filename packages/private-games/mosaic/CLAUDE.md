@@ -14,7 +14,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `MOSAIC_TEST_BAG` (e.g. `top:<letters>;wall0:<letters>;sf:sf4,-,sf5`) stacks the bag, fills the first seat's wall rows and fixes special factory faces, with the first seat starting.
   - **Phones:** Play, Boards and Scores sit on the shared `TabBar` below 1024 px; the wall choice and the wall-tiling's Next round sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
-- **UI:** Wall choices use 44 px cells beside compact pattern-line context. Keep fixed wall and tiling actions outside transformed animation ancestors.
+- **UI:** Desktop first-time tips share the existing scrollable rail; phone tips retain their fold. Art is bounded by viewport height so the main controls fit. Wall choices use 44 px cells beside compact pattern-line context. Keep fixed wall and tiling actions outside transformed animation ancestors.
 
 ## Assets
 
