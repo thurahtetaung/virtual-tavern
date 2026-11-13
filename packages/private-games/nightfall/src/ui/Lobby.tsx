@@ -169,7 +169,7 @@ function Segmented<T extends string | number>({
             disabled={disabled}
             onClick={() => onChange(o.id)}
             className={cn(
-              'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
+              'min-h-11 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
               o.id === value ? 'bg-accent text-accent-fg ring-accent' : 'bg-card hover:bg-panel',
               disabled && o.id !== value && 'opacity-50',
             )}
@@ -217,7 +217,7 @@ function RoleTile({
       <span className="w-full truncate text-center text-xs font-semibold">{deck.name(role)}</span>
       <span
         className={cn(
-          'rounded-full px-1.5 text-[0.7rem] font-semibold',
+          'rounded-full px-1.5 text-xs font-semibold',
           TEAM_PILL[ROLES[role].team],
         )}
       >
@@ -310,7 +310,7 @@ function AlienOptions({
           const total = entries.reduce((n, [, v]) => n + v, 0);
           return (
             <details key={t} className="group space-y-1" data-testid={`weights-${t}`}>
-              <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+              <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
                 <span aria-hidden className="transition group-open:rotate-90">
                   ▸
                 </span>
@@ -523,7 +523,7 @@ export function Lobby({
         )}
         {editable && (
           <details className="group space-y-1" open={!customised}>
-            <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
               <span aria-hidden className="transition group-open:rotate-90">
                 ▸
               </span>
@@ -565,7 +565,7 @@ export function Lobby({
                 aria-label={deck.setName(set)}
                 className="group space-y-1"
               >
-                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold text-ink-muted">
+                <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold text-ink-muted">
                   <span aria-hidden className="transition group-open:rotate-90">
                     ▸
                   </span>
@@ -593,7 +593,7 @@ export function Lobby({
             <>
               {groups[0]}
               <details open={advancedIn > 0} className="group/more space-y-1">
-                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+                <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
                   <span aria-hidden className="transition group-open/more:rotate-90">
                     ▸
                   </span>
