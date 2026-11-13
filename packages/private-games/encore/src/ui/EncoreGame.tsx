@@ -27,6 +27,7 @@ import {
   usePhone,
   useSpectatorPrompt,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
@@ -399,10 +400,10 @@ function End({
             id: 'hands',
             label: '🃏 Hands',
             content: (
-              <details className="text-sm">
-                <summary className="cursor-pointer font-semibold">
+              <details className="group text-sm">
+                <FoldSummary className="-my-1 px-0 font-semibold">
                   What everyone held at the end
-                </summary>
+                </FoldSummary>
                 <ul className="mt-2 flex flex-col gap-2">
                   {g.players.map((p) => (
                     <li key={p.id} className="flex flex-col gap-1">

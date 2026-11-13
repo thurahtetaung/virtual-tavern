@@ -12,6 +12,7 @@ import {
   cn,
   tabPanelProps,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
@@ -986,8 +987,11 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
   });
 
   const log = (open: boolean) => (
-    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
-      <summary className="cursor-pointer font-semibold">Table talk</summary>
+    <details
+      className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+      open={open}
+    >
+      <FoldSummary className="-my-1 px-0 font-semibold">Table talk</FoldSummary>
       <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>

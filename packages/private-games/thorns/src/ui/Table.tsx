@@ -11,6 +11,7 @@ import {
   cn,
   tabPanelProps,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
 import { useMemo, useState } from 'react';
 import { discName } from '../logic/names.ts';
@@ -565,11 +566,11 @@ export function Table(props: TableProps) {
       )}
       {lines.length > 0 && (!shown || shown === 'log') && (
         <details
-          className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+          className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
           open
           {...(shown === 'log' && tabPanelProps(PLAY_TABS_ID, 'log'))}
         >
-          <summary className="cursor-pointer font-semibold">Table talk</summary>
+          <FoldSummary className="-my-1 px-0 font-semibold">Table talk</FoldSummary>
           <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
             {lines.map((l) => (
               <li key={l.id}>{l.text}</li>

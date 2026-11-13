@@ -10,6 +10,7 @@ import {
   TabBar,
   cn,
   tabPanelProps,
+  FoldSummary,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { closeTo, countOf } from '../logic/rules.ts';
@@ -529,8 +530,11 @@ function Log({ view, name, open }: { view: MosaicView; name: NameOf; open: boole
     .slice(-14)
     .reverse();
   return (
-    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
-      <summary className="cursor-pointer font-semibold">What happened</summary>
+    <details
+      className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+      open={open}
+    >
+      <FoldSummary className="-my-1 px-0 font-semibold">What happened</FoldSummary>
       <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>

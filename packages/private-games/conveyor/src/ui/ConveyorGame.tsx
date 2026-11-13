@@ -26,6 +26,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -585,8 +586,8 @@ function End({
             id: 'desserts',
             label: '🍮 Desserts',
             content: (
-              <details className="text-sm" open>
-                <summary className="cursor-pointer font-semibold">Desserts at the end</summary>
+              <details className="group text-sm" open>
+                <FoldSummary className="-my-1 px-0 font-semibold">Desserts at the end</FoldSummary>
                 <div className="mt-2">
                   <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
                 </div>
@@ -597,8 +598,8 @@ function End({
             id: 'rounds',
             label: '📋 Rounds',
             content: (
-              <details className="text-sm">
-                <summary className="cursor-pointer font-semibold">Round by round</summary>
+              <details className="group text-sm">
+                <FoldSummary className="-my-1 px-0 font-semibold">Round by round</FoldSummary>
                 <table className="mt-2 w-full text-left tabular-nums">
                   <thead>
                     <tr>

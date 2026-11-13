@@ -15,6 +15,7 @@ import {
   useWideScreen,
   type ViewerItem,
   cn,
+  FoldSummary,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { TYPES, type TypeId, fullMenu, typeOf, variantOf } from '../logic/cards.ts';
@@ -750,8 +751,8 @@ function Log({ view, name, art }: { view: ConveyorView; name: NameOf; art: Art }
       return l ? [{ id: e.id, l }] : [];
     });
   return (
-    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={false}>
-      <summary className="cursor-pointer text-sm font-semibold">What happened</summary>
+    <details className="group rounded-2xl bg-panel p-3 ring-1 ring-line" open={false}>
+      <FoldSummary className="-my-1 px-0 font-semibold">What happened</FoldSummary>
       <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto text-sm">
         {lines.map((x) => (
           <li key={x.id}>{x.l}</li>

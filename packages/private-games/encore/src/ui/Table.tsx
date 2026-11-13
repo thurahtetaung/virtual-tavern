@@ -13,6 +13,7 @@ import {
   cn,
   tabPanelProps,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -94,10 +95,10 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
   const [tab, setTab] = useState<PlayTab>('table');
   const shown: PlayTab | null = wide || view.phase !== 'playing' ? null : tab;
   const scores = g.results.length > 0 && view.phase === 'playing' && (
-    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={shown === 'scores'}>
-      <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+    <details className="group rounded-2xl bg-panel p-3 ring-1 ring-line" open={shown === 'scores'}>
+      <FoldSummary className="-my-1 px-0 font-semibold">
         Scores after {plural(g.results.length, 'round')}
-      </summary>
+      </FoldSummary>
       <ScoreTable g={g} name={name} you={room.you} className="mt-2" />
     </details>
   );
