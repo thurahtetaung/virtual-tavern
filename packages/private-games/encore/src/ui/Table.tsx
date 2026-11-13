@@ -541,7 +541,7 @@ function Play({
                     data-table-end={end}
                   >
                     {face}
-                    <span className="text-[11px] text-info-ink">{say('recruit')}</span>
+                    <span className="text-xs text-info-ink">{say('recruit')}</span>
                   </button>
                 ) : (
                   <span key={c.id} className="flex flex-col items-center gap-0.5">
