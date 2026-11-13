@@ -246,7 +246,8 @@ export function HoodwinkGame({
                   (view.round.stage === 'write' || view.round.stage === 'vote') &&
                     'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
                   view.round.stage === 'write' &&
-                    'max-sm:flex max-sm:min-h-[calc(100dvh-27rem)] max-sm:flex-col max-sm:justify-center',
+                    // The bars' own heights come off, so offered lies in the bar shrink the space.
+                    'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-13.5rem)] max-sm:flex-col max-sm:justify-center',
                 )}
               >
                 <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
