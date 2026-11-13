@@ -2,6 +2,7 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndHero,
   EndTabs,
   FitArea,
   Hint,
@@ -241,20 +242,27 @@ export function EnigmaGame({
   const reason = endReason(view);
   const lastReveal = view.transmissions.filter((t) => t.revealed);
   const endWarnings = endOfRoundWarnings(view);
-  const winnerLine = (
-    <p
-      className={cn(
-        'font-display text-title font-bold',
-        view.winner !== 'draw' && view.winner && TEAM_TEXT[view.winner],
-      )}
-    >
-      {view.winner === 'draw'
-        ? view.showdown
-          ? '🤝 A shared win!'
-          : '🤝 A draw!'
-        : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
-    </p>
-  );
+  const winnerTitle =
+    view.winner === 'draw' ? (
+      view.showdown ? (
+        'A shared win!'
+      ) : (
+        'A draw!'
+      )
+    ) : view.winner ? (
+      <span className={TEAM_TEXT[view.winner]}>{TEAM_LABEL[view.winner]} team wins!</span>
+    ) : (
+      'Game over'
+    );
+  // Ember when the viewer's team won, danger when it lost, quiet for a draw or a watcher.
+  const endTone =
+    !myTeam || !view.winner || view.winner === 'draw'
+      ? 'neutral'
+      : myTeam === view.winner
+        ? 'win'
+        : 'loss';
+  const endEmblem =
+    view.winner === 'draw' ? '🤝' : view.winner === 'red' ? '🔴' : view.winner ? '🔵' : null;
   const tokenLines = (
     <ul className="space-y-0.5 text-small">
       {(['red', 'blue'] as const).map((team) => (
@@ -282,26 +290,31 @@ export function EnigmaGame({
       {waitingForHost(room, 'start the next game')}
     </p>
   );
-  const overPanel = (
-    <Panel className="space-y-3 text-center">
-      {winnerLine}
+  const hero = (showdown: boolean) => (
+    <EndHero
+      title={winnerTitle}
+      emblem={endEmblem}
+      tone={endTone}
+      superlatives={wide ? room.superlatives : undefined}
+      actions={endButtons}
+    >
       {/* Why, said once here: the hint above is hidden once the game is over. */}
-      {reason && <p className="text-small text-ink-2">{reason}</p>}
-      <ShowdownPanel view={view} act={act} />
-      {tokenLines}
-      <p className="text-small text-ink-muted">Everyone's keywords are revealed under Clues.</p>
-      <Superlatives lines={room.superlatives} />
-      {endButtons}
-    </Panel>
+      {reason && <p>{reason}</p>}
+      {showdown && (
+        <div className="mt-3 space-y-3">
+          <ShowdownPanel view={view} act={act} />
+          {tokenLines}
+          <p className="text-small text-ink-muted">Everyone's keywords are revealed under Clues.</p>
+        </div>
+      )}
+    </EndHero>
   );
+  const overPanel = hero(true);
   // Phones: who won and Play again, then the tokens, the awards and each team's last code one at
   // a time, so the end fits the screen.
   const phoneEnd = (
     <>
-      <Panel className="space-y-1 text-center max-lg:p-3">
-        {winnerLine}
-        {reason && <p className="text-small text-ink-2">{reason}</p>}
-      </Panel>
+      {hero(false)}
       <EndTabs
         tabs={[
           {
@@ -329,7 +342,6 @@ export function EnigmaGame({
           })),
         ]}
       />
-      {endButtons}
     </>
   );
 
