@@ -89,7 +89,7 @@ function WritingCards({ view, turn }: { view: EchoView; turn: TurnView }) {
               'flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-3 text-center lg:min-h-40',
               writing
                 ? 'border-2 border-dashed border-line bg-sunk text-ink-2'
-                : 'bg-accent-soft text-ink shadow-vt-1 ring-1 ring-accent-line',
+                : 'bg-accent-soft text-ink shadow-vt-1-edge ring-1 ring-accent-line',
             )}
           >
             <span className="font-display text-sub font-bold lg:text-heading">
@@ -134,8 +134,8 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
             // Waiting on the guesser, the cards turn to the soft accent (never faded, so the
             // numbers stay readable in a bright room).
             mine
-              ? 'bg-accent text-accent-fg ring-accent-line shadow-vt-1 hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
-              : 'cursor-default bg-accent-soft text-accent-text ring-accent-line',
+              ? 'bg-accent text-accent-fg ring-accent-line shadow-vt-2 hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
+              : 'cursor-default bg-accent-soft text-accent-text shadow-vt-1-edge ring-accent-line',
           )}
         >
           {i + 1}
@@ -228,8 +228,8 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
         <li
           key={`${c.by}-${i}`}
           className={cn(
-            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:flex lg:min-h-32 lg:flex-col lg:justify-center lg:gap-1 lg:px-5 lg:py-4 lg:text-center',
-            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft shadow-vt-1 ring-accent-line',
+            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:flex lg:min-h-36 lg:flex-col lg:justify-center lg:gap-1.5 lg:px-5 lg:py-5 lg:text-center',
+            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft shadow-vt-1-edge ring-accent-line',
           )}
         >
           <span
@@ -262,7 +262,7 @@ function GuesserClues({ turn }: { turn: TurnView }) {
           {/* The shared rows, named so the list reads as the guesser's clues. */}
           <ul
             aria-label="Your clues"
-            className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 ring-1 ring-accent-line"
+            className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 shadow-vt-1-edge ring-1 ring-accent-line"
           >
             {turn.clues.map((c, i) => (
               // In the display face, larger on wide screens: the clues are the guesser's stage.

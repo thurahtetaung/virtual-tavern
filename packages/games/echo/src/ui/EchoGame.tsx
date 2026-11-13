@@ -144,7 +144,8 @@ export function EchoGame({
             // Phones: the pick row and the wait for the guess sit in the middle of the free height too.
             <Panel
               className={cn(
-                'lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10',
+                // The table under the lamp: a warm pool of light at the panel's top centre.
+                'bg-[radial-gradient(70%_55%_at_50%_0%,var(--vt-lamp),transparent_75%)] lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10',
                 (view.turn.stage === 'pick' ||
                   (view.turn.stage === 'guess' && view.role !== 'guesser')) &&
                   'max-lg:flex max-lg:min-h-[clamp(11rem,calc(100dvh-27rem),24rem)] max-lg:flex-col max-lg:justify-center',
