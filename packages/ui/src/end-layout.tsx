@@ -1,7 +1,7 @@
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
 import { cn } from './cn.ts';
 import { EndBanner, EndColumns, useWideScreen } from './end-tabs.tsx';
-import { Icon } from './icon.tsx';
+import { MoreBelow, markMore } from './more-below.tsx';
 
 /** The least a column keeps when the window is short: past it the page scrolls instead. */
 const MIN_COLUMN_PX = 320;
@@ -12,45 +12,22 @@ function cap(el: HTMLElement, max: number | null) {
   el.style.overscrollBehavior = max === null ? '' : 'contain';
 }
 
-/** Marks a capped column that still has more below its fold, which shows its `MoreBelow` cue. */
-function markMore(el: HTMLElement) {
-  const more = !!el.style.maxHeight && el.scrollTop + el.clientHeight < el.scrollHeight - 8;
-  if (more) el.dataset.more = '';
-  else delete el.dataset.more;
-}
-
-/** The foot of a column that scrolls inside: a fade and a "More below" chip that scrolls it on. */
-function MoreBelow({ column }: { column: RefObject<HTMLElement | null> }) {
-  return (
-    <div
-      data-ui="end-layout-more"
-      className="pointer-events-none invisible absolute inset-x-px bottom-0 flex h-16 items-end justify-center bg-linear-to-t from-page to-transparent pb-2 opacity-0 transition-opacity peer-data-more:visible peer-data-more:opacity-100"
-    >
-      <button
-        type="button"
-        onClick={() => {
-          const el = column.current;
-          el?.scrollBy({ top: el.clientHeight * 0.75, behavior: 'smooth' });
-        }}
-        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-card px-3.5 py-1.5 text-sm font-semibold text-ink shadow-vt-2 hover:bg-sunk focus-visible:outline-2 focus-visible:outline-focus"
-      >
-        More below
-        <Icon name="arrow-down" size={16} />
-      </button>
-    </div>
-  );
-}
-
 /**
- * Keeps side-by-side columns within the window: when the page is taller than the window, every
- * column taller than the height that fits gets that height and scrolls inside, so the whole end
- * (the finale, the standings, the game's reveal and Play again) is on one screen. Each column's own
- * scroll is kept across re-fits.
+ * Keeps the end within the window: when the page is taller than the window, the rest's column (the
+ * standings, the game's reveal) gets the height that fits and scrolls inside, so the whole end is
+ * on one screen. The finale (`keep`) is never capped: its title and art always show whole; where it
+ * stands above the rest (a banner), the rest takes what the window leaves under it. Each column's
+ * own scroll is kept across re-fits.
  */
-function useFitColumns(cols: readonly RefObject<HTMLElement | null>[], on: boolean) {
+function useFitColumns(
+  cols: readonly RefObject<HTMLElement | null>[],
+  keep: RefObject<HTMLElement | null>,
+  on: boolean,
+) {
   useLayoutEffect(() => {
     const els = cols.map((c) => c.current).filter((el): el is HTMLElement => !!el);
     if (!on || !els.length) return;
+    const kept = keep.current;
     const fit = () => {
       const tops = els.map((el) => (el.style.maxHeight ? el.scrollTop : 0));
       for (const el of els) cap(el, null);
@@ -59,9 +36,18 @@ function useFitColumns(cols: readonly RefObject<HTMLElement | null>[], on: boole
       const over = page.scrollHeight - page.clientHeight;
       if (over <= 0) return;
       const heights = els.map((el) => el.getBoundingClientRect().height);
-      const room = Math.max(MIN_COLUMN_PX, Math.floor(Math.max(...heights) - over - 1));
+      // Side by side the tallest column sets the page; stacked (a banner over the rest), the rest
+      // alone gives up what overflows.
+      const stacked =
+        !!kept &&
+        els.some(
+          (el) =>
+            el !== kept && el.getBoundingClientRect().top >= kept.getBoundingClientRect().bottom,
+        );
+      const tallest = Math.max(...els.map((el, i) => (stacked && el === kept ? 0 : heights[i]!)));
+      const room = Math.max(MIN_COLUMN_PX, Math.floor(tallest - over - 1));
       els.forEach((el, i) => {
-        if (heights[i]! <= room) return;
+        if (el === kept || heights[i]! <= room) return;
         cap(el, room);
         el.scrollTop = tops[i]!;
         markMore(el);
@@ -130,7 +116,7 @@ export function EndLayout({
   const isWide = useWideScreen();
   const left = useRef<HTMLDivElement>(null);
   const right = useRef<HTMLDivElement>(null);
-  useFitColumns([left, right], isWide);
+  useFitColumns([left, right], left, isWide);
   if (!isWide)
     return (
       <>

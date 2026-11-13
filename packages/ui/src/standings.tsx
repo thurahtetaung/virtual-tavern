@@ -63,7 +63,9 @@ export function Standings({
           aria-label="Podium"
           className={cn(
             'flex items-end justify-center gap-2',
-            (dense || phoneTable) && 'max-lg:hidden',
+            // Phones show only the table whenever it shows (it repeats the podium's places), so
+            // the whole ranking fits the end's tab instead of being cut under a tall podium.
+            (dense || phoneTable || table) && 'max-lg:hidden',
           )}
         >
           {order.map((place) => {
