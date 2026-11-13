@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `TAVERN_BRAWL_TEST_DECK` stacks deck tops and makes the first seat start; `TAVERN_BRAWL_TEST_HP` (`3:3,6:3`, by player count) starts e2e games on fewer hit points.
   - **Phones:** Table, Log, Discards and ✦ Powers on the shared `TabBar`; Play sits in the fixed `StickyBar` with `tb-play`.
 
-- **UI:** Each hand card reserves its top-right 44 px Read target above the card-selection button.
+- **UI:** Each hand card reserves its top-right 44 px Read target above the card-selection button. Before the first card the table's played-card box is one line; in a narrow column (the end's last turn) its story wraps under the card. Hand cards also size by the window's height, on phones too.
 
 ## Assets
 

@@ -322,7 +322,7 @@ const PlayerRow = memo(function PlayerRow({
                 </span>
               )}
             </span>
-            <span className="block truncate text-xs text-ink-muted">
+            <span className="block truncate text-xs text-ink-2">
               {art.hero(p.hero)} · ✋ {p.handCount} in hand · 🂠 {p.deckCount} in deck
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
@@ -389,9 +389,11 @@ const Resolution = memo(function Resolution({
   return (
     <section
       aria-label="Table"
-      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line lg:gap-5 lg:p-4"
+      // Before the first card the table is one quiet line; a narrow column (the end's last turn)
+      // puts the story under the card rather than squeezing it beside it.
+      className="flex flex-wrap items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line lg:gap-5 lg:p-4"
     >
-      {showing ? (
+      {showing && (
         <button
           type="button"
           onClick={() => onZoom(showing)}
@@ -399,15 +401,8 @@ const Resolution = memo(function Resolution({
         >
           <Card card={showing.card} art={art} width={cardWidth} />
         </button>
-      ) : (
-        <div
-          style={{ width: cardWidth }}
-          className="flex aspect-[400/630] shrink-0 items-center justify-center rounded-[7%] border-2 border-dashed border-line text-center text-xs text-ink-muted"
-        >
-          No card yet
-        </div>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-48 flex-1">
         <ol className="flex flex-col gap-0.5 text-sm lg:gap-1 lg:text-body" aria-live="polite">
           {lines.map((l, i) => (
             <li
@@ -418,7 +413,11 @@ const Resolution = memo(function Resolution({
               {l.text}
             </li>
           ))}
-          {lines.length === 0 && <li className="text-ink-muted">The brawl begins!</li>}
+          {lines.length === 0 && (
+            <li className="text-ink-2">
+              <span aria-hidden>🥊</span> The brawl begins! No card played yet.
+            </li>
+          )}
         </ol>
         {played.length > 0 && (
           <div
@@ -571,10 +570,12 @@ function Hand({
   // that the row scrolls sideways.
   const n = view.hand.length;
   const GAP = 6;
-  // Wide screens size the cards by the window's height too (about a sixth of it), so the hand
-  // reads from across the table instead of a strip of thumbnails.
+  // Cards size by the window's height too (about a sixth of it on wide screens, so the hand reads
+  // from across the table; a little less on phones, so a tall phone fills the band above Play).
   const full =
-    room >= 700 ? Math.max(132, Math.min(184, Math.round(window.innerHeight * 0.165))) : 108;
+    room >= 700
+      ? Math.max(132, Math.min(184, Math.round(window.innerHeight * 0.165)))
+      : Math.max(108, Math.min(128, Math.round(window.innerHeight * 0.15)));
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
   const width = Math.max(92, Math.min(full, fit));
   const scrolls = n * width + GAP * (n - 1) > room;
@@ -1271,7 +1272,7 @@ export function Table({
       </div>
       <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex">
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
             <h2 className="font-bold">✦ Mighty powers</h2>
             <span className="flex -space-x-1.5 pl-1" aria-hidden>
               {heroes.map((h) => (
