@@ -75,6 +75,14 @@ const SIZES: Record<ButtonSize, string> = {
   icon: 'size-11 shrink-0 text-lg',
 };
 
+/**
+ * For a small control that has to keep its look (a chip, a 👋 nudge, a mini scoreboard): an
+ * invisible band centred on it makes it a 44 × 44 px target on touch screens, never smaller than
+ * the control itself. Its own box must not clip (`overflow-hidden` hides the band).
+ */
+export const TAP_BAND =
+  "relative pointer-coarse:after:absolute pointer-coarse:after:top-1/2 pointer-coarse:after:left-1/2 pointer-coarse:after:h-[max(100%,2.75rem)] pointer-coarse:after:w-[max(100%,2.75rem)] pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2 pointer-coarse:after:content-['']";
+
 /** The classes of a `Button`, for a link or a label that should look like one. */
 export function buttonClass({
   variant = 'primary',
