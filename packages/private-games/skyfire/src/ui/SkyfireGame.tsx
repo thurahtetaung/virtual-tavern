@@ -90,9 +90,19 @@ export function SkyfireGame({
   const timeUp = left === 0 && view.settings.timerMode !== 'strict';
 
   const inGame = !!view.game?.hands[room.you];
+  const wideScreen = useWideScreen();
   // Phones: the end says how it went, and the table is one of its tabs, so it fits the screen.
   const table = (
-    <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={name}
+      showGuide={showGuide}
+      // Wide screens keep the first-time tips in the rail, beside the play.
+      aside={view.phase === 'playing' && inGame ? <Tips /> : null}
+    />
   );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -126,7 +136,7 @@ export function SkyfireGame({
               </span>
             )}
           </Hint>
-          {view.phase === 'playing' && inGame && <Tips />}
+          {view.phase === 'playing' && inGame && !wideScreen && <Tips />}
           {view.phase === 'over' && (
             <End
               view={view}

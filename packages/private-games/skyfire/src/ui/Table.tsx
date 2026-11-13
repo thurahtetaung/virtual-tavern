@@ -75,6 +75,8 @@ export interface TableProps {
   /** "You" for the viewer. */
   name: NameOf;
   showGuide: (id?: string) => void;
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
 }
 
 type Tab = 'table' | 'discards' | 'log';
@@ -102,7 +104,7 @@ function latestClue(view: SkyfireView) {
   return last?.kind === 'clue' ? last : null;
 }
 
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, aside }: TableProps) {
   const g = view.game!;
   const [tab, setTab] = useState<Tab>('table');
   const playing = view.phase === 'playing';
@@ -167,6 +169,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', shown === 'table' && 'hidden')}>
+        {wide && playing && aside}
         <div
           className={cn(shown === 'log' && 'hidden')}
           {...(shown === 'discards' && tabPanelProps(PLAY_TABS_ID, 'discards'))}
