@@ -10,8 +10,10 @@ import {
   type RoomSnapshot,
   type ServerToClientEvents,
   type StageCode,
+  type LinkCode,
   diff,
   joinRoomPayload,
+  showJoinPayload,
   stageJoinPayload,
   playerColor,
   playerName,
@@ -28,6 +30,10 @@ interface SocketData {
   playerId?: string;
   /** A table screen: in the room as a watcher, never a player. */
   stage?: true;
+  /** With `stage`: a player's own PC showing the table screen (whose), not the room's TV. */
+  showOf?: string;
+  /** A linked phone: the hash of its key. */
+  link?: string;
 }
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -65,6 +71,19 @@ export interface RoomGate {
 export interface StageControls {
   mint(roomId: string, by: string): AckWith<StageCode>;
   remove(roomId: string, by: string): Ack;
+}
+
+/** Linked phones (`links.ts`), as the socket layer uses them. */
+export interface LinkControls {
+  /** The player a phone's key opens in the room (`active` false: their PC isn't there yet). */
+  lookup(roomId: string, key: string): { playerId: string; active: boolean } | null;
+  /** The player's own browser joined: a key waiting in this table opens it (its hash), or null. */
+  activate(roomId: string, playerId: string): string | null;
+  /** A new code for the player (`cookie`: the PC's, for the back room it carries). */
+  mint(roomId: string, playerId: string, cookie: string | undefined): LinkCode;
+  cancel(roomId: string, playerId: string): void;
+  /** Unlinks the player's phone in every table; the key's hash, or null when none was linked. */
+  unlink(roomId: string, playerId: string): string | null;
 }
 
 /**
@@ -120,6 +139,8 @@ export interface RealtimeOptions {
   onRefusal?: (roomId: string, code: string) => void;
   /** Table-screen pairing; without it the host's table-screen events are refused. */
   stage?: StageControls;
+  /** Linked phones; without them link codes are refused and link keys open nothing. */
+  links?: LinkControls;
 }
 
 /** The gate each server was attached with, so manager events can re-check it on broadcast. */
@@ -227,10 +248,40 @@ function leaveRoom(socket: ClientSocket) {
 
 /** Takes the socket out of its room and records the lost presence. */
 function detach(socket: ClientSocket, rooms: RoomManager) {
-  const { roomId, playerId, stage } = socket.data;
+  const prev = socket.data;
   leaveRoom(socket);
-  if (roomId && playerId) rooms.disconnected(roomId, playerId);
-  if (roomId && stage) rooms.stageDisconnected(roomId);
+  released(prev, rooms);
+}
+
+/** Records that a socket that was in a room (as `prev`) is gone from it. */
+function released(prev: SocketData, rooms: RoomManager) {
+  const { roomId, playerId, stage, showOf, link } = prev;
+  if (!roomId) return;
+  if (playerId) rooms.disconnected(roomId, playerId, !!link);
+  if (showOf) rooms.showDisconnected(roomId, showOf);
+  else if (stage) rooms.stageDisconnected(roomId);
+}
+
+/**
+ * A phone's link ended (unlinked from either device, replaced by a new phone, or the player left):
+ * every socket on that key leaves its room and hears so.
+ */
+export function unlinkSockets(io: IO, keyHash: string, rooms: RoomManager): void {
+  for (const s of [...io.sockets.sockets.values()]) {
+    if (s.data.link !== keyHash) continue;
+    const prev = s.data;
+    s.emit('room:unlinked');
+    leaveRoom(s);
+    // A player who left is no member any more: there is no presence to take back.
+    if (prev.roomId && prev.playerId && rooms.isMember(prev.roomId, prev.playerId))
+      released(prev, rooms);
+  }
+}
+
+/** The player's PC joined the night's next table: their linked phone follows it there. */
+function followSockets(io: IO, keyHash: string, roomId: string) {
+  for (const s of io.sockets.sockets.values())
+    if (s.data.link === keyHash && s.data.roomId !== roomId) s.emit('room:follow', roomId);
 }
 
 /**
@@ -247,10 +298,24 @@ export function announceNextTable(
   const gate = gates.get(io);
   for (const id of ids ?? []) {
     const s = io.sockets.sockets.get(id);
-    if (!s || !s.data.playerId || s.data.playerId === next.by) continue;
+    // A linked phone follows its PC instead (`room:follow`), once the PC is in the new table.
+    if (!s || !s.data.playerId || s.data.playerId === next.by || s.data.link) continue;
     if (privateTable && !gate?.hasBackroom(s.request.headers.cookie)) continue;
     s.emit('room:next', next);
   }
+}
+
+/**
+ * Whether a watching socket may still watch: the room's table screen on its pass, or a player's
+ * own PC while they are a member and (in the back room) still have it.
+ */
+function watcherAllowed(io: IO, s: ClientSocket, roomId: string, rooms: RoomManager): boolean {
+  const gate = gates.get(io);
+  const cookie = s.request.headers.cookie;
+  const { showOf } = s.data;
+  if (!showOf) return !!gate?.stageAllowed?.(roomId, cookie);
+  const access = roomAccess(gate, roomId);
+  return (!access || access(cookie)) && rooms.isMember(roomId, showOf);
 }
 
 /** Routes manager events to sockets. Created before the manager so the two can reference each other. */
@@ -275,9 +340,10 @@ export function createRoomEvents(
       const stages: string[] = [];
       for (const id of ids) {
         const s = io.sockets.sockets.get(id);
-        // A table screen's pass is re-checked on every change, like an unlock.
+        // A table screen's pass is re-checked on every change, like an unlock (a player's own
+        // PC showing the table screen: their membership and the back room).
         if (s?.data.stage) {
-          if (gates.get(io)?.stageAllowed?.(roomId, s.request.headers.cookie)) stages.push(id);
+          if (watcherAllowed(io, s, roomId, getRooms())) stages.push(id);
           else lockedOut.push(s);
           continue;
         }
@@ -347,14 +413,18 @@ export function createRoomEvents(
       if (onBroadcast && sizes.length) onBroadcast((performance.now() - started) / 1000, sizes);
       // Their unlock (or admin session) expired or was revoked: this snapshot never reached them,
       // and no later one will.
-      const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId, stage: s.data.stage }));
-      for (const { s, stage } of stale) {
+      const stale = lockedOut.map((s) => ({ s, prev: s.data }));
+      for (const { s, prev } of stale) {
         leaveRoom(s);
-        s.emit('room:locked', stage ? 'none' : lockReason(gates.get(io), s.request.headers.cookie));
+        s.emit(
+          'room:locked',
+          prev.stage && !prev.showOf ? 'none' : lockReason(gates.get(io), s.request.headers.cookie),
+        );
       }
-      for (const { playerId, stage } of stale) {
-        if (playerId) rooms.disconnected(roomId, playerId);
-        if (stage) rooms.stageDisconnected(roomId);
+      for (const { prev } of stale) {
+        // A PC whose player left the room has no showing to take back.
+        if (prev.showOf && !rooms.isMember(roomId, prev.showOf)) continue;
+        released(prev, rooms);
       }
     },
     closed(roomId) {
@@ -454,6 +524,19 @@ const unpaired: Ack = {
   },
 };
 
+const unlinked: Ack = {
+  ok: false,
+  error: {
+    code: 'unlinked',
+    message: 'This phone is no longer linked. Link it again from your PC.',
+  },
+};
+
+const linkWaiting: Ack = {
+  ok: false,
+  error: { code: 'link-waiting', message: 'Open this table on your PC first.' },
+};
+
 const rateLimited: Ack = {
   ok: false,
   error: { code: 'rate-limited', message: 'Too many requests. Slow down a little.' },
@@ -523,8 +606,7 @@ export function attachRealtime(
     const leavePrevious = (prev: SocketData, roomId: string) => {
       if (!prev.roomId) return;
       if (prev.roomId !== roomId) void socket.leave(channel(prev.roomId));
-      if (prev.playerId) rooms.disconnected(prev.roomId, prev.playerId);
-      if (prev.stage) rooms.stageDisconnected(prev.roomId);
+      released(prev, rooms);
     };
 
     /** A table screen: in on its pass alone, never a player (no seat, no moves, no presence). */
@@ -544,9 +626,33 @@ export function attachRealtime(
       return { ok: true };
     };
 
+    /**
+     * A player's own PC showing the table screen: the spectator view, on the player's own token
+     * (never a phone's key), while they are a member and (in the back room) have it.
+     */
+    const joinAsShow = (roomId: string, token: string, patch: boolean): Ack => {
+      if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
+      if (!allowed(roomId)) return locked();
+      const playerId = playerIdFromToken(token);
+      const prev = socket.data;
+      if (prev.showOf === playerId && prev.roomId === roomId) return { ok: true };
+      setPatches(patch);
+      lastSent.delete(socket);
+      socket.data = { roomId, stage: true, showOf: playerId };
+      void socket.join(channel(roomId));
+      leavePrevious(prev, roomId);
+      if (!rooms.showConnected(roomId, playerId)) {
+        leaveRoom(socket);
+        return { ok: false, error: { code: 'not-in-room', message: 'Join the room first.' } };
+      }
+      return { ok: true };
+    };
+
     const joinAs = (payload: unknown): Ack => {
       const stage = stageJoinPayload.safeParse(payload);
       if (stage.success) return joinAsStage(stage.data.roomId, !!stage.data.patch);
+      const show = showJoinPayload.safeParse(payload);
+      if (show.success) return joinAsShow(show.data.roomId, show.data.token, !!show.data.patch);
       const parsed = joinRoomPayload.safeParse(payload);
       if (!parsed.success) {
         return {
@@ -554,11 +660,15 @@ export function attachRealtime(
           error: { code: 'bad-request', message: parsed.error.issues[0]!.message },
         };
       }
-      const { roomId, token, name, patch } = parsed.data;
+      const { roomId, token, name, patch, link } = parsed.data;
       // A playtest looks like a dead link to anyone but an admin.
       if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
       if (!allowed(roomId)) return locked();
-      const playerId = playerIdFromToken(token);
+      // A linked phone's key opens its player's seat, in the tables its PC has joined.
+      const linked = link ? (opts.links?.lookup(roomId, token) ?? null) : null;
+      if (link && !linked) return unlinked;
+      if (linked && !linked.active) return linkWaiting;
+      const playerId = linked ? linked.playerId : playerIdFromToken(token);
       // Enter the channel first so the join's own snapshot reaches this socket; back out if it
       // fails, so a bad join never costs the socket the room it was already in.
       const prev = socket.data;
@@ -573,12 +683,13 @@ export function attachRealtime(
       };
       lastSent.delete(socket);
       setPatches(!!patch);
-      socket.data = { roomId, playerId };
+      socket.data = { roomId, playerId, ...(linked && { link: playerIdFromToken(token) }) };
       void socket.join(channel(roomId));
       let res: Ack;
       try {
         res = rooms.join(roomId, playerId, name, {
           connect: true,
+          ...(linked && { linked: true }),
           ...(test && { test }),
           ...(isAdmin() && { admin: true }),
         });
@@ -591,6 +702,14 @@ export function attachRealtime(
         return res;
       }
       leavePrevious(prev, roomId);
+      // The player's own browser is in: a linked phone waiting for this table follows it here.
+      if (!linked) {
+        const followed = opts.links?.activate(roomId, playerId);
+        if (followed) {
+          followSockets(io, followed, roomId);
+          rooms.linksChanged(roomId);
+        }
+      }
       // A seat that reopens on a finished playtest game still sees its award preview.
       const preview = opts.playtestAwards?.(roomId);
       if (preview) socket.emit('room:playtestAwards', preview);
@@ -605,11 +724,10 @@ export function attachRealtime(
       guarded(ack, () => {
         const { roomId, playerId, stage } = socket.data;
         if (!roomId || (!playerId && !stage)) return notJoined;
-        if (
-          stage ? !gate.stageAllowed?.(roomId, socket.request.headers.cookie) : !allowed(roomId)
-        ) {
+        if (stage ? !watcherAllowed(io, socket, roomId, rooms) : !allowed(roomId)) {
+          const { showOf } = socket.data;
           detach(socket, rooms);
-          return stage ? unpaired : locked();
+          return stage && !showOf ? unpaired : locked();
         }
         const snapshot = rooms.snapshot(roomId, playerId ?? null);
         if (!snapshot) return noRoom;
@@ -712,6 +830,55 @@ export function attachRealtime(
         inRoom((roomId, playerId) =>
           opts.stage ? opts.stage.remove(roomId, playerId) : notOffered,
         ),
+      ),
+    );
+
+    // ---- Linked phone (any member, from their own browser; unlinking from either device) ----
+    const noLinks: Ack = {
+      ok: false,
+      error: { code: 'link-off', message: 'Phones can’t be linked here.' },
+    };
+    const fromPc: Ack = {
+      ok: false,
+      error: { code: 'link-from-pc', message: 'Link a phone from your PC.' },
+    };
+
+    socket.on('room:link-code', (ack) => {
+      let data: LinkCode | null = null;
+      guarded(
+        typeof ack === 'function'
+          ? (res: Ack) => ack(res.ok && data ? { ok: true, data } : (res as AckWith<LinkCode>))
+          : undefined,
+        inRoom((roomId, playerId) => {
+          if (!opts.links) return noLinks;
+          if (socket.data.link) return fromPc;
+          if (gate.isPlaytest?.(roomId)) return noLinks;
+          data = opts.links.mint(roomId, playerId, socket.request.headers.cookie);
+          return { ok: true };
+        }),
+      );
+    });
+
+    socket.on('room:link-cancel', (ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) => {
+          opts.links?.cancel(roomId, playerId);
+          return { ok: true };
+        }),
+      ),
+    );
+
+    socket.on('room:unlink', (ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) => {
+          if (!opts.links) return noLinks;
+          const key = opts.links.unlink(roomId, playerId);
+          if (key) unlinkSockets(io, key, rooms);
+          rooms.linksChanged(roomId);
+          return { ok: true };
+        }),
       ),
     );
 

@@ -8,6 +8,7 @@ import type {
 } from '@vt/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { playerToken } from './identity.ts';
+import { linkKeyFor } from './links.ts';
 import { type RecapPush, RoomConnection, type RoomStatus } from './room-connection.ts';
 
 export type { RoomStatus } from './room-connection.ts';
@@ -17,8 +18,10 @@ const CLOCK_JITTER_MS = 50;
 
 /**
  * Live connection to one room (`RoomConnection`), as React state.
- * `token`: the identity to join as (a playtest seat); by default the browser's own player. `stage`:
- * join as the room's table screen instead (on its pass; `name` and `token` are ignored).
+ * `token`: the identity to join as (a playtest seat); by default this browser's linked-phone key
+ * for the room if it has one, else the browser's own player. `stage`: join as the room's table
+ * screen instead (on its pass; `name` and `token` are ignored), or `'show'`: as this player's own
+ * PC showing the table screen (the spectator view, on the browser's own token).
  * The socket connects at once, so it opens while the page looks the room up and loads the game;
  * the join waits for a name and for `ready` (the identity is settled), then goes out as soon as
  * the socket is up.
@@ -28,7 +31,7 @@ export function useRoom(
   name: string | null,
   token?: string,
   ready = true,
-  stage = false,
+  stage: boolean | 'show' = false,
 ) {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
@@ -46,6 +49,8 @@ export function useRoom(
   const [playtestAwards, setPlaytestAwards] = useState<RecapLine[] | null>(null);
   /** The night recap the server pushed with the latest state it belongs to. */
   const [recapPush, setRecapPush] = useState<(RecapPush & { at: number }) | null>(null);
+  /** A linked phone: the next table its PC moved to (the page follows). */
+  const [follow, setFollow] = useState<string | null>(null);
   const connRef = useRef<RoomConnection | null>(null);
   // Latest name for automatic rejoins, so a reconnect never reverts a rename.
   const nameRef = useRef(name);
@@ -71,6 +76,7 @@ export function useRoom(
       next: setNext,
       playtestAwards: setPlaytestAwards,
       recap: (push) => setRecapPush({ ...push, at: performance.now() }),
+      follow: setFollow,
     });
     connRef.current = conn;
     const onVisible = () => conn.visibility(document.visibilityState === 'visible');
@@ -86,8 +92,18 @@ export function useRoom(
   // `room:rename`, and the seat never changes on a page.
   useEffect(() => {
     if (!canJoin) return;
+    if (stage === 'show') {
+      const own = playerToken();
+      connRef.current?.enable(() => ({ role: 'show', token: own }));
+      return;
+    }
     if (stage) {
       connRef.current?.enable(() => ({ role: 'stage' }));
+      return;
+    }
+    const key = token ? null : linkKeyFor(roomId);
+    if (key) {
+      connRef.current?.enable(() => ({ token: key, name: nameRef.current || '-', link: true }));
       return;
     }
     const seat = token ?? playerToken();
@@ -128,5 +144,6 @@ export function useRoom(
     dismissNext: () => setNext(null),
     playtestAwards,
     recapPush,
+    follow,
   };
 }

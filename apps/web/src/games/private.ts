@@ -257,6 +257,7 @@ const games: ClientGame[] = [
     stage: lazyUi(() =>
       import('@vt/private-going-once/stage').then((m) => ({ default: m.GoingOnceStage })),
     ),
+    pcTableScreen: true,
   },
   {
     id: 'sketchy',
@@ -270,6 +271,7 @@ const games: ClientGame[] = [
     stage: lazyUi(() =>
       import('@vt/private-sketchy/stage').then((m) => ({ default: m.SketchyStage })),
     ),
+    pcTableScreen: true,
   },
   {
     id: 'mosaic',

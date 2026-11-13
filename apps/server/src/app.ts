@@ -22,6 +22,7 @@ import { NarrationLengths, withNarration } from './narration.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import {
   announceNextTable,
+  unlinkSockets,
   attachRealtime,
   countSockets,
   createRoomEvents,
@@ -42,8 +43,10 @@ import { gamesAdminRoutes } from './routes/games-admin.ts';
 import { contentPackRoutes } from './routes/content-packs.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
+import { linkRoutes } from './routes/link.ts';
 import { stageRoutes } from './routes/stage.ts';
 import { STAGE_COOKIE, StageDoor } from './stage.ts';
+import { LinkCodes, LinkedKeys } from './links.ts';
 import { addDays, dayOf } from './stats/days.ts';
 import type { TavernMetrics } from './metrics/tavern.ts';
 import { LiveTracker } from './stats/live.ts';
@@ -251,6 +254,9 @@ export function buildApp(opts: AppOptions) {
   };
   maintainStats();
 
+  // Linked phones: codes in memory, keys in the database.
+  const linkCodes = new LinkCodes(now);
+  const linkedKeys = new LinkedKeys(db, now);
   // The manager and socket layer reference each other; break the cycle with a late-bound holder.
   const realtime: { io?: ReturnType<typeof attachRealtime> } = {};
   const roomEvents = createRoomEvents(
@@ -286,12 +292,26 @@ export function buildApp(opts: AppOptions) {
         // A playtest's awards are worked out in memory, never recorded (it is a test room too).
         if (o.kind === 'room.swept' || rooms.isPlaytest(o.roomId)) preview.observe(o);
         recorder.observe(o);
-        if (o.kind === 'room.swept') recapSettings.forget(o.roomId);
+        if (o.kind === 'room.swept') {
+          recapSettings.forget(o.roomId);
+          linkedKeys.forgetRoom(o.roomId);
+        }
         // A test room never freezes a night; a sweep still clears up after it.
         if (!o.test || o.kind === 'room.swept') recap.observe(o);
       },
     },
     recapMeta: (roomId) => recap.meta(roomId),
+    links: linkedKeys,
+    // A player who leaves (or is removed) takes their linked phone with them, in every table.
+    // The phone hears it after the room's own word (`room:kicked`), which is sent right after.
+    playerRemoved: (roomId, playerId) => {
+      linkCodes.cancel(roomId, playerId);
+      const key = linkedKeys.remove(roomId, playerId);
+      if (key)
+        queueMicrotask(() => {
+          if (realtime.io) unlinkSockets(realtime.io, key, rooms);
+        });
+    },
     gameOff: (gameId) => (gameSettings.enabled(gameId) ? null : offMessage(gameName(gameId))),
   });
   const recap: RecapService = new RecapService({
@@ -359,6 +379,18 @@ export function buildApp(opts: AppOptions) {
     {
       recap,
       stage: stageDoor,
+      links: {
+        lookup: (roomId, key) => linkedKeys.lookup(roomId, key),
+        activate: (roomId, playerId) => linkedKeys.activate(roomId, playerId),
+        // The code carries the back room only if this PC has it now, at the word's version.
+        mint: (roomId, playerId, cookie) =>
+          linkCodes.mint(roomId, playerId, hasBackroom(cookie) ? backroom.version() : null),
+        cancel: (roomId, playerId) => linkCodes.cancel(roomId, playerId),
+        unlink: (roomId, playerId) => {
+          linkCodes.cancel(roomId, playerId);
+          return linkedKeys.remove(roomId, playerId);
+        },
+      },
       isTestTraffic,
       playtestAwards: (roomId) => preview.latest(roomId),
       ...(metrics && {
@@ -501,6 +533,8 @@ export function buildApp(opts: AppOptions) {
       isAdmin: isAdminRequest,
       stageRoom,
       linked: (from, next) => {
+        // Linked phones wait in the new table until their player's own browser joins it.
+        linkedKeys.carry(from, next.roomId);
         const privateTable = isPrivate(games.get(next.gameId));
         for (const roomId of from) announceNextTable(io, roomId, next, privateTable);
       },
@@ -529,6 +563,21 @@ export function buildApp(opts: AppOptions) {
       manifests,
     });
     stageRoutes(scope, { door: stageDoor, stageRoom });
+    linkRoutes(scope, {
+      codes: linkCodes,
+      keys: linkedKeys,
+      rooms,
+      backroom,
+      edge,
+      now,
+      gameName,
+      isPrivateRoom,
+      hasBackroom: requestHasBackroom,
+      linked: (roomId, replaced) => {
+        if (replaced) unlinkSockets(io, replaced, rooms);
+        rooms.linksChanged(roomId);
+      },
+    });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       gamesAdminRoutes(admin, { games, assets, settings: gameSettings });

@@ -118,6 +118,28 @@ export const rooms = sqliteTable('rooms', {
   creator: text('creator'),
 });
 
+/**
+ * Linked phones: a phone's own key (stored as its sha256) opens one player's seat in a room, as a
+ * second device of that player. A key is copied into the night's next table as `active: false`
+ * when it opens, and turns active only once the player's own browser joins that table, so a key
+ * never opens a table the player's PC didn't enter. Unlinking or leaving deletes every row of the
+ * key. One key per player per room.
+ */
+export const linkedKeys = sqliteTable(
+  'linked_keys',
+  {
+    keyHash: text('key_hash').notNull(),
+    roomId: text('room_id').notNull(),
+    playerId: text('player_id').notNull(),
+    active: integer('active', { mode: 'boolean' }).notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.keyHash, t.roomId] }),
+    index('linked_keys_room_player').on(t.roomId, t.playerId),
+  ],
+);
+
 // ---- Stats (admin only) ----
 // Raw events are append-only and flat, so they map one-to-one onto a column store later. Daily
 // rollups are kept forever; raw events are pruned once their day is rolled up and 90 days old.

@@ -119,6 +119,82 @@ export interface StageStatus {
   roomId: string | null;
 }
 
+// ---- Linked phone ----
+
+/**
+ * Letters of a phone-link code: no I/L/O/U/V (they read as 1, 0 or each other), and no digits, so
+ * four of them are easy to type on a phone.
+ */
+export const LINK_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTWXYZ';
+export const LINK_CODE_LENGTH = 4;
+/** How long a phone-link code works (the pairing card asks for a new one by itself). */
+export const LINK_CODE_MS = 2 * 60_000;
+
+/** A code a player's PC shows; their phone types it (or opens `/link#CODE`) to become a second key. */
+export interface LinkCode {
+  code: string;
+  /** Server time it stops working. */
+  expiresAt: number;
+}
+
+const linkCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .transform((c) => c.replace(/[\s-]/g, ''))
+  .pipe(z.string().length(LINK_CODE_LENGTH, 'Codes are four letters.'));
+
+/**
+ * `POST /api/link/check` and `POST /api/link`: the code, and this phone's own keys (its player
+ * token, and the linked keys it holds), so a phone already in the room as someone else is refused.
+ */
+export const linkBody = z.object({
+  code: linkCode,
+  token: playerToken,
+  links: z.array(playerToken).max(50).default([]),
+});
+
+/** What the phone confirms before it links: the table and the player it will play as. */
+export interface LinkPreview {
+  /** The game's name (a back-room game's title only for a valid code). */
+  game: string;
+  gameId: string;
+  /** Who hosts, and how many play. */
+  host: string;
+  players: number;
+  /** The player the phone joins as. */
+  name: string;
+  color: PlayerColor;
+  /** Linking also opens the back room on this phone (it doesn't have it yet). */
+  opensBackroom: boolean;
+}
+
+/**
+ * `POST /api/link/check`: what the phone shows next. `expired`: the code ran out or was used;
+ * `wrong`: no PC shows it; `other-seat`: this phone already plays someone else in that room (its
+ * own room, so it may know it: `seat` is who it plays, `name` who the code is for).
+ */
+export type LinkCheck =
+  | { status: 'ok'; preview: LinkPreview }
+  | { status: 'expired' | 'wrong' }
+  | { status: 'other-seat'; roomId: string; seat: string; host: string; name: string };
+
+/** A redeemed code: the room, and the phone's new key for it (sent to this phone only). */
+export interface LinkRedeemed {
+  roomId: string;
+  key: string;
+}
+
+/**
+ * A player's devices, in their own snapshot while a phone is linked: whether the phone is online,
+ * whether the PC (any of the player's own browsers) is, and whether a PC shows the table screen.
+ */
+export interface LinkStatus {
+  phone: boolean;
+  pc: boolean;
+  show: boolean;
+}
+
 /**
  * The current versions of `/api/games` (for this browser), a game's `/api/word-lists` and the
  * back-room manifests,
@@ -303,6 +379,8 @@ export interface RoomSnapshot<View = unknown> {
    * empty, since the table screen is never a player.
    */
   role?: 'stage';
+  /** The viewer has a linked phone: which of their devices are here (see `LinkStatus`). */
+  link?: LinkStatus;
 }
 
 /**
@@ -321,14 +399,30 @@ export const joinRoomPayload = z.object({
   token: playerToken,
   name: playerName,
   patch: takesPatches,
+  /** `token` is a linked phone's key for this room, not a browser's own token. */
+  link: z.literal(true).optional(),
 });
 export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
 /** A table screen joins with its pass (a cookie), never as a player. */
 export const stageJoinPayload = z.object({ roomId, role: z.literal('stage'), patch: takesPatches });
 export type StageJoinPayload = z.infer<typeof stageJoinPayload>;
+/**
+ * A player's own PC showing the table screen: the spectator view, on the player's own token (a
+ * member of the room), never a seat, a presence or the room's table screen.
+ */
+export const showJoinPayload = z.object({
+  roomId,
+  role: z.literal('show'),
+  token: playerToken,
+  patch: takesPatches,
+});
+export type ShowJoinPayload = z.infer<typeof showJoinPayload>;
 
 export interface ClientToServerEvents {
-  'room:join': (payload: JoinRoomPayload | StageJoinPayload, ack: (res: Ack) => void) => void;
+  'room:join': (
+    payload: JoinRoomPayload | StageJoinPayload | ShowJoinPayload,
+    ack: (res: Ack) => void,
+  ) => void;
   'room:rename': (name: string, ack: (res: Ack) => void) => void;
   /** Changes the player's colour; a colour someone here already has is refused. */
   'room:recolor': (color: PlayerColor, ack: (res: Ack) => void) => void;
@@ -351,6 +445,12 @@ export interface ClientToServerEvents {
   'room:recap-tone': (tone: RecapTone, tz: number, ack: (res: Ack) => void) => void;
   /** The viewer copied or shared the recap (counted, nothing else). */
   'room:recap-shared': (how: 'copy' | 'share' | 'image', ack: (res: Ack) => void) => void;
+  /** A phone-link code for this player (a new one replaces the last). */
+  'room:link-code': (ack: (res: AckWith<LinkCode>) => void) => void;
+  /** Withdraws this player's open phone-link code. */
+  'room:link-cancel': (ack: (res: Ack) => void) => void;
+  /** Unlinks this player's phone (from the PC or the phone itself), in every table. */
+  'room:unlink': (ack: (res: Ack) => void) => void;
   /** A `room:patch` didn't fit this browser's copy of the room: send the whole room again. */
   'room:resync': (ack: (res: Ack) => void) => void;
 }
@@ -372,6 +472,10 @@ export interface ServerToClientEvents {
   /** What changed since the last update (see `RoomPatch`). */
   'room:patch': (patch: RoomPatch) => void;
   'room:kicked': () => void;
+  /** This phone's link ended (unlinked, replaced, or the player left): it has left the room. */
+  'room:unlinked': () => void;
+  /** The player's PC moved to the night's next table: this linked phone follows. */
+  'room:follow': (roomId: string) => void;
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
   'room:locked': (reason: LockReason) => void;
   /** The host wrapped up the night: every device opens the recap. */

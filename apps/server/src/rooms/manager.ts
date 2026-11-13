@@ -125,6 +125,10 @@ interface LiveRoom {
    * sweeps or stats.
    */
   stages: number;
+  /** Open connections per player from their linked phone (part of `connections`). */
+  phones: Map<string, number>;
+  /** Open connections per player from their own PC showing the table screen (never presence). */
+  shows: Map<string, number>;
 }
 
 /** A playtest's bot seats. */
@@ -136,6 +140,13 @@ export class RoomError extends Error {
     super(message);
     this.code = code;
   }
+}
+
+/** Adds `by` to a per-player count, dropping it at zero. */
+function count(map: Map<string, number>, playerId: string, by: number) {
+  const n = (map.get(playerId) ?? 0) + by;
+  if (n > 0) map.set(playerId, n);
+  else map.delete(playerId);
 }
 
 const fail = (code: string, message: string): Ack => ({ ok: false, error: { code, message } });
@@ -162,6 +173,10 @@ export interface RoomManagerDeps {
    * finish the game they are playing; a playtest is never stopped.
    */
   gameOff?: (gameId: string) => string | null;
+  /** Linked phones: whether a player has one in the room (the snapshot then says which devices are here). */
+  links?: { keyOf(roomId: string, playerId: string): string | null };
+  /** A player left or was removed (their linked phone goes too). */
+  playerRemoved?: (roomId: string, playerId: string) => void;
 }
 
 export interface JoinOptions {
@@ -171,6 +186,11 @@ export interface JoinOptions {
   test?: boolean;
   /** The joiner holds a current admin session: the only people a playtest room lets in. */
   admin?: boolean;
+  /**
+   * The joiner is the player's linked phone: only an existing member, whose name it never changes,
+   * and its connection counts as the phone's.
+   */
+  linked?: boolean;
 }
 
 /**
@@ -190,6 +210,8 @@ export class RoomManager {
       observer: null,
       recapMeta: () => ({ recap: true, tone: 'cheeky' }),
       gameOff: () => null,
+      links: { keyOf: () => null },
+      playerRemoved: () => {},
       ...deps,
     };
   }
@@ -268,9 +290,12 @@ export class RoomManager {
     }
     const { record } = room;
     const existing = record.players.find((p) => p.id === playerId);
+    if (opts.linked && !existing)
+      return fail('unlinked', 'This phone is no longer linked. Link it again from your PC.');
     // Two "Kim"s would be impossible to tell apart, so a taken name gets a number ("Kim 2").
     const name = uniqueName(
-      wanted,
+      // A linked phone plays under the player's own name.
+      opts.linked ? existing!.name : wanted,
       record.players.filter((p) => p.id !== playerId).map((p) => p.name),
     );
     const capacity = Math.min(MAX_PLAYERS_PER_ROOM, room.game.maxPlayers);
@@ -294,7 +319,7 @@ export class RoomManager {
     const hostId =
       claims || !players.some((p) => p.id === record.hostId) ? playerId : record.hostId;
     const unchanged = existing?.name === name && hostId === record.hostId && !claims;
-    if (opts.connect) this.markConnected(room, playerId, hostId);
+    if (opts.connect) this.markConnected(room, playerId, hostId, opts.linked);
     if (unchanged) {
       if (opts.connect) this.deps.events.changed(roomId);
       return OK;
@@ -316,7 +341,7 @@ export class RoomManager {
       );
     } catch (err) {
       // The caller backs its socket out of the room, so the presence must go too.
-      if (opts.connect) this.unmarkConnected(room, playerId);
+      if (opts.connect) this.unmarkConnected(room, playerId, opts.linked);
       throw err;
     }
     return OK;
@@ -434,11 +459,41 @@ export class RoomManager {
     this.deps.events.changed(roomId);
   }
 
-  disconnected(roomId: string, playerId: string): void {
+  /** `linked`: it was the player's linked phone. */
+  disconnected(roomId: string, playerId: string, linked = false): void {
     const room = this.rooms.get(roomId);
     if (!room) return;
-    this.unmarkConnected(room, playerId);
+    this.unmarkConnected(room, playerId, linked);
     this.deps.events.changed(roomId);
+  }
+
+  /**
+   * The player's own PC started showing the table screen (a watcher on the spectator view: never
+   * presence, nor the room's table screen). False when the room is gone or they aren't a member.
+   */
+  showConnected(roomId: string, playerId: string): boolean {
+    const room = this.load(roomId);
+    if (!room?.record.players.some((p) => p.id === playerId)) return false;
+    room.shows.set(playerId, (room.shows.get(playerId) ?? 0) + 1);
+    this.deps.events.changed(roomId);
+    return true;
+  }
+
+  showDisconnected(roomId: string, playerId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    count(room.shows, playerId, -1);
+    this.deps.events.changed(roomId);
+  }
+
+  /** A phone was linked or unlinked: the player's devices hear it. */
+  linksChanged(roomId: string): void {
+    if (this.rooms.has(roomId)) this.deps.events.changed(roomId);
+  }
+
+  /** Whether the player is (still) a member of the room. */
+  isMember(roomId: string, playerId: string): boolean {
+    return !!this.load(roomId)?.record.players.some((p) => p.id === playerId);
   }
 
   /**
@@ -473,6 +528,18 @@ export class RoomManager {
       ...(room.game.colors?.length && { colors: [...room.game.colors] }),
       stage: { present: room.stages > 0 },
       ...(viewer === null && { role: 'stage' as const }),
+      ...(seated &&
+        this.deps.links.keyOf(roomId, viewer) && { link: this.linkStatus(room, viewer) }),
+    };
+  }
+
+  /** Which of a linked player's devices are here. */
+  private linkStatus(room: LiveRoom, playerId: string) {
+    const phones = room.phones.get(playerId) ?? 0;
+    return {
+      phone: phones > 0,
+      pc: (room.connections.get(playerId) ?? 0) > phones,
+      show: (room.shows.get(playerId) ?? 0) > 0,
     };
   }
 
@@ -881,6 +948,8 @@ export class RoomManager {
       deadlineStalls: 0,
       emptySince: this.deps.now(),
       stages: 0,
+      phones: new Map(),
+      shows: new Map(),
     };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).
@@ -980,9 +1049,10 @@ export class RoomManager {
     this.deps.store.touch(room.record.id, now);
   }
 
-  private markConnected(room: LiveRoom, playerId: string, hostId: string) {
+  private markConnected(room: LiveRoom, playerId: string, hostId: string, linked = false) {
     const first = !room.connections.has(playerId);
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    if (linked) count(room.phones, playerId, 1);
     room.awaySince.delete(playerId);
     room.emptySince = undefined;
     this.touch(room);
@@ -1001,7 +1071,8 @@ export class RoomManager {
     if (first) this.presence(room, [playerId], true);
   }
 
-  private unmarkConnected(room: LiveRoom, playerId: string) {
+  private unmarkConnected(room: LiveRoom, playerId: string, linked = false) {
+    if (linked) count(room.phones, playerId, -1);
     const left = (room.connections.get(playerId) ?? 1) - 1;
     if (left > 0) room.connections.set(playerId, left);
     else {
@@ -1063,8 +1134,11 @@ export class RoomManager {
         bots: playtest.bots.filter((b) => b.id !== playerId),
       });
     room.connections.delete(playerId);
+    room.phones.delete(playerId);
+    room.shows.delete(playerId);
     room.awaySince.delete(playerId);
     if (room.connections.size === 0) room.emptySince ??= this.deps.now();
+    this.deps.playerRemoved(room.record.id, playerId);
     this.commit(
       room,
       {
