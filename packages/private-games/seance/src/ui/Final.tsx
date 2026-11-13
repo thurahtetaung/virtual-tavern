@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
@@ -58,7 +58,8 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
         The shared vision{' '}
         <span className="font-normal text-ink-muted">({Math.min(f.revealed, 3)} of 3 face up)</span>
       </h4>
-      <ul className="grid grid-cols-3 gap-2 sm:max-w-sm">
+      {/* Phones keep the three a little smaller, so the groups below fit with them. */}
+      <ul className="grid grid-cols-3 gap-2 max-sm:max-w-[17rem] sm:max-w-sm">
         {[0, 1, 2].map((i) => {
           const card = f.shared[i];
           const up = i < f.revealed || g.stage === 'done';
@@ -130,6 +131,78 @@ export function Lineup({
   // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
   const [choice, setChoice] = useState<number | null>(null);
   const cast = castable(g, myTurn, choice);
+  // Phones, while you vote: each group is one row (its three cards small, Choose beside them),
+  // so every group and the bar fit the screen.
+  const wide = useWideScreen();
+  if (myTurn && !wide)
+    return (
+      <div className="space-y-1.5">
+        <ul className="space-y-1.5" aria-label="Line-up">
+          {viewer}
+          {f.groups.map((color, i) => {
+            const p = psychicByColor(g, color);
+            const on = choice === i;
+            return (
+              <li
+                key={color}
+                aria-label={`Group ${i + 1}`}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl p-1.5 ring-1 ring-line',
+                  on && 'bg-special/10 ring-2 ring-special',
+                )}
+              >
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
+                  {i + 1}
+                </span>
+                <div className="grid w-[10.5rem] shrink-0 grid-cols-3 gap-1">
+                  {groupCards(g, i).map((c, k) => (
+                    <Card
+                      key={k}
+                      kind={content.kindOf(PILLARS[k]!)}
+                      n={c}
+                      content={content}
+                      onTap={() => look(all, startOf(i) + k, 'The line-up')}
+                    />
+                  ))}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col items-stretch gap-1">
+                  {p && (
+                    <span className="flex min-w-0 items-center gap-1 text-xs">
+                      <Avatar color={p.color} content={content} name={p.name} size="sm" />
+                      <span className="truncate">{p.name}</span>
+                    </span>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={on ? 'primary' : 'secondary'}
+                    className="w-full px-2"
+                    aria-pressed={on}
+                    aria-label={on ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
+                    onClick={() => setChoice(toggleChoice(choice, i))}
+                  >
+                    {on ? '✓ Chosen' : 'Choose'}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <StickyBar fixed refusal="seance-vote">
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={cast === null}
+            onClick={() =>
+              cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
+            }
+          >
+            {cast === null
+              ? 'Tap a group to choose it first'
+              : `Cast my vote for group ${cast + 1}`}
+          </Button>
+        </StickyBar>
+      </div>
+    );
   return (
     <div className="space-y-2">
       <ul className="space-y-2" aria-label="Line-up">

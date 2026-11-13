@@ -7,9 +7,11 @@ import {
   Panel,
   PlayerTag,
   RefusalSlot,
-  StickyBar,
   cn,
   LobbySettings,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import {
@@ -34,8 +36,9 @@ import {
   type SeanceView,
   TIMER_OPTIONS,
 } from '../logic/types.ts';
+import { guide } from '../logic/guide.ts';
 import type { Content } from './assets.ts';
-import { Avatar } from './Card.tsx';
+import { Avatar, CardBack } from './Card.tsx';
 import type { Status } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -122,7 +125,243 @@ export function Lobby({
     set({ pools: pools.includes(id) ? pools.filter((x) => x !== id) : [...pools, id] });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
+    <LobbyLayout
+      className="lg:gap-y-3"
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Séance'}
+          art={<CardBack content={content} className="-rotate-6" />}
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={host}
+            summary={[
+              DIFFICULTY_LABEL[s.difficulty],
+              `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
+              third === 'story' && 'stories',
+              pools.length > 0 && `+${pools.length} extra ${pools.length === 1 ? 'pool' : 'pools'}`,
+              extras && 'extra suspects & places',
+              s.timerSeconds === null
+                ? 'no timer'
+                : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
+            ]}
+            className="space-y-3"
+          >
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Who is the ghost?</h4>
+              <div className="flex flex-wrap gap-2">
+                {GHOST_MODES.map((m) => (
+                  <Choice
+                    key={m.id}
+                    on={s.ghostMode === m.id}
+                    disabled={!host}
+                    onClick={() => set({ ghostMode: m.id })}
+                  >
+                    {m.label}
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                {GHOST_MODES.find((m) => m.id === s.ghostMode)!.hint} The ghost is easiest on a
+                tablet or a computer.
+              </p>
+              {s.ghostMode === 'host' && host && (
+                <div className="flex flex-wrap gap-2" aria-label="Pick the ghost">
+                  {seated.map((p) => (
+                    <Choice
+                      key={p.id}
+                      on={s.ghostPick === p.id}
+                      onClick={() => set({ ghostPick: p.id })}
+                    >
+                      {/* As in the seat list: a psychic's colour, else the room colour. */}
+                      <span className="inline-flex items-center gap-1.5">
+                        {p.name}
+                        {p.color ? (
+                          <Avatar
+                            color={p.color}
+                            content={content}
+                            name={p.name}
+                            size="sm"
+                            className="order-first size-5"
+                          />
+                        ) : (
+                          <NameDot name={p.name} className="order-first" />
+                        )}
+                      </span>
+                    </Choice>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Difficulty</h4>
+              <div className="flex flex-wrap gap-2">
+                {DIFFICULTIES.map((d) => (
+                  <Choice
+                    key={d}
+                    on={s.difficulty === d}
+                    disabled={!host}
+                    onClick={() => set({ difficulty: d })}
+                  >
+                    {DIFFICULTY_LABEL[d]}
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                {DIFFICULTY_LABEL[s.difficulty]}: {tableCards(s.difficulty, n)} suspects, places and{' '}
+                {third === 'story' ? 'stories' : 'objects'} on the table with {n} players, and{' '}
+                {ravenText(s.difficulty)}.
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Card sets</h4>
+              <div className="flex flex-wrap gap-2">
+                {SET_IDS.map((id) => (
+                  <Choice
+                    key={id}
+                    on={s.sets.includes(id)}
+                    disabled={!host}
+                    onClick={() => toggleSet(id)}
+                  >
+                    {s.sets.includes(id) ? '✓ ' : ''}
+                    {content.setName(id)}{' '}
+                    <span className="font-normal">({CARD_SETS[id].vision.length})</span>
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                Each set adds its visions and its suspects, places, objects and stories.{' '}
+                {poolOf(s.sets, 'vision', pools).length} visions in play.
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Third pillar</h4>
+              <div className="flex flex-wrap gap-2">
+                {THIRDS.map((t) => (
+                  <Choice
+                    key={t}
+                    on={third === t}
+                    disabled={!host}
+                    onClick={() => set({ third: t })}
+                  >
+                    {t === 'object' ? 'Objects' : 'Stories'}{' '}
+                    <span className="font-normal">({poolOf(s.sets, t).length})</span>
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                {third === 'object'
+                  ? 'Each psychic finds a suspect, a place and an object.'
+                  : 'Story cards take the place of objects: the same rules. They are dark and busy scenes, best for players who know the game.'}
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Extra visions</h4>
+              <div className="flex flex-wrap gap-2">
+                {POOL_IDS.map((id) => (
+                  <Choice
+                    key={id}
+                    on={pools.includes(id)}
+                    disabled={!host}
+                    onClick={() => togglePool(id)}
+                  >
+                    {pools.includes(id) ? '✓ ' : ''}
+                    {content.poolName(id)}{' '}
+                    <span className="font-normal">
+                      ({POOL_CARDS[id].length}
+                      {id === 'pool-r' ? ', lower resolution' : ''})
+                    </span>
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                Picture cards from other games, shuffled in with the visions. Off by default.
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Extra suspects &amp; places</h4>
+              <div className="flex flex-wrap gap-2">
+                <Choice on={extras} disabled={!host} onClick={() => set({ extras: !extras })}>
+                  {extras ? '✓ ' : ''}
+                  {content.extrasName}{' '}
+                  <span className="font-normal">
+                    (+{EXTRA_CARDS.suspect.length} suspects, +{EXTRA_CARDS.place.length} places)
+                  </span>
+                </Choice>
+              </div>
+              <p className="text-xs text-ink-muted">
+                Suspects and places from another edition, mixed in with the others; objects and
+                stories stay as they are. Off by default.{' '}
+                {poolOf(s.sets, 'suspect', [], extras).length} suspects and{' '}
+                {poolOf(s.sets, 'place', [], extras).length} places in play.
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Timer once every vision is out</h4>
+              <div className="flex flex-wrap gap-2">
+                {TIMER_OPTIONS.map((t) => (
+                  <Choice
+                    key={t}
+                    on={s.timerSeconds === t}
+                    disabled={!host}
+                    onClick={() => set({ timerSeconds: t })}
+                  >
+                    {t / 60} min
+                  </Choice>
+                ))}
+                <Choice
+                  on={s.timerSeconds === null}
+                  disabled={!host}
+                  onClick={() => set({ timerSeconds: null })}
+                >
+                  Off
+                </Choice>
+              </div>
+              {s.timerSeconds !== null && (
+                <div className="flex flex-wrap gap-2">
+                  <Choice
+                    on={s.timerMode === 'soft'}
+                    disabled={!host}
+                    onClick={() => set({ timerMode: 'soft' })}
+                  >
+                    Reminder
+                  </Choice>
+                  <Choice
+                    on={s.timerMode === 'strict'}
+                    disabled={!host}
+                    onClick={() => set({ timerMode: 'strict' })}
+                  >
+                    Lock at 0:00
+                  </Choice>
+                </div>
+              )}
+              <p className="text-xs text-ink-muted">
+                {s.timerSeconds === null
+                  ? 'No timer: the hour ends when everyone is Ready and the ghost reveals (or the host locks).'
+                  : s.timerMode === 'soft'
+                    ? 'Reminder: at 0:00 nothing happens by itself. The hour ends when everyone is Ready and the ghost reveals (or the host locks).'
+                    : 'Lock at 0:00: guesses lock by themselves (no guess counts as wrong). Before that, the hour ends when everyone is Ready and the ghost reveals (or the host locks).'}
+              </p>
+            </section>
+            <RefusalSlot anchor="seance-settings" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        host && (
+          <LobbyStart
+            label="Begin the séance"
+            blocker={problem}
+            onStart={() => void act({ type: 'start' }, { anchor: 'seance-start' })}
+            refusal="seance-start"
+          />
+        )
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <div className="flex items-center justify-between gap-2">
@@ -232,228 +471,6 @@ export function Lobby({
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Séance'} onClick={showGuide} />
-
-      <LobbySettings
-        editable={host}
-        summary={[
-          DIFFICULTY_LABEL[s.difficulty],
-          `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
-          third === 'story' && 'stories',
-          pools.length > 0 && `+${pools.length} extra ${pools.length === 1 ? 'pool' : 'pools'}`,
-          extras && 'extra suspects & places',
-          s.timerSeconds === null
-            ? 'no timer'
-            : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
-        ]}
-        className="space-y-3"
-      >
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Who is the ghost?</h4>
-          <div className="flex flex-wrap gap-2">
-            {GHOST_MODES.map((m) => (
-              <Choice
-                key={m.id}
-                on={s.ghostMode === m.id}
-                disabled={!host}
-                onClick={() => set({ ghostMode: m.id })}
-              >
-                {m.label}
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            {GHOST_MODES.find((m) => m.id === s.ghostMode)!.hint} The ghost is easiest on a tablet
-            or a computer.
-          </p>
-          {s.ghostMode === 'host' && host && (
-            <div className="flex flex-wrap gap-2" aria-label="Pick the ghost">
-              {seated.map((p) => (
-                <Choice
-                  key={p.id}
-                  on={s.ghostPick === p.id}
-                  onClick={() => set({ ghostPick: p.id })}
-                >
-                  {/* As in the seat list: a psychic's colour, else the room colour. */}
-                  <span className="inline-flex items-center gap-1.5">
-                    {p.name}
-                    {p.color ? (
-                      <Avatar
-                        color={p.color}
-                        content={content}
-                        name={p.name}
-                        size="sm"
-                        className="order-first size-5"
-                      />
-                    ) : (
-                      <NameDot name={p.name} className="order-first" />
-                    )}
-                  </span>
-                </Choice>
-              ))}
-            </div>
-          )}
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Difficulty</h4>
-          <div className="flex flex-wrap gap-2">
-            {DIFFICULTIES.map((d) => (
-              <Choice
-                key={d}
-                on={s.difficulty === d}
-                disabled={!host}
-                onClick={() => set({ difficulty: d })}
-              >
-                {DIFFICULTY_LABEL[d]}
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            {DIFFICULTY_LABEL[s.difficulty]}: {tableCards(s.difficulty, n)} suspects, places and{' '}
-            {third === 'story' ? 'stories' : 'objects'} on the table with {n} players, and{' '}
-            {ravenText(s.difficulty)}.
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Card sets</h4>
-          <div className="flex flex-wrap gap-2">
-            {SET_IDS.map((id) => (
-              <Choice
-                key={id}
-                on={s.sets.includes(id)}
-                disabled={!host}
-                onClick={() => toggleSet(id)}
-              >
-                {s.sets.includes(id) ? '✓ ' : ''}
-                {content.setName(id)}{' '}
-                <span className="font-normal">({CARD_SETS[id].vision.length})</span>
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            Each set adds its visions and its suspects, places, objects and stories.{' '}
-            {poolOf(s.sets, 'vision', pools).length} visions in play.
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Third pillar</h4>
-          <div className="flex flex-wrap gap-2">
-            {THIRDS.map((t) => (
-              <Choice key={t} on={third === t} disabled={!host} onClick={() => set({ third: t })}>
-                {t === 'object' ? 'Objects' : 'Stories'}{' '}
-                <span className="font-normal">({poolOf(s.sets, t).length})</span>
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            {third === 'object'
-              ? 'Each psychic finds a suspect, a place and an object.'
-              : 'Story cards take the place of objects: the same rules. They are dark and busy scenes, best for players who know the game.'}
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Extra visions</h4>
-          <div className="flex flex-wrap gap-2">
-            {POOL_IDS.map((id) => (
-              <Choice
-                key={id}
-                on={pools.includes(id)}
-                disabled={!host}
-                onClick={() => togglePool(id)}
-              >
-                {pools.includes(id) ? '✓ ' : ''}
-                {content.poolName(id)}{' '}
-                <span className="font-normal">
-                  ({POOL_CARDS[id].length}
-                  {id === 'pool-r' ? ', lower resolution' : ''})
-                </span>
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            Picture cards from other games, shuffled in with the visions. Off by default.
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Extra suspects &amp; places</h4>
-          <div className="flex flex-wrap gap-2">
-            <Choice on={extras} disabled={!host} onClick={() => set({ extras: !extras })}>
-              {extras ? '✓ ' : ''}
-              {content.extrasName}{' '}
-              <span className="font-normal">
-                (+{EXTRA_CARDS.suspect.length} suspects, +{EXTRA_CARDS.place.length} places)
-              </span>
-            </Choice>
-          </div>
-          <p className="text-xs text-ink-muted">
-            Suspects and places from another edition, mixed in with the others; objects and stories
-            stay as they are. Off by default. {poolOf(s.sets, 'suspect', [], extras).length}{' '}
-            suspects and {poolOf(s.sets, 'place', [], extras).length} places in play.
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Timer once every vision is out</h4>
-          <div className="flex flex-wrap gap-2">
-            {TIMER_OPTIONS.map((t) => (
-              <Choice
-                key={t}
-                on={s.timerSeconds === t}
-                disabled={!host}
-                onClick={() => set({ timerSeconds: t })}
-              >
-                {t / 60} min
-              </Choice>
-            ))}
-            <Choice
-              on={s.timerSeconds === null}
-              disabled={!host}
-              onClick={() => set({ timerSeconds: null })}
-            >
-              Off
-            </Choice>
-          </div>
-          {s.timerSeconds !== null && (
-            <div className="flex flex-wrap gap-2">
-              <Choice
-                on={s.timerMode === 'soft'}
-                disabled={!host}
-                onClick={() => set({ timerMode: 'soft' })}
-              >
-                Reminder
-              </Choice>
-              <Choice
-                on={s.timerMode === 'strict'}
-                disabled={!host}
-                onClick={() => set({ timerMode: 'strict' })}
-              >
-                Lock at 0:00
-              </Choice>
-            </div>
-          )}
-          <p className="text-xs text-ink-muted">
-            {s.timerSeconds === null
-              ? 'No timer: the hour ends when everyone is Ready and the ghost reveals (or the host locks).'
-              : s.timerMode === 'soft'
-                ? 'Reminder: at 0:00 nothing happens by itself. The hour ends when everyone is Ready and the ghost reveals (or the host locks).'
-                : 'Lock at 0:00: guesses lock by themselves (no guess counts as wrong). Before that, the hour ends when everyone is Ready and the ghost reveals (or the host locks).'}
-          </p>
-        </section>
-        <RefusalSlot anchor="seance-settings" />
-      </LobbySettings>
-
-      {host && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={problem !== null}
-            onClick={() => void act({ type: 'start' }, { anchor: 'seance-start' })}
-          >
-            Begin the séance
-          </Button>
-          {problem && <p className="mt-1 text-center text-xs text-ink-muted">{problem}</p>}
-          <RefusalSlot anchor="seance-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

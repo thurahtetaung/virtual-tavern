@@ -1,5 +1,14 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, EndHero, EndTabs, Panel, Superlatives, cn, useWideScreen } from '@vt/ui';
+import {
+  Button,
+  EndHero,
+  EndLayout,
+  EndTabs,
+  Panel,
+  Superlatives,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS } from '../logic/cards.ts';
 import type { SeanceAction, SeanceView } from '../logic/types.ts';
@@ -13,15 +22,14 @@ type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
 /**
  * "What the ghost meant": each psychic's three cards with the visions that pointed to them (each
- * with its hour) and the wrong guesses greyed out. Each psychic folds open on a tap; desktops
- * start with your own psychic (or the first) open, so the end is not one long column.
+ * with its hour) and the wrong guesses greyed out. Each psychic folds open on a tap; it starts
+ * with your own psychic (or the first) open, so the ghost's cards show at once.
  */
 function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
   const g = view.game!;
   const { look, viewer } = useLook(content);
-  const wide = useWideScreen();
   const mine = myPsychic(view)?.color ?? g.psychics[0]?.color;
-  const [open, setOpen] = useState<string[]>(() => (wide && mine ? [mine] : []));
+  const [open, setOpen] = useState<string[]>(() => (mine ? [mine] : []));
   return (
     <section aria-label="What the ghost meant" className="space-y-3">
       {viewer}
@@ -182,62 +190,78 @@ export function EndScreen({
       <GhostMeant view={view} content={content} />
     </Panel>
   );
+  // The shared vision, the final's three cards, in the finale.
+  const visions = g.final?.shared ?? [];
   return (
     <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
-      <EndHero
-        tone={r.win ? 'success' : 'loss'}
-        emblem={r.win ? '🕊️' : '🌫️'}
-        title={r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
-        superlatives={wide ? room.superlatives : undefined}
-        actions={
-          room.isHost ? (
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-                Play again
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </div>
-          ) : (
-            <p className="text-small text-ink-muted">
-              {waitingForHost(room, 'start another game')}
-            </p>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            // Wide screens: the shared vision under the result (phones open the ghost's cards below).
+            art={
+              wide &&
+              visions.map((n, i) => (
+                <div key={i} className="w-16 sm:w-20 lg:w-28">
+                  <Card kind="vision" n={n} content={content} note={`shared card ${i + 1}`} />
+                </div>
+              ))
+            }
+            tone={r.win ? 'success' : 'loss'}
+            emblem={r.win ? '🕊️' : '🌫️'}
+            title={r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              room.isHost ? (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-small text-ink-muted">
+                  {waitingForHost(room, 'start another game')}
+                </p>
+              )
+            }
+          >
+            <p role="status">{resultLine(g)}</p>
+            {breaker && (
+              <p className="mt-1 text-ink-muted">
+                The vote was tied: {breaker.name}, furthest along the track, decided it.
+              </p>
+            )}
+          </EndHero>
         }
       >
-        <p role="status">{resultLine(g)}</p>
-        {breaker && (
-          <p className="mt-1 text-ink-muted">
-            The vote was tied: {breaker.name}, furthest along the track, decided it.
-          </p>
+        {wide ? (
+          // Desktops: the final and what the ghost meant beside the finale.
+          <div className="space-y-3">
+            {shared}
+            {meant}
+          </div>
+        ) : (
+          // Phones: the awards, the final line-up and what the ghost meant one at a time, so the
+          // end fits the screen.
+          <EndTabs
+            tabs={[
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              !!shared && { id: 'final', label: '🗳️ The final', content: shared },
+              { id: 'meant', label: '👻 What it meant', content: meant },
+            ]}
+          />
         )}
-      </EndHero>
-      {wide ? (
-        // Desktops: the final and what the ghost meant side by side, so the end isn't one long column.
-        <div className={cn('grid items-start gap-3', shared && 'grid-cols-2')}>
-          {shared}
-          {meant}
-        </div>
-      ) : (
-        // Phones: the awards, the final line-up and what the ghost meant one at a time, so the
-        // end fits the screen.
-        <EndTabs
-          tabs={[
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            !!shared && { id: 'final', label: '🗳️ The final', content: shared },
-            { id: 'meant', label: '👻 What it meant', content: meant },
-          ]}
-        />
-      )}
+      </EndLayout>
     </div>
   );
 }

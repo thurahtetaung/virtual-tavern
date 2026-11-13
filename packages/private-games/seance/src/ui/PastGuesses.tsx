@@ -54,7 +54,8 @@ export function PastGuesses({
               key={`${x.hour}-${i}`}
               className={cn(
                 'shrink-0 space-y-0.5 text-center',
-                compact ? 'w-14 sm:w-16' : 'w-24 sm:w-28',
+                // Desktops have the room: the others' guesses large enough to read.
+                compact ? 'w-14 sm:w-16 lg:w-24' : 'w-24 sm:w-28',
                 i > 0 && list[i - 1]!.pillar !== x.pillar && 'ml-2',
               )}
             >
