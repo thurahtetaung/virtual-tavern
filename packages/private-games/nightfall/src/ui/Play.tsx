@@ -1752,10 +1752,10 @@ export function Reveal({
         <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
         decides their team.
       </p>
-      {/* Wide screens: two players a row, each with their card at reading size (the reveal is
-          the night's payoff). */}
+      {/* Wide screens: three players a row, each a tile with their card at reading size on top
+          (the reveal is the night's payoff). */}
       <ul
-        className={cn(wide ? 'grid grid-cols-2 gap-2' : 'space-y-2')}
+        className={cn(wide ? 'grid grid-cols-3 gap-2' : 'space-y-2')}
         aria-label="Everyone’s cards"
       >
         {view.table!.map((p) => {
@@ -1773,7 +1773,12 @@ export function Reveal({
               data-team={id.team}
               data-mark={pm?.id ?? ''}
               data-won={won}
-              className="flex items-start gap-2 rounded-lg bg-sunk px-2 py-1.5 text-sm"
+              className={cn(
+                'rounded-lg bg-sunk px-2 py-1.5 text-sm',
+                wide
+                  ? 'flex flex-col items-center gap-2 py-2 text-center'
+                  : 'flex items-start gap-2',
+              )}
             >
               <CardFace
                 role={card.role}
@@ -1781,8 +1786,13 @@ export function Reveal({
                 size={wide ? 'md' : 'sm'}
                 className={cn('shrink-0', !wide && 'w-12')}
               />
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-baseline justify-between gap-2">
+              <div className={cn('min-w-0 space-y-1', wide ? 'w-full' : 'flex-1')}>
+                <div
+                  className={cn(
+                    'flex gap-2',
+                    wide ? 'flex-col items-center gap-0.5' : 'items-baseline justify-between',
+                  )}
+                >
                   <span className="flex min-w-0 items-center gap-1 font-semibold">
                     <span className="truncate">
                       {dead && '☠️ '}
@@ -1795,7 +1805,7 @@ export function Reveal({
                     {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1">
+                <div className={cn('flex flex-wrap items-center gap-1', wide && 'justify-center')}>
                   <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
                   <span aria-hidden>→</span>
                   <RoleChip role={id.role} deck={deck} />
@@ -1946,14 +1956,14 @@ export function Reveal({
                         result.winners.length > 4
                           ? wide
                             ? 'w-28'
-                            : 'w-12'
+                            : 'w-16'
                           : result.winners.length > 2
                             ? wide
                               ? 'w-36'
-                              : 'w-20'
+                              : 'w-24'
                             : wide
                               ? 'w-48'
-                              : 'w-28'
+                              : 'w-36'
                       }
                     />
                     <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">
