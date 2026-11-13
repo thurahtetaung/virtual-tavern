@@ -47,7 +47,10 @@ export function Standings({
   // A big table on a phone: tighter rows and no podium (the table repeats it), so it fits.
   const dense = entries.length > 6;
   // A big table always shows on phones (no podium there); otherwise only someone off the podium needs it.
-  const table = entries.length < 2 || dense || ranked.some((r) => r.place > 3);
+  // A tie on the podium shows the table too: the step keeps only the names, side by side, and each
+  // player's note goes to their row, so a shared step never stacks long lines.
+  const tiedStep = ranked.some((r) => r.place <= 3 && r.tied);
+  const table = entries.length < 2 || dense || tiedStep || ranked.some((r) => r.place > 3);
   const label = (r: Placed<StandingEntry>) =>
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
@@ -70,7 +73,12 @@ export function Standings({
                 <span aria-hidden className="text-2xl lg:text-4xl">
                   {MEDALS[step]}
                 </span>
-                <ul className="w-full text-center text-sm leading-tight lg:text-body">
+                <ul
+                  className={cn(
+                    'w-full text-center text-sm leading-tight lg:text-body',
+                    onPlace(place).length > 1 && 'flex flex-wrap justify-center gap-x-2',
+                  )}
+                >
                   {onPlace(place).map((r) => (
                     <li
                       key={r.entry.id}
