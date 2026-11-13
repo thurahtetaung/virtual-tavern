@@ -8,6 +8,7 @@ import {
   EndLayout,
   EndTabs,
   Hint,
+  MoreBelow,
   Panel,
   RefusalSlot,
   Standings,
@@ -18,6 +19,7 @@ import {
   tabPanelProps,
   useAbandonGame,
   useFreeHeight,
+  useMarkMore,
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
@@ -125,6 +127,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   // so the band under the table shows what you hold rather than empty space.
   const shown: PlayTab | null = wide ? null : tab;
   const rail = useRef<HTMLElement>(null);
+  useMarkMore(rail, [wide]);
   const railRoom = useFreeHeight(rail, wide);
   const handOnTable = handStage;
   const timerLabel =
@@ -199,15 +202,19 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         {wide && (
           // The rail never runs past the window: when the vote, the scores and the tips are taller
           // than the room left, it scrolls inside.
-          <aside
-            ref={rail}
-            className="flex flex-col gap-3 overflow-y-auto overscroll-contain p-px lg:row-span-2"
-            style={railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
-          >
-            {/* The vote and the scores first; the first-time tips under them. */}
-            {side}
-            {inGame && <Tips />}
-          </aside>
+          <div className="relative min-w-0 lg:row-span-2">
+            <aside
+              ref={rail}
+              className="peer flex flex-col gap-3 overflow-y-auto overscroll-contain p-px"
+              style={railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
+            >
+              {/* The vote and the scores first; the first-time tips under them. */}
+              {side}
+              {inGame && <Tips />}
+            </aside>
+            {/* More below while the rail has more under its fold. */}
+            <MoreBelow column={rail} surface="page" compact />
+          </div>
         )}
         {/* Desktops: the hand under the table, as large as the height left allows; the rail
             beside both. */}

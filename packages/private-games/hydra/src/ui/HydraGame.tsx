@@ -14,6 +14,8 @@ import {
   useAbandonGame,
   useConfirm,
   useFitToScreen,
+  useMarkMore,
+  MoreBelow,
   scrollFadeMask,
   useRefusalWording,
   useScrollEnds,
@@ -430,33 +432,43 @@ function SeatsPanel({
   picking,
   panelRef,
   className,
+  outerClassName,
   children,
 }: {
   c: Content;
   picking: boolean;
-  panelRef: React.Ref<HTMLElement>;
+  panelRef: React.RefObject<HTMLElement | null>;
   className?: string;
+  /** Classes for the wrapper (which holds the More below cue): showing or hiding the panel. */
+  outerClassName?: string;
   children: React.ReactNode;
 }) {
+  // Fitted to a phone's screen, the seats show "More below" while some are under the fold.
+  useMarkMore(panelRef, []);
   return (
-    <section
-      ref={panelRef}
-      aria-label={c.copy('seats.heading')}
-      className={cn(
-        'scroll-mt-20 rounded-2xl bg-sunk p-2 shadow-inner ring-1 ring-line-strong lg:p-3',
-        picking && 'ring-2 ring-accent',
-        className,
-      )}
-      data-testid="seats-panel"
-    >
-      <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
-        <span>👥 {c.copy('seats.heading')}</span>
-        {picking && (
-          <span className="hy-breathe text-accent-text normal-case">{c.copy('seats.pick')} 👇</span>
+    <div className={cn('relative min-w-0', outerClassName)}>
+      <section
+        ref={panelRef}
+        aria-label={c.copy('seats.heading')}
+        className={cn(
+          'peer scroll-mt-20 rounded-2xl bg-sunk p-2 shadow-inner ring-1 ring-line-strong lg:p-3',
+          picking && 'ring-2 ring-accent',
+          className,
         )}
-      </h3>
-      {children}
-    </section>
+        data-testid="seats-panel"
+      >
+        <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
+          <span>👥 {c.copy('seats.heading')}</span>
+          {picking && (
+            <span className="hy-breathe text-accent-text normal-case">
+              {c.copy('seats.pick')} 👇
+            </span>
+          )}
+        </h3>
+        {children}
+      </section>
+      <MoreBelow column={panelRef} surface="sunk" compact />
+    </div>
   );
 }
 
@@ -504,6 +516,7 @@ export function HydraGame({
   useFitToScreen(seatsRef, { phone: true, min: 160 });
   const railRef = useRef<HTMLElement>(null);
   useFitToScreen(railRef, { on: wide, min: 320 });
+  useMarkMore(railRef, [wide]);
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
@@ -793,7 +806,8 @@ export function HydraGame({
                   c={c}
                   picking={!!pick}
                   panelRef={seatsRef}
-                  className="max-sm:overflow-y-auto max-sm:overscroll-contain lg:hidden"
+                  className="max-sm:overflow-y-auto max-sm:overscroll-contain"
+                  outerClassName="lg:hidden"
                 >
                   {seatGrid()}
                 </SeatsPanel>
@@ -861,30 +875,34 @@ export function HydraGame({
             onShowSeats={showSeats}
           />
         </div>
-        <aside
-          ref={railRef}
-          className={cn('min-w-0 space-y-3', onTab('log'))}
-          {...(!wide && tabPanelProps(TABS_ID, 'log'))}
-        >
-          {/* Desktops: the timeline first, then your role and the quick reference, the rail
+        <div className={cn('relative min-w-0', onTab('log'))}>
+          <aside
+            ref={railRef}
+            className="peer min-w-0 space-y-3"
+            {...(!wide && tabPanelProps(TABS_ID, 'log'))}
+          >
+            {/* Desktops: the timeline first, then your role and the quick reference, the rail
               scrolling on its own so the page fits the window. */}
-          {wide && <Timeline view={view} c={c} />}
-          {view.stage !== 'reveal' && (
-            <div className="hidden lg:block">
-              <MeTab
-                view={view}
-                c={c}
-                reveal={reveal}
-                showGuide={showGuide}
-                moments={momentsOn}
-                setMoments={setMomentsOn}
-                plain={plain}
-                setPlain={setPlain}
-              />
-            </div>
-          )}
-          {!wide && <Timeline view={view} c={c} />}
-        </aside>
+            {wide && <Timeline view={view} c={c} />}
+            {view.stage !== 'reveal' && (
+              <div className="hidden lg:block">
+                <MeTab
+                  view={view}
+                  c={c}
+                  reveal={reveal}
+                  showGuide={showGuide}
+                  moments={momentsOn}
+                  setMoments={setMomentsOn}
+                  plain={plain}
+                  setPlain={setPlain}
+                />
+              </div>
+            )}
+            {!wide && <Timeline view={view} c={c} />}
+          </aside>
+          {/* Desktops: the rail scrolls inside; More below while there is more under it. */}
+          <MoreBelow column={railRef} surface="page" compact />
+        </div>
       </div>
       {!wide && (
         <TabBar
