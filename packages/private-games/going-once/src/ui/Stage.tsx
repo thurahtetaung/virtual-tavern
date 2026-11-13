@@ -438,9 +438,10 @@ function Plain({
               tv
             />
           </div>
+          {/* Hidden while it holds nothing (no line said, no bids yet), so the lot centres. */}
           {(line || !!recent.length) && (
-            <div className="w-[640px] space-y-6 text-left">
-              {line && <div className="[&_p]:text-[28px]">{line}</div>}
+            <div className="w-[640px] space-y-6 text-left empty:hidden [&_p]:text-[28px]">
+              {line}
               {!!recent.length && (
                 <ol aria-label="Last bids" className="space-y-2" data-testid="go-stage-bids">
                   {recent.map((b, i) => (
