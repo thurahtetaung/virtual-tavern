@@ -1,4 +1,4 @@
-import { Button, Modal, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, FitArea, Modal, Panel, RefusalSlot, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
@@ -199,6 +199,9 @@ export function GhostPsychics({
   // Phones: one compact row per psychic, opened with a tap.
   const [expanded, setExpanded] = useState<PsychicView['color'][]>([]);
   const sending = g.stage === 'visions';
+  // Desktops: the rows two a line, so every psychic fits beside the hand and the table.
+  const many = atTable(g).length > 1;
+  const wide = useWideScreen();
   const { look, viewer } = useLook(content);
   const [sheet, setSheet] = useState<PsychicView['color'] | null>(null);
   const sheetFor = sheet ? atTable(g).find((p) => p.color === sheet) : undefined;
@@ -271,202 +274,233 @@ export function GhostPsychics({
         their vision.
       </Tip>
       <TableOverview g={g} content={content} />
-      <ul className="space-y-2" aria-label="Psychics">
-        {/* Away seats last: the ghost serves the psychics who are there first. */}
-        {[...atTable(g)]
-          .sort((a, b) => Number(away.includes(a.color)) - Number(away.includes(b.color)))
-          .map((p) => {
-            const pillar = PILLARS[p.step];
-            const target = pillar ? p.targets?.[p.step] : undefined;
-            const sent = g.sent.includes(p.color);
-            const needs = sending && pillar && !sent && !isEmpty(p);
-            const cards = psychicCards(p, g);
-            const visionStart = target !== undefined ? 1 : 0;
-            const open = (i: number) => look(cards, i, `${p.name}’s cards`);
-            const openSend = () => {
-              const spec = sendSpec(p);
-              if (spec) compare(spec);
-            };
-            const isAway = away.includes(p.color);
-            const isOpen = expanded.includes(p.color);
-            const toggle = () =>
-              setExpanded(isOpen ? expanded.filter((c) => c !== p.color) : [...expanded, p.color]);
-            const sentCount = p.visions.length;
-            const targetCard = () =>
-              pillar && target !== undefined ? (
-                <Card
-                  kind={content.kindOf(pillar)}
-                  n={target}
-                  content={content}
-                  note={`${p.name}’s target`}
-                  onTap={() => open(0)}
-                >
-                  <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-xs font-bold text-white uppercase">
-                    Target
-                  </span>
-                </Card>
-              ) : (
-                <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-success/15 text-2xl">
-                  ✅
-                </div>
-              );
-            return (
-              <li key={p.color}>
-                <Panel
-                  role="region"
-                  className={cn('p-2', needs && !isAway && 'ring-2 ring-accent')}
-                  aria-label={`${p.name} (ghost view)`}
-                >
-                  {!isOpen && (
-                    <div className="flex items-center gap-2 lg:hidden">
-                      <div className="w-24 shrink-0">{targetCard()}</div>
-                      <button
-                        type="button"
-                        aria-expanded={false}
-                        aria-label={`Show ${p.name}’s row`}
-                        onClick={toggle}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
-                      >
-                        <Avatar color={p.color} content={content} name={p.name} size="sm" />
-                        <span className="min-w-0 flex-1 text-sm leading-tight font-semibold">
-                          <span className="block truncate">
-                            {p.name}
-                            {p.gone ? (
-                              <span className="ml-1 text-xs font-normal">(left)</span>
-                            ) : p.absent ? (
-                              <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
-                            ) : (
-                              isAway && <span className="ml-1 text-xs font-normal">(away)</span>
-                            )}
-                          </span>
-                          <span className="block truncate text-xs font-normal text-ink-muted">
-                            {pillar
-                              ? `${sentCount} vision${sentCount === 1 ? '' : 's'} · ${p.intuition !== null ? 'guessed' : 'no guess'}`
-                              : 'found all three'}
-                          </span>
-                        </span>
-                        <span aria-hidden className="text-ink-muted">
-                          ▾
-                        </span>
-                      </button>
-                      {needs ? (
-                        <Button
-                          size="sm"
-                          variant={isAway ? 'secondary' : 'primary'}
-                          className="shrink-0"
-                          onClick={openSend}
-                          aria-label={`🔍 Choose ${p.name}’s vision`}
-                        >
-                          Choose
-                        </Button>
-                      ) : pillar && sending && !isEmpty(p) ? (
-                        <span className="shrink-0 rounded-full bg-sunk px-2 text-xs font-semibold">
-                          {p.ready ? 'ready' : 'sent'}
-                        </span>
-                      ) : null}
-                    </div>
-                  )}
-                  {isOpen && (
-                    <button
-                      type="button"
-                      aria-expanded
-                      onClick={toggle}
-                      className="mb-1 min-h-11 w-full rounded-lg text-right text-xs font-semibold text-ink-muted lg:hidden"
-                    >
-                      Show less ▴
-                    </button>
-                  )}
-                  <div
-                    className={cn(
-                      'grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] xl:grid-cols-[13rem_minmax(0,1fr)]',
-                      !isOpen && 'hidden lg:grid',
-                    )}
+      {/* Desktops: the rows take the height left and scroll inside (More below at the foot). */}
+      <FitArea on={wide} plain surface="page" min={200}>
+        <ul
+          className={cn('space-y-2', many && 'lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0')}
+          aria-label="Psychics"
+        >
+          {/* Away seats last: the ghost serves the psychics who are there first. */}
+          {[...atTable(g)]
+            .sort((a, b) => Number(away.includes(a.color)) - Number(away.includes(b.color)))
+            .map((p) => {
+              const pillar = PILLARS[p.step];
+              const target = pillar ? p.targets?.[p.step] : undefined;
+              const sent = g.sent.includes(p.color);
+              const needs = sending && pillar && !sent && !isEmpty(p);
+              const cards = psychicCards(p, g);
+              const visionStart = target !== undefined ? 1 : 0;
+              const open = (i: number) => look(cards, i, `${p.name}’s cards`);
+              const openSend = () => {
+                const spec = sendSpec(p);
+                if (spec) compare(spec);
+              };
+              const isAway = away.includes(p.color);
+              const isOpen = expanded.includes(p.color);
+              const toggle = () =>
+                setExpanded(
+                  isOpen ? expanded.filter((c) => c !== p.color) : [...expanded, p.color],
+                );
+              const sentCount = p.visions.length;
+              const targetCard = () =>
+                pillar && target !== undefined ? (
+                  <Card
+                    kind={content.kindOf(pillar)}
+                    n={target}
+                    content={content}
+                    note={`${p.name}’s target`}
+                    onTap={() => open(0)}
                   >
-                    {targetCard()}
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-1.5">
+                    <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-xs font-bold text-white uppercase">
+                      Target
+                    </span>
+                  </Card>
+                ) : (
+                  <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-success/15 text-2xl">
+                    ✅
+                  </div>
+                );
+              return (
+                <li key={p.color}>
+                  <Panel
+                    role="region"
+                    className={cn('p-2', needs && !isAway && 'ring-2 ring-accent')}
+                    aria-label={`${p.name} (ghost view)`}
+                  >
+                    {!isOpen && (
+                      <div className="flex items-center gap-2 lg:hidden">
+                        <div className="w-24 shrink-0">{targetCard()}</div>
                         <button
                           type="button"
-                          onClick={() => setSheet(p.color)}
-                          aria-label={`All of ${p.name}’s cards`}
+                          aria-expanded={false}
+                          aria-label={`Show ${p.name}’s row`}
+                          onClick={toggle}
                           className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
                         >
                           <Avatar color={p.color} content={content} name={p.name} size="sm" />
-                          <span className="min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
-                            {p.name}
-                            {p.gone ? (
-                              <span className="ml-1 text-xs font-normal">(left)</span>
-                            ) : p.absent ? (
-                              <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
-                            ) : (
-                              isAway && <span className="ml-1 text-xs font-normal">(away)</span>
-                            )}
-                            <span className="block text-xs font-normal text-ink-muted">
+                          <span className="min-w-0 flex-1 text-sm leading-tight font-semibold">
+                            <span className="block truncate">
+                              {p.name}
+                              {p.gone ? (
+                                <span className="ml-1 text-xs font-normal">(left)</span>
+                              ) : p.absent ? (
+                                <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
+                              ) : (
+                                isAway && <span className="ml-1 text-xs font-normal">(away)</span>
+                              )}
+                            </span>
+                            <span className="block truncate text-xs font-normal text-ink-muted">
                               {pillar
-                                ? `${content.pillarName(pillar).toLowerCase()} ${p.step + 1}/3 · all cards ›`
+                                ? `${sentCount} vision${sentCount === 1 ? '' : 's'} · ${p.intuition !== null ? 'guessed' : 'no guess'}`
                                 : 'found all three'}
                             </span>
                           </span>
+                          <span aria-hidden className="text-ink-muted">
+                            ▾
+                          </span>
                         </button>
                         {needs ? (
-                          <span className="rounded-full bg-accent-line px-2 text-xs font-bold text-ink">
-                            {isAway ? 'away · needs a vision' : 'needs a vision'}
-                          </span>
+                          <Button
+                            size="sm"
+                            variant={isAway ? 'secondary' : 'primary'}
+                            className="shrink-0"
+                            onClick={openSend}
+                            aria-label={`🔍 Choose ${p.name}’s vision`}
+                          >
+                            Choose
+                          </Button>
                         ) : pillar && sending && !isEmpty(p) ? (
-                          <span className="rounded-full bg-sunk px-2 text-xs font-semibold">
+                          <span className="shrink-0 rounded-full bg-sunk px-2 text-xs font-semibold">
                             {p.ready ? 'ready' : 'sent'}
                           </span>
                         ) : null}
                       </div>
-                      {pillar && (p.visions.length > 0 || p.intuition !== null) && (
-                        <div
-                          tabIndex={0}
-                          role="group"
-                          className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
-                          aria-label={`What ${p.name} holds`}
-                        >
-                          {p.visions.map((v, i) => (
-                            <div key={`${v.card}-${i}`} className="w-11 shrink-0 sm:w-12 xl:w-16">
-                              <Card
-                                kind="vision"
-                                n={v.card}
-                                content={content}
-                                note={`sent to ${p.name}`}
-                                onTap={() => open(visionStart + i)}
-                              />
-                            </div>
-                          ))}
-                          {p.intuition !== null && (
-                            <div className="ml-1 w-16 shrink-0 xl:w-24">
-                              <Card
-                                kind={content.kindOf(pillar)}
-                                n={p.intuition}
-                                content={content}
-                                note={`${p.name}’s guess`}
-                                onTap={() => open(cards.length - 1)}
-                                className={cn(
-                                  p.intuition === target
-                                    ? 'ring-2 ring-success'
-                                    : 'ring-2 ring-danger',
-                                )}
-                              />
-                            </div>
-                          )}
+                    )}
+                    {isOpen && (
+                      <button
+                        type="button"
+                        aria-expanded
+                        onClick={toggle}
+                        className="mb-1 min-h-11 w-full rounded-lg text-right text-xs font-semibold text-ink-muted lg:hidden"
+                      >
+                        Show less ▴
+                      </button>
+                    )}
+                    <div
+                      className={cn(
+                        'grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[10rem_minmax(0,1fr)]',
+                        many
+                          ? 'lg:grid-cols-[8rem_minmax(0,1fr)] xl:grid-cols-[10rem_minmax(0,1fr)]'
+                          : 'xl:grid-cols-[13rem_minmax(0,1fr)]',
+                        !isOpen && 'hidden lg:grid',
+                      )}
+                    >
+                      {targetCard()}
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSheet(p.color)}
+                            aria-label={`All of ${p.name}’s cards`}
+                            className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg text-left hover:bg-line/40 focus-visible:outline-2 focus-visible:outline-accent"
+                          >
+                            <Avatar color={p.color} content={content} name={p.name} size="sm" />
+                            <span className="min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
+                              {p.name}
+                              {p.gone ? (
+                                <span className="ml-1 text-xs font-normal">(left)</span>
+                              ) : p.absent ? (
+                                <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
+                              ) : (
+                                isAway && <span className="ml-1 text-xs font-normal">(away)</span>
+                              )}
+                              <span className="block text-xs font-normal text-ink-muted">
+                                {pillar
+                                  ? `${content.pillarName(pillar).toLowerCase()} ${p.step + 1}/3 · all cards ›`
+                                  : 'found all three'}
+                              </span>
+                            </span>
+                          </button>
+                          {needs ? (
+                            // Two rows a line on desktops: the lit edge and Choose say it, so the
+                            // pill (which squeezed the name) only shows for one who is away.
+                            <span
+                              className={cn(
+                                'rounded-full bg-accent-line px-2 text-xs font-bold text-ink',
+                                many && !isAway && 'lg:hidden',
+                              )}
+                            >
+                              {isAway ? 'away · needs a vision' : 'needs a vision'}
+                            </span>
+                          ) : pillar && sending && !isEmpty(p) ? (
+                            <span className="rounded-full bg-sunk px-2 text-xs font-semibold">
+                              {p.ready ? 'ready' : 'sent'}
+                            </span>
+                          ) : null}
                         </div>
-                      )}
-                      <PastGuesses g={g} p={p} content={content} compact />
-                      {needs && (
-                        <Button size="sm" className="w-full" onClick={openSend}>
-                          🔍 Choose {p.name}’s vision
-                        </Button>
-                      )}
+                        {pillar && (p.visions.length > 0 || p.intuition !== null) && (
+                          <div
+                            tabIndex={0}
+                            role="group"
+                            className="flex items-end gap-1 overflow-x-auto pb-0.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                            aria-label={`What ${p.name} holds`}
+                          >
+                            {p.visions.map((v, i) => (
+                              <div key={`${v.card}-${i}`} className="w-11 shrink-0 sm:w-12 xl:w-16">
+                                <Card
+                                  kind="vision"
+                                  n={v.card}
+                                  content={content}
+                                  note={`sent to ${p.name}`}
+                                  onTap={() => open(visionStart + i)}
+                                />
+                              </div>
+                            ))}
+                            {p.intuition !== null && (
+                              <div className="ml-1 w-16 shrink-0 xl:w-24">
+                                <Card
+                                  kind={content.kindOf(pillar)}
+                                  n={p.intuition}
+                                  content={content}
+                                  note={`${p.name}’s guess`}
+                                  onTap={() => open(cards.length - 1)}
+                                  className={cn(
+                                    p.intuition === target
+                                      ? 'ring-2 ring-success'
+                                      : 'ring-2 ring-danger',
+                                  )}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <PastGuesses g={g} p={p} content={content} compact />
+                        {needs && (
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={openSend}
+                            aria-label={`🔍 Choose ${p.name}’s vision`}
+                          >
+                            {/* Two rows a line: the name is right above, so the label stays one line. */}
+                            {many ? (
+                              <>
+                                <span className="lg:hidden">🔍 Choose {p.name}’s vision</span>
+                                <span className="hidden lg:inline">🔍 Choose a vision</span>
+                              </>
+                            ) : (
+                              <>🔍 Choose {p.name}’s vision</>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Panel>
-              </li>
-            );
-          })}
-      </ul>
+                  </Panel>
+                </li>
+              );
+            })}
+        </ul>
+      </FitArea>
     </>
   );
 }
@@ -485,6 +519,7 @@ export function HandCards({
   pickedLabel = '✓ Picked',
   canPick = () => true,
   label = 'Your hand',
+  dense = false,
 }: {
   hand: readonly number[];
   content: Content;
@@ -496,6 +531,8 @@ export function HandCards({
   /** Whether a not-yet-picked card may be picked (the shared vision stops at 3). */
   canPick?: (card: number) => boolean;
   label?: string;
+  /** Desktops: four a row (beside the line-up, where the hand must fit under the steps). */
+  dense?: boolean;
 }) {
   const pick = (c: number) =>
     onToggle && {
@@ -515,7 +552,10 @@ export function HandCards({
       <ul
         aria-label={label}
         tabIndex={0}
-        className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:px-0 2xl:grid-cols-4"
+        className={cn(
+          '-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:mx-0 lg:grid lg:snap-none lg:overflow-visible lg:px-0',
+          dense ? 'lg:grid-cols-4' : 'lg:grid-cols-3 2xl:grid-cols-4',
+        )}
       >
         {hand.map((c, i) => (
           <li

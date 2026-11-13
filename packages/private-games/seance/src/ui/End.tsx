@@ -4,6 +4,7 @@ import {
   EndHero,
   EndLayout,
   EndTabs,
+  FitArea,
   Panel,
   Superlatives,
   cn,
@@ -270,6 +271,12 @@ export function EndScreen({
             {shared}
             {meant}
           </div>
+        ) : !room.superlatives?.length && !shared ? (
+          // Phones with nothing but what the ghost meant (a game the clock ended, no awards): it
+          // takes the height left and scrolls inside, so the end fits the screen.
+          <FitArea phone surface="page" min={200}>
+            {meant}
+          </FitArea>
         ) : (
           // Phones: the awards, the final line-up and what the ghost meant one at a time, so the
           // end fits the screen.

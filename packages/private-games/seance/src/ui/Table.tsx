@@ -1,4 +1,4 @@
-import { Panel, cn } from '@vt/ui';
+import { Panel, cn, useWideScreen } from '@vt/ui';
 import { PILLARS, isPillarCard } from '../logic/cards.ts';
 import { levelThresholds } from '../logic/setup.ts';
 import { HOURS, type GameView, type SeanceView } from '../logic/types.ts';
@@ -143,13 +143,13 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
           />
         ))}
       </div>
-      <p className="flex flex-wrap justify-between gap-x-2 text-xs text-ink-2">
+      <p className="flex flex-wrap justify-between gap-x-2 text-xs text-ink-2 lg:text-sm">
         <span>0–{mid - 1}: you vote after card 1</span>
         <span>
           {mid}+: after card 2 · {high}+: after card 3
         </span>
       </p>
-      <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+      <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs lg:text-sm">
         {atTable(g).map((p) => (
           <li key={p.color} className="flex items-center gap-1">
             <span
@@ -190,13 +190,14 @@ export function Verdicts({
     <div aria-label="Verdicts" className="space-y-1">
       {viewer}
       <h4 className="text-sm font-semibold">Hour {roman(hour)}: the ghost answered</h4>
-      {/* Phones: one row per psychic. Desktops: a card per psychic (portrait, name, the guessed
-          card large, the verdict), side by side at their own width. */}
+      {/* Phones: one row per psychic. Desktops: a tile per psychic (portrait and name beside the
+          guessed card, the verdict in the corner), side by side at their own width, low enough
+          that the cards to send and the table stay in the window under them. */}
       <ul
         className={cn(
           'space-y-1 text-sm',
           cards &&
-            'lg:grid lg:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] lg:gap-3 lg:space-y-0',
+            'lg:grid lg:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] lg:gap-2 lg:space-y-0',
         )}
       >
         {list.map((v) => {
@@ -208,11 +209,13 @@ export function Verdicts({
               className={cn(
                 'flex items-center gap-2',
                 cards &&
-                  'lg:relative lg:flex-col lg:gap-1.5 lg:rounded-xl lg:bg-card lg:p-3 lg:text-center lg:ring-1 lg:ring-line',
+                  'lg:relative lg:grid lg:grid-cols-[minmax(0,1fr)_6.5rem] lg:items-start lg:gap-x-2 lg:gap-y-1 lg:rounded-xl lg:bg-card lg:p-2 lg:ring-1 lg:ring-line',
               )}
             >
               <Avatar color={v.color} content={content} name={p?.name} size="sm" />
-              <span className={cn('flex-1', cards && 'lg:flex-none')}>
+              <span
+                className={cn('flex-1', cards && 'lg:col-start-1 lg:row-start-2 lg:leading-snug')}
+              >
                 {p?.name ?? v.color}{' '}
                 {v.guess === null
                   ? `made no ${content.pillarName(pillar).toLowerCase()} guess`
@@ -234,7 +237,12 @@ export function Verdicts({
               </span>
               {v.guess !== null && (
                 // The guessed card itself: at the table, the card is the moment.
-                <span className={cn('w-20 shrink-0 sm:w-24', cards && 'lg:w-32')}>
+                <span
+                  className={cn(
+                    'w-20 shrink-0 sm:w-24',
+                    cards ? 'lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:w-auto' : 'lg:w-16',
+                  )}
+                >
                   <Card
                     kind={content.kindOf(pillar)}
                     n={v.guess}
@@ -259,7 +267,7 @@ export function Verdicts({
               )}
               <span
                 aria-hidden
-                className={cn('text-lg', cards && 'lg:absolute lg:top-2 lg:right-2')}
+                className={cn('text-lg', cards && 'lg:absolute lg:top-1 lg:right-1')}
               >
                 {v.correct ? '✅' : '❌'}
               </span>
@@ -275,11 +283,13 @@ export function Verdicts({
 export function TableTab({ view, content }: { view: SeanceView; content: Content }) {
   const g = view.game!;
   const ghost = g.myRole === 'ghost';
+  // Desktops show the reveal's verdicts at the top of the main column: the rail leaves them out.
+  const wide = useWideScreen();
   return (
     <Panel className="space-y-3 p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">Hour {roman(g.hour)} / VII</h3>
-        <p className="text-xs text-ink-muted">
+        <p className="text-xs text-ink-muted lg:text-sm">
           🐦‍⬛ Ravens:{' '}
           {g.difficulty === 'easy'
             ? `1 per hour${g.ravenHour === g.hour ? ' (used)' : ''}`
@@ -290,7 +300,7 @@ export function TableTab({ view, content }: { view: SeanceView; content: Content
       <Clock g={g} />
       <Track g={g} content={content} />
       <Progress g={g} content={content} showTargets={ghost} />
-      <Verdicts view={view} content={content} />
+      {!(wide && g.stage === 'reveal') && <Verdicts view={view} content={content} />}
     </Panel>
   );
 }

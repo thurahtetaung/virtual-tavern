@@ -33,7 +33,18 @@ export function castable(g: GameView, myTurn: boolean, choice: number | null): n
 }
 
 /** The shared vision: face-up cards, then face-down ones. */
-export function SharedRow({ g, content, tags }: { g: GameView; content: Content; tags?: boolean }) {
+export function SharedRow({
+  g,
+  content,
+  tags,
+  side = false,
+}: {
+  g: GameView;
+  content: Content;
+  tags?: boolean;
+  /** Desktops: a narrow column beside the line-up (four groups or more), the cards stacked. */
+  side?: boolean;
+}) {
   const f = g.final!;
   const { look, viewer } = useLook(content);
   if (!f.sharedCount) return null;
@@ -64,6 +75,7 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
         className={cn(
           'grid grid-cols-3 gap-2 sm:max-w-sm',
           g.stage === 'vote' ? 'max-sm:max-w-[12rem]' : 'max-sm:max-w-[17rem]',
+          side && 'lg:max-w-none lg:grid-cols-1',
         )}
       >
         {[0, 1, 2].map((i) => {
@@ -91,7 +103,14 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
                 <CardBack content={content} />
               )}
               {tags && tag && (
-                <p className="text-center text-xs font-semibold">
+                // Beside the line-up the tag sits on the card's foot, so the column stays short.
+                <p
+                  className={cn(
+                    'text-center text-xs font-semibold',
+                    side &&
+                      'lg:relative lg:z-10 lg:mx-1 lg:-mt-6 lg:rounded lg:bg-black/70 lg:py-0.5 lg:text-white',
+                  )}
+                >
                   {content.pillarIcon(tag)} {content.pillarName(tag)}
                 </p>
               )}
@@ -163,14 +182,15 @@ export function Lineup({
   );
   return (
     <div className="space-y-2">
-      {/* Desktops: two groups a row (three with five or six), the cards large; beside the
-          ghost's picker the groups share half the width. */}
+      {/* Desktops: two groups a row with two or four, three with three, five or six, so every
+          group is on screen at once, the cards large; beside the ghost's picker the groups share
+          half the width. */}
       <ul
         className={cn(
           'grid grid-cols-1 gap-2',
           picking
             ? 'lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]'
-            : f.groups.length <= 4
+            : f.groups.length === 2 || f.groups.length === 4
               ? 'lg:grid-cols-2 lg:gap-3'
               : 'lg:grid-cols-3 lg:gap-3',
         )}
@@ -397,6 +417,7 @@ export function SharedPicker({
             Tap Throw away on the cards to lose, then draw back up to 7.
           </p>
           <HandCards
+            dense
             hand={hand}
             content={content}
             picked={throwing}
@@ -428,6 +449,7 @@ export function SharedPicker({
         </>
       ) : (
         <HandCards
+          dense
           hand={hand}
           content={content}
           picked={cards}

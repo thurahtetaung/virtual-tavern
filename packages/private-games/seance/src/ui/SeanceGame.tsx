@@ -15,6 +15,7 @@ import {
   tabPanelProps,
   useSpectatorPrompt,
   useWideScreen,
+  FitArea,
   useConfirm,
   useAbandonGame,
   NameDot,
@@ -629,6 +630,11 @@ function SeanceTable({
   // The "needs you" dot: on the tab holding your move, while another tab is open.
   const alert: Tab | null = status.yourMove ? 'main' : null;
 
+  const sideShared =
+    finalStage &&
+    !(ghost && g.stage === 'shared') &&
+    !!g.final?.sharedCount &&
+    g.final.groups.length > 3;
   const finalPanel = finalStage && (
     <div className="space-y-2">
       <VoteBar view={view} room={room} act={act} />
@@ -639,16 +645,27 @@ function SeanceTable({
           ghost && g.stage === 'shared' && 'lg:grid-cols-2 lg:items-start',
         )}
       >
-        <Panel className="space-y-3 p-3">
-          <SharedRow g={g} content={content} tags={ghost} />
-          <Lineup
-            view={view}
-            act={act}
-            content={content}
-            draft={ghost ? draft : undefined}
-            setDraft={ghost ? setDraft : undefined}
-          />
-        </Panel>
+        {/* Desktops with four groups or more: the shared vision is a narrow column beside them,
+            so the line-up and the vote fit the window. Phones: the line-up takes the height left
+            and scrolls inside (More below), except while the ghost picks under it. */}
+        <FitArea phone on={!(ghost && g.stage === 'shared')} plain surface="page" min={260}>
+          <Panel
+            className={cn(
+              'space-y-3 p-3',
+              sideShared &&
+                'lg:grid lg:grid-cols-[7rem_minmax(0,1fr)] lg:items-start lg:gap-3 lg:space-y-0',
+            )}
+          >
+            <SharedRow g={g} content={content} tags={ghost} side={sideShared} />
+            <Lineup
+              view={view}
+              act={act}
+              content={content}
+              draft={ghost ? draft : undefined}
+              setDraft={ghost ? setDraft : undefined}
+            />
+          </Panel>
+        </FitArea>
         {ghost && g.stage === 'shared' && (
           <SharedPicker
             view={view}
@@ -736,11 +753,13 @@ function SeanceTable({
       <div
         className={cn(
           'grid gap-3',
+          // Desktops: the current task takes the width; the table is a 20 rem rail at the right
+          // that fits the window and scrolls inside.
           ghostFinal || psychicFinal
-            ? 'lg:grid-cols-[minmax(0,12fr)_minmax(0,4fr)]'
+            ? 'lg:grid-cols-[minmax(0,1fr)_20rem]'
             : ghost
-              ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)_minmax(0,4fr)]'
-              : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
+              ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)_20rem]'
+              : 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)_20rem]',
         )}
       >
         {(main || (wide && g.stage === 'reveal')) && (
@@ -761,17 +780,19 @@ function SeanceTable({
           </div>
         )}
         <div
-          className={cn('min-w-0 space-y-2', onTab('table'))}
+          className={cn('min-w-0', onTab('table'))}
           {...(!wide && tabPanelProps(TABS_ID, 'table'))}
         >
-          <TableTab view={view} content={content} />
-          {/* In the final the line-up gets the width; the psychics' past guesses fold into the
-              rail, one tap away. */}
-          {second && wide && psychicFinal && (
-            <Fold summary={<span className="font-semibold">The psychics’ past guesses</span>}>
-              {second}
-            </Fold>
-          )}
+          <FitArea on={wide} plain surface="page" min={240} className="space-y-2">
+            <TableTab view={view} content={content} />
+            {/* In the final the line-up gets the width; the psychics' past guesses fold into the
+                rail, one tap away. */}
+            {second && wide && psychicFinal && (
+              <Fold summary={<span className="font-semibold">The psychics’ past guesses</span>}>
+                {second}
+              </Fold>
+            )}
+          </FitArea>
         </div>
       </div>
       {!wide && (
