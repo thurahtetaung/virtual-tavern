@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.101.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.1...v0.101.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ui:** back out the room and game layout changes from [#571](https://github.com/thurahtetaung/virtual-tavern/issues/571) ([#578](https://github.com/thurahtetaung/virtual-tavern/issues/578)) ([e5b3c34](https://github.com/thurahtetaung/virtual-tavern/commit/e5b3c348fe5889aba967c547768f20de97e9faf2))
+
 ## [0.101.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.0...v0.101.1) (2026-11-13)
 
 
