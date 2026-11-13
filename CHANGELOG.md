@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.104.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.103.0...v0.104.0) (2026-11-13)
+
+
+### Features
+
+* **seance:** the ghost's verdicts, shared vision and vote in the same calm design ([#588](https://github.com/thurahtetaung/virtual-tavern/issues/588)) ([e47f36f](https://github.com/thurahtetaung/virtual-tavern/commit/e47f36fe7c9f9b8c1a142da80b4a43874b50b28d))
+
 ## [0.103.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.102.0...v0.103.0) (2026-11-13)
 
 
