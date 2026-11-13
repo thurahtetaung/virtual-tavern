@@ -434,6 +434,23 @@ function End({
           />
         )),
   );
+  // Phones: under the winner's nobles, the cards they built, in a strip that scrolls (wide screens
+  // show everyone's table beside the finale).
+  const tableau = !wide &&
+    winners[0] &&
+    winners[0].nobles.length > 0 &&
+    winners[0].cards.length > 0 && (
+      <ul
+        aria-label={`${winners[0].name}’s cards`}
+        className="flex w-full basis-full gap-1 overflow-x-auto pb-1"
+      >
+        {winners[0].cards.map((c) => (
+          <li key={c} className="shrink-0">
+            <CardTile id={c} art={art} className="!w-14" />
+          </li>
+        ))}
+      </ul>
+    );
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
@@ -446,7 +463,16 @@ function End({
             eyebrow={title === 'Game over' ? null : undefined}
             emblem={winnerArt.length ? null : '💎'}
             // The winners' nobles (or, without any, the last cards they bought): the game's own art.
-            art={winnerArt}
+            art={
+              tableau ? (
+                <>
+                  {winnerArt}
+                  {tableau}
+                </>
+              ) : (
+                winnerArt
+              )
+            }
             superlatives={wide ? room.superlatives : undefined}
             actions={
               <>

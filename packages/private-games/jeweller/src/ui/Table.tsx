@@ -1119,12 +1119,20 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
               ))}
             </section>
           ) : (
-            <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
+            // The nobles share their row evenly (up to 80 px each), centred over the market.
+            <section
+              aria-label="Nobles"
+              className="grid justify-center gap-2"
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(1, g.nobles.length)}, minmax(0, 5rem))`,
+              }}
+            >
               {g.nobles.map((n) => (
                 <NobleTile
                   key={n}
                   id={n}
                   art={art}
+                  className="aspect-square !h-auto !w-full"
                   {...(me && { bonuses: me.bonuses })}
                   onClick={() => setSheet({ kind: 'noble', id: n })}
                 />
