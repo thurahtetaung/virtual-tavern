@@ -222,8 +222,17 @@ export function Suspects(props: Common) {
 /** Desktop: every suspect at once, one row of art cards each. */
 export function AllSuspects(props: Common) {
   const g = props.view.game!;
+  const n = suspectsOf(g).length;
   return (
-    <ul className="grid gap-3 xl:grid-cols-3" aria-label="Suspects">
+    // Across the full width: three or four a row, so each suspect's cards are large.
+    <ul
+      className={cn(
+        'grid gap-3 lg:grid-cols-3',
+        n === 4 && 'xl:grid-cols-4',
+        n === 2 && 'lg:grid-cols-2',
+      )}
+      aria-label="Suspects"
+    >
       {suspectsOf(g).map((p) => (
         <li key={p.id} className="rounded-xl bg-card/70 p-2 ring-1 ring-line">
           <h4 className="mb-1 flex items-center gap-1 text-sm font-bold">

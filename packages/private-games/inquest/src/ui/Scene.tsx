@@ -403,10 +403,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
       )}
       <div ref={below} className="space-y-2 max-sm:overflow-y-auto max-sm:overscroll-contain">
         {g.slots.length > 0 && (
-          <div
-            ref={grid}
-            className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2 2xl:grid-cols-3"
-          >
+          <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
             {g.slots.map((_, i) => (
               <Tile
                 key={`${i}-${g.slots[i]!.tile}`}

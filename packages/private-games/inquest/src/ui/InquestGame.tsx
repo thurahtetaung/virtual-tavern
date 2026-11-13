@@ -582,12 +582,12 @@ export function InquestGame({
           when a panel (the Murderer's crime choice) leaves the tab too little room. */}
       <FitArea on={!wide} resetKey={`${stepKey}-${tab}`} className="space-y-2">
         {solvePanel}
-        {/* Desktops: the scene's tiles and your role on the left, the suspects' cards beside
-            them from the top, at the full height, so what players study to solve (or to name the
-            Witness) is in view at every step. */}
-        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
+        {/* Desktops: the suspects' cards across the full width at the top, large, then the
+            scene's tiles in one row (three across on narrower desktops) with your role beside
+            them, so what players study to solve (or to name the Witness) is on one screen. */}
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div
-            className={cn('min-w-0 lg:col-start-1 lg:row-start-1', onTab('scene'))}
+            className={cn('min-w-0 lg:col-start-1 lg:row-start-2', onTab('scene'))}
             {...(!wide && tabPanelProps(TABS_ID, 'scene'))}
           >
             <Scene view={view} content={content} act={act} />
@@ -600,7 +600,7 @@ export function InquestGame({
             )}
           </div>
           <div
-            className={cn('min-w-0 lg:col-start-1 lg:row-start-2', onTab('me'))}
+            className={cn('min-w-0 lg:col-start-2 lg:row-start-2', onTab('me'))}
             {...(!wide && tabPanelProps(TABS_ID, 'me'))}
           >
             <MeTab
@@ -612,7 +612,7 @@ export function InquestGame({
           </div>
           <div
             className={cn(
-              'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1',
+              'min-w-0 space-y-2 lg:col-span-2 lg:col-start-1 lg:row-start-1',
               onTab('suspects'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
