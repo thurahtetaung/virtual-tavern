@@ -1,6 +1,7 @@
-import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   Input,
   NameDot,
@@ -9,6 +10,7 @@ import {
   StickyBar,
   Superlatives,
   cn,
+  useWideScreen,
 } from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
@@ -484,75 +486,94 @@ export function GameOver({
   /** Phones: the players, as a tab beside the scores and awards. */
   players?: ReactNode;
 }) {
+  const wide = useWideScreen();
   const ranked = view.scores;
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;
   const times = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const title = winnersTitle(ranked, view.me?.id) || 'Game over';
+  // Wide screens show the night's superlatives in the finale, so the awards tab gives way.
+  const heroAwards = wide && !!room.superlatives?.length;
   return (
-    <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
-      {view.endReason === 'too-few' && (
-        <p className="font-semibold">Too few players left: final scores so far.</p>
-      )}
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={ranked.map((s) => ({
-                  id: s.id,
-                  name: s.left ? `${s.name} (left)` : s.name,
-                  score: s.score,
-                }))}
-                you={view.me?.id}
-                scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
-                className="text-left"
-              />
-            ),
-          },
-          {
-            id: 'awards',
-            label: '✨ Awards',
-            content: room.superlatives?.length ? (
-              <Superlatives lines={room.superlatives} />
-            ) : (
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                <div className="rounded-xl bg-danger-soft px-3 py-2">
-                  <dt className="font-semibold">🎭 Best liar</dt>
-                  <dd>
-                    {bestLiar.length > 0
-                      ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
-                      : 'Nobody fooled anyone!'}
-                  </dd>
-                </div>
-                <div className="rounded-xl bg-success-soft px-3 py-2">
-                  <dt className="font-semibold">🔎 Truth seeker</dt>
-                  <dd>
-                    {truthSeeker.length > 0
-                      ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
-                      : 'Nobody found the truth!'}
-                  </dd>
-                </div>
-              </dl>
-            ),
-          },
-          !!players && { id: 'players', label: '👥 Players', content: players },
-        ]}
-      />
-      {isHost ? (
-        <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </StickyBar>
-      ) : (
-        <p>{waitingForHost(room, 'start the next game')}</p>
-      )}
-    </Panel>
+    <>
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="🎭"
+        superlatives={heroAwards ? room.superlatives : undefined}
+        actions={
+          isHost ? (
+            <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+              <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                Play again
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => void act({ type: 'back-to-lobby' })}
+              >
+                Change setup
+              </Button>
+            </StickyBar>
+          ) : (
+            <p>{waitingForHost(room, 'start the next game')}</p>
+          )
+        }
+      >
+        {view.endReason === 'too-few' && (
+          <p className="font-semibold">Too few players left: final scores so far.</p>
+        )}
+      </EndHero>
+      <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={ranked.map((s) => ({
+                    id: s.id,
+                    name: s.left ? `${s.name} (left)` : s.name,
+                    score: s.score,
+                  }))}
+                  you={view.me?.id}
+                  scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
+                  className="text-left"
+                />
+              ),
+            },
+            !heroAwards && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: room.superlatives?.length ? (
+                <Superlatives lines={room.superlatives} />
+              ) : (
+                <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                  <div className="rounded-xl bg-danger-soft px-3 py-2">
+                    <dt className="font-semibold">🎭 Best liar</dt>
+                    <dd>
+                      {bestLiar.length > 0
+                        ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
+                        : 'Nobody fooled anyone!'}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl bg-success-soft px-3 py-2">
+                    <dt className="font-semibold">🔎 Truth seeker</dt>
+                    <dd>
+                      {truthSeeker.length > 0
+                        ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
+                        : 'Nobody found the truth!'}
+                    </dd>
+                  </div>
+                </dl>
+              ),
+            },
+            !!players && { id: 'players', label: '👥 Players', content: players },
+          ]}
+        />
+      </Panel>
+    </>
   );
 }
