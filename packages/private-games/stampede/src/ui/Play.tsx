@@ -1,4 +1,4 @@
-import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, listNames, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
@@ -11,6 +11,7 @@ import {
   cn,
   useConfirm,
   useSecondsLeft,
+  EndHero,
   EndTabs,
   useWideScreen,
 } from '@vt/ui';
@@ -477,14 +478,45 @@ export function Stage(props: Props) {
 export function GameOver(props: Props) {
   const { view, room, act, names } = props;
   const wide = useWideScreen();
+  const won = view.endReason === 'won' && view.winners.length > 0;
+  const title = !won
+    ? 'Game over'
+    : view.winners.length === 1 && view.winners[0] === view.me?.id
+      ? 'You win!'
+      : `${listNames(view.winners.map((id) => who(view, id)))} ${view.winners.length > 1 ? 'win' : 'wins'}!`;
   return (
     <div className="space-y-4">
-      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+      <EndHero
+        title={title}
+        eyebrow={won ? undefined : null}
+        emblem="🐄"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          room.isHost ? (
+            <StickyBar>
+              <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+                <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            </StickyBar>
+          ) : (
+            <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
+          )
+        }
+      >
         {view.endReason === 'too-few' && (
-          <p className="text-center font-semibold">
-            Too few players left: the game ended with no winner.
-          </p>
+          <p className="font-semibold">Too few players left: the game ended with no winner.</p>
         )}
+      </EndHero>
+      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         <EndTabs
           tabs={[
             {
@@ -503,11 +535,12 @@ export function GameOver(props: Props) {
                 />
               ),
             },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
             !wide &&
               !!view.round?.result && {
                 id: 'question',
@@ -516,24 +549,6 @@ export function GameOver(props: Props) {
               },
           ]}
         />
-        {room.isHost ? (
-          <StickyBar>
-            <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-              <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                Play again
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </div>
-          </StickyBar>
-        ) : (
-          <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
-        )}
       </Panel>
       {wide && view.round?.result && (
         <Panel>
