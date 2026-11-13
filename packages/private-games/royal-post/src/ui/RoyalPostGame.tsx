@@ -810,10 +810,12 @@ function Table({
                 </div>
                 <ul className="flex shrink-0 justify-center gap-2 max-sm:gap-3">
                   {view.hand.map((role, i) => (
-                    // Big enough to read the card's art and name without opening it.
+                    // Big enough to read the card's art and name without opening it; on wide
+                    // screens no taller than the space under the table, so the whole card (its
+                    // text included) is above a laptop's fold.
                     <li
                       key={`${role}-${i}`}
-                      className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-52 xl:w-60"
+                      className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-[clamp(9rem,calc((100dvh-38rem)*0.714),13rem)] xl:w-[clamp(9rem,calc((100dvh-38rem)*0.714),15rem)]"
                     >
                       <Card
                         role={role}
@@ -1618,7 +1620,8 @@ function Podium({
   const name = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
   const lastCards = view.round?.result?.hands ?? {};
   const edition = view.settings.edition;
-  // Phones: the winner's last card, small, in place of the emblem (wide screens show it large).
+  // Phones: the winner's last card in place of the emblem, as large as the end leaves room for
+  // (wide screens show it large beside the rest).
   const firstLast = champions.find((e) => lastCards[e.id]);
   return (
     <EndLayout
@@ -1626,12 +1629,12 @@ function Podium({
         <EndHero
           emblem={
             !wide && firstLast ? (
-              <span className="mx-auto block w-20">
+              <span className="mx-auto block w-32">
                 <Card
                   role={lastCards[firstLast.id]!}
                   rank={rankIn(edition, lastCards[firstLast.id]!)}
                   deck={deck}
-                  size="sm"
+                  size="md"
                 />
               </span>
             ) : (
