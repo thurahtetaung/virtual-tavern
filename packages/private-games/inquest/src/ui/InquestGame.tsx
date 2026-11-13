@@ -582,9 +582,10 @@ export function InquestGame({
           when a panel (the Murderer's crime choice) leaves the tab too little room. */}
       <FitArea on={!wide} resetKey={`${stepKey}-${tab}`} className="space-y-2">
         {solvePanel}
-        {/* Desktops: the scene and your role on the left, the suspects beside them; from xl your
-            role moves to a rail on the right, so it is in view on a laptop screen. */}
-        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)_18rem]">
+        {/* Desktops: the scene and your role on the left, the suspects beside them. From xl the
+            scene's tiles take one row across, the suspects the width under them, and your role a
+            rail on the right, so the cards are large and all of it is in view. */}
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,1fr)_18rem]">
           <div
             className={cn(
               'min-w-0 lg:col-start-1 lg:row-start-1',
@@ -598,7 +599,7 @@ export function InquestGame({
           </div>
           <div
             className={cn(
-              'min-w-0 lg:col-start-1 lg:row-start-2 xl:sticky xl:top-3 xl:col-start-3 xl:row-span-2 xl:row-start-1',
+              'min-w-0 lg:col-start-1 lg:row-start-2 xl:sticky xl:top-3 xl:col-start-2 xl:row-span-2 xl:row-start-1',
               onTab('me'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'me'))}
@@ -612,8 +613,8 @@ export function InquestGame({
           </div>
           <div
             className={cn(
-              'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1',
-              sceneless && 'xl:col-span-2 xl:col-start-1',
+              'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1 xl:col-start-1 xl:row-span-1 xl:row-start-2',
+              sceneless && 'xl:row-start-1',
               onTab('suspects'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}

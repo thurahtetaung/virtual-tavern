@@ -223,7 +223,7 @@ export function Suspects(props: Common) {
 export function AllSuspects(props: Common) {
   const g = props.view.game!;
   return (
-    <ul className="grid gap-3 xl:grid-cols-2" aria-label="Suspects">
+    <ul className="grid gap-3 xl:grid-cols-3" aria-label="Suspects">
       {suspectsOf(g).map((p) => (
         <li key={p.id} className="rounded-xl bg-card/70 p-2 ring-1 ring-line">
           <h4 className="mb-1 flex items-center gap-1 text-sm font-bold">

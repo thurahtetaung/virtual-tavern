@@ -9,6 +9,7 @@ import {
   ProtectedImage,
   RefusalSlot,
   EndHero,
+  EndLayout,
   EndTabs,
   Superlatives,
   cn,
@@ -686,85 +687,89 @@ export function OverScreen({
       <Timeline g={g} content={content} full />
     </Panel>
   );
+  const againBar = room.isHost ? (
+    <StickyBar refusal="inquest-again">
+      <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
+        <Button
+          size="lg"
+          className="flex-1"
+          onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
+        >
+          Play again
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+          Change setup
+        </Button>
+      </div>
+    </StickyBar>
+  ) : (
+    <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
+  );
   return (
     <div className="space-y-3">
-      <EndHero
-        tone={r.winner === 'investigators' ? 'success' : 'loss'}
-        emblem={r.winner === 'investigators' ? '🕵️' : '🩸'}
-        title={r.winner === 'investigators' ? 'The Investigators win' : 'The Murderer’s side wins'}
-        superlatives={wide ? room.superlatives : undefined}
-        art={
-          s && (
-            <>
-              {/* Large on wide screens; smaller on phones, so the end and Play again fit. */}
-              <div className="w-20 sm:w-28 lg:w-48">
-                <ArtCard deck="clue" n={s.clue} content={content} key_ />
-              </div>
-              <div className="w-20 sm:w-28 lg:w-48">
-                <ArtCard deck="means" n={s.means} content={content} key_ />
-              </div>
-            </>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            tone={r.winner === 'investigators' ? 'success' : 'loss'}
+            emblem={r.winner === 'investigators' ? '🕵️' : '🩸'}
+            title={
+              r.winner === 'investigators' ? 'The Investigators win' : 'The Murderer’s side wins'
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            // Wide screens: Play again at the foot of the finale.
+            actions={wide && againBar}
+            art={
+              s && (
+                <>
+                  {/* Large on wide screens; smaller on phones, so the end and Play again fit. */}
+                  <div className="w-20 sm:w-28 lg:w-48">
+                    <ArtCard deck="clue" n={s.clue} content={content} key_ />
+                  </div>
+                  <div className="w-20 sm:w-28 lg:w-48">
+                    <ArtCard deck="means" n={s.means} content={content} key_ />
+                  </div>
+                </>
+              )
+            }
+          >
+            <p>{resultLine(view)}</p>
+            {s && (
+              <p className="mt-1">
+                The Murderer was <b className="text-ink">{nameOf(view, s.murderer)}</b>.
+              </p>
+            )}
+          </EndHero>
         }
       >
-        <p>{resultLine(view)}</p>
-        {s && (
-          <p className="mt-1">
-            The Murderer was <b className="text-ink">{nameOf(view, s.murderer)}</b>.
-          </p>
-        )}
-      </EndHero>
-      {wide ? (
-        // Wide screens: the roles and attempts beside the bullet timeline.
-        <div className="grid items-start gap-3 xl:grid-cols-2">
+        {wide ? (
+          // Wide screens: the roles, the attempts and the bullet timeline beside the finale.
           <div className="space-y-3">
             {whoWasWho}
             {attempts}
+            {bullets}
           </div>
-          {bullets}
-        </div>
-      ) : (
-        // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
-        // and Play again fit the screen.
-        <EndTabs
-          tabs={[
-            { id: 'roles', label: '🎭 Roles', content: whoWasWho },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            {
-              id: 'attempts',
-              label: '⚖️ Attempts',
-              content: <div className="space-y-3">{attempts}</div>,
-            },
-            { id: 'bullets', label: '🩸 Bullets', content: bullets },
-          ]}
-        />
-      )}
-      {room.isHost ? (
-        <StickyBar refusal="inquest-again">
-          <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
-      )}
+        ) : (
+          // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
+          // and Play again fit the screen.
+          <EndTabs
+            tabs={[
+              { id: 'roles', label: '🎭 Roles', content: whoWasWho },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              {
+                id: 'attempts',
+                label: '⚖️ Attempts',
+                content: <div className="space-y-3">{attempts}</div>,
+              },
+              { id: 'bullets', label: '🩸 Bullets', content: bullets },
+            ]}
+          />
+        )}
+        {!wide && againBar}
+      </EndLayout>
     </div>
   );
 }
