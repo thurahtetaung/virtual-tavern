@@ -7,7 +7,7 @@ import { STYLES, genreInfo, goalLine, nounOf, progress } from '../logic/genres.t
 import { type CliffhangerView, TEAMS, type TeamId } from '../logic/types.ts';
 import { ArtContext, useArt, useLoadedArt } from './assets.ts';
 import type { CliffhangerUiProps } from './CliffhangerGame.tsx';
-import { MomentOverlay, useMoment } from './MomentOverlay.tsx';
+import { MomentOverlay } from './MomentOverlay.tsx';
 import { atMatchPoint } from './moments.ts';
 import { CliffhangerStyles, RuleNote, TEAM_EMOJI, Tape, nameOf, teamName } from './parts.tsx';
 import { CategoryCard } from './Play.tsx';
@@ -351,8 +351,6 @@ function NewsBanner({ news, view }: { news: News; view: CliffhangerView }) {
 function StageScreen({ view, room }: CliffhangerUiProps) {
   const art = useArt();
   const news = useNews(view);
-  const activeMoment = useMoment(view, room.clockOffset);
-  const counting = activeMoment?.kind === 'count';
   useSound({
     view,
     manifest: art.manifest,
@@ -384,46 +382,6 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
       testId="cl-stage"
       meta={view.round && view.phase === 'playing' ? `Round ${view.round.number}` : undefined}
       {...moment}
-      clock={
-        counting ? (
-          <MomentOverlay view={view} clockOffset={room.clockOffset} big inline />
-        ) : (
-          moment.clock
-        )
-      }
-      body={
-        view.phase === 'over' ? (
-          <div className="flex h-full min-h-0 flex-col items-center gap-6 text-center">
-            <h1
-              className="shrink-0 font-display text-[96px] leading-tight font-semibold"
-              data-testid="poster-headline"
-            >
-              {moment.headline}
-            </h1>
-            {view.winner && (
-              <ul
-                className="grid min-h-0 w-full flex-1 gap-2"
-                style={{
-                  gridTemplateColumns: `repeat(${Math.max(3, Math.ceil(Math.sqrt((view.collections[view.winner].length * 1760) / (600 * 1.375))))}, minmax(0, 1fr))`,
-                  gridAutoRows: 'minmax(0, 1fr)',
-                }}
-                data-testid="stage-finale"
-              >
-                {view.collections[view.winner].map((card) => (
-                  <li key={card.id} className="flex min-h-0 items-center justify-center">
-                    <Tape
-                      card={card}
-                      deck={view.settings.deck}
-                      className="max-h-full max-w-full w-full"
-                      full
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : undefined
-      }
       left={<TeamSide view={view} team="a" on={on} />}
       right={<TeamSide view={view} team="b" on={on} />}
       footer={footer}
@@ -449,7 +407,7 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
       overlay={
         <>
           {news && <NewsBanner news={news} view={view} />}
-          {!counting && <MomentOverlay view={view} clockOffset={room.clockOffset} big />}
+          <MomentOverlay view={view} clockOffset={room.clockOffset} big />
         </>
       }
     />

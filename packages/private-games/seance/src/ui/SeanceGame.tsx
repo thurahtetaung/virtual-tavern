@@ -8,7 +8,6 @@ import {
   clock,
   cn,
   useSecondsLeft,
-  TAP_BAND,
   TabBar,
   type TabBarItem,
   tabPanelProps,
@@ -260,23 +259,14 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         </div>
       )}
-      {/* An hour's notices (the verdicts are in…) are done with once the final starts. */}
-      {latest &&
-        current &&
-        latest.id > seen &&
-        (g.stage === 'visions' || g.stage === 'reveal') &&
-        !lockNotice && (
-          <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
-            <span className="flex-1">📣 {latest.text}</span>
-            <button
-              type="button"
-              className={cn('rounded-lg px-2 text-xs font-bold', TAP_BAND)}
-              onClick={() => setSeen(latest.id)}
-            >
-              OK
-            </button>
-          </p>
-        )}
+      {latest && current && latest.id > seen && g.stage !== 'done' && !lockNotice && (
+        <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
+          <span className="flex-1">📣 {latest.text}</span>
+          <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
+            OK
+          </button>
+        </p>
+      )}
     </div>
   );
 }
@@ -297,9 +287,8 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   const step = stepOf(g);
   const final = step.id === 'lineup' || step.id === 'vote';
   const steps = final ? FINAL_STEPS : STEPS;
-  // From hour II everyone knows the steps, and the final's own card says what to do: the
-  // explanation folds to one line, "?" opens it.
-  const brief = final || g.hour > 1;
+  // From hour II everyone knows the steps: their explanation folds to one line, "?" opens it.
+  const brief = !final && g.hour > 1;
   const [more, setMore] = useState(false);
   // The ghost's status line already says what to do; after hour I the paragraph only repeats it.
   const silent = brief && g.myRole === 'ghost';
@@ -382,13 +371,9 @@ function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo
     );
   } else if (g.canReveal && ghost) {
     body = (
-      // The sentence on its line and the ghost's one action under it, the full width.
-      <div className="flex flex-col gap-2">
-        <p>Everyone’s ready. Reveal the verdicts when you are.</p>
-        <Button
-          className="w-full"
-          onClick={() => void act({ type: 'reveal' }, { anchor: 'seance-reveal' })}
-        >
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex-1">Everyone’s ready. Reveal the verdicts when you are.</p>
+        <Button size="sm" onClick={() => void act({ type: 'reveal' }, { anchor: 'seance-reveal' })}>
           👻 Reveal the verdicts
         </Button>
       </div>

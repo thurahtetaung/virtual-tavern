@@ -11,7 +11,7 @@ export function GenericStage({ room }: Pick<GameUiProps<unknown, unknown>, 'room
     <Poster
       eyebrow="At the table"
       headline={room.gameName}
-      line="Everything in this game happens on your phones."
+      line="This game has no table screen yet: everything happens on your phones."
       footer={{ icon: 'users', text: `${room.players.length} at the table` }}
       testId="generic-stage"
     >

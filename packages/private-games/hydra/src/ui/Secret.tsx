@@ -168,7 +168,7 @@ export function SecretHand({
                   back={<PolicyBack c={c} />}
                 />
                 {isSel && (
-                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line px-2 text-xs font-black text-ink uppercase shadow">
+                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line px-2 text-[0.65rem] font-black text-ink uppercase shadow">
                     {verb ?? 'Picked'}
                   </span>
                 )}

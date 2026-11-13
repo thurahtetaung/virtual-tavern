@@ -369,6 +369,7 @@ function SketchyPlay({
   const shown: PlayTab | null = wide ? null : tab;
   return (
     <div className="space-y-3">
+      <div className="hidden justify-end lg:flex">{sound}</div>
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div
           className={cn(
@@ -383,11 +384,11 @@ function SketchyPlay({
               <div className="min-w-0 flex-1">
                 <Header view={view} clockOffset={room.clockOffset} quiet={!!skip && !wide} />
               </div>
-              {/* The sound sliders beside the round line. */}
-              <div>{sound}</div>
+              {/* Phones: the sound sliders beside the round line. */}
+              <div className="lg:hidden">{sound}</div>
             </div>
           )}
-          {view.phase === 'over' && <div className="flex justify-end">{sound}</div>}
+          {view.phase === 'over' && <div className="flex justify-end lg:hidden">{sound}</div>}
           <div className="relative">
             {/* Phones: one line while the skip panel shows (who is missing is on its button). */}
             <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>

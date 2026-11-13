@@ -3,9 +3,6 @@ import {
   Button,
   Countdown,
   FitArea,
-  TAP_BAND,
-  useScrollEnds,
-  scrollFadeMask,
   Hint,
   NameDot,
   PlayerTag,
@@ -519,10 +516,7 @@ const HandCard = memo(function HandCard({
         type="button"
         onClick={() => onZoom(r)}
         aria-label={`Read ${art.card(r.card)}`}
-        className={cn(
-          TAP_BAND,
-          'absolute top-1 right-1 flex size-9 items-start justify-end p-1 text-xs',
-        )}
+        className="absolute top-0 right-0 flex size-9 items-start justify-end p-1 text-xs"
       >
         <span className="flex size-5 items-center justify-center rounded-full bg-black/70 font-bold text-white">
           i
@@ -551,7 +545,6 @@ function Hand({
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(360);
-  const { ref: stripRef, ends: stripEnds } = useScrollEnds(view.hand.map((c) => c.id).join(','));
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -583,8 +576,6 @@ function Hand({
         <p className="py-6 text-center text-sm text-ink-muted">No cards in hand.</p>
       ) : (
         <ul
-          ref={stripRef}
-          style={scrollFadeMask(stripEnds)}
           className={cn(
             'flex pt-3 pb-1',
             scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',
@@ -1132,7 +1123,7 @@ export function Table({
 
   // Phones: the opponents take what the screen has left and scroll inside it (six seats).
   const opponents = (
-    <FitArea phone plain min={64}>
+    <FitArea phone plain min={128}>
       <ul
         className={cn(
           'grid grid-cols-1 gap-1.5',

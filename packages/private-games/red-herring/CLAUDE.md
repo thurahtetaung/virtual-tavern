@@ -10,7 +10,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** your own hand only; the notebook (`{ word }`, `null` for the Conspirator) is the same shape for every role, and its page says the viewer's own role (a Detective's shows the word, the Conspirator's says so, same cover and size); the word reaches the Conspirator and watchers only at the talk step or the reveal; who the Conspirator is reaches nobody before the reveal; secret votes only as "voted"; the deck and the balanced deal's counts never. Tested in `view.test.ts` with a 1,000-game fuzz.
   - **No sound** (the owner's choice): no cues, sound panel or volume settings, and a room saved with `sound`/`hostVolumes` settings ignores them; phones still buzz on their owner's turn (`useTurnBuzz`).
   - **Testing:** `RED_HERRING_TEST_DEAL=<n>` deals in card-number order with the first seat picking first and the Conspirator `n` seats after the word-picker.
-  - **Phones:** Table, Me (notebook and hand) and Scores (score list and host tools) on the shared `TabBar`; on your card or play turn the hand is on Table instead. The word form, Start the vote and Next round sit in the fixed `StickyBar` with their refusals. First-time tips are a closed fold on phones and sit at the top of the rail on desktops. With four players the desktop table is one row of seats.
+  - **Phones:** Table, Me (notebook and hand) and Scores (score list and host tools) on the shared `TabBar`; on your card or play turn the hand is on Table instead. The word form, Start the vote and Next round sit in the fixed `StickyBar` with their refusals. First-time tips are a closed fold on phones.
 
 ## Assets
 

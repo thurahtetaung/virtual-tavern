@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, FitArea, PlayerTag, RefusalSlot, StickyBar } from '@vt/ui';
+import { Button, PlayerTag, RefusalSlot, StickyBar } from '@vt/ui';
 import { useState } from 'react';
 import { lineTile, scoreAt, wallSpaces } from '../logic/rules.ts';
 import { COLOUR_NAME } from '../logic/tiles.ts';
@@ -66,26 +66,22 @@ export function WallStage({
                   <strong>Line {row + 1}</strong>: {why}
                 </span>
               </p>
-              <FitArea phone plain min={128}>
-                <div className="w-full overflow-x-auto py-1">
-                  <BoardView
-                    board={me}
-                    art={art}
-                    size={wide ? 'lg' : 'md'}
-                    owner={me.id}
-                    grey={grey}
-                    spaces={{
-                      row,
-                      cols,
-                      chosen: pickCol,
-                      onPick: (col) => {
-                        if (confirm) setChosen({ row, col });
-                        else void place(col);
-                      },
-                    }}
-                  />
-                </div>
-              </FitArea>
+              <BoardView
+                board={me}
+                art={art}
+                size={wide ? 'lg' : 'md'}
+                owner={me.id}
+                grey={grey}
+                spaces={{
+                  row,
+                  cols,
+                  chosen: pickCol,
+                  onPick: (col) => {
+                    if (confirm) setChosen({ row, col });
+                    else void place(col);
+                  },
+                }}
+              />
               {confirm ? (
                 <StickyBar fixed refusal={ANCHOR}>
                   <Button
@@ -111,7 +107,7 @@ export function WallStage({
   return (
     <section
       aria-label={`Round ${g.round}: choosing wall spaces`}
-      className="flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
+      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-wall"
     >
       <h2 className="font-bold">Round {g.round}: wall-tiling, top line first</h2>

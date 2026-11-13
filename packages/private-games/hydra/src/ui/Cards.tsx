@@ -63,8 +63,7 @@ export function PolicyFace({
             </span>
             <span
               className={cn(
-                // Sized to fit a long name whole; a longer one wraps rather than being cut.
-                'mt-1 w-full px-0.5 text-[10cqw] leading-tight font-black tracking-tight [overflow-wrap:anywhere] uppercase',
+                'mt-1 w-full truncate px-0.5 text-[12cqw] font-black tracking-wide uppercase',
                 policy === 'blue' ? 'text-sky-700' : 'text-red-700',
               )}
             >
@@ -145,10 +144,9 @@ export function BallotFace({
         <span
           className={cn(
             'flex h-full w-full items-center justify-center rounded-[8%] text-lg font-black shadow ring-2',
-            // vt-palette: printed ballots, the same in both themes.
             ballot === 'yes'
-              ? 'bg-white text-[#1c1816] ring-[#3b332b]'
-              : 'bg-[#3b332b] text-white ring-[#1a1512]',
+              ? 'bg-white text-ink ring-stone-800'
+              : 'bg-stone-800 text-white ring-stone-950',
           )}
         >
           {c.ballotName(ballot)}
@@ -361,7 +359,7 @@ export function Pips({
       {shown && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded bg-stone-900 px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap text-white shadow"
+          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded bg-stone-900 px-1.5 py-0.5 text-[0.65rem] font-semibold whitespace-nowrap text-white shadow"
         >
           {names}
         </span>

@@ -7,9 +7,8 @@ const NAV_LINK =
   'inline-flex min-h-11 items-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 /**
- * Page chrome. `wide` is for the room: the game gets the full width (up to 1440 px, so a desktop's
- * play column grows to about 1,060 px beside a 320 px rail), and the header link and the footer
- * tagline make way so the table fits a phone screen.
+ * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
+ * footer tagline make way so the table fits a phone screen.
  */
 export function Layout({
   children,
@@ -37,7 +36,7 @@ export function Layout({
     <div className="flex min-h-dvh flex-col">
       <header className={`${room ? 'max-sm:hidden ' : ''}border-b border-line`}>
         <div
-          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
         >
           <Link
             to="/"
@@ -61,7 +60,7 @@ export function Layout({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'} sm:pt-6` : 'py-6'} ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'} sm:pt-6` : 'py-6'} ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
       >
         {children}
       </main>

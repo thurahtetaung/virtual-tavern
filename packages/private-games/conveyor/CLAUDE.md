@@ -13,8 +13,6 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `CONVEYOR_TEST_DECK` (e.g. `2:miso onigiri-circle …`, by table size) tops each round's deck.
   - **Phones:** Play (hand and choices), Table (the trays) and Scores (totals and log) on the shared `TabBar`; Lock in and Ready sit in the fixed `StickyBar`.
 
-- **UI:** End actions share equal-width columns so the phone’s Play again label fits.
-
 ## Assets
 
 **Conveyor** (`node scripts/r2-upload.mjs conveyor <folder>`, dry-run first): the 45 card faces in `cards/<variant>.webp` (440 × 690) with small copies in `cards/thumb/` (phones show only these in hands and trays, and load a full face only when a card is opened big), the 22 dish tiles in `tiles/<type>.webp` (+ `tiles/thumb/`, and the group backs in `tiles/back/`), the card back, `board` and `box`, and a `manifest.json` of the form `{ "cards": { "nigiri-egg": { "art": "cards/….webp", "thumb": "cards/thumb/….webp" }, "maki-2": …, "spoon-5": …, "icecream": …, "order": … }, "tiles": { "<type id>": { "art", "thumb" } }, "tileBacks": { … }, "back": { "art", "thumb" }, "board": …, "box": …, "names": { "types": { "<type id>": "…" }, "cards": { "<variant id>": "…" }, "menus": { "first": "…", "classic": "…", "sampler": "…", "master": "…", "points": "…", "cutthroat": "…", "banquet": "…", "two": "…" } }, "credit": "…" or { "title", "paragraphs": […], "links": [{ "label", "href" }] } }` (shape in `packages/private-games/conveyor/src/logic/manifest.ts`; the ids are those of `cards.ts`). Every field is optional: without the manifest, cards are drawn from their dish, points and icons, with plain dish words for names. Once it is uploaded, set the title with the `conveyor` id.

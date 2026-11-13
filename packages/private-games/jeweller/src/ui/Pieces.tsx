@@ -117,7 +117,7 @@ function Pip({
   return (
     <span
       className={cn(
-        'inline-flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-black tabular-nums ring-1 sm:size-5 sm:text-xs lg:size-6 lg:text-sm',
+        'inline-flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-black tabular-nums ring-1 sm:size-5 sm:text-xs',
         TOKEN_FILL[gem],
         covered && 'opacity-30',
         short && 'ring-2 ring-offset-1 ring-offset-card',
@@ -302,7 +302,7 @@ export const CardTile = memo(function CardTile({
   );
   const box = cn(
     'relative flex flex-col overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-line',
-    size === 'lg' ? 'h-64 w-44' : 'aspect-[6/5] w-full sm:aspect-[4/5] lg:aspect-[3/2]',
+    size === 'lg' ? 'h-64 w-44' : 'aspect-[6/5] w-full sm:aspect-[4/5]',
     afford === 'yes' && 'ring-[3px] ring-success',
     afford === 'gold' && 'ring-[3px] ring-warn',
     fresh && 'jw-deal',

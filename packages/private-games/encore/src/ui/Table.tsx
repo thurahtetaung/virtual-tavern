@@ -2,7 +2,6 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
-  FitArea,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
@@ -290,7 +289,7 @@ function FlipStep({
         />
       </div>
       {hand && me ? (
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {[false, true].map((flip) => {
             const shown = flip ? flipHand(hand) : hand;
             const chosen = g.myFlip === flip;
@@ -298,7 +297,7 @@ function FlipStep({
               <div
                 key={String(flip)}
                 className={cn(
-                  'flex min-w-0 flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line',
+                  'flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line',
                   chosen && 'ring-[3px] ring-accent',
                 )}
                 data-testid={flip ? 'en-flip-turned' : 'en-flip-kept'}
@@ -566,17 +565,15 @@ function Play({
       </div>
 
       {recruiting && placedCard && (
-        <FitArea phone plain min={64}>
-          <Placing
-            recruiting={recruiting}
-            card={placedCard}
-            hand={shownHand}
-            art={art}
-            owner={ownerName}
-            twoPlayer={g.twoPlayer}
-            onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
-          />
-        </FitArea>
+        <Placing
+          recruiting={recruiting}
+          card={placedCard}
+          hand={shownHand}
+          art={art}
+          owner={ownerName}
+          twoPlayer={g.twoPlayer}
+          onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
+        />
       )}
 
       {g.hand ? (
@@ -870,7 +867,7 @@ function ScoresStep({
   const me = g.players.find((p) => p.id === room.you);
   const open = g.players.filter((p) => !p.done && !p.left);
   return (
-    <section className="flex flex-col gap-3" aria-label="Round scores">
+    <section className="en-rise flex flex-col gap-3" aria-label="Round scores">
       <div
         className="rounded-2xl bg-special-soft p-3 text-special-ink ring-1 ring-special-line"
         data-testid="en-round-end"

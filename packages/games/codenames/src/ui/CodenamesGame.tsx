@@ -308,7 +308,7 @@ function InGame({
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       {confirmDialog}
       <div
-        className={cn('min-w-0 space-y-3 lg:max-w-[60rem]', shown && shown !== 'board' && 'hidden')}
+        className={cn('min-w-0 space-y-3', shown && shown !== 'board' && 'hidden')}
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
