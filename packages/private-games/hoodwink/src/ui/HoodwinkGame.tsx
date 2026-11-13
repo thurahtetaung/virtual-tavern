@@ -245,9 +245,10 @@ export function HoodwinkGame({
                 className={cn(
                   (view.round.stage === 'write' || view.round.stage === 'vote') &&
                     'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
-                  view.round.stage === 'write' &&
-                    // The bars' own heights come off, so offered lies in the bar shrink the space.
-                    'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-13.5rem)] max-sm:flex-col max-sm:justify-center',
+                  // Phones too: the question and its answers sit in the middle of the free height
+                  // in every stage.
+                  // The bars' own heights come off, so offered lies in the bar shrink the space.
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-13.5rem)] max-sm:flex-col max-sm:justify-center',
                 )}
               >
                 <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
@@ -264,7 +265,10 @@ export function HoodwinkGame({
           <ContinueWithout view={view} room={room} act={act} online={online} />
         )}
         <Panel className="space-y-3">
-          {shown !== 'players' && <Scores view={view} revealing={revealing} />}
+          {/* At the end the standings replace the rail's scores. */}
+          {shown !== 'players' && view.phase !== 'over' && (
+            <Scores view={view} revealing={revealing} />
+          )}
           {shown !== 'scores' && (
             <Table view={view} online={online} act={act} hostId={room.hostId} />
           )}

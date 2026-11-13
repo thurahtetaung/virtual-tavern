@@ -241,8 +241,8 @@ function OptionCard({
       aria-pressed={chosen}
       onClick={onPick}
       className={cn(
-        // A game-show answer board on wide screens: tall tiles in large type.
-        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 shadow-vt-1 transition lg:min-h-28 lg:px-8 lg:text-2xl',
+        // A game-show answer board: tall tiles in the display face (64 px on phones, 112 px wide).
+        'flex min-h-16 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left font-display text-xl font-semibold ring-1 shadow-vt-1 transition lg:min-h-28 lg:px-8 lg:text-2xl',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
           ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
@@ -329,7 +329,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 text-lg font-bold break-words">{o.text}</span>
+            <span className="min-w-0 font-display text-xl font-bold break-words">{o.text}</span>
             <span
               className={cn(
                 'shrink-0 text-xs font-semibold',
