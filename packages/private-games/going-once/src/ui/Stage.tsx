@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   type IconName,
   ProtectedImage,
+  cn,
   usePlayerColor,
   useSecondsLeft as useSecondsTo,
 } from '@vt/ui';
@@ -346,6 +347,7 @@ function Plain({
   const lot = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
   const line = g ? <HostStrip view={view} art={art} name={name} clockOffset={host} tv /> : null;
+  const recent = g?.stage === 'auction' ? [...(g.auction?.recent ?? [])].reverse().slice(0, 4) : [];
   if (!g)
     return (
       <Poster
@@ -421,11 +423,13 @@ function Plain({
             <span data-testid="go-stage-bid">{money(lot.bid?.amount ?? OPENING_BID)}</span>
           )
         }
-        line={sold ? undefined : 'Current bid'}
+        line={sold ? undefined : lot.bid ? `Current bid · ${name(lot.bid.by)}` : 'Opening bid'}
         footer={{ icon: 'hand', text: 'Bid on your phone.' }}
       >
-        <div className="flex w-full items-center justify-center gap-12">
-          <div className="w-[440px]">
+        {/* The lot, and beside it the auctioneer's line over the last few bids (newest first),
+            so the room sees who is in the running. */}
+        <div className="flex w-full items-center justify-center gap-16">
+          <div className="w-[440px] shrink-0">
             <Picture
               drawing={lot.picture.drawing}
               house={lot.picture.house}
@@ -434,7 +438,30 @@ function Plain({
               tv
             />
           </div>
-          {line && <div className="max-w-[640px] text-left [&_p]:text-[28px]">{line}</div>}
+          {(line || !!recent.length) && (
+            <div className="w-[640px] space-y-6 text-left">
+              {line && <div className="[&_p]:text-[28px]">{line}</div>}
+              {!!recent.length && (
+                <ol aria-label="Last bids" className="space-y-2" data-testid="go-stage-bids">
+                  {recent.map((b, i) => (
+                    <li
+                      key={`${recent.length - i}-${b.by}-${b.amount}`}
+                      className={cn(
+                        'flex items-baseline justify-between gap-6 rounded-2xl px-6 py-3 text-[32px]',
+                        i === 0 ? 'bg-accent-soft font-semibold text-ink' : 'text-ink-2',
+                      )}
+                    >
+                      <span className="truncate">
+                        {b.forced && '🔩 '}
+                        {name(b.by)}
+                      </span>
+                      <span className="font-display tabular-nums">{money(b.amount)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
         </div>
       </Poster>
     );

@@ -12,7 +12,7 @@ import {
   useSecondsLeft,
 } from '@vt/ui';
 import { LowEffectsNotice } from '@vt/ui/show';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
@@ -572,6 +572,7 @@ export function Auction({
   seen,
   quiet = false,
   tab = null,
+  sold,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
@@ -584,6 +585,8 @@ export function Auction({
   quiet?: boolean;
   /** Phones: the section the tab bar shows (null on wider screens, which show them all). */
   tab?: GoTab | null;
+  /** Wide screens: the Sold card, at the top of the bidding column (phones show it above). */
+  sold?: ReactNode;
 }) {
   const g = view.game!;
   const a = g.auction!;
@@ -690,6 +693,7 @@ export function Auction({
         )}
       </section>
       <section aria-label="Bidding" className={cn('flex flex-col gap-3', away && 'hidden')}>
+        {sold}
         <Panel className="flex flex-col gap-3 p-3">
           <Money view={view} art={art} />
           <BidPanel

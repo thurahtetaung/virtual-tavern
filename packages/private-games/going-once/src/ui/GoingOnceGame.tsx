@@ -128,7 +128,13 @@ export function GoingOnceGame({
   const g = view.game;
   // During play the sliders open from a corner; the lobby has its own Sound section.
   const sound = <GoSoundButton view={view} room={room} act={act} manifest={manifest} />;
-  const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
+  const wide =
+    g &&
+    (g.stage === 'auction' ||
+      g.stage === 'sold' ||
+      g.stage === 'done' ||
+      g.stage === 'halftime' ||
+      g.stage === 'bank');
 
   const quiet = profile === 'phone-quiet';
   // Phones during the lots: the auction, the wish list, the hints and the lots, from the tab bar.
@@ -207,7 +213,9 @@ export function GoingOnceGame({
               )}
               {(g.stage === 'auction' || g.stage === 'sold') && (
                 <>
-                  {g.stage === 'sold' && !away && (
+                  {/* Phones: the Sold card above the lot. Wide screens: at the top of the bidding
+                      column, so the lot and the bids stay where they were, above the fold. */}
+                  {g.stage === 'sold' && !away && !wideScreen && (
                     <SoldCard view={view} room={room} act={act} name={name} quiet={quiet} />
                   )}
                   <Auction
@@ -219,13 +227,20 @@ export function GoingOnceGame({
                     seen={seen}
                     quiet={quiet}
                     tab={shown}
+                    sold={
+                      g.stage === 'sold' &&
+                      !away &&
+                      wideScreen && (
+                        <SoldCard view={view} room={room} act={act} name={name} quiet={quiet} />
+                      )
+                    }
                   />
                 </>
               )}
               {(g.stage === 'halftime' || g.stage === 'bank') && (
                 // While the auction pauses: the lots so far, to study before it goes on
                 // (under the card on phones, beside it on desktops).
-                <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+                <div className="space-y-3 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6 lg:space-y-0">
                   {g.stage === 'halftime' ? (
                     <Halftime view={view} room={room} act={act} />
                   ) : (
@@ -722,10 +737,10 @@ function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; a
 function Halftime({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
   return (
     <Panel
-      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-2 text-center lg:mt-[6vh] lg:gap-3 lg:px-10 lg:py-10"
+      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-2 text-center lg:max-w-none lg:gap-4 lg:px-12 lg:py-14"
       data-testid="go-halftime"
     >
-      <p className="vt-end-pop text-5xl lg:text-6xl" aria-hidden>
+      <p className="vt-end-pop text-5xl lg:text-8xl" aria-hidden>
         🔩
       </p>
       <h2 className="font-display text-title font-semibold text-balance">
@@ -766,10 +781,10 @@ function Bank({
   const f = (s: string) => fillNames(s, art.names);
   return (
     <Panel
-      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-3 text-center lg:mt-[6vh] lg:px-10 lg:py-10"
+      className="vt-end-hero mx-auto flex w-full max-w-xl flex-col items-center gap-3 text-center lg:max-w-none lg:gap-4 lg:px-12 lg:py-14"
       data-testid="go-bank"
     >
-      <p className="vt-end-pop text-5xl lg:text-6xl" aria-hidden>
+      <p className="vt-end-pop text-5xl lg:text-8xl" aria-hidden>
         🏦
       </p>
       <h2 className="font-display text-title font-semibold text-balance">{f('{Bank} is open')}</h2>
@@ -1007,12 +1022,25 @@ function End({
           g.ended !== 'no-drawings' &&
           champs.length > 0 && (
             <EndHero
-              emblem="🔨"
+              // Phones: the top lot, small, in place of the emblem; wide screens show it large.
+              emblem={
+                !wide && star ? (
+                  <Picture
+                    drawing={star.drawing ?? seen.get(star.item) ?? null}
+                    house={star.house}
+                    art={art}
+                    label={star.title}
+                    className="mx-auto w-24 shadow-vt-1 ring-1 ring-line"
+                  />
+                ) : (
+                  '🔨'
+                )
+              }
               title={`${listNames(champs.map((f) => (f.id === room.you ? 'You' : name(f.id))))} ${champs.length > 1 || champs[0]!.id === room.you ? 'win' : 'wins'}!`}
               art={
                 wide &&
                 star && (
-                  <figure className="w-48 space-y-1 xl:w-56">
+                  <figure className="w-56 space-y-1 xl:w-72">
                     <Picture
                       drawing={star.drawing ?? seen.get(star.item) ?? null}
                       house={star.house}
