@@ -329,14 +329,50 @@ export interface DrawingPadProps {
    * screen (its height kept free on the page), so the sheet above gets the rest of the screen.
    */
   bar?: boolean;
-  /**
-   * Desktops (`lg`): the tools, Send and `aside` sit in a column beside the sheet instead of under
-   * it, so the sheet can take the window's height. Phones are unchanged.
-   */
-  beside?: boolean;
-  /** With `beside`, shown at the top of that column on desktops only (the prompt). */
+  /** Shown at the top of the tool column on desktops only (the prompt). */
   aside?: ReactNode;
+  /** A line about the drawing: at the foot of the tool column on desktops, under the tools on phones. */
+  note?: ReactNode;
+  /**
+   * The pad is closed for now (it opens by itself when this goes): nothing can be drawn or sent,
+   * and this line shows over the sheet.
+   */
+  locked?: ReactNode;
+  /** Classes for the sheet, for its size (`useFitSize`'s `--vt-fit`). */
+  sheetClassName?: string;
+  /** Desktops: a tighter tool column, for a column that also holds the prompt (`aside`). */
+  dense?: boolean;
   className?: string;
+}
+
+/** A labelled group of the pad's tools: "PEN · Ink". */
+function ToolGroup({
+  label,
+  value,
+  dense,
+  className,
+  children,
+}: {
+  label: string;
+  value?: string;
+  dense?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn('flex flex-col gap-2', dense && 'lg:gap-1.5', className)}>
+      <span className="text-caption leading-none font-semibold tracking-wide text-ink-muted uppercase">
+        {label}
+        {value && (
+          <>
+            {' · '}
+            <span className="tracking-normal text-ink-2 normal-case">{value}</span>
+          </>
+        )}
+      </span>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
+  );
 }
 
 /**
@@ -355,10 +391,14 @@ export function DrawingPad({
   footer,
   refusal,
   bar = false,
-  beside = false,
   aside,
+  note,
+  locked,
+  sheetClassName,
+  dense = false,
   className,
 }: DrawingPadProps) {
+  const closed = disabled || locked != null;
   const [strokes, setStrokes] = useState<Stroke[]>(() => readDraft(draftKey));
   const [loadedKey, setLoadedKey] = useState(draftKey);
   if (loadedKey !== draftKey) {
@@ -418,7 +458,7 @@ export function DrawingPad({
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || sending) return;
+    if (closed || sending) return;
     const isTouch = e.pointerType === 'touch';
     if (isTouch && (e.width > PALM_PX || e.height > PALM_PX)) return;
     // A pen on the sheet: resting fingers and palms are ignored.
@@ -450,7 +490,7 @@ export function DrawingPad({
   const moveRing = (e: React.PointerEvent<HTMLDivElement> | null) => {
     const el = ring.current;
     if (!el) return;
-    if (!e || e.pointerType === 'touch' || disabled) {
+    if (!e || e.pointerType === 'touch' || closed) {
       el.setAttribute('visibility', 'hidden');
       return;
     }
@@ -557,19 +597,20 @@ export function DrawingPad({
 
   // Before a strict deadline, whatever is on the page goes by itself.
   useEffect(() => {
-    if (sendBy === null || disabled) return;
+    if (sendBy === null || closed) return;
     const id = setTimeout(() => void submit(true), Math.max(0, sendBy - Date.now()));
     return () => clearTimeout(id);
-  }, [sendBy, disabled, submit]);
+  }, [sendBy, closed, submit]);
 
-  // Send, with the footer beside it and the pad's own problem under them.
+  // The clock and Send: side by side in a phone's bar, Send under the clock in the column.
   const send = (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 lg:flex-col lg:items-stretch">
         <div className="min-w-0 flex-1">{footer}</div>
         <Button
           onClick={() => void submit()}
-          disabled={disabled || sending || !hasInk(strokes)}
+          disabled={closed || sending || !hasInk(strokes)}
+          className="lg:w-full"
           data-testid="drawing-send"
         >
           {submitLabel} ▸
@@ -582,19 +623,22 @@ export function DrawingPad({
       )}
     </div>
   );
+  const penName = erasing ? 'Eraser' : (DRAWING_COLORS[color]?.name ?? '');
+  // The sheet on the page, and one labelled tool column beside it on desktops (under it on
+  // phones: one strip of tools, with the clock and Send in the bar).
   return (
     <div
       className={cn(
-        'flex flex-col gap-2',
-        beside && 'lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-x-6',
+        'flex flex-col items-center gap-3 lg:flex-row lg:items-stretch lg:justify-center lg:gap-6',
         className,
       )}
     >
       <div
         ref={sheet}
         className={cn(
-          'relative mx-auto aspect-[4/5] w-full touch-none select-none overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line-strong [-webkit-touch-callout:none] [-webkit-user-select:none]',
-          disabled ? 'cursor-not-allowed opacity-70' : erasing ? 'cursor-none' : 'cursor-crosshair',
+          'relative aspect-[4/5] w-full shrink-0 touch-none select-none self-center overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line-strong [-webkit-touch-callout:none] [-webkit-user-select:none] lg:self-start',
+          closed ? 'cursor-not-allowed' : erasing ? 'cursor-none' : 'cursor-crosshair',
+          sheetClassName,
         )}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -605,7 +649,7 @@ export function DrawingPad({
       >
         <svg
           viewBox={`0 0 ${DRAW_W} ${DRAW_H}`}
-          className="pointer-events-none block size-full"
+          className={cn('pointer-events-none block size-full', disabled && 'opacity-70')}
           role="img"
           aria-label={`Drawing area, ${strokes.length} line${strokes.length === 1 ? '' : 's'}`}
         >
@@ -632,119 +676,156 @@ export function DrawingPad({
             />
           )}
         </svg>
+        {locked != null && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+            <p
+              role="status"
+              className="rounded-xl bg-panel px-4 py-3 text-center font-semibold text-ink shadow-vt-1 ring-1 ring-line"
+              data-testid="drawing-locked"
+            >
+              {locked}
+            </p>
+          </div>
+        )}
       </div>
       <div
-        className={cn('flex flex-col gap-2', beside && 'lg:col-start-2 lg:row-start-1 lg:gap-4')}
+        className={cn(
+          'flex w-full flex-col gap-3 lg:w-68 lg:shrink-0 lg:rounded-xl lg:bg-panel lg:p-4 lg:ring-1 lg:ring-line',
+          dense && 'lg:gap-2.5 lg:p-3',
+        )}
       >
-        {beside && aside && <div className="max-lg:hidden">{aside}</div>}
+        {aside && <div className="max-lg:hidden">{aside}</div>}
         <div
           className={cn(
-            'flex flex-wrap items-center justify-between gap-x-3 gap-y-2',
-            beside && 'lg:flex-col lg:items-start',
+            'grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 rounded-xl bg-panel p-3 ring-1 ring-line lg:flex lg:flex-col lg:gap-3.5 lg:rounded-none lg:bg-transparent lg:p-0 lg:ring-0',
+            dense && 'lg:gap-2.5',
           )}
         >
-          <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Pen">
-            {DRAWING_COLORS.map((c, i) => (
+          <ToolGroup label="Pen" value={penName} dense={dense} className="col-span-2">
+            <div className="flex items-center gap-2" role="radiogroup" aria-label="Pen">
+              {DRAWING_COLORS.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={color === i}
+                  aria-label={c.name}
+                  title={c.name}
+                  onClick={() => setColor(i)}
+                  className={cn(
+                    'size-10 rounded-full border-3 ring-offset-2 ring-offset-panel transition-shadow',
+                    dense && 'lg:size-9',
+                    color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
+                  )}
+                  // The pens are made for the paper, so each swatch sits on a rim of it
+                  style={{ background: c.hex, borderColor: PAPER }}
+                />
+              ))}
               <button
-                key={c.id}
                 type="button"
                 role="radio"
-                aria-checked={color === i}
-                aria-label={c.name}
-                title={c.name}
-                onClick={() => setColor(i)}
+                aria-checked={erasing}
+                aria-label="Eraser"
+                title="Eraser: rub out what you drew"
+                onClick={() => setColor(ERASER)}
                 className={cn(
-                  'size-11 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
-                  color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
+                  'flex size-10 items-center justify-center rounded-full ring-offset-2 ring-offset-panel transition-shadow',
+                  dense && 'lg:size-9',
+                  erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
                 )}
-                // The pens are made for the paper, so each swatch sits on a rim of it
-                style={{ background: c.hex, borderColor: PAPER }}
-              />
-            ))}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={erasing}
-              aria-label="Eraser"
-              title="Eraser: rub out what you drew"
-              onClick={() => setColor(ERASER)}
-              className={cn(
-                'flex size-11 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
-                erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
-              )}
-              style={{ background: PAPER }}
-            >
-              <span aria-hidden className="text-lg leading-none">
-                🧽
-              </span>
-            </button>
-          </div>
-          <div className="flex items-center gap-1" role="radiogroup" aria-label="Line width">
-            {DRAWING_WIDTHS.map((w, i) => (
-              <button
-                key={w.id}
-                type="button"
-                role="radio"
-                aria-checked={width === i}
-                aria-label={w.name}
-                title={w.name}
-                onClick={() => setWidth(i)}
-                className={cn(
-                  'flex size-11 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
-                  width === i
-                    ? 'ring-3 ring-accent'
-                    : 'ring-1 ring-line-strong hover:ring-ink-muted',
-                )}
-                // The pen's colour on a chip of paper, as it will draw
                 style={{ background: PAPER }}
               >
-                <span
-                  className="block rounded-full"
-                  style={{
-                    width: 4 + i * 6,
-                    height: 4 + i * 6,
-                    // The eraser's size is a hollow ring, as its cursor shows
-                    ...(erasing
-                      ? { boxShadow: 'inset 0 0 0 1.5px #57534e' }
-                      : { background: DRAWING_COLORS[color]!.hex }),
-                  }}
-                />
+                <span aria-hidden className="text-lg leading-none">
+                  🧽
+                </span>
               </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1">
+            </div>
+          </ToolGroup>
+          <ToolGroup label="Size" value={DRAWING_WIDTHS[width]?.name} dense={dense}>
+            <div className="flex items-center gap-2" role="radiogroup" aria-label="Line width">
+              {DRAWING_WIDTHS.map((w, i) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={width === i}
+                  aria-label={w.name}
+                  title={w.name}
+                  onClick={() => setWidth(i)}
+                  className={cn(
+                    'flex size-10 items-center justify-center rounded-lg ring-offset-2 ring-offset-panel transition-shadow',
+                    dense && 'lg:size-9',
+                    width === i
+                      ? 'ring-3 ring-accent'
+                      : 'ring-1 ring-line-strong hover:ring-ink-muted',
+                  )}
+                  // The pen's colour on a chip of paper, as it will draw
+                  style={{ background: PAPER }}
+                >
+                  <span
+                    className="block rounded-full"
+                    style={{
+                      width: 4 + i * 6,
+                      height: 4 + i * 6,
+                      // The eraser's size is a hollow ring, as its cursor shows
+                      ...(erasing
+                        ? { boxShadow: 'inset 0 0 0 1.5px #57534e' }
+                        : { background: DRAWING_COLORS[color]!.hex }),
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          </ToolGroup>
+          <ToolGroup label="Fix a mistake" dense={dense}>
             <Button
               variant="secondary"
-              size="icon"
+              size="sm"
+              className={cn('h-10 gap-1.5', dense && 'lg:h-9 lg:min-h-9')}
               aria-label="Undo"
               title="Undo (or tap with two fingers)"
               onClick={undo}
-              disabled={!strokes.length || disabled}
+              disabled={!strokes.length || closed}
             >
-              ↶
+              <span aria-hidden className="text-lg leading-none">
+                ↶
+              </span>
+              Undo
             </Button>
             <Button
               variant="secondary"
-              size="icon"
+              size="sm"
+              className={cn('h-10 gap-1.5', dense && 'lg:h-9 lg:min-h-9')}
               aria-label="Clear the page"
               title="Clear"
               onClick={() => void clear()}
-              disabled={!strokes.length || disabled}
+              disabled={!strokes.length || closed}
             >
-              🗑
+              <span aria-hidden className="text-lg leading-none">
+                🗑
+              </span>
+              Clear
             </Button>
-          </div>
+          </ToolGroup>
         </div>
-        {bar ? (
-          <StickyBar fixed refusal={refusal}>
-            {send}
-          </StickyBar>
-        ) : (
-          <>
-            {send}
-            {refusal !== undefined && <RefusalSlot anchor={refusal} />}
-          </>
-        )}
+        <div
+          className={cn(
+            'flex flex-col gap-3 lg:mt-auto lg:border-t lg:border-line lg:pt-3.5',
+            dense && 'lg:gap-2 lg:pt-2.5',
+          )}
+        >
+          {note && <div className="text-xs text-ink-muted">{note}</div>}
+          {bar ? (
+            <StickyBar fixed refusal={refusal}>
+              {send}
+            </StickyBar>
+          ) : (
+            <>
+              {send}
+              {refusal !== undefined && <RefusalSlot anchor={refusal} />}
+            </>
+          )}
+        </div>
       </div>
       {dialog}
     </div>

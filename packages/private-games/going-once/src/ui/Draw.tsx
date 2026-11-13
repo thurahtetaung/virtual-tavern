@@ -14,7 +14,6 @@ import { useRef } from 'react';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
-import { PadFrame, RigIcon } from './PhoneShow.tsx';
 
 /** How long before the drawing clock ends a pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
@@ -35,14 +34,15 @@ export function Draw({
   const mine = view.mine;
   const deadline = g.until;
   // As the original, the clock shows only once it starts (after the voice's instructions), at
-  // its full length; drawing is open meanwhile.
+  // its full length; the pads open with it, when the auctioneer calls for the drawings (on the
+  // server's clock, as the clock itself).
   const startsIn = useSecondsLeft(g.drawFrom, room.clockOffset);
   const clock = (startsIn ?? 0) <= 0;
-  // The sheet is as big as the screen allows with the title, the pens, the clock and Send in
-  // view, never too small to draw on (`useFitSize`; on a phone, within the play area).
+  // The sheet is as big as the window allows with the tools, the clock and Send in view, never
+  // too small to draw on (`useFitSize`; on a phone, within the play area).
   const wide = useWideScreen();
   const sheet = useRef<HTMLDivElement>(null);
-  useFitSize(sheet, { min: wide ? 192 : 176, max: wide ? 544 : 360 });
+  useFitSize(sheet, { min: wide ? 192 : 176, max: wide ? 720 : 360 });
   if (!mine)
     return (
       <Panel className="flex flex-col items-center gap-2 text-center">
@@ -53,54 +53,43 @@ export function Draw({
   const index = mine.prompts.findIndex((p) => !p.sent);
   const todo = index >= 0 ? mine.prompts[index]! : null;
   return (
-    <div className={cn('mx-auto flex w-full max-w-md flex-col gap-3', todo && 'lg:max-w-4xl')}>
+    <div className={cn('mx-auto flex w-full max-w-md flex-col gap-3', todo && 'lg:max-w-none')}>
       {todo ? (
-        <Panel className="flex flex-col gap-2 p-3">
-          {/* Phones: the status line above says what to draw and which of the two it is. */}
-          <div className="flex items-baseline justify-between gap-2 max-lg:sr-only">
-            <h2 className="min-w-0 text-lg font-bold">
-              <span className="text-sm font-medium text-ink-muted">Draw: </span>
-              <span data-testid="go-title">{todo.title}</span>
-            </h2>
-            <span className="shrink-0 rounded-full bg-card px-2 py-0.5 text-xs font-semibold ring-1 ring-line">
-              {index + 1} of {mine.prompts.length}
-            </span>
-          </div>
-          <div ref={sheet}>
-            <PadFrame>
-              <DrawingPad
-                key={todo.item}
-                className="[&>div:first-child]:max-w-(--vt-fit)"
-                draftKey={`go.draft.${todo.item}`}
-                sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
-                onSubmit={(drawing) =>
-                  act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
-                }
-                submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
-                refusal="go-draw"
-                bar
-                beside
-                footer={
-                  clock && (
-                    <span className="flex items-center gap-1.5">
-                      <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
-                      <Countdown
-                        deadline={deadline}
-                        clockOffset={room.clockOffset}
-                        label="for both"
-                        atZero="whatever is drawn is sent"
-                      />
-                    </span>
-                  )
-                }
-              />
-            </PadFrame>
-          </div>
-          <p className="text-xs text-ink-muted">
-            Others drew titles like yours, so buyers can’t be sure which one this is.
-            <span className="max-lg:hidden"> Nobody sees your title until it sells.</span>
-          </p>
-        </Panel>
+        <div ref={sheet}>
+          {/* The status line above says what to draw and which of the two it is. */}
+          <h2 className="sr-only">
+            Draw: <span data-testid="go-title">{todo.title}</span>
+          </h2>
+          <DrawingPad
+            key={todo.item}
+            sheetClassName="max-w-(--vt-fit) lg:w-(--vt-fit)"
+            draftKey={`go.draft.${todo.item}`}
+            sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
+            locked={clock ? undefined : 'The auctioneer will call for the drawings.'}
+            onSubmit={(drawing) =>
+              act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
+            }
+            submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
+            refusal="go-draw"
+            bar
+            note={
+              <>
+                Others drew titles like yours, so buyers can’t be sure which one this is.
+                <span className="max-lg:hidden"> Nobody sees your title until it sells.</span>
+              </>
+            }
+            footer={
+              clock && (
+                <Countdown
+                  deadline={deadline}
+                  clockOffset={room.clockOffset}
+                  label="for both"
+                  atZero="whatever is drawn is sent"
+                />
+              )
+            }
+          />
+        </div>
       ) : (
         <Panel className="flex flex-col gap-3">
           <p className="font-semibold">Thanks for the drawings!</p>

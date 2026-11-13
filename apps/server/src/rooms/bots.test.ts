@@ -216,6 +216,42 @@ describe('the playtest bot runner', () => {
     expect(t.state()).toBeGreaterThanOrEqual(1);
   });
 
+  it('looks again at the time a game names, with one wake per bot, dropped on any change', () => {
+    let open = now + 10 * SECOND;
+    const game = counter((view: { n: number }, ctx) =>
+      view.n < 2 && ctx.now >= open ? { type: 'bump' } : null,
+    );
+    const t = setup({
+      ...game,
+      botInfo: { wakeAt: (view) => ((view as { n: number }).n < 2 ? open : null) },
+    });
+    t.rooms.connected(t.roomId, HOST);
+    expect(vi.getTimerCount()).toBe(1);
+    // The room changes: the old wake goes and the new time replaces it.
+    open = now + 20 * SECOND;
+    t.rooms.act(t.roomId, HOST, { type: 'bump' });
+    expect(vi.getTimerCount()).toBe(1);
+    t.elapse(15 * SECOND);
+    expect(t.state()).toBe(1);
+    // At its time the bot looks, finds its move and makes it after its usual pause.
+    t.elapse(5 * SECOND + 2 * SECOND + 10);
+    expect(t.state()).toBe(2);
+    expect(vi.getTimerCount()).toBe(0);
+    // A time already past never wakes it, and stopping the room drops a pending wake.
+    open = now - SECOND;
+    t.rooms.act(t.roomId, HOST, { type: 'bump' });
+    expect(vi.getTimerCount()).toBe(0);
+    const later = setup({ ...game, id: 'counter-2' });
+    open = now + 10 * SECOND;
+    later.rooms.connected(later.roomId, HOST);
+    expect(vi.getTimerCount()).toBe(0);
+    const woken = setup({ ...game, id: 'counter-3', botInfo: { wakeAt: () => open } });
+    woken.rooms.connected(woken.roomId, HOST);
+    expect(vi.getTimerCount()).toBe(1);
+    woken.runner.stop(woken.roomId);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('logs a hook that throws once per version, and skips that bot', () => {
     const t = setup(
       counter(() => {

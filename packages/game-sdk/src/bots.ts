@@ -50,6 +50,13 @@ export interface BotInfo {
    * move faster than a turn, like a live auction's bids.
    */
   quick?(move: unknown): boolean;
+  /**
+   * When a bot with no move now should look again although nothing changes (server ms), or null:
+   * for a game whose moves open at a time the view shows (Going Once's pads at `drawFrom`, a bid
+   * once the last one has landed). Asked from the bot's own view whenever its hook returns null;
+   * the runner keeps one such wake per bot and drops it when the room changes.
+   */
+  wakeAt?(view: unknown, ctx: BotCtx): number | null;
 }
 
 /** One random item, or undefined from an empty list. */

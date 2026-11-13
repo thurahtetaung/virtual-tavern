@@ -680,6 +680,9 @@ function draw(
   const g = s.game!;
   if (g.stage !== 'draw') return err('not-drawing', 'The drawing time is over.');
   if (now > g.until) return err('too-late', 'Time ran out before your drawing arrived.');
+  // The pads open when the auctioneer calls for the drawings (the clock's start).
+  if (now < (g.drawStart ?? 0))
+    return err('not-yet', 'Wait for the auctioneer to call for the drawings.');
   const item = g.items[itemId];
   if (!item || item.drawer !== by) return err('not-yours', 'That isn’t one of your titles.');
   if (item.drawing) return err('sent', 'You already sent that one.');

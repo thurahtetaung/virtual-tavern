@@ -25,14 +25,16 @@ function voicedGame(n = 3, seed = 5, voice = true) {
 
 const keys = (s: GoingOnceState) => s.game!.host?.clips?.map((c) => c.key) ?? [];
 
+/** Everyone draws both titles once the auctioneer has called for the drawings. */
 function drawEverything(h: ReturnType<typeof harness>) {
   const g = game(h);
+  h.now = Math.max(h.now, g.drawStart);
   for (const id of g.order)
     for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
 }
 
 describe('the spoken introduction, in the original’s order', () => {
-  it('opens every voiced game with the welcome over an open drawing; the clock starts after it', () => {
+  it('opens every voiced game with the welcome; the pads and the clock open after it', () => {
     const h = voicedGame(3);
     const g = game(h);
     expect(g.stage).toBe('draw');
@@ -58,8 +60,31 @@ describe('the spoken introduction, in the original’s order', () => {
     const v = goingOnce.view(h.state, 'p1').game!;
     expect(v.drawFrom).toBe(h.now + said);
     expect(v.until - v.drawFrom).toBe(90_000);
-    // Drawing is open from the start.
+    // The pads open only when the auctioneer calls for the drawings.
+    const first = { type: 'draw', item: g.prompts.p1![0]!, drawing: SQUIGGLE } as const;
+    h.wait(said - 1);
+    expect(h.refuse('p1', first)).toEqual({
+      code: 'not-yet',
+      message: 'Wait for the auctioneer to call for the drawings.',
+    });
+    h.wait(1);
+    h.act('p1', first);
+  });
+
+  it('opens the pads at once with the voice off', () => {
+    const h = voicedGame(3, 5, false);
+    const g = game(h);
+    expect(g.drawStart).toBe(h.now);
+    expect(goingOnce.view(h.state, 'p1').game!.drawFrom).toBe(h.now);
     h.act('p1', { type: 'draw', item: g.prompts.p1![0]!, drawing: SQUIGGLE });
+  });
+
+  it('keeps a room saved without a drawing start open to draw', () => {
+    const h = voicedGame(3);
+    const s = clone(h.state);
+    delete (s.game as { drawStart?: number }).drawStart;
+    h.state = s;
+    h.act('p1', { type: 'draw', item: game(h).prompts.p1![0]!, drawing: SQUIGGLE });
   });
 
   it('gives the tutorial after the drawing, which anyone at the table can skip', () => {
