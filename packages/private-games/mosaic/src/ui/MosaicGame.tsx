@@ -5,6 +5,7 @@ import {
   playersNeeded,
   storageKey,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
@@ -409,11 +410,11 @@ function End({
     <div className="flex flex-col gap-2 lg:mx-auto lg:w-full lg:max-w-6xl lg:gap-4">
       <EndHero
         title={
-          winners.length
-            ? `${winners.map((p) => (p.id === room.you ? 'You' : p.name)).join(' & ')} ${
-                winners.length > 1 || winners[0]!.id === room.you ? 'win' : 'wins'
-              } with ${top} ${top === 1 ? 'point' : 'points'}!`
-            : 'Game over'
+          winTitle(
+            winners.map((p) => p.id),
+            (id) => g.players.find((p) => p.id === id)?.name ?? '',
+            room.you,
+          ) || 'Game over'
         }
         eyebrow={winners.length ? undefined : null}
         superlatives={wide ? room.superlatives : undefined}
@@ -441,7 +442,9 @@ function End({
             <RefusalSlot anchor="mo-end" />
           </>
         }
-      />
+      >
+        {winners.length > 0 && `${top} ${top === 1 ? 'point' : 'points'} on the wall.`}
+      </EndHero>
       {/* Wide screens: the standings beside every final wall, shown large. */}
       <div className="flex flex-col gap-2 lg:mx-auto lg:grid lg:w-full lg:max-w-6xl lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
         <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
