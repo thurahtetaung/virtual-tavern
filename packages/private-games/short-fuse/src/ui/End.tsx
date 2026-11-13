@@ -179,7 +179,14 @@ export function End({
                 ? sortHand(winnerHand)
                     .slice(0, 6)
                     .map((card) => (
-                      <CardFace key={card.id} card={card} art={g.art} c={c} size="md" />
+                      <CardFace
+                        key={card.id}
+                        card={card}
+                        art={g.art}
+                        c={c}
+                        size="md"
+                        className="lg:w-[min(31%,9rem)]"
+                      />
                     ))
                 : undefined
             }

@@ -96,7 +96,7 @@ export const Hand = memo(function Hand({
                 selected={selected.has(card.id)}
                 // Desktops: one row (as on phones, scrolling past eight or so), cards large
                 // enough to read their art, so the whole hand stays above the fold.
-                className="lg:w-28"
+                className="lg:w-32"
               />
             </button>
           </li>
