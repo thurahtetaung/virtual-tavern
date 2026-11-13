@@ -11,7 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Marks (Vampire set):** with any Vampire-set role but the Copycat (`MARK_ROLES`), every player gets a Mark of Clarity at the deal (`round.marks`, per player, not per card). Steps with negative `order` are the dusk: Fear (`feared`) only stops wakes from `NIGHT_ORDER` on. Marks reach `view()` only through the viewer's own notes until the reveal (tested). The vampires' Mark is one joint choice (the first pick counts for all). `resolveVote` takes the Marks into account.
   - **Sound:** narration Off / Host's device / Every device, plus music; `src/ui/audio.ts` is the pure scheduling (cues on the server clock, ducking, crossfades) and `useSound.ts` plays it after a user gesture. A close is timed to end just before its step (`fitCues`), cues queue, and a clip that would run more than `OVERRUN_MS` past its step is dropped (never a step's wake line). Text narration always shows.
 
-- **UI:** Role-count controls are 44 px in wider role tiles; timing and narration selections use the shared accent treatment.
+- **UI:** Role-count controls are 44 px in wider role tiles; timing and narration selections use the shared accent treatment. Wide screens show the roles in play beside your card while players get ready. Role chips get a 44 px tap band on touch. The sound button in play is labelled Sound. The finale's winner cards size by how many won (one or two: 112 px phones, 192 px wide).
 
 ## Assets
 

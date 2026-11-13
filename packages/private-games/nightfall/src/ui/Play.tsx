@@ -543,62 +543,69 @@ export function Ready({
   const seen = seenDeal === deal;
   const role = view.myRole;
   return (
-    <div className="mx-auto max-w-md space-y-4 text-center">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {role && (
-        <Panel className="flex flex-col items-center gap-3">
-          {/* Phones: the card scrolls inside when it is shown, so the host's buttons stay above Ready. */}
-          <FitArea phone resetKey={deal}>
-            <Peek
-              key={deal}
-              what="your card"
-              onReveal={() => setSeenDeal(deal)}
-              cover={
-                <span className="flex flex-col items-center gap-2 font-semibold">
-                  <CardBack deck={deck} size="lg" />
-                  Hold to see your card
-                </span>
-              }
-            >
-              <div className="flex flex-col items-center gap-3">
-                <CardFace role={role} deck={deck} size="lg" />
-                <p className="text-lg">
-                  You are the <RoleChip role={role} deck={deck} />
-                </p>
-                <p className="text-sm text-ink-muted">{deck.text(role)}</p>
-              </div>
-            </Peek>
-          </FitArea>
-          {!view.meReady ? (
-            // Phones keep Ready in the bar at the foot of the screen.
-            <StickyBar fixed className="flex flex-col items-center gap-1">
-              <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
-                Ready
+    // Wide screens: the roles in play stand beside the card, so the table can read the night ahead.
+    <div className="mx-auto max-w-md lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <div className="space-y-4 text-center">
+        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {role && (
+          <Panel className="flex flex-col items-center gap-3">
+            {/* Phones: the card scrolls inside when it is shown, so the host's buttons stay above Ready. */}
+            <FitArea phone resetKey={deal}>
+              <Peek
+                key={deal}
+                what="your card"
+                onReveal={() => setSeenDeal(deal)}
+                cover={
+                  <span className="flex flex-col items-center gap-2 font-semibold">
+                    <CardBack deck={deck} size="lg" />
+                    Hold to see your card
+                  </span>
+                }
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <CardFace role={role} deck={deck} size="lg" />
+                  <p className="text-lg">
+                    You are the <RoleChip role={role} deck={deck} />
+                  </p>
+                  <p className="text-sm text-ink-muted">{deck.text(role)}</p>
+                </div>
+              </Peek>
+            </FitArea>
+            {!view.meReady ? (
+              // Phones keep Ready in the bar at the foot of the screen.
+              <StickyBar fixed className="flex flex-col items-center gap-1">
+                <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
+                  Ready
+                </Button>
+                {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
+              </StickyBar>
+            ) : (
+              <p className="text-sm">
+                Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
+              </p>
+            )}
+          </Panel>
+        )}
+        {room.isHost && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
+                Start the night now
               </Button>
-              {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
-            </StickyBar>
-          ) : (
-            <p className="text-sm">
-              Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
+                Shuffle and deal again
+              </Button>
+            </div>
+            <p className="text-xs text-ink-muted">
+              If someone dropped out, start the night now: their card still plays.
             </p>
-          )}
-        </Panel>
-      )}
-      {room.isHost && (
-        <div className="space-y-1">
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
-              Start the night now
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
-              Shuffle and deal again
-            </Button>
           </div>
-          <p className="text-xs text-ink-muted">
-            If someone dropped out, start the night now: their card still plays.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
+      <Panel className="hidden lg:block">
+        <h3 className="mb-2 text-sm font-semibold">🃏 Roles in play</h3>
+        <RolesInPlay view={view} deck={deck} />
+      </Panel>
     </div>
   );
 }
@@ -1149,7 +1156,12 @@ export function Night({
             </div>
           </div>
         )}
-        <div className="flex justify-center">{sound}</div>
+        <div className="flex items-center justify-center gap-1">
+          {sound}
+          <span className="text-small text-ink-muted" aria-hidden>
+            Sound
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1537,7 +1549,12 @@ export function Day({
           </Panel>
         </div>
       </div>
-      <div className="flex justify-center lg:col-span-2">{sound}</div>
+      <div className="flex items-center justify-center gap-1 lg:col-span-2">
+        {sound}
+        <span className="text-small text-ink-muted" aria-hidden>
+          Sound
+        </span>
+      </div>
     </div>
   );
 }
@@ -1762,7 +1779,7 @@ export function Reveal({
                 role={card.role}
                 deck={deck}
                 size={wide ? 'md' : 'sm'}
-                className={wide ? undefined : 'w-12'}
+                className={cn('shrink-0', !wide && 'w-12')}
               />
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-baseline justify-between gap-2">
@@ -1930,9 +1947,13 @@ export function Reveal({
                           ? wide
                             ? 'w-28'
                             : 'w-12'
-                          : wide
-                            ? 'w-36'
-                            : 'w-[4.5rem]'
+                          : result.winners.length > 2
+                            ? wide
+                              ? 'w-36'
+                              : 'w-20'
+                            : wide
+                              ? 'w-48'
+                              : 'w-28'
                       }
                     />
                     <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">

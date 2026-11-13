@@ -1,4 +1,4 @@
-import { Badge, Modal, ProtectedImage, cn } from '@vt/ui';
+import { Badge, Modal, ProtectedImage, TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, createContext, useContext, useState } from 'react';
 import {
   ARTIFACTS,
@@ -464,7 +464,8 @@ export function RoleChip({
       onClick={() => open(role)}
       data-role={role}
       className={cn(
-        'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1 transition hover:brightness-95',
+        'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1 transition hover:brightness-95 lg:py-1',
+        TAP_BAND,
         light
           ? 'bg-white text-ink ring-stone-500'
           : muted
