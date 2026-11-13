@@ -119,7 +119,7 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
     <ProtectedImage
       src={cover}
       alt=""
-      className="absolute top-1/2 right-[1%] h-[70%] w-auto -translate-y-1/2 rotate-6 rounded-xl object-contain opacity-10 shadow-vt-3"
+      className="absolute top-1/2 -right-[6%] h-[70%] w-auto -translate-y-1/2 rotate-6 rounded-xl object-contain opacity-10 shadow-vt-3"
     />
   );
   const [closed, setClosed] = useState(-1);
