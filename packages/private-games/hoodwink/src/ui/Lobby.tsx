@@ -46,7 +46,7 @@ export function Lobby({
   return (
     <LobbyLayout
       pitch={
-        <LobbyPitch title={room.gameName ?? 'Hoodwink'} emblem="🤥">
+        <LobbyPitch title={room.gameName ?? 'Hoodwink'} emblem="🤥" coverFor="hoodwink">
           {guide.tagline}
         </LobbyPitch>
       }

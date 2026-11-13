@@ -1,6 +1,9 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { cn } from './cn.ts';
 import { Button } from './components.tsx';
+import type { GameCover } from './game-card.tsx';
+import { coverOf, loadManifest } from './manifest.ts';
+import { ProtectedImage } from './protected-image.tsx';
 import { StickyBar } from './sticky-bar.tsx';
 
 /**
@@ -51,10 +54,27 @@ export function LobbyLayout({
   );
 }
 
+/** A back-room game's cover from its manifest, or null until loaded or when it names none. */
+function useLobbyCover(gameId: string | undefined): GameCover | null {
+  const [cover, setCover] = useState<GameCover | null>(null);
+  useEffect(() => {
+    if (!gameId) return;
+    let live = true;
+    void loadManifest(gameId).then((m) => {
+      if (live) setCover(coverOf(gameId, m));
+    });
+    return () => {
+      live = false;
+    };
+  }, [gameId]);
+  return cover;
+}
+
 /**
  * The top of a lobby: the game's own art (box, cover, a card back or a few cards; existing art
- * only) beside its name and one-line pitch, on the `card` surface. Without art the game's emblem
- * sits on a `sunk` tile.
+ * only) beside its name and one-line pitch, on the `card` surface. A game with no art of its own
+ * in play passes `coverFor` and shows its cover; without either the game's emblem sits on a
+ * `sunk` tile.
  */
 export function LobbyPitch({
   title,
@@ -64,6 +84,7 @@ export function LobbyPitch({
   className,
   titleClassName,
   artClassName,
+  coverFor,
 }: {
   title: ReactNode;
   /** The one-line pitch, and anything small that belongs with it. */
@@ -77,7 +98,24 @@ export function LobbyPitch({
   titleClassName?: string;
   /** Classes for the art's slot, for art that isn't one card wide (`w-auto` for a fan). */
   artClassName?: string;
+  /** A back-room game id whose manifest cover stands in for `art` (16:9, wider slot). */
+  coverFor?: string;
 }) {
+  const cover = useLobbyCover(art ? undefined : coverFor);
+  const [failed, setFailed] = useState(false);
+  if (!art && cover && !failed) {
+    art = (
+      <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
+        <ProtectedImage
+          src={cover.src}
+          alt=""
+          onError={() => setFailed(true)}
+          className={cn('size-full object-cover', cover.dimInDark && 'dark:brightness-[0.87]')}
+        />
+      </div>
+    );
+    artClassName = cn('w-28 sm:w-36 lg:w-48', artClassName);
+  }
   return (
     <section
       data-ui="lobby-pitch"

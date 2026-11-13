@@ -78,7 +78,7 @@ export function Lobby({
   return (
     <LobbyLayout
       pitch={
-        <LobbyPitch title={title} emblem="🐄">
+        <LobbyPitch title={title} emblem="🐄" coverFor="stampede">
           {makeGuide(names).tagline}
         </LobbyPitch>
       }
