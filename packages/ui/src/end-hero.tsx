@@ -1,6 +1,7 @@
 import type { Superlative } from '@vt/game-sdk';
 import { type ReactNode, useContext } from 'react';
 import { cn } from './cn.ts';
+import { EndColumns } from './end-tabs.tsx';
 import { SuperlativesNote } from './superlatives.tsx';
 
 export type EndTone = 'win' | 'success' | 'loss' | 'neutral';
@@ -48,13 +49,16 @@ export function EndHero({
   titleTestId?: string;
   className?: string;
 }) {
+  // Beside the rest of the end (`EndLayout` on wide screens): sized for a column, not the page.
+  const inColumn = useContext(EndColumns);
   return (
     <section
       data-ui="end-hero"
       data-tone={tone}
       aria-label="Result"
       className={cn(
-        'vt-end-hero relative overflow-hidden rounded-2xl border px-4 py-5 text-center shadow-vt-2 sm:px-6 lg:px-10 lg:py-8',
+        'vt-end-hero relative overflow-hidden rounded-2xl border px-4 py-5 text-center shadow-vt-2 sm:px-6',
+        inColumn ? 'lg:px-6 lg:py-6' : 'lg:px-10 lg:py-8',
         tone === 'loss'
           ? 'border-danger-line'
           : tone === 'success'
@@ -81,7 +85,13 @@ export function EndHero({
           </p>
         )}
         {emblem && (
-          <div aria-hidden className="vt-end-pop text-5xl leading-none lg:text-6xl">
+          <div
+            aria-hidden
+            className={cn(
+              'vt-end-pop text-5xl leading-none',
+              inColumn && art ? 'lg:text-5xl' : 'lg:text-6xl',
+            )}
+          >
             {emblem}
           </div>
         )}
@@ -102,14 +112,14 @@ export function EndHero({
           {art}
         </div>
       )}
-      {!!superlatives?.length && <AwardTiles lines={superlatives} />}
+      {!!superlatives?.length && <AwardTiles lines={superlatives} narrow={inColumn} />}
       {actions && <div className="relative mt-4 lg:mt-6">{actions}</div>}
     </section>
   );
 }
 
 /** The night's superlatives as tiles: one row on wide screens, stacked on phones. */
-function AwardTiles({ lines }: { lines: readonly Superlative[] }) {
+function AwardTiles({ lines, narrow }: { lines: readonly Superlative[]; narrow: boolean }) {
   const note = useContext(SuperlativesNote);
   return (
     <section aria-label="Superlatives" className="relative mt-4 lg:mt-6">
@@ -121,8 +131,9 @@ function AwardTiles({ lines }: { lines: readonly Superlative[] }) {
       <dl
         className={cn(
           'grid gap-2 text-left sm:gap-3',
-          lines.length > 1 && 'sm:grid-cols-2',
-          lines.length > 2 && 'lg:grid-cols-3',
+          // In a column (`EndLayout`) the tiles stack; across the page they share a row.
+          !narrow && lines.length > 1 && 'sm:grid-cols-2',
+          !narrow && lines.length > 2 && 'lg:grid-cols-3',
         )}
       >
         {lines.map((line) => (

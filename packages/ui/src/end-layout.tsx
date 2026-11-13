@@ -1,0 +1,113 @@
+import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
+import { cn } from './cn.ts';
+import { EndColumns, useWideScreen } from './end-tabs.tsx';
+
+/** The least a column keeps when the window is short: past it the page scrolls instead. */
+const MIN_COLUMN_PX = 320;
+
+function cap(el: HTMLElement, max: number | null) {
+  el.style.maxHeight = max === null ? '' : `${max}px`;
+  el.style.overflowY = max === null ? '' : 'auto';
+  el.style.overscrollBehavior = max === null ? '' : 'contain';
+}
+
+/**
+ * Keeps side-by-side columns within the window: when the page is taller than the window, every
+ * column taller than the height that fits gets that height and scrolls inside, so the whole end
+ * (the finale, the standings, the game's reveal and Play again) is on one screen. Each column's own
+ * scroll is kept across re-fits.
+ */
+function useFitColumns(cols: readonly RefObject<HTMLElement | null>[], on: boolean) {
+  useLayoutEffect(() => {
+    const els = cols.map((c) => c.current).filter((el): el is HTMLElement => !!el);
+    if (!on || !els.length) return;
+    const fit = () => {
+      const tops = els.map((el) => (el.style.maxHeight ? el.scrollTop : 0));
+      for (const el of els) cap(el, null);
+      const page = document.scrollingElement ?? document.documentElement;
+      const over = page.scrollHeight - page.clientHeight;
+      if (over <= 0) return;
+      const heights = els.map((el) => el.getBoundingClientRect().height);
+      const room = Math.max(MIN_COLUMN_PX, Math.floor(Math.max(...heights) - over - 1));
+      els.forEach((el, i) => {
+        if (heights[i]! <= room) return;
+        cap(el, room);
+        el.scrollTop = tops[i]!;
+      });
+    };
+    let frame = 0;
+    const later = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    };
+    fit();
+    const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
+    const watch = () => {
+      for (const el of els) for (const child of el.children) sizes?.observe(child);
+    };
+    watch();
+    for (let n = els[0]!.parentElement; n; n = n.parentElement) sizes?.observe(n);
+    const added = new MutationObserver(watch);
+    for (const el of els) added.observe(el, { childList: true });
+    const bars = new MutationObserver(later);
+    bars.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    window.addEventListener('resize', later);
+    return () => {
+      cancelAnimationFrame(frame);
+      sizes?.disconnect();
+      added.disconnect();
+      bars.disconnect();
+      window.removeEventListener('resize', later);
+      for (const el of els) cap(el, null);
+    };
+  });
+}
+
+/**
+ * A finished game's whole end screen. Phones get the finale and then the rest, exactly as passed
+ * (the rest uses `EndTabs`, one part at a time). Wide screens (`lg`) get two columns that fit the
+ * window: the finale (`hero`, usually `EndHero` with the game's art) on the left, and the rest (the
+ * standings and the game's own reveal, through `EndTabs`) on the right, each scrolling inside when
+ * the window is short, so nothing sits below the fold.
+ */
+export function EndLayout({
+  hero,
+  children,
+  className,
+}: {
+  /** The finale: `EndHero`, plus anything that belongs beside it (Play again). */
+  hero: ReactNode;
+  /** The rest: standings, the game's reveal, the next game's seats. */
+  children: ReactNode;
+  className?: string;
+}) {
+  const isWide = useWideScreen();
+  const left = useRef<HTMLDivElement>(null);
+  const right = useRef<HTMLDivElement>(null);
+  useFitColumns([left, right], isWide);
+  if (!isWide)
+    return (
+      <>
+        {hero}
+        {children}
+      </>
+    );
+  return (
+    <EndColumns.Provider value>
+      <div
+        data-ui="end-layout"
+        className={cn(
+          'grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start gap-4 xl:gap-6',
+          className,
+        )}
+      >
+        <div ref={left} data-ui="end-layout-hero" className="min-w-0 space-y-4 p-px">
+          {hero}
+        </div>
+        <div ref={right} data-ui="end-layout-rest" className="min-w-0 space-y-4 p-px">
+          {children}
+        </div>
+      </div>
+    </EndColumns.Provider>
+  );
+}

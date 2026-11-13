@@ -1,4 +1,13 @@
-import { Fragment, type ReactNode, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useFitToScreen } from './fit-area.tsx';
 import { Tabs, tabPanelProps } from './tabs.tsx';
 
@@ -17,6 +26,9 @@ const wide = () => typeof window !== 'undefined' && !!window.matchMedia?.(WIDE).
 export function useWideScreen(): boolean {
   return useSyncExternalStore(subscribe, wide, () => false);
 }
+
+/** True inside `EndLayout`'s wide columns: the finale and the end's parts size for a column. */
+export const EndColumns = createContext(false);
 
 export interface EndTab {
   id: string;
@@ -50,6 +62,8 @@ export function EndTabs({
 }) {
   const parts = tabs.filter((t): t is EndTab => !!t);
   const isWide = useWideScreen();
+  // In `EndLayout`'s right column the parts stack in that column, which scrolls on its own.
+  const inColumn = useContext(EndColumns);
   const id = useId();
   const [chosen, setChosen] = useState(parts[0]?.id ?? '');
   const current = parts.find((t) => t.id === chosen) ?? parts[0];
@@ -60,7 +74,7 @@ export function EndTabs({
     resetKey: current?.id ?? '',
     content: inner,
   });
-  if (isWide && columns && parts.length > 1)
+  if (isWide && columns && !inColumn && parts.length > 1)
     return (
       <div data-ui="end-columns" className="gap-4 xl:columns-2">
         {parts.map((t) => (

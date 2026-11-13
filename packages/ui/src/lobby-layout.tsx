@@ -1,0 +1,158 @@
+import type { ReactNode } from 'react';
+import { cn } from './cn.ts';
+import { Button } from './components.tsx';
+import { StickyBar } from './sticky-bar.tsx';
+
+/**
+ * A lobby's frame. Phones stack it as always: the pitch, the lobby's own parts (status line,
+ * seats, guide link), the settings and Start. Wide screens (`lg`) use the width: the pitch, the
+ * lobby's parts and Start in the main column, and the settings and sound (`rail`) open in a right
+ * rail beside them.
+ */
+export function LobbyLayout({
+  pitch,
+  children,
+  rail,
+  start,
+  className,
+}: {
+  /** The game's pitch card (`LobbyPitch`), at the top. */
+  pitch?: ReactNode;
+  /** The lobby's own parts: status line, seats or teams, guide link. */
+  children: ReactNode;
+  /** Settings, sound and other folds: below the seats on phones, a right rail on wide screens. */
+  rail?: ReactNode;
+  /** The host's Start (`LobbyStart`), or the guests' waiting line. */
+  start?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-ui="lobby-layout"
+      className={cn(
+        'mx-auto grid max-w-3xl gap-4 lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-x-6',
+        className,
+      )}
+    >
+      <div className="min-w-0 space-y-4">
+        {pitch}
+        {children}
+      </div>
+      {rail && (
+        <aside
+          aria-label="Lobby settings"
+          className="min-w-0 space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+        >
+          {rail}
+        </aside>
+      )}
+      {start && <div className="min-w-0 lg:col-start-1">{start}</div>}
+    </div>
+  );
+}
+
+/**
+ * The top of a lobby: the game's own art (box, cover, a card back or a few cards; existing art
+ * only) beside its name and one-line pitch, on the `card` surface. Without art the game's emblem
+ * sits on a `sunk` tile.
+ */
+export function LobbyPitch({
+  title,
+  children,
+  art,
+  emblem,
+  className,
+  titleClassName,
+  artClassName,
+}: {
+  title: ReactNode;
+  /** The one-line pitch, and anything small that belongs with it. */
+  children?: ReactNode;
+  /** The game's art, sized by the slot (64 px phones, 112 px wide screens). */
+  art?: ReactNode;
+  /** An emoji for a game without art. */
+  emblem?: ReactNode;
+  className?: string;
+  /** Classes for the name (a game's own lettering). */
+  titleClassName?: string;
+  /** Classes for the art's slot, for art that isn't one card wide (`w-auto` for a fan). */
+  artClassName?: string;
+}) {
+  return (
+    <section
+      data-ui="lobby-pitch"
+      className={cn(
+        'relative overflow-hidden rounded-2xl border border-line bg-card p-4 shadow-vt-1 sm:p-5',
+        className,
+      )}
+    >
+      <div className="flex items-center gap-4 lg:gap-5">
+        {art ? (
+          <div className={cn('w-16 shrink-0 sm:w-20 lg:w-28', artClassName)}>{art}</div>
+        ) : (
+          emblem && (
+            <div
+              aria-hidden
+              className="grid size-16 shrink-0 place-items-center rounded-xl bg-sunk text-4xl lg:size-20 lg:text-5xl"
+            >
+              {emblem}
+            </div>
+          )
+        )}
+        <div className="min-w-0 space-y-1">
+          <h2 className={cn('font-display text-title font-semibold text-ink', titleClassName)}>
+            {title}
+          </h2>
+          {children && <div className="text-small text-ink-2 lg:text-body">{children}</div>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The host's Start, the same in every lobby: one large primary button across the bar (kept
+ * reachable by `StickyBar`), greyed while it can't be pressed with the reason as one line under
+ * it, and any secondary lobby actions (Shuffle teams) as quiet buttons above it.
+ */
+export function LobbyStart({
+  label = 'Start game',
+  onStart,
+  blocker = null,
+  busy = false,
+  secondary,
+  refusal,
+  refusalKey,
+  testId,
+}: {
+  label?: ReactNode;
+  onStart: () => void;
+  /** Why Start can't be pressed yet ("Need 2 more players"); `null` when it can. */
+  blocker?: ReactNode;
+  busy?: boolean;
+  /** Quiet buttons that belong with Start (Shuffle teams, Random for everyone). */
+  secondary?: ReactNode;
+  /** The anchor of Start's `RefusalSlot`. */
+  refusal?: string;
+  refusalKey?: string | number;
+  testId?: string;
+}) {
+  return (
+    <StickyBar refusal={refusal} refusalKey={refusalKey}>
+      <div data-ui="lobby-start" className="mx-auto w-full space-y-2 sm:max-w-md">
+        {secondary && <div className="flex flex-wrap justify-center gap-2">{secondary}</div>}
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={!!blocker}
+          sending={busy}
+          onClick={onStart}
+          data-testid={testId}
+        >
+          {label}
+        </Button>
+        {blocker && <p className="text-center text-caption text-ink-muted">{blocker}</p>}
+      </div>
+    </StickyBar>
+  );
+}
