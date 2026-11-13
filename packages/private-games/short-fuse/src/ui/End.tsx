@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   EndHero,
+  EndLayout,
   EndTabs,
   NameDot,
   Panel,
@@ -150,74 +151,92 @@ export function End({
       })}
     </Panel>
   );
+  const firstCard = sortHand(winnerHand)[0];
   return (
     <div className="space-y-3" data-testid="end">
-      <EndHero
-        title={end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'}
-        titleTestId="winner"
-        emblem={end.winner ? '🏆' : '💥'}
-        tone={end.winner ? 'win' : 'loss'}
-        superlatives={wide ? room.superlatives : undefined}
-        art={
-          // The winner's last cards, large: what they were holding when the dust settled.
-          wide && winnerHand.length > 0
-            ? sortHand(winnerHand)
-                .slice(0, 8)
-                .map((card) => <CardFace key={card.id} card={card} art={g.art} c={c} size="lg" />)
-            : undefined
-        }
-        actions={
-          room.isHost && (
-            <StickyBar>
-              <div className="flex flex-wrap justify-center gap-2 pt-1">
-                <Button
-                  size="lg"
-                  onClick={() => void act({ type: 'play-again' })}
-                  data-testid="play-again"
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            </StickyBar>
-          )
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'
+            }
+            titleTestId="winner"
+            // Phones: the winner's best card in place of the emblem (wide screens show the hand).
+            emblem={
+              !wide && firstCard ? (
+                <CardFace card={firstCard} art={g.art} c={c} size="sm" className="mx-auto" />
+              ) : end.winner ? (
+                '🏆'
+              ) : (
+                '💥'
+              )
+            }
+            tone={end.winner ? 'win' : 'loss'}
+            superlatives={wide ? room.superlatives : undefined}
+            art={
+              // The winner's last cards, large: what they were holding when the dust settled.
+              wide && winnerHand.length > 0
+                ? sortHand(winnerHand)
+                    .slice(0, 6)
+                    .map((card) => (
+                      <CardFace key={card.id} card={card} art={g.art} c={c} size="md" />
+                    ))
+                : undefined
+            }
+            actions={
+              room.isHost && (
+                <StickyBar>
+                  <div className="flex flex-wrap justify-center gap-2 pt-1">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' })}
+                      data-testid="play-again"
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                </StickyBar>
+              )
+            }
+          >
+            {outOrder}
+          </EndHero>
         }
       >
-        {outOrder}
-      </EndHero>
-
-      {wide ? (
-        // Wide screens: everything that was hidden, in two columns from xl.
-        <div className="gap-3 xl:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid">
-          {handsBlock}
-          {pileBlock}
-          {truthBlock}
-          {stashBlock}
-        </div>
-      ) : (
-        // Phones: the awards, the pile, the hiding spots, the Stash, the hands and the seats one
-        // at a time, so the end and Play again fit the screen.
-        <EndTabs
-          tabs={[
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '🏅 Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            { id: 'hands', label: '✋ Hands', content: handsBlock },
-            { id: 'pile', label: '🂠 Pile', content: pileBlock },
-            !!truthBlock && { id: 'hidden', label: '🔍 Hidden', content: truthBlock },
-            !!stashBlock && { id: 'stash', label: `🏦 ${c.name('vault')}`, content: stashBlock },
-            !!seats && { id: 'seats', label: '👥 Table', content: seats },
-          ]}
-        />
-      )}
+        {wide ? (
+          // Wide screens: everything that was hidden, beside the finale.
+          <div className="space-y-3">
+            {handsBlock}
+            {pileBlock}
+            {truthBlock}
+            {stashBlock}
+          </div>
+        ) : (
+          // Phones: the awards, the pile, the hiding spots, the Stash, the hands and the seats one
+          // at a time, so the end and Play again fit the screen.
+          <EndTabs
+            tabs={[
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '🏅 Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              { id: 'hands', label: '✋ Hands', content: handsBlock },
+              { id: 'pile', label: '🂠 Pile', content: pileBlock },
+              !!truthBlock && { id: 'hidden', label: '🔍 Hidden', content: truthBlock },
+              !!stashBlock && { id: 'stash', label: `🏦 ${c.name('vault')}`, content: stashBlock },
+              !!seats && { id: 'seats', label: '👥 Table', content: seats },
+            ]}
+          />
+        )}
+      </EndLayout>
     </div>
   );
 }

@@ -94,6 +94,8 @@ export const Hand = memo(function Hand({
                 size="md"
                 eager
                 selected={selected.has(card.id)}
+                // Desktops have the room: cards large enough to read their art.
+                className="lg:w-32 xl:w-36"
               />
             </button>
           </li>

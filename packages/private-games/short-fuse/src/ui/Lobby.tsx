@@ -8,11 +8,13 @@ import {
   HostOnlyNote,
   Panel,
   PlayerTag,
-  StickyBar,
   Switch,
   FoldSummary,
   cn,
   LobbySettings,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
 import {
   DECISION_SECONDS_OPTIONS,
@@ -121,7 +123,234 @@ export function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? c.names.title}
+          artClassName="w-auto sm:w-auto lg:w-auto"
+          art={
+            <div className="flex -space-x-8">
+              <CardBack c={c} size="sm" className="rotate-[-8deg]" />
+              <CardFace
+                card={{ t: 'bomb', face: 0 }}
+                art={s.art}
+                c={c}
+                size="sm"
+                className="rotate-[6deg]"
+              />
+            </div>
+          }
+        >
+          Play your cards, draw one, and hope it isn’t {an(c.names.bomb)}. Last one standing wins.
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={host}
+            title="The deck"
+            summary={deckSummary(s, preset ? presetTitle(preset) : null, setName)}
+            className="space-y-3"
+          >
+            <div
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              role="radiogroup"
+              aria-label="Deck"
+            >
+              {PRESETS.map((p) => {
+                const on = view.preset === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={!host}
+                    onClick={() => set({ preset: p.id })}
+                    data-testid={`preset-${p.id}`}
+                    className={cn(
+                      'rounded-xl p-2.5 text-left ring-1 transition disabled:cursor-default sm:p-3',
+                      on
+                        ? 'bg-accent-soft ring-2 ring-accent'
+                        : 'bg-card ring-line enabled:hover:bg-panel',
+                    )}
+                  >
+                    <span className="flex items-center gap-2 font-bold text-ink">
+                      <span aria-hidden>{p.glyph}</span>
+                      {presetTitle(p)}
+                      {p.id === 'adult' && <AdultBadge />}
+                    </span>
+                    <span className="mt-1 block text-xs leading-snug text-ink-muted">{p.line}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {view.preset === 'custom' && (
+              <p className="text-xs text-ink-muted">
+                Custom deck: {setName(s.core)} with the{' '}
+                {setName(s.art === 'adult' ? 'adult' : 'classic')} art.
+              </p>
+            )}
+            <Switch
+              on={s.x1}
+              editable={host}
+              title={setName('x1')}
+              help={c.t(
+                'Adds {c:void} (one of the {bombs}: once drawn it sits face up in the pile), {c:aim}, {c:reverse}, {c:bottom}, {c:alter3} and {c:wild}.',
+              )}
+              onChange={(v) => set({ x1: v })}
+              testId="toggle-x1"
+            />
+            <Switch
+              on={s.x2}
+              editable={host}
+              title={setName('x2')}
+              help={c.t(
+                'One more {bomb}, plus {c:shelter} (keep a drawn {bomb} in your hand), {c:blind}, {c:mark}, {c:stack}, {c:recycle}, {c:swap}, {c:superskip}, {c:peek5} and {c:alter5}.',
+              )}
+              onChange={(v) => set({ x2: v })}
+              testId="toggle-x2"
+            />
+            <Switch
+              on={s.x3}
+              editable={host}
+              title={setName('x3')}
+              help={c.t(
+                'Adds the two {c:twin} cards, {c:vault} with its face-down Stash, {c:mine}, {c:bury}, {c:self3}, {c:potluck}, {c:share3}, {c:alter3now} and {c:superskip}.',
+              )}
+              onChange={(v) => set({ x3: v })}
+              testId="toggle-x3"
+            />
+            <Switch
+              on={s.x4}
+              editable={host}
+              title={setName('x4')}
+              help={c.t(
+                'Ghosts: explode and you stay at the table with your hand. A {c:revive} replaces each {c:defuse} and brings a ghost back. Adds {c:dig}, {c:ghostattack}, {c:feed}, {c:copy}, {c:seer}, {c:robber}, {c:shufflenow} and {c:superskip}.',
+              )}
+              onChange={(v) => set({ x4: v })}
+              testId="toggle-x4"
+            />
+            <Switch
+              on={s.faster}
+              editable={host}
+              title="Faster game"
+              help={c.t('Takes a third of the pile out at random before the {bombs} go in.')}
+              onChange={(v) => set({ faster: v })}
+            />
+            {ok && (
+              <p
+                className="rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line"
+                data-testid="readout"
+              >
+                {r.players} players: draw pile of <b>{r.pile}</b> · <b>{r.bombs}</b>{' '}
+                {r.bombs === 1 ? c.names.bomb : c.names.bombs}
+                {r.void && <> + {c.name('void')}</>} · hands of {r.hand}
+                {r.revives > 0 && (
+                  <>
+                    {' '}
+                    (with {r.revives === r.players ? 'a' : r.revives} {c.name('revive')}
+                    {r.revives === r.players ? ' each' : ''})
+                  </>
+                )}{' '}
+                · about {r.turnsEach} turns each
+              </p>
+            )}
+          </LobbySettings>
+          <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
+
+          <details className="group rounded-xl bg-panel ring-1 ring-line">
+            <FoldSummary>⏱️ Timing and house rules</FoldSummary>
+            <div className="space-y-3 px-4 pb-4">
+              {!host && <HostOnlyNote />}
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">{c.name('nope')} countdown</span>
+                <span className="block text-xs text-ink-muted">
+                  After every play, everyone sees the same countdown; only players holding a{' '}
+                  {c.name('nope')} get the button.
+                </span>
+                {host ? (
+                  <span className="mt-1 flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={NOPE_SECONDS.min}
+                      max={NOPE_SECONDS.max}
+                      value={s.nopeSeconds}
+                      onChange={(e) => set({ nopeSeconds: Number(e.target.value) })}
+                      className="h-11 min-w-0 flex-1 accent-[var(--color-accent)]"
+                      aria-label={`${c.name('nope')} countdown in seconds`}
+                    />
+                    <b className="w-10 text-ink">{s.nopeSeconds} s</b>
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-ink">{s.nopeSeconds} seconds</span>
+                )}
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-ink">Turn clock</span>
+                <span className="block text-xs text-ink-muted">A countdown on every decision.</span>
+                {host ? (
+                  <select
+                    className="mt-1 min-h-11 w-full rounded-lg bg-card px-3 py-2 text-ink ring-1 ring-line-strong"
+                    value={s.decisionSeconds ?? ''}
+                    onChange={(e) =>
+                      set({
+                        decisionSeconds: e.target.value === '' ? null : Number(e.target.value),
+                      })
+                    }
+                  >
+                    <option value="">No clock</option>
+                    {DECISION_SECONDS_OPTIONS.map((v) => (
+                      <option key={v} value={v}>
+                        {v} seconds
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="mt-1 block text-ink">
+                    {s.decisionSeconds ? `${s.decisionSeconds} seconds` : 'No clock'}
+                  </span>
+                )}
+              </label>
+              <Switch
+                on={s.strict}
+                editable={host && s.decisionSeconds !== null}
+                title="Strict clock"
+                help="At zero the game moves for whoever is slow: draws, hides at random, keeps the order or gives a random card. Off: the clock only reminds."
+                onChange={(v) => set({ strict: v })}
+              />
+              <Switch
+                on={s.fiveCombo}
+                editable={host}
+                title="Five different cards (legacy)"
+                help="Play five cards with different names to take any card from the discard pile."
+                onChange={(v) => set({ fiveCombo: v })}
+              />
+              <Switch
+                on={s.nonStacking}
+                editable={host}
+                title="Attacks don’t stack (legacy)"
+                help={c.t(
+                  'An attacked player’s {c:attack} passes on just 2 turns, not their own as well.',
+                )}
+                onChange={(v) => set({ nonStacking: v })}
+              />
+            </div>
+          </details>
+
+          {view.rigAllowed && host && <RigPanel act={act} rigged={view.rigged} />}
+        </>
+      }
+      start={
+        host && (
+          <LobbyStart
+            blocker={ok ? null : blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'start' })}
+            testId="start"
+          />
+        )
+      }
+    >
       {lobbyLine && (
         <Hint dense tone={lobbyLine.me ? 'action' : 'neutral'}>
           {lobbyLine.text}
@@ -165,230 +394,7 @@ export function Lobby({
         )}
       </Panel>
       <GuideLink title={room.gameName ?? c.names.title} onClick={showGuide} />
-      <div className="relative overflow-hidden rounded-3xl bg-panel p-5 shadow-sm ring-1 ring-line">
-        <div className="flex items-center gap-4">
-          <div className="flex shrink-0 -space-x-8">
-            <CardBack c={c} size="sm" className="rotate-[-8deg]" />
-            <CardFace
-              card={{ t: 'bomb', face: 0 }}
-              art={s.art}
-              c={c}
-              size="sm"
-              className="rotate-[6deg]"
-            />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-ink-muted">
-              Play your cards, draw one, and hope it isn’t {an(c.names.bomb)}. Last one standing
-              wins.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <LobbySettings
-        editable={host}
-        title="The deck"
-        summary={deckSummary(s, preset ? presetTitle(preset) : null, setName)}
-        className="space-y-3"
-      >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Deck">
-          {PRESETS.map((p) => {
-            const on = view.preset === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={!host}
-                onClick={() => set({ preset: p.id })}
-                data-testid={`preset-${p.id}`}
-                className={cn(
-                  'rounded-xl p-2.5 text-left ring-1 transition disabled:cursor-default sm:p-3',
-                  on
-                    ? 'bg-accent-soft ring-2 ring-accent'
-                    : 'bg-card ring-line enabled:hover:bg-panel',
-                )}
-              >
-                <span className="flex items-center gap-2 font-bold text-ink">
-                  <span aria-hidden>{p.glyph}</span>
-                  {presetTitle(p)}
-                  {p.id === 'adult' && <AdultBadge />}
-                </span>
-                <span className="mt-1 block text-xs leading-snug text-ink-muted">{p.line}</span>
-              </button>
-            );
-          })}
-        </div>
-        {view.preset === 'custom' && (
-          <p className="text-xs text-ink-muted">
-            Custom deck: {setName(s.core)} with the{' '}
-            {setName(s.art === 'adult' ? 'adult' : 'classic')} art.
-          </p>
-        )}
-        <Switch
-          on={s.x1}
-          editable={host}
-          title={setName('x1')}
-          help={c.t(
-            'Adds {c:void} (one of the {bombs}: once drawn it sits face up in the pile), {c:aim}, {c:reverse}, {c:bottom}, {c:alter3} and {c:wild}.',
-          )}
-          onChange={(v) => set({ x1: v })}
-          testId="toggle-x1"
-        />
-        <Switch
-          on={s.x2}
-          editable={host}
-          title={setName('x2')}
-          help={c.t(
-            'One more {bomb}, plus {c:shelter} (keep a drawn {bomb} in your hand), {c:blind}, {c:mark}, {c:stack}, {c:recycle}, {c:swap}, {c:superskip}, {c:peek5} and {c:alter5}.',
-          )}
-          onChange={(v) => set({ x2: v })}
-          testId="toggle-x2"
-        />
-        <Switch
-          on={s.x3}
-          editable={host}
-          title={setName('x3')}
-          help={c.t(
-            'Adds the two {c:twin} cards, {c:vault} with its face-down Stash, {c:mine}, {c:bury}, {c:self3}, {c:potluck}, {c:share3}, {c:alter3now} and {c:superskip}.',
-          )}
-          onChange={(v) => set({ x3: v })}
-          testId="toggle-x3"
-        />
-        <Switch
-          on={s.x4}
-          editable={host}
-          title={setName('x4')}
-          help={c.t(
-            'Ghosts: explode and you stay at the table with your hand. A {c:revive} replaces each {c:defuse} and brings a ghost back. Adds {c:dig}, {c:ghostattack}, {c:feed}, {c:copy}, {c:seer}, {c:robber}, {c:shufflenow} and {c:superskip}.',
-          )}
-          onChange={(v) => set({ x4: v })}
-          testId="toggle-x4"
-        />
-        <Switch
-          on={s.faster}
-          editable={host}
-          title="Faster game"
-          help={c.t('Takes a third of the pile out at random before the {bombs} go in.')}
-          onChange={(v) => set({ faster: v })}
-        />
-        {ok && (
-          <p
-            className="rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line"
-            data-testid="readout"
-          >
-            {r.players} players: draw pile of <b>{r.pile}</b> · <b>{r.bombs}</b>{' '}
-            {r.bombs === 1 ? c.names.bomb : c.names.bombs}
-            {r.void && <> + {c.name('void')}</>} · hands of {r.hand}
-            {r.revives > 0 && (
-              <>
-                {' '}
-                (with {r.revives === r.players ? 'a' : r.revives} {c.name('revive')}
-                {r.revives === r.players ? ' each' : ''})
-              </>
-            )}{' '}
-            · about {r.turnsEach} turns each
-          </p>
-        )}
-      </LobbySettings>
-      <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
-
-      <details className="group rounded-xl bg-panel ring-1 ring-line">
-        <FoldSummary>⏱️ Timing and house rules</FoldSummary>
-        <div className="space-y-3 px-4 pb-4">
-          {!host && <HostOnlyNote />}
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">{c.name('nope')} countdown</span>
-            <span className="block text-xs text-ink-muted">
-              After every play, everyone sees the same countdown; only players holding a{' '}
-              {c.name('nope')} get the button.
-            </span>
-            {host ? (
-              <span className="mt-1 flex items-center gap-3">
-                <input
-                  type="range"
-                  min={NOPE_SECONDS.min}
-                  max={NOPE_SECONDS.max}
-                  value={s.nopeSeconds}
-                  onChange={(e) => set({ nopeSeconds: Number(e.target.value) })}
-                  className="h-11 min-w-0 flex-1 accent-[var(--color-accent)]"
-                  aria-label={`${c.name('nope')} countdown in seconds`}
-                />
-                <b className="w-10 text-ink">{s.nopeSeconds} s</b>
-              </span>
-            ) : (
-              <span className="mt-1 block text-ink">{s.nopeSeconds} seconds</span>
-            )}
-          </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">Turn clock</span>
-            <span className="block text-xs text-ink-muted">A countdown on every decision.</span>
-            {host ? (
-              <select
-                className="mt-1 min-h-11 w-full rounded-lg bg-card px-3 py-2 text-ink ring-1 ring-line-strong"
-                value={s.decisionSeconds ?? ''}
-                onChange={(e) =>
-                  set({ decisionSeconds: e.target.value === '' ? null : Number(e.target.value) })
-                }
-              >
-                <option value="">No clock</option>
-                {DECISION_SECONDS_OPTIONS.map((v) => (
-                  <option key={v} value={v}>
-                    {v} seconds
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="mt-1 block text-ink">
-                {s.decisionSeconds ? `${s.decisionSeconds} seconds` : 'No clock'}
-              </span>
-            )}
-          </label>
-          <Switch
-            on={s.strict}
-            editable={host && s.decisionSeconds !== null}
-            title="Strict clock"
-            help="At zero the game moves for whoever is slow: draws, hides at random, keeps the order or gives a random card. Off: the clock only reminds."
-            onChange={(v) => set({ strict: v })}
-          />
-          <Switch
-            on={s.fiveCombo}
-            editable={host}
-            title="Five different cards (legacy)"
-            help="Play five cards with different names to take any card from the discard pile."
-            onChange={(v) => set({ fiveCombo: v })}
-          />
-          <Switch
-            on={s.nonStacking}
-            editable={host}
-            title="Attacks don’t stack (legacy)"
-            help={c.t(
-              'An attacked player’s {c:attack} passes on just 2 turns, not their own as well.',
-            )}
-            onChange={(v) => set({ nonStacking: v })}
-          />
-        </div>
-      </details>
-
-      {view.rigAllowed && host && <RigPanel act={act} rigged={view.rigged} />}
-
-      {host && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!ok}
-            onClick={() => void act({ type: 'start' }, { anchor: 'start' })}
-            data-testid="start"
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
