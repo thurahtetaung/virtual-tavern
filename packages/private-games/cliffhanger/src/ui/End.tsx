@@ -23,10 +23,12 @@ function Collection({ view, team }: { view: CliffhangerView; team: TeamId }) {
       <GenreRace view={view} team={team} />
       <p className="text-xs text-ink-muted">{members.map((m) => nameOf(view, m.id)).join(', ')}</p>
       {cards.length ? (
-        <ul className="flex flex-wrap gap-1.5">
+        // Two across the phone's full width, three in a desktop column: the titles on the labels
+        // stay readable at the end, when players look back at what they filled.
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {cards.map((c) => (
             <li key={c.id} title={`${c.title} · ${genreName(names, c.genre, view.settings.deck)}`}>
-              <Tape card={c} deck={view.settings.deck} className="h-20 sm:h-24" />
+              <Tape card={c} deck={view.settings.deck} className="w-full" />
             </li>
           ))}
         </ul>

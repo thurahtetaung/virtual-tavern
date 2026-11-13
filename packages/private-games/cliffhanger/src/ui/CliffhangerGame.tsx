@@ -140,7 +140,7 @@ function Board({
           {TEAMS.map((t) => (
             <div key={t} className="space-y-2">
               <GenreRace view={view} team={t} />
-              {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} size="h-16" />}
+              {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} />}
             </div>
           ))}
         </Panel>

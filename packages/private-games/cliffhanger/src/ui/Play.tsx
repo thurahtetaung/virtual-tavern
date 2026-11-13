@@ -540,7 +540,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
       )}
       {cards.length > 2 && (
         <details className="group" data-testid="pick-card">
-          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 text-xs font-semibold text-ink-muted [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-xs font-semibold text-ink-muted [&::-webkit-details-marker]:hidden">
             <span className="transition group-open:rotate-90" aria-hidden>
               ▸
             </span>
