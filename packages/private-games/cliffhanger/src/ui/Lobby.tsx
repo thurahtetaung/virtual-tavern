@@ -191,7 +191,7 @@ function GenrePicker({
                   'flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-sm ring-1 transition',
                   on
                     ? 'bg-card font-semibold ring-2 ring-ink/30'
-                    : 'text-ink-muted ring-line hover:bg-card',
+                    : 'text-ink-2 ring-line hover:bg-card',
                   low && 'ring-warn-line',
                   !editable && 'cursor-default',
                 )}
