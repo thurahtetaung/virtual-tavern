@@ -76,7 +76,7 @@ export function Tile({
     <>
       <h4
         className={cn(
-          'px-1 text-center text-[11px] font-black tracking-wide uppercase',
+          'px-1 text-center text-xs font-black tracking-wide uppercase',
           wrapTitle ? 'leading-tight text-balance' : 'truncate',
           accent(tile),
         )}
@@ -90,7 +90,8 @@ export function Tile({
           const text = content.tileItem(tile, i);
           const row = (
             <>
-              <span className="min-w-0 flex-1 truncate">{text}</span>
+              {/* Whole names, wrapping if they must (never cut). */}
+              <span className="min-w-0 flex-1 break-words">{text}</span>
               {marked && (
                 <span
                   className={cn(
@@ -99,20 +100,18 @@ export function Tile({
                   )}
                 >
                   {isNew && (
-                    <span className="rounded bg-accent-line px-0.5 text-[0.7em] font-black text-accent-text uppercase">
+                    <span className="rounded bg-accent-line px-0.5 text-xs font-black text-accent-text uppercase">
                       new
                     </span>
                   )}
-                  {order ? (
-                    <span className="text-[0.75em] font-bold text-amber-200">{order}</span>
-                  ) : null}
+                  {order ? <span className="text-xs font-bold text-amber-200">{order}</span> : null}
                   <BulletIcon />
                 </span>
               )}
             </>
           );
           const cls = cn(
-            'flex w-full items-center gap-1 rounded px-1.5 py-px text-left text-[12px] leading-tight',
+            'flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left text-sm leading-tight',
             marked
               ? 'bg-accent/25 font-bold text-amber-50 ring-1 ring-accent/70'
               : 'text-stone-200',

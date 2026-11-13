@@ -1,6 +1,7 @@
 import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -563,7 +564,7 @@ function Play({
   const tableSection = turn && turn.table.length > 0 && (
     <section aria-label="Table">
       <h3 className="mb-2 font-bold">On the table</h3>
-      <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+      <ul className="grid max-h-[calc(100dvh-20rem)] grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-3 lg:max-h-none lg:grid-cols-[repeat(auto-fit,minmax(8rem,11rem))]">
         {turn.table.map((t, i) => (
           <li key={i} className="space-y-1">
             <Card
@@ -662,13 +663,8 @@ function Play({
             🔀 The draw pile ran out, so the used cards were shuffled back in.
           </p>
         )}
-        {(canNext || canSit) && (
+        {canSit && (
           <div className="flex flex-wrap justify-center gap-2">
-            {canNext && (
-              <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-                {targetReached(view) ? 'See final scores' : 'Next turn'}
-              </Button>
-            )}
             {canSit && (
               <Button
                 size="lg"
@@ -755,12 +751,26 @@ function Play({
           </Panel>
         )}
 
-        {!phoneEnd && tableSection}
-
-        {!phoneEnd && results}
+        {!phoneEnd && (tableSection || results) && (
+          <FitArea phone plain min={128}>
+            <div className="space-y-3">
+              {tableSection}
+              {results}
+            </div>
+          </FitArea>
+        )}
 
         {showHand && (
           <StickyBar fixed refusal={canTell ? TELL_ANCHOR : undefined}>
+            {canNext && (
+              <Button
+                size="lg"
+                className="mb-2 w-full sm:w-auto"
+                onClick={() => void act({ type: 'next-turn' })}
+              >
+                {targetReached(view) ? 'See final scores' : 'Next turn'}
+              </Button>
+            )}
             <section aria-label="Your hand" className="space-y-2">
               {canTell && storyPick !== null && (
                 <form onSubmit={(e) => void tell(e)} className="flex items-end gap-2 sm:gap-3">
@@ -827,7 +837,7 @@ function Play({
                     className="flex gap-2 overflow-x-auto px-1 py-1.5"
                   >
                     {view.hand.map((card) => (
-                      <li key={card} className="w-20 shrink-0 sm:w-24">
+                      <li key={card} className="w-24 shrink-0 sm:w-36">
                         <Card
                           card={card}
                           eager

@@ -87,7 +87,7 @@ function Tips({ view }: { view: CliffhangerView }) {
         data-testid="tips-line"
         className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden"
       >
-        <span className="min-w-0 flex-1 truncate">New here? The app never judges: you do.</span>
+        <span className="min-w-0 flex-1">New here? The app never judges: you do.</span>
         <Button variant="quiet" size="sm" onClick={() => setOpen(true)}>
           Tips
         </Button>

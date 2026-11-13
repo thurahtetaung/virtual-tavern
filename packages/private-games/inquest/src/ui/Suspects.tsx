@@ -132,7 +132,8 @@ export function Suspects(props: Common) {
                   setGrid(false);
                 }}
                 className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+                  // 44 px to a finger, the same chips to a mouse.
+                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11',
                   !grid && k === i
                     ? 'bg-accent text-accent-fg ring-accent'
                     : 'bg-card text-ink-2 ring-line-strong',
@@ -150,7 +151,7 @@ export function Suspects(props: Common) {
           aria-pressed={grid}
           onClick={() => setGrid(!grid)}
           className={cn(
-            'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+            'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11',
             grid ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
           )}
         >
@@ -209,7 +210,7 @@ export function Suspects(props: Common) {
           }}
         >
           <CardGrid {...props} p={p} />
-          <p className="mt-1 text-center text-[11px] text-ink-muted">
+          <p className="mt-1 text-center text-xs text-ink-muted">
             Swipe for the next suspect · hold a card to mark it ★ / ✕
           </p>
         </section>

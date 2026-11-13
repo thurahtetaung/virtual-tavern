@@ -1,6 +1,7 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   Countdown,
   Modal,
   PlayerTag,
@@ -12,7 +13,7 @@ import {
   tabPanelProps,
   useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
 import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
@@ -84,6 +85,7 @@ export interface TableProps {
   art: Art;
   name: NameOf;
   showGuide: (id?: string) => void;
+  tips?: ReactNode;
 }
 
 type Sheet =
@@ -498,7 +500,7 @@ function Bank({
             aria-pressed={picked > 0}
             data-pile={gem}
           >
-            <TokenChip token={gem} art={art} count={n - picked} size={38} dim={n - picked === 0} />
+            <TokenChip token={gem} art={art} count={n - picked} size={40} dim={n - picked === 0} />
             {picked > 0 && (
               <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-[11px] font-black text-accent-fg">
                 +{picked}
@@ -512,7 +514,7 @@ function Bank({
         aria-label={`Gold: ${g.bank.gold} left (only by reserving)`}
         role="img"
       >
-        <TokenChip token="gold" art={art} count={g.bank.gold} size={38} dim={!g.bank.gold} />
+        <TokenChip token="gold" art={art} count={g.bank.gold} size={40} dim={!g.bank.gold} />
       </span>
     </div>
   );
@@ -927,7 +929,7 @@ const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
 ];
 
 /** The whole table: opponents, nobles, the market, the gem piles, the viewer's own area. */
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, tips }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you);
   const playing = view.phase === 'playing';
@@ -1034,7 +1036,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   );
 
   return (
-    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[17rem_minmax(0,34rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
+    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-3">
       {/* Opponents: chips on phones (Table talk), panels on desktop. */}
       <div
         className={cn(
@@ -1054,14 +1056,23 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           />
         ))}
       </div>
-      <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
-        {mePanel}
-        {others.map((p) => (
-          <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
-        ))}
+      <aside
+        className="hidden min-w-0 flex-col gap-2 lg:col-start-2 lg:row-start-1 lg:flex"
+        aria-label="Players"
+      >
+        <FitArea on={wide} plain min={128}>
+          <div className="space-y-2">
+            {tips}
+            {mePanel}
+            {others.map((p) => (
+              <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
+            ))}
+            {log(true)}
+          </div>
+        </FitArea>
       </aside>
 
-      <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(60rem,max(42rem,calc((100dvh-30rem)*2)))]">
         <div {...panel('table')}>
           {playing && (clock?.deadline || g.finalBy) && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -1333,8 +1344,6 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           <div className="lg:hidden">{log(shown === 'talk')}</div>
         </div>
       </div>
-
-      <aside className="hidden lg:block">{log(true)}</aside>
 
       {sheet?.kind === 'card' && (
         <CardSheet

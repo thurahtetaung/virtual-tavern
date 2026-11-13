@@ -6,6 +6,7 @@ import {
   Fold,
   Hint,
   NameDot,
+  TAP_BAND,
   TabBar,
   type TabBarItem,
   cn,
@@ -13,7 +14,9 @@ import {
   useAbandonGame,
   useConfirm,
   useFitToScreen,
+  scrollFadeMask,
   useRefusalWording,
+  useScrollEnds,
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
@@ -93,7 +96,10 @@ function HeaderStrip({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-gradient-to-r from-sky-950 via-stone-900 to-red-950 px-2.5 py-1.5 text-white shadow-md">
       <button
         type="button"
-        className="-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10"
+        className={cn(
+          '-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10',
+          TAP_BAND,
+        )}
         aria-expanded={legend}
         aria-label={c.copy('legend.button')}
         onClick={onLegend}
@@ -157,14 +163,18 @@ function WaitingChips({
   now: number;
 }) {
   const [confirm, confirmDialog] = useConfirm();
+  const { ref: row, ends } = useScrollEnds();
   const ids = waitingOn(view);
   const g = view.game!;
   if (!ids.length || view.phase !== 'playing' || view.stage === 'reveal') return null;
   const claimDue = view.stage === 'claim' && g.claimDeadline !== null && now >= g.claimDeadline;
-  // One line that scrolls sideways, so a big table's vote never pushes the seats under the dock.
+  // One line that scrolls sideways, so a big table's vote never pushes the seats under the dock;
+  // it fades out at an end with more names past it.
   return (
     <div
-      className="flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      ref={row}
+      style={scrollFadeMask(ends)}
+      className="flex items-center gap-1.5 overflow-x-auto py-1 text-xs whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       data-testid="waiting-on"
     >
       {confirmDialog}
@@ -186,7 +196,7 @@ function WaitingChips({
               <button
                 type="button"
                 disabled={recently}
-                className="rounded-full px-1 disabled:opacity-40"
+                className={cn('rounded-full px-1 disabled:opacity-40', TAP_BAND)}
                 aria-label={`Nudge ${nameOf(view, id)}`}
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
@@ -624,7 +634,7 @@ export function HydraGame({
     return (
       <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <End
             view={view}
             room={room}

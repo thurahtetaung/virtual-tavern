@@ -147,7 +147,7 @@ export function Seats({
                   </span>
                 )}
               </span>
-              <span className="flex min-h-4 flex-wrap items-center gap-0.5 text-[0.62rem] leading-tight font-bold">
+              <span className="flex min-h-4 flex-wrap items-center gap-0.5 text-xs leading-tight font-bold">
                 {president && (
                   <Placard kind="president" c={c} special={g.special} compact={compact} />
                 )}
@@ -166,9 +166,10 @@ export function Seats({
                   <span
                     className={cn(
                       'rounded px-1',
+                      // vt-palette: the printed ballots' colours, the same in both themes.
                       vote === 'yes'
-                        ? 'bg-white text-ink ring-1 ring-line-strong'
-                        : 'bg-stone-800 text-white',
+                        ? 'bg-white text-[#1c1816] ring-1 ring-[#3b332b]'
+                        : 'bg-[#3b332b] text-white',
                     )}
                   >
                     {c.ballotName(vote)}
@@ -250,7 +251,7 @@ export function Placard({
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center rounded px-1 text-[0.6875rem] leading-4 font-bold',
+        'inline-flex max-w-full items-center rounded px-1 text-xs leading-4 font-bold',
         kind === 'president' ? 'bg-teal-800 text-teal-50' : 'bg-orange-800 text-orange-50',
         drop && 'hy-drop',
       )}
