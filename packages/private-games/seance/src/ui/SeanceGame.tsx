@@ -30,10 +30,11 @@ import {
   type SeanceView,
 } from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
-import { Compare, SendPreview } from './Compare.tsx';
+import { Compare } from './Compare.tsx';
 import { EndScreen } from './End.tsx';
 import { Lineup, SharedPicker, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
 import { GhostHand, GhostPsychics, SilentNote } from './Ghost.tsx';
+import { GhostVisions } from './GhostVisions.tsx';
 import { Lobby } from './Lobby.tsx';
 import { type CompareSpec, HourClock, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
 import {
@@ -503,12 +504,10 @@ function SeanceTable({
     act({ type: 'back-to-lobby' }),
   );
   const [spec, setSpec] = useState<CompareSpec | null>(null);
-  const [sendCards, setSendCards] = useState<number[]>([]);
   const [draft, setDraft] = useState<SharedDraft>({ group: null, cards: [], tags: {} });
   const [tableScreen, setTableScreen] = useState(false);
   const [confirmLock, confirmLockDialog] = useConfirm();
   const compare = useCallback((s: CompareSpec) => {
-    setSendCards([]);
     setSpec(s);
   }, []);
 
@@ -578,8 +577,6 @@ function SeanceTable({
       room={room}
       act={act}
       content={content}
-      sendCards={sendCards}
-      setSendCards={setSendCards}
       draft={draft}
       setDraft={setDraft}
       onClose={() => setSpec(null)}
@@ -686,7 +683,6 @@ function SeanceTable({
     <GhostPsychics
       view={view}
       content={content}
-      compare={compare}
       away={awayPsychics(g, room.players).map((p) => p.color)}
     />
   ) : me ? (
@@ -708,6 +704,53 @@ function SeanceTable({
       />
     );
 
+  const lockButton = room.isHost &&
+    g.stage === 'visions' &&
+    g.sent.length > 0 &&
+    !waitingForVision(g).length && (
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() =>
+          void (async () => {
+            if (
+              await confirmLock({
+                title: 'Lock the guesses in now?',
+                body: 'Every guess is judged as it stands, without waiting for Ready or the ghost’s reveal.',
+                confirmLabel: 'Lock them in',
+              })
+            )
+              void act({ type: 'lock-now' });
+          })()
+        }
+      >
+        🔒 Lock the guesses in now
+      </Button>
+    );
+
+  // The ghost sending visions: one psychic at a time, the table in a drawer.
+  if (ghost && g.stage === 'visions')
+    return (
+      <div className="space-y-2">
+        <GhostVisions
+          view={view}
+          room={room}
+          act={act}
+          content={content}
+          away={awayPsychics(g, room.players).map((p) => p.color)}
+          notes={
+            <>
+              <Banners view={view} room={room} act={act} />
+              {lockButton && wide && <div className="flex justify-end">{lockButton}</div>}
+            </>
+          }
+          hostTools={!wide && lockButton}
+        />
+        {overlay}
+        {confirmLockDialog}
+      </div>
+    );
+
   return (
     <div className="space-y-2">
       {ghost && <SilentNote />}
@@ -727,27 +770,9 @@ function SeanceTable({
       {/* Phones: the verdicts above the tabs. Desktops: at the top of the main column, so the
           hand and the table beside it stay in view. */}
       {!wide && <RevealPanel view={view} room={room} act={act} content={content} />}
-      {room.isHost && g.stage === 'visions' && g.sent.length > 0 && !waitingForVision(g).length && (
+      {lockButton && (
         <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="ghost"
-            className={cn(tab !== 'table' && 'hidden lg:inline-flex')}
-            onClick={() =>
-              void (async () => {
-                if (
-                  await confirmLock({
-                    title: 'Lock the guesses in now?',
-                    body: 'Every guess is judged as it stands, without waiting for Ready or the ghost’s reveal.',
-                    confirmLabel: 'Lock them in',
-                  })
-                )
-                  void act({ type: 'lock-now' });
-              })()
-            }
-          >
-            🔒 Lock the guesses in now
-          </Button>
+          <div className={cn(tab !== 'table' && 'hidden lg:block')}>{lockButton}</div>
         </div>
       )}
       <div
@@ -826,8 +851,6 @@ function CompareOverlay({
   room,
   act,
   content,
-  sendCards,
-  setSendCards,
   draft,
   setDraft,
   onClose,
@@ -837,15 +860,12 @@ function CompareOverlay({
   room: GameRoomInfo;
   act: Act;
   content: Content;
-  sendCards: number[];
-  setSendCards: (c: number[]) => void;
   draft: SharedDraft;
   setDraft: (d: SharedDraft) => void;
   onClose: () => void;
 }) {
   const g = view.game!;
   const me = myPsychic(view);
-  const [previewing, setPreviewing] = useState(false);
   let selected: number[] = [];
   let onToggle: ((c: number) => void) | undefined;
   let footer = null;
@@ -862,41 +882,6 @@ function CompareOverlay({
         { anchor: 'seance-ready' },
       );
     footer = <ReadyBar view={view} room={room} act={act} content={content} clock />;
-  } else if (spec.mode === 'send' && spec.to) {
-    const p = g.psychics.find((x) => x.color === spec.to);
-    const live = sendCards.filter((c) => g.hand?.includes(c));
-    const closed = g.stage !== 'visions' || g.sent.includes(spec.to);
-    const target = spec.pinned.cards[0];
-    if (previewing && live.length && target !== undefined)
-      return (
-        <SendPreview
-          name={p?.name ?? 'them'}
-          target={{ kind: spec.pinned.kind, n: target }}
-          cards={live}
-          content={content}
-          disabled={closed}
-          onBack={() => setPreviewing(false)}
-          onSend={() =>
-            void act({ type: 'send', to: spec.to!, cards: live }).then((ok) => {
-              if (ok) onClose();
-            })
-          }
-        />
-      );
-    selected = live;
-    onToggle = (c) => setSendCards(live.includes(c) ? live.filter((x) => x !== c) : [...live, c]);
-    footer = (
-      <Button
-        size="lg"
-        className="w-full"
-        disabled={!live.length || closed}
-        onClick={() => setPreviewing(true)}
-      >
-        {live.length
-          ? `Preview ${live.length} card${live.length === 1 ? '' : 's'} for ${p?.name ?? 'them'} →`
-          : 'Pick the cards to send'}
-      </Button>
-    );
   } else if (spec.mode === 'shared') {
     const live = draft.cards.filter((c) => g.hand?.includes(c));
     selected = live;

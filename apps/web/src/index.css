@@ -563,6 +563,14 @@
 .vt-room-main {
   padding-bottom: calc(1.5rem + var(--vt-sticky-h, 0px) + var(--vt-tabbar-h, 0px));
 }
+/* A game screen that needs the whole window on a desktop (only the Séance ghost's visions screen)
+   marks itself with `data-vt-full-width`: while it is shown, the room frame (and with it the room
+   header and the playtest bar) drops its 1440 px cap. Unlayered, so it beats `max-w-[90rem]`. */
+@media (width >= 64rem) {
+  .vt-room-main:has([data-vt-full-width]) {
+    max-width: none;
+  }
+}
 /* A playtest room on a phone gives the playtest bar's height back from the frame's gaps. */
 @media (width < 40rem) {
   .vt-room-main.vt-room-playtest {

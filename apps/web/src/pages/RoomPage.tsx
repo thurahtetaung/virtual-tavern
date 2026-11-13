@@ -10,6 +10,7 @@ import type { Ack, LockReason, PlayerColor, RecapTone, RoomInfo, RoomSnapshot } 
 import {
   Badge,
   Button,
+  Drawer,
   Icon,
   type IconName,
   Modal,
@@ -40,7 +41,6 @@ import {
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
-import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, LoadingStep, PageLoading, ThemeSwitch } from '../components/Layout.tsx';

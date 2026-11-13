@@ -5,6 +5,7 @@ import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, unlock, visitor } from './inquest-play.ts';
 import {
   begin,
+  chipOf,
   guess,
   nextHour,
   playHour,
@@ -31,20 +32,60 @@ test('a ghost and three psychics find everything, read the shared vision in stag
   await ana!.page.getByRole('button', { name: /^The purple psychic/ }).click();
   await begin(ghost.page, 'Gwen');
 
-  // The ghost is reminded to stay silent and sees every target; psychics see none.
+  // The ghost is reminded to stay silent (a first-time tip), is told the one thing to do now, and
+  // sees every target; psychics see none.
   await expect(ghost.page.getByText(/You’re the ghost: not a word/)).toBeVisible();
+  // The first psychic still waiting is chosen; the turn line names them.
+  const chips = ghost.page.getByRole('list', { name: 'Psychics' }).getByRole('button');
+  const first = (await chips
+    .and(ghost.page.locator('[aria-pressed="true"]'))
+    .getAttribute('aria-label'))!.split(':')[0]!;
+  const other = ['Ana', 'Ben', 'Cy'].find((n) => n !== first)!;
+  await expect(ghost.page.getByRole('region', { name: 'Your turn' })).toHaveText(
+    new RegExp(`Hour I · Send ${first}’s vision · 3 psychics left`),
+  );
   expect(await targetOf(ghost.page, 'Ana')).toMatch(/^suspect-\d+$/);
+  await chipOf(ghost.page, first).click();
   for (const p of [ana!, ben!, cy!]) {
     await expect(p.page.getByText(/waiting for your vision from the ghost/)).toBeVisible();
     await expect(p.page.locator('[aria-label$="’s target)"]')).toHaveCount(0);
   }
 
-  // A laptop shows the ghost the psychics to send to and their own hand, Raven included.
-  await expectLaptopFit(ghost.page, 'seance ghost', [
-    ghost.page.getByRole('button', { name: /^🔍 Choose .+’s vision$/ }).first(),
+  // A laptop shows the ghost the psychics, the chosen one's target and table cards, and the hand
+  // with Raven and Send, all without scrolling; a phone stacks them, Send in the bar.
+  const ghostScreen = () => [
+    chips.last(),
+    ghost.page.getByRole('region', { name: `${first} (ghost view)` }),
     ghost.page.getByRole('heading', { name: 'Your hand' }),
+    ghost.page.getByRole('list', { name: 'Your hand' }),
     ghost.page.getByRole('button', { name: /Raven/ }),
-  ]);
+    ghost.page.getByRole('button', { name: 'Table ›' }),
+    ghost.page.getByRole('button', { name: /^👻 Send/ }),
+  ];
+  await expect(ghost.page.getByRole('button', { name: `👻 Send to ${first}` })).toBeDisabled();
+  await expectLaptopFit(ghost.page, 'seance ghost', ghostScreen());
+  await expectPhoneFit(ghost.page, 'seance ghost');
+  await ghost.page.setViewportSize({ width: 1280, height: 800 });
+  // Picks belong to the psychic chosen: choosing another starts afresh.
+  const pickFirst = ghost.page
+    .getByRole('list', { name: 'Your hand' })
+    .locator('button[data-pick]')
+    .first();
+  await pickFirst.click();
+  await expect(
+    ghost.page.getByRole('button', { name: `👻 Send 1 card to ${first}` }),
+  ).toBeEnabled();
+  await chipOf(ghost.page, other).click();
+  await expect(pickFirst).toHaveAttribute('aria-pressed', 'false');
+  await expect(ghost.page.getByRole('button', { name: `👻 Send to ${other}` })).toBeDisabled();
+  await chipOf(ghost.page, first).click();
+  await expect(pickFirst).toHaveAttribute('aria-pressed', 'false');
+  // The Table drawer holds the clock, the track and everyone's progress.
+  await ghost.page.getByRole('button', { name: 'Table ›' }).click();
+  const drawer = ghost.page.getByRole('dialog', { name: 'The table' });
+  await expect(drawer.getByRole('heading', { name: 'Hour I / VII' })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close' }).click();
+  await expect(drawer).toBeHidden();
   // Hour I: Ana puts ✓ on Ben's and Cy's guesses before guessing herself.
   await sendVisions(ghost.page);
   for (const p of [ben!, cy!]) await guess(p.page, (await targetOf(ghost.page, p.name))!, true);
@@ -60,9 +101,13 @@ test('a ghost and three psychics find everything, read the shared vision in stag
   await expect(waiting(ben!)).toHaveText(/Everyone’s ready: waiting for the ghost to reveal/);
   const revealButton = ghost.page.getByRole('button', { name: '👻 Reveal the verdicts' });
   await expect(revealButton).toBeVisible();
+  await expect(ghost.page.getByRole('region', { name: 'Your turn' })).toHaveText(
+    /Everyone’s ready/,
+  );
   await ana!.page.getByRole('button', { name: '✓ Ready' }).click();
   await expect(revealButton).toHaveCount(0);
-  await expect(waiting(ghost)).toHaveText(/✗ Ana not ready/);
+  await expect(chipOf(ghost.page, 'Ana')).toHaveAccessibleName(/vision sent, not ready$/);
+  await expect(ghost.page.getByRole('region', { name: 'Your turn' })).toHaveText(/2 of 3 ready/);
   // A psychic choosing is the tightest screen: the vision, the candidates and Ready in the bar.
   await expectPhoneFit(ana!.page, 'seance psychic');
   await ana!.page.getByRole('button', { name: 'Ready', exact: true }).click();
@@ -205,21 +250,23 @@ test('the host retires a departed psychic’s seat and the others play on to the
     .click();
   await expect(ana!.page.getByText(/Cy left\. Someone watching can take over/)).toBeVisible();
   await sendVisions(ghost.page);
-  await expect(ghost.page.getByRole('button', { name: /^🔍 Choose Cy’s vision$/ })).toHaveCount(0);
+  await expect(chipOf(ghost.page, 'Cy')).toHaveAccessibleName(/left$/);
   await ghost.page.getByRole('button', { name: 'Retire Cy’s seat' }).click();
   await ghost.page
     .getByRole('dialog', { name: 'Retire Cy’s seat?' })
     .getByRole('button', { name: 'Retire the seat' })
     .click();
   await expect(ben!.page.getByText(/The host retired Cy’s seat/)).toBeVisible();
-  await expect(ghost.page.getByRole('region', { name: 'Cy (ghost view)' })).toHaveCount(0);
+  await expect(chipOf(ghost.page, 'Cy')).toHaveCount(0);
 
   // Ana and Ben find everything; the line-up has their two groups only.
   const psychics = [ana!, ben!];
   for (const p of psychics) await guess(p.page, (await targetOf(ghost.page, p.name))!, true);
   await nextHour(ghost.page);
   const final = ghost.page.getByText(/Everyone found their cards! Pick the culprit/);
-  const choose = ghost.page.getByRole('button', { name: /^🔍 Choose/ });
+  const choose = ghost.page
+    .getByRole('list', { name: 'Psychics' })
+    .getByRole('button', { name: /waiting for a vision$/ });
   for (;;) {
     await expect(final.or(choose.first())).toBeVisible();
     if (await final.isVisible()) break;
@@ -386,14 +433,19 @@ test('stories, an extra vision pool and the extra suspects and places, played to
     expect(await targetOf(host, p.name)).toMatch(/^story-\d+$/);
     await expect(p.page.getByText(/· story 3 of 3/)).toBeVisible();
   }
-  // The ghost taps Lu's story in the progress row: the viewer opens on that story, not the suspect.
+  // The ghost taps Lu's story in the progress row of the Table drawer: the viewer opens on that
+  // story, not the suspect.
   const story = (await targetOf(host, 'Lu'))!;
-  await host.getByRole('list', { name: 'Progress' }).locator(`[data-card="${story}"]`).click();
+  await host.getByRole('button', { name: 'Table ›' }).click();
+  const drawer = host.getByRole('dialog', { name: 'The table' });
+  await drawer.getByRole('list', { name: 'Progress' }).locator(`[data-card="${story}"]`).click();
   const progressViewer = host.getByRole('dialog', { name: 'Lu’s cards' });
   await expect(progressViewer.locator(`[data-viewer-card="${story}"]`)).toBeVisible();
   await expect(progressViewer.getByText('3 / 3')).toBeVisible();
   await progressViewer.press('Escape');
   await expect(progressViewer).toHaveCount(0);
+  if (await drawer.isVisible()) await drawer.getByRole('button', { name: 'Close' }).click();
+  await expect(drawer).toBeHidden();
   // Lu opens a story on the table full screen and can guess it from there.
   const lu = psychics[0]!.page;
   await lu.getByRole('list', { name: 'Candidates' }).locator('button[data-card]').first().click();
@@ -402,17 +454,16 @@ test('stories, an extra vision pool and the extra suspects and places, played to
   await expect(luViewer.getByRole('button', { name: /^Guess this one/ })).toBeVisible();
   await luViewer.press('Escape');
   await expect(luViewer).toHaveCount(0);
-  // The ghost's sheet shows every story on the table, the target among them.
-  await host.getByRole('button', { name: 'All of Lu’s cards' }).click();
-  const sheet = host.getByRole('dialog', { name: 'Lu’s cards' });
-  const row = sheet.getByRole('list', { name: 'Stories on the table for Lu' });
+  // Beside Lu's target the ghost sees every story on the table, the target among them.
+  const target = await targetOf(host, 'Lu');
+  const row = host
+    .getByRole('region', { name: 'Lu (ghost view)' })
+    .getByRole('list', { name: 'Stories on the table for Lu' });
   await expect(row.locator('[data-card^="story-"]')).toHaveCount(5);
-  await expect(row.locator(`[data-card="${await targetOf(host, 'Lu')}"]`)).toHaveAttribute(
+  await expect(row.locator(`[data-card="${target}"]`)).toHaveAttribute(
     'aria-label',
     /\(Lu’s target\)$/,
   );
-  await sheet.getByRole('button', { name: 'Close' }).first().click();
-  await expect(sheet).toBeHidden();
   await playHour(host, psychics);
 
   // The final: with 3 players the shared vision is face up and both psychics vote at once.

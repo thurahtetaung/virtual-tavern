@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { PILLARS, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { CandidatesRow, TableOverview, candidateMarks, candidateNote } from './Candidates.tsx';
+import { CandidatesRow, TableOverview } from './Candidates.tsx';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
 import { PastGuesses } from './PastGuesses.tsx';
 import { type LookCard, PickableCard, PickButton, cardsOf, useLook } from './Look.tsx';
-import { type CompareSpec, visionCaptions } from './Psychic.tsx';
-import { atTable, isEmpty, roman } from './status.ts';
+import { visionCaptions } from './Psychic.tsx';
+import { atTable, roman } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -23,7 +23,7 @@ export function SilentNote() {
 }
 
 /** Everything the ghost can look at for one psychic: the target, the visions they hold, their guess. */
-function psychicCards(p: PsychicView, g: GameView): LookCard[] {
+export function psychicCards(p: PsychicView, g: GameView): LookCard[] {
   const pillar = PILLARS[p.step];
   const target = pillar ? p.targets?.[p.step] : undefined;
   if (!pillar) return [];
@@ -63,13 +63,11 @@ function PsychicSheet({
   g,
   content,
   onClose,
-  onChoose,
 }: {
   p: PsychicView;
   g: GameView;
   content: Content;
   onClose: () => void;
-  onChoose?: () => void;
 }) {
   const { look, viewer } = useLook(content);
   const pillar = PILLARS[p.step];
@@ -80,18 +78,7 @@ function PsychicSheet({
   const open = (i: number) => look(cards, Math.max(0, i), `${p.name}’s cards`);
   const visionStart = target !== undefined ? 1 : 0;
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`${p.name}’s cards`}
-      footer={
-        onChoose && (
-          <Button className="w-full" onClick={onChoose}>
-            🔍 Choose {p.name}’s vision
-          </Button>
-        )
-      }
-    >
+    <Modal open onClose={onClose} title={`${p.name}’s cards`}>
       {viewer}
       {!pillar || target === undefined ? (
         <div className="space-y-3">
@@ -182,96 +169,38 @@ function PsychicSheet({
   );
 }
 
-/** The ghost's screen: one row per psychic, their target, what they hold and what they guess. */
+/**
+ * The ghost's screen between hours (the verdicts): one row per psychic, their target, what they
+ * hold and what they guessed. While visions are sent the ghost has `GhostVisions` instead.
+ */
 export function GhostPsychics({
   view,
   content,
-  compare,
   away = [],
 }: {
   view: SeanceView;
   content: Content;
-  compare: (spec: CompareSpec) => void;
-  /** Psychics whose device dropped: marked, and their vision can wait until last. */
+  /** Psychics whose device dropped: marked, and listed last. */
   away?: readonly PsychicView['color'][];
 }) {
   const g = view.game!;
   // Phones: one compact row per psychic, opened with a tap.
   const [expanded, setExpanded] = useState<PsychicView['color'][]>([]);
-  const sending = g.stage === 'visions';
   // Desktops: the rows two a line, so every psychic fits beside the hand and the table.
   const many = atTable(g).length > 1;
   const wide = useWideScreen();
   const { look, viewer } = useLook(content);
   const [sheet, setSheet] = useState<PsychicView['color'] | null>(null);
   const sheetFor = sheet ? atTable(g).find((p) => p.color === sheet) : undefined;
-  const sendSpec = (p: PsychicView): CompareSpec | null => {
-    const pillar = PILLARS[p.step];
-    const target = pillar ? p.targets?.[p.step] : undefined;
-    if (!pillar || target === undefined) return null;
-    const needs = sending && !g.sent.includes(p.color) && !isEmpty(p);
-    // The target first, then the other candidates: swipe to check the vision fits it best.
-    const others = g.table[pillar].filter((n) => n !== target);
-    const marksOf = candidateMarks(g, pillar, [p]);
-    const word = content.pillarName(pillar).toLowerCase();
-    return {
-      title: needs ? `Vision for ${p.name}: pick from your hand` : `${p.name}’s ${word}`,
-      pinned: {
-        kind: content.kindOf(pillar),
-        cards: [target, ...others],
-        target,
-        captions: {
-          [target]: `🎯 ${p.name}’s ${word}${others.length ? ' · swipe for the other candidates' : ''}`,
-          ...Object.fromEntries(
-            others.map((n) => [
-              n,
-              `Not it: another ${word} on the table${candidateNote(marksOf(n), p) ? ` · ${candidateNote(marksOf(n), p)}` : ''}`,
-            ]),
-          ),
-        },
-      },
-      pinnedLabel: `${p.name}’s target and the other candidates`,
-      strip: needs
-        ? { kind: 'vision', cards: g.hand ?? [] }
-        : p.visions.length
-          ? {
-              kind: 'vision',
-              cards: p.visions.map((v) => v.card),
-              captions: visionCaptions(p, g.hour),
-            }
-          : null,
-      stripLabel: needs ? 'Your hand: pick the cards to send' : `What ${p.name} holds`,
-      mode: needs ? 'send' : 'view',
-      to: p.color,
-    };
-  };
   return (
     <>
       {viewer}
       {sheetFor && (
-        <PsychicSheet
-          p={sheetFor}
-          g={g}
-          content={content}
-          onClose={() => setSheet(null)}
-          onChoose={
-            sending &&
-            PILLARS[sheetFor.step] &&
-            !g.sent.includes(sheetFor.color) &&
-            !isEmpty(sheetFor)
-              ? () => {
-                  const spec = sendSpec(sheetFor);
-                  setSheet(null);
-                  if (spec) compare(spec);
-                }
-              : undefined
-          }
-        />
+        <PsychicSheet p={sheetFor} g={g} content={content} onClose={() => setSheet(null)} />
       )}
       <Tip id="zoom">
         Tap any card to see it full screen: swipe for the next, pinch or double-tap to zoom. Tap a
-        psychic’s name for all their cards (on a phone, open their row first), and Choose to pick
-        their vision.
+        psychic’s name for all their cards (on a phone, open their row first).
       </Tip>
       <TableOverview g={g} content={content} />
       {/* Desktops: the rows take the height left and scroll inside (More below at the foot). */}
@@ -286,15 +215,9 @@ export function GhostPsychics({
             .map((p) => {
               const pillar = PILLARS[p.step];
               const target = pillar ? p.targets?.[p.step] : undefined;
-              const sent = g.sent.includes(p.color);
-              const needs = sending && pillar && !sent && !isEmpty(p);
               const cards = psychicCards(p, g);
               const visionStart = target !== undefined ? 1 : 0;
               const open = (i: number) => look(cards, i, `${p.name}’s cards`);
-              const openSend = () => {
-                const spec = sendSpec(p);
-                if (spec) compare(spec);
-              };
               const isAway = away.includes(p.color);
               const isOpen = expanded.includes(p.color);
               const toggle = () =>
@@ -322,11 +245,7 @@ export function GhostPsychics({
                 );
               return (
                 <li key={p.color}>
-                  <Panel
-                    role="region"
-                    className={cn('p-2', needs && !isAway && 'ring-2 ring-accent')}
-                    aria-label={`${p.name} (ghost view)`}
-                  >
+                  <Panel role="region" className="p-2" aria-label={`${p.name} (ghost view)`}>
                     {!isOpen && (
                       <div className="flex items-center gap-2 lg:hidden">
                         <div className="w-24 shrink-0">{targetCard()}</div>
@@ -359,21 +278,6 @@ export function GhostPsychics({
                             ▾
                           </span>
                         </button>
-                        {needs ? (
-                          <Button
-                            size="sm"
-                            variant={isAway ? 'secondary' : 'primary'}
-                            className="shrink-0"
-                            onClick={openSend}
-                            aria-label={`🔍 Choose ${p.name}’s vision`}
-                          >
-                            Choose
-                          </Button>
-                        ) : pillar && sending && !isEmpty(p) ? (
-                          <span className="shrink-0 rounded-full bg-sunk px-2 text-xs font-semibold">
-                            {p.ready ? 'ready' : 'sent'}
-                          </span>
-                        ) : null}
                       </div>
                     )}
                     {isOpen && (
@@ -421,22 +325,6 @@ export function GhostPsychics({
                               </span>
                             </span>
                           </button>
-                          {needs ? (
-                            // Two rows a line on desktops: the lit edge and Choose say it, so the
-                            // pill (which squeezed the name) only shows for one who is away.
-                            <span
-                              className={cn(
-                                'rounded-full bg-accent-line px-2 text-xs font-bold text-ink',
-                                many && !isAway && 'lg:hidden',
-                              )}
-                            >
-                              {isAway ? 'away · needs a vision' : 'needs a vision'}
-                            </span>
-                          ) : pillar && sending && !isEmpty(p) ? (
-                            <span className="rounded-full bg-sunk px-2 text-xs font-semibold">
-                              {p.ready ? 'ready' : 'sent'}
-                            </span>
-                          ) : null}
                         </div>
                         {pillar && (p.visions.length > 0 || p.intuition !== null) && (
                           <div
@@ -475,24 +363,6 @@ export function GhostPsychics({
                           </div>
                         )}
                         <PastGuesses g={g} p={p} content={content} compact />
-                        {needs && (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={openSend}
-                            aria-label={`🔍 Choose ${p.name}’s vision`}
-                          >
-                            {/* Two rows a line: the name is right above, so the label stays one line. */}
-                            {many ? (
-                              <>
-                                <span className="lg:hidden">🔍 Choose {p.name}’s vision</span>
-                                <span className="hidden lg:inline">🔍 Choose a vision</span>
-                              </>
-                            ) : (
-                              <>🔍 Choose {p.name}’s vision</>
-                            )}
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </Panel>
@@ -542,9 +412,21 @@ export function HandCards({
       onLabel: pickedLabel,
       disabled: !picked.includes(c) && !canPick(c),
     };
-  const { look, viewer } = useLook(content, (c) => {
+  // Picking from the full-screen view closes it, back to the hand with the card picked.
+  const { look, viewer } = useLook(content, (c, close) => {
     const p = pick(c.n);
-    return p ? <PickButton kind="vision" n={c.n} {...p} big /> : null;
+    return p ? (
+      <PickButton
+        kind="vision"
+        n={c.n}
+        {...p}
+        onToggle={() => {
+          p.onToggle();
+          close();
+        }}
+        big
+      />
+    ) : null;
   });
   return (
     <>

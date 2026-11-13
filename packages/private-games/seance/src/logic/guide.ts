@@ -23,6 +23,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   'An hour: visions': 'basics',
   'An hour: the verdicts': 'basics',
   'The final: the culprit': 'basics',
+  'The ghost’s screen': 'details',
   'Clairvoyance tokens': 'details',
   Difficulty: 'details',
   'Story cards': 'details',
@@ -258,11 +259,18 @@ function base(): GameGuide {
         title: 'An hour: visions',
         bullets: [
           'The ghost picks a psychic still searching, chooses one or more cards from their hand and sends them. The hand fills back up to 7.',
-          'Each psychic gets exactly one vision per hour; the ghost works round the table until everyone still searching has one.',
-          'Psychics may start guessing as soon as their own vision arrives. Several psychics may pick the same card, but each card belongs to at most one of them.',
+          'Each psychic still searching gets exactly one vision per hour.',
+          'Psychics guess once they hold a vision: this hour’s, or one kept from earlier. Several may pick the same card, but each card belongs to at most one of them.',
           'Once every vision is out, the timer starts (2 minutes by default). Talk freely; the ghost listens but never reacts. Tap Ready when you are happy.',
           'When everyone still searching is Ready, the ghost reveals the verdicts. Until then, moving a guess or token takes your Ready back.',
           'The timer is a reminder, or strict (the hour ends at 0:00; no guess counts as wrong). The host can lock the guesses in at any time.',
+        ],
+      },
+      {
+        title: 'The ghost’s screen',
+        bullets: [
+          'One psychic at a time: tap their chip at the top. Their target is big, with what they hold and their past guesses under it and the cards they choose from beside it.',
+          'Pick cards in your hand (tap a card to see it full screen), then Send. The Table button opens the hours, ravens, track and everyone’s progress.',
         ],
       },
       {
@@ -327,8 +335,8 @@ function base(): GameGuide {
       },
     ],
     tips: [
-      'The line under the steps always says what the hour waits for: the ghost’s visions, who is Ready, or the ghost’s reveal.',
-      'Ghost: look for shapes, colours and details that only your target shares. Every other card on the table is on your screen too (in each psychic’s cards, and as the other cards in Compare): steer away from the look-alikes. Several cards that agree are clearer than one.',
+      'The line under the steps always says what the hour waits for: the ghost’s visions, who is Ready, or the ghost’s reveal. The ghost has one turn line instead, with the same news.',
+      'Ghost: look for shapes, colours and details that only your target shares. The cards each psychic chooses from sit beside their target: steer away from the look-alikes. Several cards that agree are clearer than one.',
       'Psychics: say out loud what you see in your visions, and compare them with the other psychics’ visions too: a card that suits someone else’s vision is probably not yours.',
       'Tap any card to see it full screen: swipe for the next, pinch or double-tap to zoom. Tap your vision to pin it above the candidates and swipe through them.',
       'Tokens are cheap until hour IV: use them.',
