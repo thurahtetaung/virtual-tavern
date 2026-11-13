@@ -499,6 +499,16 @@ function DrawRoom({
           <Ink size={84}>It’s drawing time!</Ink>
         </Layer>
       </Layer>
+      {/* Once the banner has gone, one line at the foot says what is happening and how long is
+          left, so the sheet never sits silent while everyone draws. */}
+      {rig && (
+        <Layer m={[1, 0, 0, 1, 640, 668]}>
+          <Ink size={36}>
+            Draw on your phones · {g.drawn.length} of {g.players.length} sent
+            {timed && ` · ${Math.max(0, Math.ceil((g.deadline! - now) / 1000))} s left`}
+          </Ink>
+        </Layer>
+      )}
       {rig && g.round === 1 && (
         <Layer m={[1, 0, 0, 1, 640, 360]}>
           {(['count-countdownBG', 'count-device'] as const).map((p) =>
