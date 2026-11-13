@@ -411,7 +411,7 @@ function End({
   const winnerArt = winners.flatMap((p) =>
     p.nobles.length
       ? p.nobles.map((n) => (
-          <NobleTile key={`${p.id}-${n}`} id={n} art={art} className="!size-20 lg:!size-28" />
+          <NobleTile key={`${p.id}-${n}`} id={n} art={art} className="!size-28 lg:!size-40" />
         ))
       : p.cards
           .slice(-3)
@@ -420,7 +420,7 @@ function End({
               key={`${p.id}-${c}`}
               id={c}
               art={art}
-              className="!w-20 shadow-vt-2 lg:!w-28"
+              className="!w-24 shadow-vt-2 lg:!w-36"
             />
           )),
   );

@@ -1076,7 +1076,7 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
         </FitArea>
       </aside>
 
-      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(60rem,max(42rem,calc((100dvh-30rem)*2)))]">
+      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(66rem,max(42rem,calc((100dvh-27.5rem)*2.05)))]">
         <div {...panel('table')}>
           {playing && (clock?.deadline || g.finalBy) && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

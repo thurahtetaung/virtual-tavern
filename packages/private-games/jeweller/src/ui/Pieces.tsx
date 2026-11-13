@@ -123,7 +123,8 @@ function Pip({
       className={cn(
         'inline-flex size-4 items-center justify-center rounded-full text-xs leading-none font-black tabular-nums ring-1 sm:size-5 lg:size-6 lg:text-sm',
         TOKEN_FILL[gem],
-        covered && 'opacity-30',
+        // A cost your cards already cover: a tick in the gem's own colours, at full contrast.
+        covered && 'scale-90',
         short && 'ring-2 ring-offset-1 ring-offset-card',
       )}
     >

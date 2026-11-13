@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Testing:** `JEWELLER_TEST_DECK` (e.g. `1:L1-35;n:N09;own:L3-05;c:C3a;h:L1-35`) stacks decks, nobles, owned cards, City sides and strongholds, with the first seat starting.
   - **Phones:** Table (market and piles), Your table and Table talk (log, players, host tools) on the shared `TabBar`; the turn's bar (piles, Take, hand-back, nobles, holds, Conquest) is the fixed `StickyBar` with `jw-play`. First-time tips are a closed fold on phones.
 
-- **UI:** Desktop first-time tips share the existing scrollable rail; phone tips retain their fold. Art is bounded by viewport height so the main controls fit. The market fills the main desktop column; players and log share one rail. Market cost pips grow on desktop.
+- **UI:** Desktop first-time tips share the existing scrollable rail; phone tips retain their fold. Art is bounded by viewport height so the main controls fit. The market fills the main desktop column; players and log share one rail. Market cost pips grow on desktop. A cost the buyer's cards already cover shows a tick in the gem's own colours at full contrast. The finale shows the winner's nobles at 112 px (160 px on wide screens).
 
 ## Assets
 
