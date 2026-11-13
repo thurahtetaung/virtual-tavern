@@ -47,7 +47,8 @@ const ANSWER_SIZE = {
   sentence: 'a whole sentence',
 } as const;
 
-const PROMPT = 'text-center text-xl leading-snug font-bold text-balance break-words sm:text-2xl';
+const PROMPT =
+  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:text-3xl';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
