@@ -698,7 +698,7 @@ function Table({
           the hand shows the table's latest card rather than empty space. */}
       {lastPlay && view.phase === 'playing' && round?.stage !== 'over' ? (
         <div className="flex items-start gap-3">
-          <figure className="w-28 shrink-0 space-y-1 sm:hidden">
+          <figure className="w-30 shrink-0 space-y-1 sm:hidden">
             <Card
               role={lastPlay.card}
               rank={rankIn(edition, lastPlay.card)}
