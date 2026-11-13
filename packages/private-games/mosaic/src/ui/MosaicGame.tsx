@@ -323,7 +323,6 @@ function Lobby({
         )
       }
     >
-      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">

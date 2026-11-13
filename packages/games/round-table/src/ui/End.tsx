@@ -60,7 +60,7 @@ export function End({
             }
             titleTestId="winner"
             // The winning side's own emblem: Percival's shield or the Assassin's dagger.
-            emblem={<Emblem role={good ? 'percival' : 'assassin'} className="size-20 lg:size-24" />}
+            emblem={<Emblem role={good ? 'percival' : 'assassin'} className="size-12 lg:size-24" />}
             art={quests && <div className="w-full max-w-sm">{quests}</div>}
             tone={mySide ? (mySide === end.winner ? 'win' : 'loss') : 'neutral'}
             superlatives={wide ? room.superlatives : undefined}
@@ -117,7 +117,7 @@ export function End({
                     <h3 className="mb-2 font-bold">Who was who</h3>
                     {/* Role cards: two to a row, each banded in its side's colour. Phones get them
                         slimmer (emblem beside the words) in an area fitted to the screen. */}
-                    <FitArea on={!wide} min={160}>
+                    <FitArea on={!wide} min={112}>
                       <ul className="grid grid-cols-2 gap-2 lg:grid-cols-3">
                         {order.map((p) => {
                           const r = end.roles[p.id]!;

@@ -298,14 +298,17 @@ export function RoundTableGame({
             )}
           </FitArea>
         </div>
-        <div
-          {...panel('history')}
-          className={cn('min-w-0', panel('history').className, over && 'lg:hidden')}
-        >
-          <FitArea on={tabbed && view.phase === 'playing' && tab === 'history'} resetKey={stageKey}>
-            <History view={view} shown={known || view.phase === 'over'} />
-          </FitArea>
-        </div>
+        {/* Wide screens at the end show the history as one of the end's parts. */}
+        {!(over && wide) && (
+          <div {...panel('history')} className={cn('min-w-0', panel('history').className)}>
+            <FitArea
+              on={tabbed && view.phase === 'playing' && tab === 'history'}
+              resetKey={stageKey}
+            >
+              <History view={view} shown={known || view.phase === 'over'} />
+            </FitArea>
+          </div>
+        )}
       </div>
       {tabbed && (
         <TabBar

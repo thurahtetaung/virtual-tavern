@@ -61,7 +61,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                 // caption and the mark are capped by the card's width, so larger browser text can't
                 // push them into the word, and are never under 12 px.
                 '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:clamp(12px,9cqw,16px)] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
-                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-28rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
+                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-30rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
                 face,
                 interactive &&
                   'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',

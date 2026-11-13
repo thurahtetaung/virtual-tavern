@@ -425,6 +425,7 @@ function Lobby({
       start={
         room.isHost && (
           <LobbyStart
+            label="Start the show"
             blocker={blocker}
             onStart={() => void act({ type: 'start' }, { anchor: 'sf-start' })}
             refusal="sf-start"
@@ -432,7 +433,6 @@ function Lobby({
         )
       }
     >
-      {' '}
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">

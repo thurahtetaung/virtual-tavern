@@ -714,7 +714,6 @@ export function Lobby({
         )
       }
     >
-      {' '}
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <h3 className="font-bold">
