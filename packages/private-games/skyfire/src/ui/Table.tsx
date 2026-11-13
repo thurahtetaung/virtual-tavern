@@ -478,7 +478,7 @@ function Teammates({
               style={{
                 // Each card takes its share of the row (a 44 px+ target on phones), capped by the
                 // screen's height so five hands still fit.
-                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, 7dvh)))`,
+                gridTemplateColumns: `repeat(${width}, minmax(0, min(5rem, 6.25dvh)))`,
               }}
             >
               {hand.map((s) => {
