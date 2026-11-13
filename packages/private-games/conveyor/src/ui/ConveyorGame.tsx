@@ -568,9 +568,10 @@ function End({
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
-  // One winner's tray (a tie shows the first): up to ten cards fit two rows on a phone.
+  // One winner's cards (a tie shows the first): up to ten fit two rows on a phone.
   const winner = g.players.find((p) => g.winners.includes(p.id));
-  const winnerTray = (winner?.tray ?? []).slice(0, 10);
+  // Its tray, or (when the last round's tray was cleared at scoring) the desserts it kept.
+  const winnerTray = (winner?.tray.length ? winner.tray : (winner?.desserts ?? [])).slice(0, 10);
   return (
     <div className="flex flex-col gap-3">
       <EndHero
