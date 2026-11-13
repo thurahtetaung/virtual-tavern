@@ -119,8 +119,11 @@ export function TableDrawing({
         className={cn(
           'mx-auto w-full max-w-(--fit) shadow-vt-1 ring-1 ring-line',
           side && 'max-sm:mx-0 max-sm:w-(--fit) max-sm:shrink-0',
-          // Big while titles are written; smaller once the board needs the room.
-          view.game?.stage === 'write' ? 'sm:max-w-md' : 'sm:max-w-sm',
+          // Big while titles are written; smaller once the board needs the room. Wider screens
+          // also keep it within the window's height, so the title form or the board below fits.
+          view.game?.stage === 'write'
+            ? 'sm:max-w-[min(28rem,max(16rem,calc((100svh-420px)*0.8)))]'
+            : 'sm:max-w-[min(24rem,max(16rem,calc((100svh-480px)*0.8)))]',
         )}
       />
       <figcaption
