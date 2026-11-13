@@ -69,6 +69,7 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
     </p>
   );
   const ordered = w ? [w, ...TEAMS.filter((t) => t !== w)] : [...TEAMS];
+  const won = w ? view.collections[w].slice(-4) : [];
   return (
     <div className="space-y-4">
       <EndHero
@@ -80,7 +81,22 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
             : 'No winner this time.'
         }
         titleTestId="winner"
-        emblem={w ? `🏆${TEAM_EMOJI[w]}` : '🎬'}
+        emblem={won.length ? null : w ? `🏆${TEAM_EMOJI[w]}` : '🎬'}
+        // The winners' last tapes: what they filled their shelf with.
+        art={
+          won.length > 0 && (
+            <ul
+              aria-label="The winning tapes"
+              className="flex flex-wrap justify-center gap-2 lg:gap-3"
+            >
+              {won.map((c) => (
+                <li key={c.id}>
+                  <Tape card={c} deck={view.settings.deck} className="h-16 shadow-vt-2 lg:h-24" />
+                </li>
+              ))}
+            </ul>
+          )
+        }
         // The viewer's team lights the card: ember for a win, danger for a loss, quiet otherwise.
         tone={!w || !view.myTeam ? 'neutral' : w === view.myTeam ? 'win' : 'loss'}
         superlatives={wide ? room.superlatives : undefined}

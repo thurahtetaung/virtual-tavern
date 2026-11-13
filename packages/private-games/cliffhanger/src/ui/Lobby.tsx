@@ -155,7 +155,7 @@ function GenrePicker({
               onClick={() => send({ goal: id })}
               data-testid={`preset-${id}`}
               className={cn(
-                'min-h-9 rounded-full px-3 text-xs ring-1',
+                'min-h-11 rounded-full px-3 text-xs ring-1',
                 preset === id
                   ? 'bg-accent-soft font-semibold ring-2 ring-accent'
                   : 'ring-line hover:bg-card',
