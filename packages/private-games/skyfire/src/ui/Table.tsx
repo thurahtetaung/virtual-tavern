@@ -395,6 +395,13 @@ function Fireworks({
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
                   }}
                 >
+                  {/* An empty pile is still its colour: a soft wash of it, the symbol in it, so
+                      the table reads as five colours from the first turn. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 opacity-25"
+                    style={{ background: SUIT_STYLE[suit].bg }}
+                  />
                   {bg && (
                     <ProtectedImage
                       src={bg}
@@ -402,7 +409,18 @@ function Fireworks({
                       className="absolute inset-0 size-full object-cover opacity-40"
                     />
                   )}
-                  <span aria-hidden className="relative opacity-70">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'relative drop-shadow-sm',
+                      (suit === 'black' || suit === 'multi') && 'text-ink',
+                    )}
+                    style={
+                      suit === 'black' || suit === 'multi'
+                        ? undefined
+                        : { color: SUIT_STYLE[suit].bg }
+                    }
+                  >
                     {SUIT_SYMBOL[suit]}
                   </span>
                 </span>
@@ -459,6 +477,9 @@ function Teammates({
   const others = othersOf(g, room.you);
   const width = Math.max(...others.map((id) => g.hands[id]!.length), 4);
   const wide = useWideScreen();
+  // Phones with one or two teammates have the height to spare: each name sits over its hand, so
+  // the cards take the row's whole width (about 66 × 92 px instead of 55 × 77).
+  const roomy = !wide && others.length <= 2;
   return (
     <ul
       aria-label="The other hands"
@@ -473,6 +494,7 @@ function Teammates({
             key={id}
             className={cn(
               'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-0.5 ring-1 sm:py-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)]',
+              roomy && 'max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-1.5',
               current && 'ring-2 ring-accent',
             )}
             data-testid={`sf-hand-${id}`}
@@ -480,7 +502,10 @@ function Teammates({
             <button
               type="button"
               onClick={() => onClue(id)}
-              className="flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm"
+              className={cn(
+                'flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm',
+                roomy && 'max-sm:flex-row max-sm:items-center max-sm:justify-between',
+              )}
               aria-label={`${p.name}${current ? ', on turn' : ''}. ${mine && g.clues > 0 ? 'Give them a clue.' : 'See what they know.'}`}
               data-testid="sf-clue-open"
             >
@@ -503,7 +528,7 @@ function Teammates({
                 // Each card takes its share of the row, capped by the screen's height: larger with
                 // two or three hands, smaller with four so they fit (the tap band keeps 44 px).
                 // Wide screens with two or three hands give them a little more (the width is there).
-                gridTemplateColumns: `repeat(${width}, minmax(0, ${others.length >= 4 ? 'min(5rem, 4.4dvh)' : wide ? 'min(6rem, 8dvh)' : 'min(5rem, 6.5dvh)'}))`,
+                gridTemplateColumns: `repeat(${width}, minmax(0, ${others.length >= 4 ? 'min(5rem, 4.4dvh)' : wide ? 'min(6rem, 8dvh)' : roomy ? 'min(5rem, 9dvh)' : 'min(5rem, 6.5dvh)'}))`,
               }}
             >
               {hand.map((s) => {
