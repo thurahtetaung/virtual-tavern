@@ -127,8 +127,12 @@ export function Dock({
             )}
           >
             {/* The ballot is the vote: as large as the screen allows (phones have no height to
-                spare under the hall; desktops show it at 115 × 80). */}
-            <BallotFace ballot={b} c={c} className="h-10 sm:h-14 lg:h-20" />
+                spare under the hall; desktops grow it from 64 to 80 px tall once the window has the height). */}
+            <BallotFace
+              ballot={b}
+              c={c}
+              className="h-10 sm:h-14 lg:h-[clamp(4rem,calc(100dvh-53rem),5rem)]"
+            />
             {g.myVote === b && (
               <span
                 aria-hidden
