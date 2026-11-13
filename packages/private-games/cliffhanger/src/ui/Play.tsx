@@ -1,5 +1,13 @@
 import { type GameRoomInfo, storageKey } from '@vt/game-sdk';
-import { Button, ProtectedImage, RefusalSlot, StickyBar, cn, useSecondsLeft } from '@vt/ui';
+import {
+  Button,
+  ProtectedImage,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useSecondsLeft,
+  useWideScreen,
+} from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import type { Card } from '../logic/content.ts';
 import { STYLES, genreInfo, missing, nounOf } from '../logic/genres.ts';
@@ -674,16 +682,17 @@ function Recap({ view }: PlayProps) {
       <p className="text-center text-lg font-black">
         {nameOf(view, result.describer)} got {result.got.length}
       </p>
-      <ul className="flex flex-wrap justify-center gap-2">
+      {/* Two across on phones, four on wide screens: the titles on the labels stay readable. */}
+      <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
-            <Tape card={g.card} deck={deck} className="h-20" got={result.team} />
+            <Tape card={g.card} deck={deck} className="w-full" got={result.team} />
             {g.steal && <span className="text-xs font-bold text-danger-ink">stolen</span>}
           </li>
         ))}
         {result.missed.map((c) => (
           <li key={c.id} className="flex flex-col items-center gap-1 opacity-60">
-            <Tape card={c} deck={deck} className="h-20" />
+            <Tape card={c} deck={deck} className="w-full" />
             <span className="text-xs text-ink-muted">missed</span>
           </li>
         ))}
@@ -746,18 +755,20 @@ function Steal({ view, room, act }: PlayProps) {
             ))}
           </div>
           <p className="text-sm font-semibold">2. Take one of theirs:</p>
-          <ul className="flex flex-wrap gap-2">
+          {/* Phones: one row that scrolls sideways, so the tapes stay big enough to read and
+              No trade stays in view; wide screens: a grid. */}
+          <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pt-2 pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible">
             {theirs.map((c) => (
-              <li key={c.id}>
+              <li key={c.id} className="w-40 shrink-0 snap-start lg:w-auto">
                 <button
                   type="button"
                   disabled={!genre}
-                  className="relative disabled:opacity-50"
+                  className="relative w-full disabled:opacity-50"
                   onClick={() =>
                     genre && void act({ type: 'steal', genre, card: c.id }, { anchor: 'cl-steal' })
                   }
                 >
-                  <Tape card={c} deck={deck} className="h-20" />
+                  <Tape card={c} deck={deck} className="w-full" />
                   {need.includes(c.genre) && (
                     <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                       needed
@@ -815,7 +826,7 @@ function CountdownNote({ view }: PlayProps) {
           {nameOf(view, r.pair[next])} describes to {teamName(next)}
         </p>
       )}
-      {next && <Bays view={view} team={next} size="w-3/4" />}
+      {next && <Bays view={view} team={next} />}
     </div>
   );
 }
@@ -823,8 +834,23 @@ function CountdownNote({ view }: PlayProps) {
 /** The round's step for this viewer. */
 export function Stage(props: PlayProps) {
   const r = props.view.round;
+  const wide = useWideScreen();
   if (!r) return null;
   if (r.myHand) return <KeepSheet {...props} />;
+  // Phones: while the table waits, both teams' tapes fill the free height (wide screens keep
+  // them in the rail).
+  if (!wide && (r.stage === 'countdown' || r.stage === 'keep'))
+    return (
+      <div className="space-y-4">
+        <StageStep {...props} />
+        <Shelves view={props.view} />
+      </div>
+    );
+  return <StageStep {...props} />;
+}
+
+function StageStep(props: PlayProps) {
+  const r = props.view.round!;
   switch (r.stage) {
     case 'pick-category':
       return <PickCategory {...props} />;
@@ -863,6 +889,29 @@ function KeepWaiting({ view }: PlayProps) {
         {r.placing.map((id) => nameOf(view, id)).join(' and ')}{' '}
         {r.placing.length === 1 ? 'is' : 'are'} choosing their {nounOf(view.settings.deck, true)}…
       </p>
+    </div>
+  );
+}
+
+/** Both teams' races, each with the tapes it has won in one row that scrolls sideways. */
+function Shelves({ view }: { view: CliffhangerView }) {
+  const deck = view.settings.deck;
+  return (
+    <div className="space-y-3 border-t border-line pt-3" data-testid="shelves">
+      {(['a', 'b'] as const).map((t) => (
+        <section key={t} className="space-y-1.5">
+          <GenreRace view={view} team={t} />
+          {view.collections[t].length > 0 && (
+            <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {view.collections[t].map((c) => (
+                <li key={c.id} className="w-32 shrink-0">
+                  <Tape card={c} deck={deck} className="w-full" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
     </div>
   );
 }

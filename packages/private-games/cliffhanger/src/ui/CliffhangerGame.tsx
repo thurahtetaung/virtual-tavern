@@ -140,7 +140,10 @@ function Board({
           {TEAMS.map((t) => (
             <div key={t} className="space-y-2">
               <GenreRace view={view} team={t} />
-              {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} />}
+              {/* The steal step lists the tapes on offer itself, so the rail drops the squares. */}
+              {r?.board[t] && r.stage !== 'keep' && r.stage !== 'steal' && (
+                <Bays view={view} team={t} />
+              )}
             </div>
           ))}
         </Panel>
@@ -151,7 +154,7 @@ function Board({
       {!over && view.log.length > 0 && (
         <Panel>
           <h3 className="mb-1 text-sm font-semibold">What happened</h3>
-          <ol className="max-h-64 space-y-1 overflow-y-auto text-sm" data-testid="log">
+          <ol className="max-h-64 space-y-1 overflow-y-auto text-sm lg:max-h-40" data-testid="log">
             {[...view.log].reverse().map((e, i) => (
               <li key={i}>
                 <span className="mr-2 text-xs text-ink-muted tabular-nums">R{e.round}</span>

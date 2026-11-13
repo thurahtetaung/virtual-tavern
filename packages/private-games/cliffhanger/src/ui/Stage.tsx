@@ -1,4 +1,5 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { PlayerDot, ProtectedImage, cn } from '@vt/ui';
+import type { GameRoomInfo } from '@vt/game-sdk';
 import { Poster, PosterClock, PosterSide, PosterSlate } from '@vt/ui/show';
 import { FULL_VOLUMES } from '@vt/ui/sound';
 import { useEffect, useRef, useState } from 'react';
@@ -69,7 +70,17 @@ function useNews(view: CliffhangerView): News | null {
 }
 
 /** A team's column: its name and how far it is, the goal's genres, its tapes and its people. */
-function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on: string | null }) {
+function TeamSide({
+  view,
+  room,
+  team,
+  on,
+}: {
+  view: CliffhangerView;
+  room: GameRoomInfo;
+  team: TeamId;
+  on: string | null;
+}) {
   const { names } = useArt();
   const deck = view.settings.deck;
   const goal = view.target;
@@ -85,7 +96,8 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
       tone={team}
       testId={`race-${team}`}
     >
-      <ul className="flex flex-wrap gap-2">
+      {/* Big genre tiles, read from the sofa: four across the side. */}
+      <ul className="grid grid-cols-4 gap-2">
         {goal.genres.map((g) => {
           const info = genreInfo(g, deck);
           const n = Math.min(goal.each, count(g));
@@ -96,7 +108,7 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
               key={g}
               aria-label={`${name}: ${n} of ${goal.each}`}
               className={cn(
-                'flex items-center gap-1 rounded-xl border-2 px-2 py-0.5 text-[28px]',
+                'flex items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2 text-[44px] leading-none',
                 done ? 'border-transparent text-white' : 'border-line bg-sunk text-ink-muted',
               )}
               style={done ? { backgroundColor: info.colour } : undefined}
@@ -117,17 +129,24 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
           </li>
         ))}
       </ul>
-      <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[32px] font-medium">
-        {people.map((s) => (
-          <li
-            key={s.id}
-            className={cn('rounded-xl px-2', s.id === on && 'bg-accent-soft ring-4 ring-accent')}
-            data-testid={s.id === on ? `stage-seat-${team}` : undefined}
-          >
-            {s.name}
-            {s.id === on && <span className="cl-pop ml-2 text-[28px] font-bold">on the clock</span>}
-          </li>
-        ))}
+      <ul className="flex flex-wrap gap-3 text-[32px] font-medium">
+        {people.map((s) => {
+          const color = room.players.find((p) => p.id === s.id)?.color;
+          return (
+            <li
+              key={s.id}
+              className={cn(
+                'flex items-center gap-3 rounded-full bg-sunk px-5 py-1.5 ring-2 ring-line',
+                s.id === on && 'bg-accent-soft ring-4 ring-accent',
+              )}
+              data-testid={s.id === on ? `stage-seat-${team}` : undefined}
+            >
+              {color && <PlayerDot color={color} label={false} className="size-5" />}
+              {s.name}
+              {s.id === on && <span className="cl-pop text-[28px] font-bold">on the clock</span>}
+            </li>
+          );
+        })}
       </ul>
     </PosterSide>
   );
@@ -424,8 +443,8 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
           </div>
         ) : undefined
       }
-      left={<TeamSide view={view} team="a" on={on} />}
-      right={<TeamSide view={view} team="b" on={on} />}
+      left={<TeamSide view={view} room={room} team="a" on={on} />}
+      right={<TeamSide view={view} room={room} team="b" on={on} />}
       footer={footer}
       footerEnd={
         point.length > 0 ? (
