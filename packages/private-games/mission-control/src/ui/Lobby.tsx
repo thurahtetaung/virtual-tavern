@@ -1,6 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   GuideLink,
   Hint,
   LobbySettings,
@@ -13,6 +12,8 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import type { MissionControlAction, MissionControlView, Settings } from '../logic/types.ts';
 import { guide } from '../logic/guide.ts';
@@ -179,23 +180,15 @@ export function Lobby({
         </p>
       )}
       <Panel className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold">
-            {art.say('The {crew}')} ({seated.length}/5)
-          </h3>
+        <SeatHeading title={`${art.say('The {crew}')} (${seated.length}/5)`}>
           {view.me && (
-            <Button
+            <SeatToggle
               id={SEAT_CONTROL_ID}
-              size="sm"
-              variant={view.me.playing ? 'secondary' : 'primary'}
-              onClick={() =>
-                void act({ type: 'sit', playing: !view.me!.playing }, { anchor: ANCHOR })
-              }
-            >
-              {view.me.playing ? 'Watch instead' : 'Take a seat'}
-            </Button>
+              playing={view.me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing }, { anchor: ANCHOR })}
+            />
           )}
-        </div>
+        </SeatHeading>
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {seated.map((p) => (
             <li key={p.id}>

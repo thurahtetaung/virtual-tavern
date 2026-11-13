@@ -1,4 +1,4 @@
-import { Button, PlayerTag, cn, useConfirm } from '@vt/ui';
+import { PlayerTag, cn, SeatHeading, SeatToggle } from '@vt/ui';
 import { type EchoAction, type EchoView, MAX_PLAYERS } from '../logic/types.ts';
 
 type Act = (a: EchoAction) => Promise<boolean>;
@@ -54,7 +54,6 @@ export function Table({
   const players = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const me = view.me;
-  const [confirm, confirmDialog] = useConfirm();
   const mark = (id: string): { mark?: string; label?: string } => {
     if (!turn) return {};
     if (id === turn.guesser) return { mark: '🎯', label: 'guesser' };
@@ -67,45 +66,23 @@ export function Table({
   };
   return (
     <section aria-label="Players" className="space-y-2">
-      {confirmDialog}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-bold">
-          Players ({players.length}/{MAX_PLAYERS})
-        </h3>
-        {me &&
-          (me.playing ? (
-            <Button
-              variant="ghost"
-              className="h-11"
-              onClick={() =>
-                void (async () => {
-                  if (
-                    view.phase !== 'playing' ||
-                    (await confirm({
-                      title: 'Sit out and just watch?',
-                      body: 'You can join again later.',
-                      confirmLabel: 'Watch instead',
-                    }))
-                  ) {
-                    void act({ type: 'sit', playing: false });
+      <SeatHeading title={`Players (${players.length}/${MAX_PLAYERS})`}>
+        {me && (me.playing || players.length < MAX_PLAYERS) && (
+          <SeatToggle
+            playing={me.playing}
+            confirmLeave={
+              view.phase === 'playing'
+                ? {
+                    title: 'Sit out and just watch?',
+                    body: 'You can join again later.',
+                    confirmLabel: 'Watch instead',
                   }
-                })()
-              }
-            >
-              Watch instead
-            </Button>
-          ) : (
-            players.length < MAX_PLAYERS && (
-              <Button
-                variant="secondary"
-                className="h-11"
-                onClick={() => void act({ type: 'sit', playing: true })}
-              >
-                Take a seat
-              </Button>
-            )
-          ))}
-      </div>
+                : null
+            }
+            onChange={(playing) => void act({ type: 'sit', playing })}
+          />
+        )}
+      </SeatHeading>
       {players.length > 1 && <p className="text-xs text-ink-muted">Numbered in guessing order.</p>}
       <ul className="flex flex-wrap gap-1.5">
         {players.map((s, i) => (

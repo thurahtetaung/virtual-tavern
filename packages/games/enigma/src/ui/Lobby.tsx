@@ -14,6 +14,7 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  SeatToggle,
 } from '@vt/ui';
 import { guide } from '../logic/guide.ts';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
@@ -128,13 +129,8 @@ export function TeamsPicker({
         ))}
         {spectators.length === 0 && <span className="italic">nobody</span>}
         {myTeam !== null && !playing && (
-          <Button
-            size="sm"
-            variant="quiet"
-            onClick={() => void act({ type: 'join-team', team: null })}
-          >
-            Watch instead
-          </Button>
+          // Teams take a seat with Join; watching is the shared seat control.
+          <SeatToggle playing onChange={() => void act({ type: 'join-team', team: null })} />
         )}
       </div>
     </div>

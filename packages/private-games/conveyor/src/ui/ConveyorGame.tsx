@@ -32,6 +32,8 @@ import {
   LobbyLayout,
   LobbyPitch,
   LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -326,11 +328,15 @@ function Lobby({
     >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({n}/{MAX_PLAYERS})
-          </h2>
-        </div>
+        <SeatHeading as="h2" title={`Players (${n}/${MAX_PLAYERS})`}>
+          {me && (
+            <SeatToggle
+              playing={me.playing}
+              full={n >= MAX_PLAYERS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <div className="flex gap-3">
           <ul className="flex flex-1 flex-col gap-1.5" aria-label="Seats">
             {seated.map((s) => (
@@ -342,15 +348,6 @@ function Lobby({
                   offline={offline(s.id)}
                   className="flex-1"
                 />
-                {s.id === room.you && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void act({ type: 'sit', playing: false })}
-                  >
-                    Watch instead
-                  </Button>
-                )}
               </li>
             ))}
           </ul>
@@ -362,11 +359,6 @@ function Lobby({
               <PlayerTag key={s.id} name={s.name} />
             ))}
           </p>
-        )}
-        {me && !me.playing && n < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Conveyor'} onClick={showGuide} />
