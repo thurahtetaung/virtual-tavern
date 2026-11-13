@@ -752,7 +752,8 @@ function TurnRoom({
                   named one must never bring a label back under the card. */}
               <Layer
                 style={
-                  stage === 'reveal' ? { opacity: order[step!] === o.index ? 0 : 0.35 } : undefined
+                  // The titles waiting their turn recede, yet stay readable from the sofa.
+                  stage === 'reveal' ? { opacity: order[step!] === o.index ? 0 : 0.6 } : undefined
                 }
               >
                 <Layer name={`choice:${o.index}`} moving>

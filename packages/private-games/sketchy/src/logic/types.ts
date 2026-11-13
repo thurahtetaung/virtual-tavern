@@ -359,6 +359,11 @@ export interface GameView {
   turn: TurnView | null;
   streaks: Record<PlayerId, number>;
   history: PastTurn[];
+  /**
+   * Once the game is over: the last round's favourite drawing (the one whose fake titles got the
+   * most likes), shown in the finale. Every drawing was on the table already; absent before.
+   */
+  favourite?: { artist: PlayerId; prompt: string; drawing: Drawing } | null;
   deadline: number | null;
   /** When the current stage began, on the server clock (0 when unknown). */
   since: number;

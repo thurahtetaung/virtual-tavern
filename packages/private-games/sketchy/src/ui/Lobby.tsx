@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react';
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   type Choice,
   ChoicePicker,
   GuideLink,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
   Hint,
   LobbySettings,
   Panel,
   RefusalSlot,
-  StickyBar,
   Switch,
   cn,
 } from '@vt/ui';
@@ -23,6 +24,7 @@ import {
   announcerOf,
   announcersFor,
 } from '../logic/types.ts';
+import { guide } from '../logic/guide.ts';
 import type { Act } from './act.ts';
 import { type SketchyManifest, announcerName } from './assets.ts';
 import { soundModeIn } from './audio.ts';
@@ -169,134 +171,136 @@ export function Lobby({
   const friendsOn = friends.some((p) => s.packIds.includes(p.id));
   const others = s.packIds.filter((id) => !friends.some((p) => p.id === id));
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch title={room.gameName ?? 'Sketchy'} emblem="✏️">
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={settingsSummary(view, stagePresent, manifest)}
+            className="space-y-4"
+          >
+            <ChoicePicker
+              selectedIds={others}
+              editable={editable}
+              onSave={(ids) =>
+                act(
+                  {
+                    type: 'update-settings',
+                    packIds: [
+                      ...ids,
+                      ...s.packIds.filter((id) => friends.some((p) => p.id === id)),
+                    ],
+                  },
+                  { anchor: LOBBY_ANCHOR },
+                )
+              }
+              choices={view.packs
+                .filter((p) => !p.friends)
+                .map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  count: p.count + (s.adult ? p.adult : 0),
+                }))}
+              labels={{
+                title: 'Prompt packs',
+                unit: 'prompts',
+                noun: 'pack',
+                change: 'Change packs',
+                summary: packsSummary,
+              }}
+            />
+            {friends.length > 0 && (
+              <Switch
+                on={friendsOn}
+                editable={editable}
+                title="Friend mode"
+                help="Adds prompts about the players themselves (“Kim’s secret talent”), with another player’s name filled in. Off by default."
+                onChange={(on) =>
+                  set({
+                    packIds: on ? [...others, ...friends.map((p) => p.id)] : others,
+                  })
+                }
+                testId="sketchy-friends"
+              />
+            )}
+            <Switch
+              on={s.adult}
+              editable={editable}
+              title="Adult prompts (18+)"
+              help="Deals adult-only prompts and house titles too. Off by default."
+              onChange={(adult) => set({ adult })}
+              testId="sketchy-adult"
+            />
+            {/* Folded away so the Start button stays on a phone's first screen. */}
+            <details className="group">
+              <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="font-semibold">Timers</span>
+                  <span className="text-ink-muted"> · {timerSummary(s)}</span>
+                </span>
+                <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
+                  ▸
+                </span>
+              </summary>
+              <div className="space-y-3 pt-2">
+                <Segmented
+                  label="Drawing"
+                  values={DRAW}
+                  value={s.drawSeconds as (typeof DRAW)[number]}
+                  editable={editable}
+                  onChange={(drawSeconds) => set({ drawSeconds })}
+                />
+                <Segmented
+                  label="Writing a fake title"
+                  values={WRITE}
+                  value={s.writeSeconds as (typeof WRITE)[number]}
+                  editable={editable}
+                  onChange={(writeSeconds) => set({ writeSeconds })}
+                />
+                <Segmented
+                  label="Picking the real title"
+                  values={VOTE}
+                  value={s.voteSeconds as (typeof VOTE)[number]}
+                  editable={editable}
+                  onChange={(voteSeconds) => set({ voteSeconds })}
+                />
+                <Switch
+                  on={s.timerMode === 'strict'}
+                  editable={editable}
+                  title="Strict timers"
+                  help="When time runs out, the drawing is sent as it is, picking starts without the missing titles and a missing pick scores nothing. Off: the timers are only reminders."
+                  onChange={(on) => set({ timerMode: on ? 'strict' : 'soft' })}
+                />
+              </div>
+            </details>
+            <SoundSettingsPanel
+              view={view}
+              editable={editable}
+              stagePresent={stagePresent}
+              soundNow={soundNow}
+              set={set}
+              manifest={manifest}
+            />
+            <RefusalSlot anchor={LOBBY_ANCHOR} />
+          </LobbySettings>
+          {sound}
+        </>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
       <GuideLink title={room.gameName ?? 'Sketchy'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={settingsSummary(view, stagePresent, manifest)}
-        className="space-y-4"
-      >
-        <ChoicePicker
-          selectedIds={others}
-          editable={editable}
-          onSave={(ids) =>
-            act(
-              {
-                type: 'update-settings',
-                packIds: [...ids, ...s.packIds.filter((id) => friends.some((p) => p.id === id))],
-              },
-              { anchor: LOBBY_ANCHOR },
-            )
-          }
-          choices={view.packs
-            .filter((p) => !p.friends)
-            .map((p) => ({
-              id: p.id,
-              name: p.name,
-              count: p.count + (s.adult ? p.adult : 0),
-            }))}
-          labels={{
-            title: 'Prompt packs',
-            unit: 'prompts',
-            noun: 'pack',
-            change: 'Change packs',
-            summary: packsSummary,
-          }}
-        />
-        {friends.length > 0 && (
-          <Switch
-            on={friendsOn}
-            editable={editable}
-            title="Friend mode"
-            help="Adds prompts about the players themselves (“Kim’s secret talent”), with another player’s name filled in. Off by default."
-            onChange={(on) =>
-              set({
-                packIds: on ? [...others, ...friends.map((p) => p.id)] : others,
-              })
-            }
-            testId="sketchy-friends"
-          />
-        )}
-        <Switch
-          on={s.adult}
-          editable={editable}
-          title="Adult prompts (18+)"
-          help="Deals adult-only prompts and house titles too. Off by default."
-          onChange={(adult) => set({ adult })}
-          testId="sketchy-adult"
-        />
-        {/* Folded away so the Start button stays on a phone's first screen. */}
-        <details className="group">
-          <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="font-semibold">Timers</span>
-              <span className="text-ink-muted"> · {timerSummary(s)}</span>
-            </span>
-            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
-              ▸
-            </span>
-          </summary>
-          <div className="space-y-3 pt-2">
-            <Segmented
-              label="Drawing"
-              values={DRAW}
-              value={s.drawSeconds as (typeof DRAW)[number]}
-              editable={editable}
-              onChange={(drawSeconds) => set({ drawSeconds })}
-            />
-            <Segmented
-              label="Writing a fake title"
-              values={WRITE}
-              value={s.writeSeconds as (typeof WRITE)[number]}
-              editable={editable}
-              onChange={(writeSeconds) => set({ writeSeconds })}
-            />
-            <Segmented
-              label="Picking the real title"
-              values={VOTE}
-              value={s.voteSeconds as (typeof VOTE)[number]}
-              editable={editable}
-              onChange={(voteSeconds) => set({ voteSeconds })}
-            />
-            <Switch
-              on={s.timerMode === 'strict'}
-              editable={editable}
-              title="Strict timers"
-              help="When time runs out, the drawing is sent as it is, picking starts without the missing titles and a missing pick scores nothing. Off: the timers are only reminders."
-              onChange={(on) => set({ timerMode: on ? 'strict' : 'soft' })}
-            />
-          </div>
-        </details>
-        <SoundSettingsPanel
-          view={view}
-          editable={editable}
-          stagePresent={stagePresent}
-          soundNow={soundNow}
-          set={set}
-          manifest={manifest}
-        />
-        <RefusalSlot anchor={LOBBY_ANCHOR} />
-      </LobbySettings>
-      {sound}
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 

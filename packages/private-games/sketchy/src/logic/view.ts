@@ -114,9 +114,27 @@ function gameView(state: SketchyState, g: Game, viewer: PlayerId | null): GameVi
         : null,
     streaks: g.streaks,
     history: g.history,
+    favourite: state.phase === 'over' ? favouriteOf(g) : null,
     deadline: state.phase === 'playing' ? g.deadline : null,
     since: g.since ?? 0,
   };
+}
+
+/**
+ * The last round's favourite drawing: of the drawings still kept (each player's from the last
+ * round), the one whose board got the most likes, the later one on a tie; none without a like.
+ */
+export function favouriteOf(g: Game): GameView['favourite'] {
+  let pick: { at: number; likes: number } | null = null;
+  for (const [at, h] of g.history.entries()) {
+    const sketch = g.sketches[h.artist];
+    if (!sketch?.drawing || sketch.prompt.text !== h.prompt) continue;
+    const likes = Object.values(h.likes).reduce((n, x) => n + x, 0);
+    if (likes > 0 && (!pick || likes >= pick.likes)) pick = { at, likes };
+  }
+  if (!pick) return null;
+  const h = g.history[pick.at]!;
+  return { artist: h.artist, prompt: h.prompt, drawing: g.sketches[h.artist]!.drawing! };
 }
 
 export function rankedScores(state: SketchyState): ScoreView[] {
