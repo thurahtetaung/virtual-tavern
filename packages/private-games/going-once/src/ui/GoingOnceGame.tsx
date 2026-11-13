@@ -1014,7 +1014,7 @@ function End({
           g.ended !== 'no-drawings' &&
           champs.length > 0 && (
             <EndHero
-              // Phones: the top lot, small, in place of the emblem; wide screens show it large.
+              // Phones: the top lot in place of the emblem, as large as the end allows; wide screens show it large.
               emblem={
                 !wide && star ? (
                   <Picture
@@ -1022,7 +1022,7 @@ function End({
                     house={star.house}
                     art={art}
                     label={star.title}
-                    className="mx-auto w-24 shadow-vt-1 ring-1 ring-line"
+                    className="mx-auto w-28 shadow-vt-1 ring-1 ring-line"
                   />
                 ) : (
                   '🔨'

@@ -662,6 +662,24 @@ function Room({
       )}
       {g.stage === 'draw' && <DrawingProps view={view} rig={rig} />}
       {g.stage === 'bank' && <BankSign rig={rig} />}
+      {/* Half-time has no moment of its own in the show: its words go up on the wall. */}
+      {g.stage === 'halftime' && (
+        <div
+          className="absolute left-0 space-y-3 text-center"
+          style={{ top: 170, width: 1280, color: INK }}
+          data-testid="go-stage-halftime"
+        >
+          <p className="text-[30px] font-bold tracking-[0.12em] text-[#8a5a1c] uppercase">
+            {STAGE_MORE.halftime!.eyebrow}
+          </p>
+          <p className="font-display text-[96px] leading-none font-semibold">
+            Screws are unlocked!
+          </p>
+          <p className="mx-auto max-w-[56rem] text-[34px] leading-snug text-stone-700">
+            {STAGE_MORE.halftime!.line}
+          </p>
+        </div>
+      )}
       {sold && !sold.buyer && (
         <p
           className="absolute left-0 text-center text-4xl font-black drop-shadow"

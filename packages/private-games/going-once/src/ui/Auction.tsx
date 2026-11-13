@@ -688,7 +688,7 @@ export function Auction({
           <ProtectedImage
             src={art.ui('easel')!}
             alt=""
-            className="pointer-events-none relative -z-[1] mx-auto -mt-[45%] hidden w-1/2 lg:block"
+            className="pointer-events-none relative -z-[1] mx-auto -mt-[55%] hidden w-1/2 lg:block"
           />
         )}
       </section>
