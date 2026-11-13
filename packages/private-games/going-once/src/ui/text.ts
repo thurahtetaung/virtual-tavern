@@ -24,8 +24,17 @@ export interface Status {
   yourMove: boolean;
 }
 
-/** The always-visible line: what's happening and what the viewer can do now. */
-export function statusFor(view: GoingOnceView, you: string, name: NameOf, names: Names): Status {
+/**
+ * The always-visible line: what's happening and what the viewer can do now. `drawOpen` is false
+ * while the drawing waits for the auctioneer to call for the drawings (before `drawFrom`).
+ */
+export function statusFor(
+  view: GoingOnceView,
+  you: string,
+  name: NameOf,
+  names: Names,
+  drawOpen = true,
+): Status {
   const g = view.game;
   const mine = view.mine;
   if (!g) return { text: '', yourMove: false };
@@ -36,6 +45,7 @@ export function statusFor(view: GoingOnceView, you: string, name: NameOf, names:
     case 'draw': {
       if (!mine) return { text: 'Everyone is drawing.', yourMove: false };
       const todo = mine.prompts.findIndex((p) => !p.sent);
+      if (todo >= 0 && !drawOpen) return { text: 'Listen to the auctioneer.', yourMove: false };
       if (todo >= 0)
         return {
           text: `Draw “${unquote(mine.prompts[todo]!.title)}” (${todo + 1} of ${mine.prompts.length}).`,

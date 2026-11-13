@@ -75,7 +75,7 @@ const base: GameGuide = {
       title: 'Drawing',
       level: 'basics',
       bullets: [
-        'You get two titles, one from each of the game’s two title families, and one clock for both (90 seconds by default).',
+        'You get two titles, one from each of the game’s two title families, and one clock for both (90 seconds by default). With the auctioneer’s voice on, the pads open and the clock starts when the auctioneer calls for the drawings.',
         'Pick a pen, a width, draw, and tap Send. You must draw something to send it.',
         'The eraser (🧽) rubs out whatever it passes over, even part of a line, in the same three widths. Undo takes back the last line or rub.',
         'Nobody else sees your title, ever, until your drawing is sold.',

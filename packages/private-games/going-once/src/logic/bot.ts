@@ -24,9 +24,30 @@ export function scribble(rng: Rng) {
 }
 
 /**
- * Plays a seat from its own view: sends a scribble for each title, bids up to a rough guess of a
- * lot's worth (more for its own drawing to push the price, more when a buyer says someone knows
- * it), sometimes screws in the second half, and borrows when short.
+ * A number in [0, 1) fixed by its parts (FNV-1a, then mixed): a bot's choices at one price come out the same
+ * on every look, whatever the look's own random numbers.
+ */
+export function steady(...parts: (string | number)[]): number {
+  let h = 0x811c9dc5;
+  for (const ch of parts.join('|')) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193);
+  }
+  // Mixed once more, so parts that differ by a letter still land far apart.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 2 ** 32;
+}
+
+/**
+ * Plays a seat from its own view: sends a scribble for each title once the auctioneer calls for
+ * the drawings, bids up to a rough guess of a lot's worth (more for its own drawing to push the
+ * price, more when a buyer says someone knows it), sometimes screws in the second half, and
+ * borrows when short. It makes up its mind once per price (when a lot opens and whenever it is
+ * outbid), so its bid comes at once or not until the price moves.
  */
 export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction | null {
   const { rng, me } = ctx;
@@ -37,6 +58,8 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
   if (view.phase !== 'playing' || !g || !mine) return null;
 
   if (g.stage === 'draw') {
+    // The pads open when the auctioneer calls for the drawings (`wakeAt` looks again then).
+    if (ctx.now < g.drawFrom) return null;
     const todo = mine.prompts.find((p) => !p.sent);
     return todo ? { type: 'draw', item: todo.item, drawing: scribble(rng) } : null;
   }
@@ -64,15 +87,37 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
   if (g.screwsOn && mine.screw && !a.screwed && a.bid && chance(rng, 0.12))
     return { type: 'screw' };
 
+  // What it thinks the lot is worth stays put for the lot; whether it bids, and how much, is
+  // settled once per price.
   const own = drewIt(mine, a.picture.item);
   const tip = mine.messages.at(-1);
-  let guess = 1300 + rng.int(16) * 100;
+  let guess = 1300 + Math.floor(steady('guess', a.lot, me) * 16) * 100;
   if (tip?.lot === a.lot && tip.kind === 'someoneKnows') guess += 600;
   if (own) guess = Math.min(guess, 1200);
   const affordable = a.steps.filter((s) => s <= mine.cash && s <= guess);
-  if (!affordable.length || !chance(rng, 0.7)) return null;
-  const amount = chance(rng, 0.8) ? affordable[0]! : affordable.at(-1)!;
+  const price = a.bid?.amount ?? 0;
+  if (!affordable.length || steady('want', a.lot, a.seq, price, me) >= 0.7) return null;
+  const amount =
+    steady('amount', a.lot, a.seq, price, me) < 0.8 ? affordable[0]! : affordable.at(-1)!;
   return { type: 'bid', amount, seq: a.seq };
+}
+
+/**
+ * When a bot that is waiting on the clock looks again: as the pads open, or as a screw's outcome
+ * or the last bid has landed. Everything else that matters comes with a change to the room.
+ */
+export function goingOnceWakeAt(view: GoingOnceView, ctx: BotCtx): number | null {
+  const g = view.game;
+  if (view.phase !== 'playing' || !g || !view.mine) return null;
+  if (g.stage === 'draw')
+    return ctx.now < g.drawFrom && view.mine.prompts.some((p) => !p.sent) ? g.drawFrom : null;
+  const a = g.auction;
+  if (g.stage !== 'auction' || !a || a.close === 'intro' || a.screw || a.bid?.by === ctx.me)
+    return null;
+  if (ctx.now < a.pausedUntil) return a.pausedUntil;
+  if (a.bid && a.close === 'quiet' && ctx.now - a.since < BID_SETTLE_MS)
+    return a.since + BID_SETTLE_MS;
+  return null;
 }
 
 export const goingOnceBotInfo: BotInfo = {
@@ -82,4 +127,5 @@ export const goingOnceBotInfo: BotInfo = {
     return type === 'bid' || type === 'loan' || type === 'screw-pick';
   },
   // Another bid can beat the bot's to the price on screen; it tries again on the next change.
+  wakeAt: (view, ctx) => goingOnceWakeAt(view as GoingOnceView, ctx),
 };

@@ -21,10 +21,9 @@ import {
 import type { GoingOnceView } from '../logic/types.ts';
 import { GAME_ID } from './assets.ts';
 import { moments } from './show.ts';
-import { phoneSymbol } from './phone-symbol.ts';
 
-// The phone's share of the show: its own small rig (the stamp, the LOT disc, the canvas frame and
-// the hourglass; a couple of KB), fetched only once the drawing starts, and the same moments as
+// The phone's share of the show: its own small rig (the stamp and the LOT disc; a couple of KB),
+// fetched only once the drawing starts, and the same moments as
 // the table screen, which `schedule` trims to this phone's profile: with a table screen in the
 // room only the short stamp and this player's own cues, without one the fuller show.
 
@@ -122,87 +121,6 @@ export function PictureStamp() {
       >
         <Stamp rig={rig} />
       </div>
-    </div>
-  );
-}
-
-/**
- * A rig symbol as a small picture: fitted into its box from its own bounds (measured once, when
- * it mounts; nothing is read while the show plays).
- */
-export function RigIcon({ symbol, className }: { symbol: string; className?: string }) {
-  const rig = usePhoneRig();
-  const svg = useRef<SVGSVGElement>(null);
-  const [box, setBox] = useState<string | null>(null);
-  const html = useMemo(() => (rig ? phoneSymbol(rig, symbol) : ''), [rig, symbol]);
-  useLayoutEffect(() => {
-    const g = svg.current?.firstElementChild as SVGGraphicsElement | null;
-    if (!g?.getBBox) return;
-    const b = g.getBBox();
-    if (b.width && b.height) setBox(`${b.x} ${b.y} ${b.width} ${b.height}`);
-  }, [html]);
-  if (!rig || !html) return null;
-  return (
-    <svg
-      ref={svg}
-      aria-hidden
-      className={className}
-      viewBox={box ?? '0 0 1 1'}
-      style={{ visibility: box ? 'visible' : 'hidden' }}
-    >
-      <g dangerouslySetInnerHTML={{ __html: html }} />
-    </svg>
-  );
-}
-
-/** The painting's canvas in the original: 240 × 320 at 1.1875; its paper, shadow and strings. */
-const CANVAS_W = 285;
-const CANVAS_H = 380;
-const FRAME_AT = [136.2, 117.25];
-
-/**
- * The drawing pad hung like a painting: the original's paper, shadow and strings behind the pad,
- * stretched to its box. Without the art, just the pad.
- */
-export function PadFrame({ children }: { children: ReactNode }) {
-  const rig = usePhoneRig();
-  const box = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<[number, number] | null>(null);
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!el || !rig) return;
-    const fit = () => setSize([el.clientWidth, el.clientHeight]);
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-    };
-  }, [rig]);
-  const html = useMemo(() => (rig ? phoneSymbol(rig, 'painting.frame') : ''), [rig]);
-  // One tree whether or not the art has come: the pad must never remount (a drawing in progress).
-  const sx = size ? size[0] / CANVAS_W : 0;
-  const sy = size ? size[1] / CANVAS_H : 0;
-  return (
-    <div ref={box} className={rig ? 'relative mt-6' : 'relative'} data-testid="go-pad-frame">
-      {rig && size && (
-        // The strings show a short way above the pad, never up into the page; the frame's shadow
-        // a little beyond it. Clipped by paint only: a box wider than the pad would scroll the
-        // page sideways.
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{ clipPath: 'inset(-24px -40px -40px -40px)' }}
-        >
-          <svg className="absolute left-0 top-0 overflow-visible" width="1" height="1">
-            <g
-              transform={`matrix(${sx},0,0,${sy},${FRAME_AT[0]! * sx},${FRAME_AT[1]! * sy})`}
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          </svg>
-        </div>
-      )}
-      <div className="relative">{children}</div>
     </div>
   );
 }

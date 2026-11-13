@@ -113,6 +113,8 @@ describe('music', () => {
       pick: Math.floor(h.now / 1000),
     });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     expect(musicFor(goingOnce.view(h.state, 'p1'))).toEqual({ key: 'auction', pick: 0 });
@@ -159,6 +161,8 @@ describe('music', () => {
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
@@ -185,6 +189,8 @@ describe('music', () => {
 function atIntro() {
   const h = started(3, 6);
   const g = game(h);
+  // The pads open once the auctioneer calls for the drawings.
+  h.now = Math.max(h.now, g.drawStart);
   for (const id of g.order)
     for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
   return h;
@@ -291,6 +297,8 @@ describe('the auctioneer’s voice', () => {
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
@@ -336,6 +344,8 @@ describe('the auctioneer’s voice', () => {
     h.act(HOST, { type: 'start' });
     expect(musicFor(goingOnce.view(h.state, 'p1'))!.key).toBe('draw');
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     expect(musicFor(goingOnce.view(h.state, 'p1'))).toEqual({ key: 'tutorial', pick: 0 });
@@ -349,6 +359,8 @@ describe('the voice queue', () => {
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
@@ -402,6 +414,8 @@ describe('the voice queue', () => {
     h.act(HOST, { type: 'update-settings', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     const tutorial = voiceLine(goingOnce.view(h.state, 'p1'));
@@ -689,6 +703,8 @@ describe('fetching ahead', () => {
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
     const g = game(h);
+    // The pads open once the auctioneer calls for the drawings.
+    h.now = Math.max(h.now, g.drawStart);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });

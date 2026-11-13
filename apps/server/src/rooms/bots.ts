@@ -8,6 +8,8 @@ export const SPEED: Record<PlaytestSpeed, number> = { fast: 0.25, normal: 1, slo
 export const MAX_PER_SECOND = 3;
 /** Most bot moves in an hour of one playtest; more means they are stuck, so they pause. */
 export const MAX_PER_HOUR = 600;
+/** A timed look (`botInfo.wakeAt`) comes this long after its time, never just before it. */
+const WAKE_MARGIN_MS = 5;
 
 /** A move that is just a button press ("Ready", "done presenting"…): quicker than a choice. */
 const TRIVIAL = new Set([
@@ -46,6 +48,8 @@ export interface BotRunnerDeps {
 interface RoomRun {
   /** Each bot's pending move. */
   timers: Map<string, NodeJS.Timeout>;
+  /** Each bot's pending look at a time its game named (`botInfo.wakeAt`), dropped on any change. */
+  wakes: Map<string, NodeJS.Timeout>;
   /** The version a bot's move was refused at: it waits for the next change before trying again. */
   refusedAt: Map<string, number>;
   /** The version a bot's hook threw at (logged once per version). */
@@ -86,9 +90,18 @@ export class BotRunner {
     }
     let run = this.runs.get(roomId);
     if (!run) {
-      run = { timers: new Map(), refusedAt: new Map(), threwAt: new Map(), moves: [] };
+      run = {
+        timers: new Map(),
+        wakes: new Map(),
+        refusedAt: new Map(),
+        threwAt: new Map(),
+        moves: [],
+      };
       this.runs.set(roomId, run);
     }
+    // The room changed: every bot looks afresh, so earlier wakes are void.
+    for (const wake of run.wakes.values()) clearTimeout(wake);
+    run.wakes.clear();
     for (const [id, timer] of run.timers) {
       if (!table.bots.includes(id)) {
         clearTimeout(timer);
@@ -99,7 +112,10 @@ export class BotRunner {
       if (run.timers.has(botId) || run.refusedAt.get(botId) === table.version) continue;
       // A look now only sets the pace; the move itself is worked out again when it is made.
       const move = this.decide(roomId, botId, run);
-      if (!move) continue;
+      if (!move) {
+        this.rest(roomId, botId, run);
+        continue;
+      }
       const quick = TRIVIAL.has(move.type) || table.game.botInfo?.quick?.(move) === true;
       const wait = this.deps.delay(quick) * SPEED[table.speed];
       const r = run;
@@ -118,6 +134,7 @@ export class BotRunner {
     const run = this.runs.get(roomId);
     if (!run) return;
     for (const timer of run.timers.values()) clearTimeout(timer);
+    for (const wake of run.wakes.values()) clearTimeout(wake);
     this.runs.delete(roomId);
   }
 
@@ -153,7 +170,10 @@ export class BotRunner {
       return;
     }
     const move = this.decide(roomId, botId, run);
-    if (!move) return;
+    if (!move) {
+      this.rest(roomId, botId, run);
+      return;
+    }
     run.moves.push(now);
     const res = rooms.act(roomId, botId, move);
     if (!res.ok && table.game.botInfo?.retry?.(res.error.code)) {
@@ -177,19 +197,58 @@ export class BotRunner {
     }
   }
 
+  /**
+   * A bot with no move now: if its game names a time to look again (`botInfo.wakeAt`), one look
+   * then (it replaces any earlier one; a change to the room drops it).
+   */
+  private rest(roomId: string, botId: string, run: RoomRun) {
+    const table = this.deps.rooms.botTable(roomId);
+    const seen = this.deps.rooms.botView(roomId, botId);
+    const info = table?.game.botInfo;
+    if (!table || !info?.wakeAt || !seen) return;
+    let at: number | null;
+    try {
+      at = info.wakeAt(seen.view, this.ctx(roomId, botId, seen.version, table.game.id));
+    } catch (err) {
+      if (run.threwAt.get(botId) !== seen.version) {
+        run.threwAt.set(botId, seen.version);
+        this.deps.logger.warn({ roomId, botId, err, playtest: true }, 'bot wake hook threw');
+      }
+      return;
+    }
+    clearTimeout(run.wakes.get(botId));
+    run.wakes.delete(botId);
+    // Only a time still to come: a time already past would look again at once, for ever.
+    const now = this.deps.now();
+    if (at === null || !Number.isFinite(at) || at <= now) return;
+    // A few ms past the time, so the look never lands just before it.
+    const wait = at - now + WAKE_MARGIN_MS;
+    run.wakes.set(
+      botId,
+      setTimeout(() => {
+        run.wakes.delete(botId);
+        if (this.runs.get(roomId) === run) this.poke(roomId);
+      }, wait),
+    );
+  }
+
+  private ctx(roomId: string, botId: string, version: number, gameId: string): BotCtx {
+    return {
+      me: botId,
+      now: this.deps.now(),
+      rng: createRng(this.deps.seed(roomId, `bot:${botId}:${version}`)),
+      words: (ids) => this.deps.words(gameId, ids),
+      hints: (id) => this.deps.hints(gameId, id),
+      contentPacks: (kind) => this.deps.contentPacks(gameId, kind),
+    };
+  }
+
   /** The bot's move from its own seat's view, now; null when it has none (or its hook threw). */
   private decide(roomId: string, botId: string, run: RoomRun): { type: string } | null {
     const table = this.deps.rooms.botTable(roomId);
     const seen = this.deps.rooms.botView(roomId, botId);
     if (!table?.game.bot || !seen) return null;
-    const ctx: BotCtx = {
-      me: botId,
-      now: this.deps.now(),
-      rng: createRng(this.deps.seed(roomId, `bot:${botId}:${seen.version}`)),
-      words: (ids) => this.deps.words(table.game.id, ids),
-      hints: (id) => this.deps.hints(table.game.id, id),
-      contentPacks: (kind) => this.deps.contentPacks(table.game.id, kind),
-    };
+    const ctx = this.ctx(roomId, botId, seen.version, table.game.id);
     try {
       const move: unknown = table.game.bot(seen.view, ctx);
       return move !== null &&

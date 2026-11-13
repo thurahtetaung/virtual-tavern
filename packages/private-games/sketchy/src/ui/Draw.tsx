@@ -7,38 +7,21 @@ import {
   Panel,
   cn,
   useConfirm,
+  useFitSize,
   useWideScreen,
 } from '@vt/ui';
-import { type CSSProperties, useLayoutEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 
+/**
+ * The smallest sheet on a phone. Low, so on a short screen the sheet shrinks before the tools or
+ * Send would have to scroll out of the play area.
+ */
+const PHONE_MIN = 120;
 /** How long before a strict drawing clock ends the pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
 const DRAW_ANCHOR = 'sketchy-draw';
-/** The prompt's row on a phone (a one-line prompt and New prompt), in px, which the sheet's size allows for. */
-const ONE_LINE = 36;
-
-/** How much taller than that the header is (0 while it fits). */
-function useExtraLines() {
-  const [el, setEl] = useState<HTMLElement | null>(null);
-  const [extra, setExtra] = useState(0);
-  // Measured before the first paint (so the sheet never shows at the one-line size), then again
-  // whenever the header wraps differently.
-  useLayoutEffect(() => {
-    if (!el) return;
-    const measure = () => setExtra(Math.max(0, Math.round(el.offsetHeight - ONE_LINE)));
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-    };
-  }, [el]);
-  return [setEl, extra] as const;
-}
-
 /** Prompts longer than this are set smaller, so even the longest takes two lines on a phone. */
 const LONG_PROMPT = 36;
 
@@ -48,8 +31,11 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   const strict = view.settings.timerMode === 'strict';
   const [confirm, dialog] = useConfirm();
   const [busy, setBusy] = useState(false);
-  const [heading, extra] = useExtraLines();
   const wide = useWideScreen();
+  // The sheet is as big as the window allows with the prompt, the tools, the clock and Send in
+  // view, never too small to draw on (`useFitSize`; on a phone, within the play area).
+  const pad = useRef<HTMLDivElement>(null);
+  useFitSize(pad, { min: wide ? 192 : PHONE_MIN, max: wide ? 720 : 360, step: 1 });
   const clock = (label: string) => (
     <Countdown
       deadline={g.deadline}
@@ -101,87 +87,79 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
   // A new prompt is a new sheet: the draft is kept per prompt.
   const draftKey = `sketchy.draft.${g.round}.${g.myPrompt}`;
   return (
-    <div
-      className="mx-auto flex w-full max-w-md flex-col gap-3 lg:max-w-4xl"
-      style={{ '--extra': `${extra}px` } as CSSProperties}
-    >
+    <div ref={pad} className="mx-auto flex w-full max-w-md flex-col gap-1.5 lg:max-w-none lg:gap-3">
       {dialog}
-      <Panel className="flex flex-col gap-2 p-3 lg:p-5">
-        {/* Desktops show the prompt beside the sheet (the pad's `aside`), phones above it. */}
-        {!wide && (
-          // One row: the prompt, and New prompt beside it (the status line above already says
-          // nobody else sees it), so the sheet gets the height.
-          <div ref={heading} className="flex min-h-9 items-center justify-between gap-2">
-            <p className="sr-only">Draw this (only you see it):</p>
-            <h2
-              data-testid="sketchy-prompt"
-              className={cn(
-                'min-w-0 leading-snug font-bold break-words',
-                g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
-              )}
-            >
-              {g.myPrompt}
-            </h2>
-            {g.canReroll && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-9 shrink-0 px-3"
-                disabled={busy}
-                onClick={() => void reroll()}
-              >
-                🎲 New prompt
-              </Button>
+      {/* Desktops show the prompt in the tool column (the pad's `aside`), phones above the sheet. */}
+      {!wide && (
+        // One row: the prompt, and New prompt beside it (the status line above already says
+        // nobody else sees it), so the sheet gets the height.
+        <div className="flex min-h-9 items-center justify-between gap-2 max-[380px]:min-h-8">
+          <p className="sr-only">Draw this (only you see it):</p>
+          <h2
+            data-testid="sketchy-prompt"
+            className={cn(
+              'min-w-0 leading-snug font-bold break-words',
+              g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
             )}
-          </div>
-        )}
-        <DrawingPad
-          key={draftKey}
-          draftKey={draftKey}
-          sendBy={
-            strict && g.deadline !== null ? g.deadline - room.clockOffset - SEND_EARLY_MS : null
-          }
-          onSubmit={(drawing) => act({ type: 'draw', drawing }, { anchor: DRAW_ANCHOR })}
-          submitLabel="Send drawing"
-          footer={clock('to draw')}
-          refusal={DRAW_ANCHOR}
-          bar
-          beside
-          aside={
-            wide && (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
-                <p
-                  data-testid="sketchy-prompt"
-                  className="font-display text-heading leading-snug font-semibold break-words"
+          >
+            {g.myPrompt}
+          </h2>
+          {g.canReroll && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9 min-h-9 shrink-0 px-3 max-[380px]:h-8 max-[380px]:min-h-8"
+              disabled={busy}
+              onClick={() => void reroll()}
+            >
+              🎲 New prompt
+            </Button>
+          )}
+        </div>
+      )}
+      <DrawingPad
+        key={draftKey}
+        draftKey={draftKey}
+        sheetClassName="max-w-(--vt-fit) lg:w-(--vt-fit)"
+        sendBy={
+          strict && g.deadline !== null ? g.deadline - room.clockOffset - SEND_EARLY_MS : null
+        }
+        onSubmit={(drawing) => act({ type: 'draw', drawing }, { anchor: DRAW_ANCHOR })}
+        submitLabel="Send drawing"
+        footer={clock('to draw')}
+        refusal={DRAW_ANCHOR}
+        bar
+        dense
+        // Desktops only: on a phone the sheet needs the height (the guide says how scoring works).
+        note={
+          wide &&
+          'Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.'
+        }
+        aside={
+          wide && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
+              <p
+                data-testid="sketchy-prompt"
+                className="font-display text-xl leading-snug font-semibold break-words"
+              >
+                {g.myPrompt}
+              </p>
+              {g.canReroll && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-9 min-h-9 self-start"
+                  disabled={busy}
+                  onClick={() => void reroll()}
                 >
-                  {g.myPrompt}
-                </p>
-                {g.canReroll && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="self-start"
-                    disabled={busy}
-                    onClick={() => void reroll()}
-                  >
-                    🎲 New prompt
-                  </Button>
-                )}
-              </div>
-            )
-          }
-          // The sheet is as big as the screen allows with everything else in view (on a phone
-          // about 520 px of room, tabs, the prompt's row, both rows of pens and Send around it, plus
-          // the prompt's extra lines; on a desktop, with the prompt, pens and Send beside it, about
-          // 340 px of site and room header, round line and the note under it), never too small.
-          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_520px_-_var(--extra))_*_0.8))] lg:[&>div:first-child]:max-w-[min(36rem,max(16rem,calc((100svh_-_340px)_*_0.8)))]"
-        />
-        {/* Desktops only: on a phone the sheet needs the height (the guide says how scoring works). */}
-        <p className="text-xs text-ink-muted max-lg:hidden">
-          Draw so the others can tell what it is: you score 1,000 for everyone who finds your title.
-        </p>
-      </Panel>
+                  🎲 New prompt
+                </Button>
+              )}
+            </div>
+          )
+        }
+      />
     </div>
   );
 }

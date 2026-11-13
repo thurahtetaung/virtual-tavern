@@ -430,7 +430,8 @@ function SketchyPlay({
   const shown: PlayTab | null = wide ? null : tab;
   return (
     <div className="space-y-3">
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+      {/* No gap under it: the tab bar after it is fixed, so the space would only shrink the sheet. */}
+      <div className="mb-0 grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div
           className={cn(
             'min-w-0 space-y-3',
