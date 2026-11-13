@@ -1,4 +1,4 @@
-import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import {
   Button,
   FitArea,
@@ -11,6 +11,7 @@ import {
   Panel,
   PlayerDot,
   PlayerTag,
+  EndHero,
   EndTabs,
   Standings,
   StickyBar,
@@ -552,6 +553,7 @@ function Play({
 
   // Phones: the scores, the awards and the last turn one at a time, so the end fits the screen.
   const phoneEnd = view.phase === 'over' && !wide;
+  const endTitle = winnersTitle(view.seats, me?.id) || 'Game over';
   const seats = (
     <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
   );
@@ -680,75 +682,85 @@ function Play({
         {!phoneEnd && clueLine}
 
         {view.phase === 'over' && (
-          <Panel className="space-y-3 text-center max-lg:p-3">
-            {/* The status line above already says who won; this is the podium and the standings. */}
-            <EndTabs
-              tabs={[
-                {
-                  id: 'scores',
-                  label: '🏆 Scores',
-                  content: (
-                    <Standings
-                      entries={view.seats
-                        .filter((s) => s.playing || s.score > 0)
-                        .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-                      you={me?.id}
-                      className="text-left"
-                    />
-                  ),
-                },
-                !!room.superlatives?.length && {
-                  id: 'awards',
-                  label: '✨ Awards',
-                  content: <Superlatives lines={room.superlatives} />,
-                },
-                phoneEnd &&
-                  !!turn && {
-                    id: 'turn',
-                    label: '🃏 Turn',
+          <>
+            <EndHero
+              title={endTitle}
+              eyebrow={endTitle === 'Game over' ? null : undefined}
+              emblem="🏆"
+              superlatives={wide ? room.superlatives : undefined}
+              actions={
+                room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() =>
+                        void (async () => {
+                          if (
+                            await confirm({
+                              title: 'Start a new game with the same players?',
+                              body: 'Scores go back to 0.',
+                              confirmLabel: 'Play again',
+                            })
+                          ) {
+                            void act({ type: 'start' });
+                          }
+                        })()
+                      }
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <p>{waitingForHost(room, 'start the next game')}</p>
+                )
+              }
+            />
+            <Panel className="space-y-3 text-center max-lg:p-3">
+              <EndTabs
+                tabs={[
+                  {
+                    id: 'scores',
+                    label: '🏆 Scores',
                     content: (
-                      <div className="space-y-3 text-left">
-                        {clueLine}
-                        {tableSection}
-                        {results}
-                      </div>
+                      <Standings
+                        entries={view.seats
+                          .filter((s) => s.playing || s.score > 0)
+                          .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                        you={me?.id}
+                        className="text-left"
+                      />
                     ),
                   },
-                phoneEnd && { id: 'players', label: '👥 Players', content: seats },
-              ]}
-            />
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  size="lg"
-                  onClick={() =>
-                    void (async () => {
-                      if (
-                        await confirm({
-                          title: 'Start a new game with the same players?',
-                          body: 'Scores go back to 0.',
-                          confirmLabel: 'Play again',
-                        })
-                      ) {
-                        void act({ type: 'start' });
-                      }
-                    })()
-                  }
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <p>{waitingForHost(room, 'start the next game')}</p>
-            )}
-          </Panel>
+                  !wide &&
+                    !!room.superlatives?.length && {
+                      id: 'awards',
+                      label: '✨ Awards',
+                      content: <Superlatives lines={room.superlatives} />,
+                    },
+                  phoneEnd &&
+                    !!turn && {
+                      id: 'turn',
+                      label: '🃏 Turn',
+                      content: (
+                        <div className="space-y-3 text-left">
+                          {clueLine}
+                          {tableSection}
+                          {results}
+                        </div>
+                      ),
+                    },
+                  phoneEnd && { id: 'players', label: '👥 Players', content: seats },
+                ]}
+              />
+            </Panel>
+          </>
         )}
 
         {!phoneEnd && (tableSection || results) && (
