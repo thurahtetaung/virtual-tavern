@@ -11,7 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** your own marks only; others' as locked flags, then counts, and who marked a card only once it is shown; unshown marks are never revealed.
   - **Phones:** Table and Stars on the shared `TabBar`; Lock / Unlock and the slate's refusal sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
-- **UI:** The desktop card grid is bounded by viewport height so Lock stays visible, and bounded further on a done round so the results and Next round fit below it. Marked cards share one position-and-mark corner badge; retain the explicit Zoom action for keyboard and touch access.
+- **UI:** The card grid is sized to the free height so Lock stays visible: on wide screens it grows to fill it (first-time tips move to the top of the rail there), and on narrower screens a done round bounds it further so the results and Next round fit below it. Marked cards share one position-and-mark corner badge; retain the explicit Zoom action for keyboard and touch access.
 
 ## Assets
 

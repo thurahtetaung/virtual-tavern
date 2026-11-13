@@ -394,6 +394,21 @@ function Play({
   const tokens = useTokens();
   const wide = useWideScreen();
   const stars = <StarBoard view={view} room={room} online={online} pickColor={pickColor} />;
+  // First-time tips: above the cards on phones and tablets, at the top of the rail on wide screens.
+  const tips = (
+    <>
+      {canMark && (
+        <Tip id="marking">
+          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
+        </Tip>
+      )}
+      {isScout && (
+        <Tip id="scouting">
+          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
+        </Tip>
+      )}
+    </>
+  );
   const board = (
     <>
       {last && r.stage !== 'mark' && (
@@ -426,7 +441,12 @@ function Play({
             // a wide screen puts its results in the rail, so the cards keep their size for the
             // look back at everyone's picks; narrower screens make room for them below.
             style={{
-              maxWidth: r.stage === 'done' && !wide ? 'min(48rem, 40dvh)' : 'min(48rem, 62dvh)',
+              maxWidth:
+                r.stage === 'done' && !wide
+                  ? 'min(48rem, 40dvh)'
+                  : wide
+                    ? 'min(60rem, max(36rem, calc((100dvh - 20.25rem) * 1.18)))'
+                    : 'min(48rem, 62dvh)',
             }}
             className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
           >
@@ -489,6 +509,7 @@ function Play({
           className={cn('mt-3 space-y-3 sm:mt-0', shown === 'table' && 'hidden')}
           {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
         >
+          {wide && tips}
           {wide && r.stage === 'done' && r.results && (
             <RoundResults view={view} room={room} act={act} rail />
           )}
@@ -543,16 +564,7 @@ function Play({
           <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
         </p>
       </header>
-      {canMark && (
-        <Tip id="marking">
-          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
-        </Tip>
-      )}
-      {isScout && (
-        <Tip id="scouting">
-          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
-        </Tip>
-      )}
+      {!wide && tips}
 
       {view.phase === 'over' && (
         <Final
