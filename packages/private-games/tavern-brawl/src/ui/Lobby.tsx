@@ -307,7 +307,7 @@ export function Lobby({
                     <span className="line-clamp-2 w-full text-center text-xs leading-tight font-semibold">
                       {art.hero(h)}
                     </span>
-                    <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted">
+                    <span className="w-full truncate text-center text-xs leading-tight text-ink-muted">
                       {mine ? '✓ You' : taker ? taker.name : '✦ Powers'}
                     </span>
                   </button>

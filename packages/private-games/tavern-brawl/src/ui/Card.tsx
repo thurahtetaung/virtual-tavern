@@ -94,7 +94,7 @@ export const Card = memo(function Card({
             key={b.key}
             className={cn(
               'inline-flex items-center justify-center gap-px rounded-md bg-black/75 font-bold text-white tabular-nums shadow',
-              big ? 'min-w-8 px-1 py-0.5 text-sm' : 'min-w-6 px-0.5 text-[11px] leading-4',
+              big ? 'min-w-8 px-1 py-0.5 text-sm' : 'min-w-6 px-0.5 text-xs leading-4',
             )}
           >
             <span>{b.icon}</span>
@@ -106,7 +106,7 @@ export const Card = memo(function Card({
         <span
           className={cn(
             'absolute top-[3%] right-[3%] rounded-md bg-black/75 font-bold text-white tabular-nums',
-            big ? 'px-1.5 py-0.5 text-sm' : 'px-1 text-[11px]',
+            big ? 'px-1.5 py-0.5 text-sm' : 'px-1 text-xs',
           )}
         >
           {left}/{def.shield}
@@ -118,7 +118,7 @@ export const Card = memo(function Card({
           'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/75 to-black/0 text-center font-semibold text-white',
           big
             ? 'px-1.5 pt-4 pb-1.5 text-[13px] leading-tight'
-            : 'px-1 pt-3 pb-1 text-[10px] leading-tight',
+            : 'px-1 pt-3 pb-1 text-xs leading-tight',
         )}
       >
         <span className="line-clamp-2">{name}</span>

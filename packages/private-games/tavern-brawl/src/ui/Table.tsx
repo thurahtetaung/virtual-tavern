@@ -314,7 +314,7 @@ const PlayerRow = memo(function PlayerRow({
               {waiting && <span aria-label="their move">⏳</span>}
               {near && (
                 <span
-                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-[0.65rem] font-semibold text-warn-ink ring-1 ring-warn-line"
+                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-xs font-semibold text-warn-ink ring-1 ring-warn-line"
                   title="Your regular attacks reach this neighbour"
                 >
                   {near === 'left' ? '⬅ in reach' : 'in reach ➡'}
