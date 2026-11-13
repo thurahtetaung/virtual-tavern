@@ -380,11 +380,26 @@ export function Lobby({
             />
           )}
         </div>
-        <p className="text-sm text-ink-muted">
-          {seated.length >= 3
-            ? `${seated.length} players: one ghost and ${seated.length - 1} psychics.`
-            : 'One player is the ghost; everyone else is a psychic.'}
-        </p>
+        {/* The ghost volunteer button sits beside the line that explains the ghost, so the seat
+            control in the heading costs the phone lobby no extra row. */}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-ink-muted">
+            {seated.length >= 3
+              ? `${seated.length} players: one ghost and ${seated.length - 1} psychics.`
+              : 'One player is the ghost; everyone else is a psychic.'}
+          </p>
+          {me?.playing && (
+            <Button
+              variant={me.volunteer ? 'primary' : 'secondary'}
+              size="sm"
+              className="shrink-0"
+              aria-pressed={me.volunteer}
+              onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
+            >
+              👻 {me.volunteer ? 'You volunteered' : 'I’ll be the ghost'}
+            </Button>
+          )}
+        </div>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (
             <li
@@ -416,16 +431,6 @@ export function Lobby({
             </li>
           ))}
         </ul>
-        {me?.playing && (
-          <Button
-            variant={me.volunteer ? 'primary' : 'secondary'}
-            size="sm"
-            aria-pressed={me.volunteer}
-            onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
-          >
-            👻 {me.volunteer ? 'You volunteered' : 'I’ll be the ghost'}
-          </Button>
-        )}
         {me?.playing && (
           <section className="space-y-1" aria-label="Your psychic">
             <h4 className="text-sm font-semibold">Your psychic (if you aren’t the ghost)</h4>
