@@ -191,8 +191,11 @@ export function EndScreen({
       <GhostMeant view={view} content={content} />
     </Panel>
   );
-  // The shared vision, the final's three cards, in the finale.
+  // The shared vision, the final's three cards, in the finale; a game the clock ended before the
+  // final shows the cards the ghost was guiding you (or the first psychic) to instead.
   const visions = g.final?.shared ?? [];
+  const sought = myPsychic(view) ?? g.psychics[0];
+  const soughtCards = visions.length ? [] : (sought?.targets ?? []);
   return (
     <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
       <EndLayout
@@ -201,11 +204,31 @@ export function EndScreen({
             // Wide screens: the shared vision under the result (phones open the ghost's cards below).
             art={
               wide &&
-              visions.map((n, i) => (
-                <div key={i} className={END_ART[3]}>
-                  <Card kind="vision" n={n} content={content} note={`shared card ${i + 1}`} />
-                </div>
-              ))
+              (visions.length
+                ? visions.map((n, i) => (
+                    <div key={i} className={END_ART[3]}>
+                      <Card kind="vision" n={n} content={content} note={`shared card ${i + 1}`} />
+                    </div>
+                  ))
+                : soughtCards.length > 0 && (
+                    <figure className="w-full space-y-2">
+                      <div className="flex justify-center gap-3 lg:gap-5">
+                        {soughtCards.map((n, i) => (
+                          <div key={i} className={END_ART[3]}>
+                            <Card
+                              kind={content.kindOf(PILLARS[i]!)}
+                              n={n}
+                              content={content}
+                              note={`${sought!.name}’s card ${i + 1}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <figcaption className="text-small text-ink-2">
+                        What {sought === myPsychic(view) ? 'you' : sought!.name} had to find
+                      </figcaption>
+                    </figure>
+                  ))
             }
             tone={r.win ? 'success' : 'loss'}
             emblem={r.win ? '🕊️' : '🌫️'}

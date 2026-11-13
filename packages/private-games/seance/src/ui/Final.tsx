@@ -219,6 +219,39 @@ export function Lineup({
                   : 'Culprit'}
             </Button>
           ) : null;
+          // Phones while you vote: each group is one row (its number and psychic, its three
+          // cards, Choose), so every group is on screen above the bar; tap a card to look.
+          if (!wide && myTurn)
+            return (
+              <li key={color} className="min-w-0">
+                <div
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl p-1.5 ring-1 ring-line',
+                    choice === i && 'ring-2 ring-special bg-special/10',
+                  )}
+                  aria-label={`Group ${i + 1}${p ? `: ${p.name}’s cards` : ''}`}
+                >
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
+                      {i + 1}
+                    </span>
+                    {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
+                  </div>
+                  <div className="grid min-w-0 flex-1 grid-cols-3 gap-1">
+                    {cards.map((c, k) => (
+                      <Card
+                        key={k}
+                        kind={content.kindOf(PILLARS[k]!)}
+                        n={c}
+                        content={content}
+                        onTap={() => look(all, startOf(i) + k, 'The line-up')}
+                      />
+                    ))}
+                  </div>
+                  {action}
+                </div>
+              </li>
+            );
           return (
             <li key={color} className="min-w-0">
               <div
