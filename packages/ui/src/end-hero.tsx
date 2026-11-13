@@ -7,6 +7,18 @@ import { SuperlativesNote } from './superlatives.tsx';
 export type EndTone = 'win' | 'success' | 'loss' | 'neutral';
 
 /**
+ * Widths for the game's art in `EndHero` (`art`), by how many pieces sit side by side: phones keep
+ * them small enough for the end to fit; in `EndLayout`'s column on wide screens they grow to the
+ * column (one piece up to 18 rem, as wide as 45 % of the window's height allows for a portrait
+ * card), so a finale is never phone-sized art in an empty column. Put it on each piece's wrapper.
+ */
+export const END_ART: Record<1 | 2 | 3, string> = {
+  1: 'w-32 sm:w-40 lg:w-[min(100%,18rem,calc(45vh*0.72))]',
+  2: 'w-24 sm:w-32 lg:w-[min(46%,15rem,calc(45vh*0.72))]',
+  3: 'w-20 sm:w-24 lg:w-[min(31%,11rem,calc(45vh*0.72))]',
+};
+
+/**
  * The top of every finished game: the finale. A lit card with "Game over" (or the game's own
  * eyebrow), the emblem, the result in the display face, one line under it, the game's own art at
  * the size the screen allows (the winning card, the culprits, the last drawing) and the night's
