@@ -253,7 +253,7 @@ export function Lobby({
       {places.length > 0 && (
         <ul
           aria-hidden
-          className="grid grid-cols-4 gap-2 sm:grid-cols-6"
+          className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-3 lg:gap-3"
           data-testid="lobby-places"
         >
           {places.map((src, i) => (

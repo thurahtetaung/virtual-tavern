@@ -527,12 +527,15 @@ function Reveal({
     <Card aria-label="Round result" role="region" className="space-y-3">
       {/* The location, large: the round's answer is the moment everyone waited for. */}
       <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
-        <LocationPicture
-          id={result.location}
-          display={display}
-          className="size-24 shrink-0 rounded-2xl text-7xl shadow-vt-1 ring-1 ring-line"
-          artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56"
-        />
+        {/* At the end the finale already shows the location's picture: once is enough. */}
+        {view.phase !== 'over' && (
+          <LocationPicture
+            id={result.location}
+            display={display}
+            className="size-24 shrink-0 rounded-2xl text-7xl shadow-vt-1 ring-1 ring-line"
+            artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56"
+          />
+        )}
         <div className="min-w-0">
           <p className="text-caption font-semibold text-ink-muted uppercase">The location was</p>
           <p
@@ -683,7 +686,7 @@ function Podium({
                 id={result.location}
                 display={display}
                 className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
-                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-72"
+                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-96 lg:max-w-full"
               />
             )
           }
@@ -893,6 +896,9 @@ function LocationsBoard({
                       className={cn(
                         'line-clamp-2 text-caption leading-tight font-semibold',
                         mark === 'crossed' && 'line-through',
+                        // The pictures carry the place's name already: the caption is for screen
+                        // readers only.
+                        display.art(id) && 'sr-only',
                       )}
                     >
                       {name}

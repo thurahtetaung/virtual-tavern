@@ -6,7 +6,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
 
 - **Masquerade's back-room edition** (`packages/private-games/masquerade-originals`, id `masquerade-originals`) reuses `defineMasquerade` with an ids-only pack: Edition 1 `e1-01`…`e1-30`, Edition 2 `e2-01`…`e2-20` (the host picks one or both). Names, art, coaching and question ideas come from the private manifest (`{ back?, editions?: { e1?: { name }, e2?: { name } }, locations: { "e1-01": { name?, art?, emoji?, tip?, questions?: string[] } } }`; location art is landscape 5:3, the back about 20:13, both object-cover); without it, locations show as "Location 1"…"Location 50".
 
-- **UI:** The shared board supplies a fluid desktop location grid and independently scrollable location panel.
+- **UI:** The shared board supplies a fluid desktop location grid and independently scrollable location panel. Its pictures carry each place's name, so tiles show no caption (screen readers still get it).
 
 ## Assets
 
