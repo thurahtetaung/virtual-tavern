@@ -80,6 +80,7 @@ export function EncoreGame({
   }, [setYourMove, tabAlert]);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const wide = useWideScreen();
   const table = (
     <Table
       view={view}
@@ -89,6 +90,7 @@ export function EncoreGame({
       name={youName}
       logName={name}
       showGuide={showGuide}
+      aside={wide && view.phase === 'playing' && inGame ? <Tips /> : null}
     />
   );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
@@ -110,7 +112,7 @@ export function EncoreGame({
         ) : (
           <>
             <StatusLine text={status.text} yourMove={status.yourMove} />
-            {view.phase === 'playing' && inGame && <Tips />}
+            {view.phase === 'playing' && inGame && !wide && <Tips />}
             {view.phase === 'over' && (
               <End
                 view={view}

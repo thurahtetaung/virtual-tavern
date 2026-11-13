@@ -15,7 +15,7 @@ import {
   useWideScreen,
   FoldSummary,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   type HandCard,
   type Strength,
@@ -51,6 +51,8 @@ export function tipsSeen(): boolean {
 }
 
 export interface TableProps {
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
   view: EncoreView;
   room: GameRoomInfo;
   act: Act;
@@ -78,7 +80,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const containing = (shows: [number, number][], i: number) =>
   shows.filter(([a, b]) => a <= i && i <= b);
 
-export function Table({ view, room, act, art, name, logName, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, logName, showGuide, aside }: TableProps) {
   const g = view.game!;
   // The viewer's flip choice, kept past the flip step so the hand can play its half-turn once.
   const [chose, setChose] = useState<{ round: number; flip: boolean } | null>(null);
@@ -103,7 +105,16 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
     </details>
   );
   return (
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+    <div
+      className={cn(
+        'flex flex-col gap-3 lg:grid lg:items-start lg:gap-6',
+        // The flip step takes the whole width on wide screens (both hands side by side); the
+        // rail follows under it.
+        g.stage === 'flip' && view.phase === 'playing'
+          ? 'lg:grid-cols-1'
+          : 'lg:grid-cols-[minmax(0,1fr)_320px]',
+      )}
+    >
       <div
         className={cn(
           'flex min-w-0 flex-col gap-3',
@@ -129,7 +140,16 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
         )}
       </div>
       {shown === null ? (
-        <aside className="flex min-w-0 flex-col gap-3">
+        <aside
+          className={cn(
+            'flex min-w-0 flex-col gap-3',
+            // Under the flip step: the rail's parts side by side, so they stay short.
+            g.stage === 'flip' &&
+              view.phase === 'playing' &&
+              'lg:grid lg:grid-cols-3 lg:items-start',
+          )}
+        >
+          {aside}
           {scores}
           <Log view={view} name={logName ?? name} />
         </aside>
@@ -214,13 +234,16 @@ function Seats({
             <span className="flex items-center gap-0.5 tabular-nums" title="Cards in hand">
               <CardBack art={art} className="h-4 w-3" />
               {p.hand}
+              <span className="text-ink-muted max-sm:sr-only">cards</span>
             </span>
             <span className="tabular-nums text-ink-muted" title="Captured">
               ▢{p.captured}
+              <span className="max-sm:sr-only"> captured</span>
             </span>
             <span className="flex items-center gap-0.5 tabular-nums" title="Chips">
               <ChipIcon art={art} />
               {p.chips}
+              <span className="text-ink-muted max-sm:sr-only">chips</span>
             </span>
             {!g.twoPlayer &&
               (p.marker ? (
@@ -275,6 +298,7 @@ function FlipStep({
   const hand = g.hand;
   const me = g.players.find((p) => p.id === room.you);
   const open = g.players.filter((p) => !p.done);
+  const wide = useWideScreen();
   const choose = (flip: boolean) => void act({ type: 'flip', flip }, { anchor: 'en-flip' });
   return (
     <section className="flex flex-col gap-3" aria-label="Keep or flip">
@@ -292,8 +316,8 @@ function FlipStep({
         />
       </div>
       {hand && me ? (
-        // Side by side on tablets; one above the other on a wide screen, so each whole hand shows.
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        // Side by side from tablets up; on wide screens each hand wraps into two rows of bigger cards.
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           {[false, true].map((flip) => {
             const shown = flip ? flipHand(hand) : hand;
             const chosen = g.myFlip === flip;
@@ -313,6 +337,7 @@ function FlipStep({
                 <Hand
                   cards={shown}
                   art={art}
+                  columns={wide && shown.length > 8 ? Math.ceil(shown.length / 2) : undefined}
                   label={flip ? 'Hand turned round' : 'Hand as dealt'}
                 />
                 <Button
@@ -400,6 +425,7 @@ function Play({
   const table = g.table?.cards ?? [];
   const turnKey = `${g.round}:${view.log.at(-1)?.id ?? 0}:${g.current}`;
   const [recruiting, setRecruiting] = useState<Recruiting | null>(null);
+  const wide = useWideScreen();
   const [picking, setPicking] = useState<{ double: boolean } | null>(null);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -594,6 +620,13 @@ function Play({
           </div>
           <Hand
             cards={shownHand}
+            // Wide screens: two rows of bigger cards rather than one row of small ones (a recruit
+            // keeps one row with its gaps).
+            columns={
+              wide && !recruiting && shownHand.length > 8
+                ? Math.ceil(shownHand.length / 2)
+                : undefined
+            }
             turning={turning}
             art={art}
             selected={choosingShow ? sel : null}
@@ -732,7 +765,7 @@ function Play({
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className={cn('self-start text-xs text-ink-muted underline', TAP_BAND)}
+          className={cn('self-start py-1 text-xs text-ink-muted underline', TAP_BAND)}
           onClick={() => showGuide('cards')}
         >
           What beats what?
