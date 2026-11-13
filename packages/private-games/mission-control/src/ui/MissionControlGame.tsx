@@ -206,7 +206,7 @@ function Game({
         {/* Phones: the mission's rules fold away above the hand; the Mission tab and wide
             screens show them in full. */}
         <details className="group rounded-xl bg-panel ring-1 ring-line lg:hidden">
-          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             📜 Mission rules
             <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
               ▸
