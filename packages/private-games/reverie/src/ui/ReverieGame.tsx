@@ -159,7 +159,7 @@ export function ReverieGame({
                     aria-pressed={view.settings.targetScore === t}
                     onClick={() => void act({ type: 'update-settings', targetScore: t })}
                     className={cn(
-                      'rounded-lg px-4 py-2 font-semibold ring-1 transition',
+                      'min-h-11 rounded-lg px-4 py-2 font-semibold ring-1 transition',
                       view.settings.targetScore === t
                         ? 'bg-accent-soft ring-2 ring-accent'
                         : 'ring-line hover:bg-sunk',
@@ -368,7 +368,7 @@ function Scoreboard({ view }: { view: ReverieView }) {
               )}
               <b className="tabular-nums">{s.score}</b>
               {gained !== undefined && gained > 0 && (
-                <span className="text-xs font-bold text-emerald-600">+{gained}</span>
+                <span className="text-xs font-bold text-success-ink">+{gained}</span>
               )}
             </li>
           );
@@ -554,6 +554,7 @@ function Play({
   // Phones: the scores, the awards and the last turn one at a time, so the end fits the screen.
   const phoneEnd = view.phase === 'over' && !wide;
   const endTitle = winnersTitle(view.seats, me?.id) || 'Game over';
+  const storyCard = turn?.table.find((t) => t.isStory) ?? null;
   const seats = (
     <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
   );
@@ -636,7 +637,7 @@ function Play({
                   </span>
                   <NameDot name={s.name} className="order-first" />
                 </span>
-                <b className={cn('shrink-0', r.points > 0 ? 'text-emerald-600' : 'text-ink-muted')}>
+                <b className={cn('shrink-0', r.points > 0 ? 'text-success-ink' : 'text-ink-muted')}>
                   +{r.points}
                 </b>
               </li>
@@ -686,7 +687,25 @@ function Play({
             <EndHero
               title={endTitle}
               eyebrow={endTitle === 'Game over' ? null : undefined}
-              emblem="🏆"
+              // The last story card and its clue: the night's final picture.
+              emblem={storyCard ? null : '🏆'}
+              art={
+                storyCard && (
+                  <figure className="flex w-28 flex-col items-center gap-1.5 lg:w-40">
+                    <Card
+                      card={storyCard.card}
+                      eager
+                      onClick={() => setViewing({ card: storyCard.card, from: 'table' })}
+                      className="shadow-vt-2 ring-4 ring-success"
+                    />
+                    {turn?.clue && (
+                      <figcaption className="font-serif text-small text-ink-2 italic lg:text-body">
+                        “{turn.clue}”
+                      </figcaption>
+                    )}
+                  </figure>
+                )
+              }
               superlatives={wide ? room.superlatives : undefined}
               actions={
                 room.isHost ? (
@@ -852,9 +871,10 @@ function Play({
                       handNeeded
                         ? // While cards are being chosen the hand is the screen's art: a grid that
                           // takes the free height (two across a phone, scrolling down if it must;
-                          // four across a wider screen), not a strip under an empty table.
+                          // three across a tablet; the whole hand in one row on a wide screen),
+                          // not a strip under an empty table.
                           cn(
-                            'mx-auto grid max-w-[48rem] grid-cols-2 gap-3 px-1 py-1.5 sm:grid-cols-3 lg:grid-cols-4',
+                            'mx-auto grid max-w-[48rem] grid-cols-2 gap-3 px-1 py-1.5 sm:grid-cols-3 lg:max-w-none lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,13rem)] lg:justify-center',
                             'max-sm:overflow-y-auto',
                             // What else shares the phone's height: the clue form once the
                             // storyteller has picked, the table's face-down cards while others pick.
