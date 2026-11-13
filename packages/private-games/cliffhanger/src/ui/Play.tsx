@@ -530,7 +530,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
           </span>
           <button
             type="button"
-            className="font-semibold underline"
+            className="-my-2 min-h-11 min-w-11 px-2 font-semibold underline"
             aria-label="Dismiss tip"
             onClick={dismissTip}
           >
