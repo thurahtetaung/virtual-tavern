@@ -171,20 +171,24 @@ export function RoleReveal({
         what="my role"
         slide
         cover={
-          // vt-palette: the face-down card back, dark in both themes
-          <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl bg-[#2A2420] text-[#F1E9DC] shadow-vt-2">
-            {phone && (
-              <span aria-hidden className="text-3xl">
-                ⬆️
-              </span>
-            )}
-            <span className="font-semibold">
-              {phone
-                ? 'Slide up, or hold, to see your role'
-                : 'Hold the card (or press Show) to see your role'}
+          // The card's back: the theme's card surface with the accent band, and both sides'
+          // emblems, since it could be either.
+          <span className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border-t-4 border-accent bg-card text-ink shadow-vt-3 ring-1 ring-line">
+            <span aria-hidden className="flex items-center gap-3">
+              <Emblem role="servant" className="size-16" />
+              <span className="font-display text-title font-bold text-ink-muted">?</span>
+              <Emblem role="minion" className="size-16" />
             </span>
-            {/* vt-contrast: on the dark cover in both themes */}
-            <span className="text-caption opacity-85">Keep it hidden from the others</span>
+            <span className="font-semibold">
+              {phone ? (
+                <>
+                  <span aria-hidden>⬆️ </span>Slide up, or hold, to see your role
+                </>
+              ) : (
+                'Hold the card (or press Show) to see your role'
+              )}
+            </span>
+            <span className="text-caption text-ink-2">Keep it hidden from the others</span>
           </span>
         }
       >

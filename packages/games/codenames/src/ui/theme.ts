@@ -24,16 +24,23 @@ export const TEAM_BUTTON = { red: 'team-a', blue: 'team-b' } as const satisfies 
 
 /**
  * The assassin is near-black with cream text in both themes (a card colour that never changes),
- * framed by the strong line so it doesn't sink into a dark page.
+ * framed in the danger colour so it never reads as a bystander, even on a dark page.
  */
 // vt-palette: the assassin card
-const ASSASSIN = 'bg-[#1C1816] text-[#F3ECE2] ring-1 ring-line-strong';
+const ASSASSIN = 'bg-[#1C1816] text-[#F3ECE2] ring-2 ring-danger';
+
+/**
+ * Bystanders are the board's neutral tan: the sunk beige in light mode, a warm tan in dark mode
+ * (the dark sunk surface is as dark as the assassin).
+ */
+// vt-palette: the bystander card
+const BYSTANDER = 'bg-sunk dark:bg-[#4A3F33] dark:text-[#EFE6D8]';
 
 /** Revealed card faces. */
 export const REVEALED: Record<CardKind, string> = {
   red: 'bg-team-a text-on-fill ring-1 ring-team-a',
   blue: 'bg-team-b text-on-fill ring-1 ring-team-b',
-  bystander: 'bg-sunk text-ink-2 ring-1 ring-line-strong',
+  bystander: `${BYSTANDER} text-ink-2 ring-1 ring-line-strong`,
   assassin: ASSASSIN,
 };
 
@@ -41,12 +48,14 @@ export const REVEALED: Record<CardKind, string> = {
 export const KEY_TINT: Record<CardKind, string> = {
   red: 'bg-team-a-soft text-team-a-ink ring-2 ring-team-a',
   blue: 'bg-team-b-soft text-team-b-ink ring-2 ring-team-b',
-  bystander: 'bg-sunk text-ink ring-1 ring-line-strong',
+  bystander: `${BYSTANDER} text-ink ring-1 ring-line-strong`,
   assassin: ASSASSIN,
 };
 
-/** A face-down card nobody's key colours. */
-export const FACE_DOWN = 'bg-card text-ink ring-1 ring-line shadow-vt-1';
+/** A face-down card nobody's key colours: a card lit from above, with its printed edge. */
+export const FACE_DOWN =
+  // Lit from above: in the dark the card's top catches the lamp (a lighter top, a brighter edge).
+  'bg-gradient-to-b from-card to-panel text-ink ring-1 ring-line shadow-vt-1-edge dark:from-line-strong/70 dark:via-card dark:to-card dark:shadow-[var(--vt-shadow-1),inset_0_1px_0_rgb(255_240_220/0.14)]';
 
 export const KIND_LABEL: Record<CardKind, string> = {
   red: 'Red agent',

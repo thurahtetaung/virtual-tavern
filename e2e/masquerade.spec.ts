@@ -1,6 +1,12 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { YOUR_TURN, readCards, readyUp, votes } from './masquerade-play.ts';
+import {
+  YOUR_TURN,
+  expectBoardRowsOnDesktop,
+  readCards,
+  readyUp,
+  votes,
+} from './masquerade-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -50,6 +56,8 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
     await expect(p.getByText(/^(🎭 Spy|📍 Local)$/)).toHaveCount(0);
     await expect(p.getByText('Peek at your card. Locals: find the spy')).toBeVisible();
   }
+  // On a laptop the board keeps three rows of places in view, ideas or not.
+  await expectBoardRowsOnDesktop(spy);
   // Only the locals see the location: not on the spy's card, nor in the spy's ideas.
   await spy.getByRole('button', { name: 'Show your card' }).click();
   await expect(spy.getByTestId('my-card')).not.toContainText(location);

@@ -256,8 +256,22 @@ const base: GameGuide = {
   ],
 };
 
+/** The manifest's stage pictures the guide's steps show (each optional). */
+export interface GuideArt {
+  easel?: string;
+  lot?: string;
+  bank?: string;
+}
+
+/** Which step shows which picture: drawing, the auctions, and the bank. */
+const STEP_ART: Record<number, keyof GuideArt> = { 0: 'easel', 3: 'lot', 5: 'bank' };
+
 /** The guide in the given names. */
-export function makeGuide(names: Names = PLACEHOLDER_NAMES, footer?: GuideFooter): GameGuide {
+export function makeGuide(
+  names: Names = PLACEHOLDER_NAMES,
+  footer?: GuideFooter,
+  art: GuideArt = {},
+): GameGuide {
   const room = (raw: unknown): GuideContext | undefined => {
     const v = raw as GoingOnceView;
     if (!v?.settings) return undefined;
@@ -266,7 +280,19 @@ export function makeGuide(names: Names = PLACEHOLDER_NAMES, footer?: GuideFooter
       summary: `${seated} players · ${v.settings.drawSeconds} s to draw · ${PACE_LABEL[v.settings.pace]} pace${v.settings.sound === 'off' ? ' · sound off' : ''}`,
     };
   };
-  return { ...fill(base, names), ...(footer && { footer }), room };
+  const named = fill(base, names);
+  const steps = named.steps?.map((step, i) => {
+    const pic = STEP_ART[i] && art[STEP_ART[i]];
+    return pic ? { ...step, art: pic } : step;
+  });
+  return { ...named, ...(steps && { steps }), ...(footer && { footer }), room };
+}
+
+/** A UI picture's URL from the manifest's `ui` map (a plain path inside the game's folder). */
+function uiArt(m: Manifest | null, key: string): string | undefined {
+  const path = m?.ui?.[key];
+  if (typeof path !== 'string' || !/^[\w-][\w./-]*$/.test(path) || path.includes('..')) return;
+  return `/api/backroom/assets/going-once/${path}`;
 }
 
 /** The guide without the manifest. */
@@ -275,5 +301,10 @@ export const guide: GameGuide = makeGuide();
 /** The guide in the manifest's names, with its credit. */
 export function nameGuide(manifest: unknown): GameGuide {
   const m = (manifest && typeof manifest === 'object' ? manifest : null) as Manifest | null;
-  return makeGuide(namesOf(m), footerOf(m));
+  const art: GuideArt = {};
+  for (const key of ['easel', 'lot', 'bank'] as const) {
+    const url = uiArt(m, key);
+    if (url) art[key] = url;
+  }
+  return makeGuide(namesOf(m), footerOf(m), art);
 }

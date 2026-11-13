@@ -182,16 +182,19 @@ function base(art: GuideArt, n: Names): GameGuide {
         title: 'Pick one',
         text: 'Choose one card from your hand and lock it in. Nobody sees it until everyone has picked; you can change your mind until then.',
         icon: '🍣',
+        ...(art.types?.nigiri && { art: art.types.nigiri }),
       },
       {
         title: 'Reveal together',
         text: 'Every pick turns over at once and goes in front of its owner. Some specials act now, in their card number order.',
         icon: '🎴',
+        ...(art.back && { art: art.back }),
       },
       {
         title: 'Pass the rest',
         text: 'Your hand goes to the next player and you get your neighbour’s. Watch what they collect: you may want to take a card they need.',
         icon: '🔄',
+        ...(art.types?.maki && { art: art.types.maki }),
       },
       {
         title: 'Score the round',
@@ -202,6 +205,7 @@ function base(art: GuideArt, n: Names): GameGuide {
         title: 'Three rounds',
         text: 'Fresh hands each round. After round 3 the desserts score, and the most points wins. A tie goes to most desserts.',
         icon: '🏆',
+        ...(art.types?.pudding && { art: art.types.pudding }),
       },
     ],
     stepsDone: 'Tap 📖 Rules any time; the menu strip shows what each dish does.',

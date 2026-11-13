@@ -1,4 +1,4 @@
-import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, listNames, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
@@ -11,6 +11,8 @@ import {
   cn,
   useConfirm,
   useSecondsLeft,
+  EndHero,
+  EndLayout,
   EndTabs,
   useWideScreen,
 } from '@vt/ui';
@@ -47,7 +49,9 @@ export function Question({ prompt, small = false }: { prompt: string; small?: bo
       data-testid="question"
       className={cn(
         'text-center leading-snug font-bold text-balance break-words',
-        small ? 'text-lg sm:text-xl' : 'text-2xl sm:text-3xl lg:text-4xl',
+        small
+          ? 'font-display text-xl sm:text-2xl lg:text-3xl'
+          : 'font-display text-3xl sm:text-4xl lg:py-4 lg:text-5xl',
       )}
     >
       {prompt}
@@ -137,7 +141,7 @@ function AnswerTicks({
       {round.players.map((id) => (
         <li
           key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line"
+          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm shadow-vt-1 ring-1 ring-line lg:px-3.5 lg:py-1.5 lg:text-base"
         >
           <PlayerTag name={nameOf(view, id)} you={id === view.me?.id} />
           {view.pinkCow === id && <PinkMark names={names} />}
@@ -217,9 +221,19 @@ function Answering(props: Props) {
     void act({ type: 'skip' }, { anchor: ANSWER_ANCHOR });
   };
   return (
-    <div className="space-y-4">
+    // Wide screens: one block the width of the question card, so the form reads with it.
+    <div className="space-y-4 lg:mx-auto lg:w-full lg:max-w-3xl">
       {dialog}
-      <Question prompt={round.prompt} />
+      {/* The question as the round's card, the herd waiting under it. */}
+      <div className="rounded-2xl bg-card px-4 py-3 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12 lg:shadow-[var(--vt-shadow-2),var(--vt-edge)]">
+        <p
+          aria-hidden
+          className="pb-1 text-center text-3xl leading-none sm:pb-2 sm:text-5xl lg:text-6xl"
+        >
+          🐄🐄🐄
+        </p>
+        <Question prompt={round.prompt} />
+      </div>
       {playing ? (
         <AnswerForm key={`${round.number}:${round.questionId}`} round={round} act={act} />
       ) : null}
@@ -279,19 +293,42 @@ function GroupRow({
       data-label={g.label}
       className={cn(
         'sp-rise rounded-xl px-3 py-2 ring-1',
-        herd ? 'bg-success-soft text-success-ink ring-success-line' : 'bg-card ring-line',
+        // The herd is the big card across the board; the strays are smaller cards beside it.
+        herd
+          ? 'bg-success-soft px-4 py-4 text-success-ink shadow-vt-2 ring-success-line lg:col-span-2 lg:px-8 lg:py-10'
+          : 'bg-card shadow-vt-1 ring-line',
         mine && !herd && 'ring-2 ring-accent',
       )}
     >
-      <p className={cn('font-bold', herd ? 'text-2xl lg:text-4xl' : 'text-lg lg:text-2xl')}>
-        {herd && '🐄 '}
-        {g.label} <span className="font-normal opacity-70">×{g.members.length}</span>
+      <p
+        className={cn(
+          'font-bold',
+          // The herd's answer in the display face, big on phones too; strays in it, smaller.
+          'font-display',
+          herd
+            ? 'flex flex-wrap items-center gap-x-3 text-[2.125rem] leading-tight lg:gap-5 lg:text-5xl'
+            : 'text-xl lg:text-2xl',
+        )}
+      >
+        {herd && (
+          <span aria-hidden className="text-6xl leading-none lg:text-7xl">
+            🐄
+          </span>
+        )}
+        <span className="whitespace-nowrap">
+          {g.label} <span className="font-normal opacity-70">×{g.members.length}</span>
+        </span>
         {alone && (
           <span className="ml-1 text-base font-normal" title="On its own">
             🐺
           </span>
         )}
-        {mine && <span className="ml-2 text-sm font-normal">(you)</span>}
+        {/* The herd's member line already marks you, so its big row keeps to the answer. */}
+        {mine && !herd && (
+          <span className="ml-2 self-center whitespace-nowrap font-sans text-sm font-normal">
+            (you)
+          </span>
+        )}
       </p>
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
         {g.members.map((id) => (
@@ -301,7 +338,7 @@ function GroupRow({
               <span className="opacity-70">“{g.answers[id]}”</span>
             )}
             {herd && (
-              <span className="sp-fly font-semibold" aria-label={`+1 ${names.cow}`}>
+              <span className="sp-fly font-semibold text-ink" aria-label={`+1 ${names.cow}`}>
                 +1 🐄
               </span>
             )}
@@ -475,70 +512,98 @@ export function Stage(props: Props) {
 export function GameOver(props: Props) {
   const { view, room, act, names } = props;
   const wide = useWideScreen();
+  const won = view.endReason === 'won' && view.winners.length > 0;
+  const title = !won
+    ? 'Game over'
+    : view.winners.length === 1 && view.winners[0] === view.me?.id
+      ? 'You win!'
+      : `${listNames(view.winners.map((id) => who(view, id)))} ${view.winners.length > 1 ? 'win' : 'wins'}!`;
   return (
     <div className="space-y-4">
-      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
-        {view.endReason === 'too-few' && (
-          <p className="text-center font-semibold">
-            Too few players left: the game ended with no winner.
-          </p>
-        )}
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={view.scores.map((s) => ({
-                    id: s.id,
-                    name: s.left ? `${s.name} (left)` : s.name,
-                    score: s.cows,
-                    ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
-                  }))}
-                  you={view.me?.id}
-                  scoreLabel={(n) => cowCount(names, n)}
-                />
-              ),
-            },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            !wide &&
-              !!view.round?.result && {
-                id: 'question',
-                label: '❓ Last question',
-                content: <Reveal {...props} final />,
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={won ? undefined : null}
+            // A win shows the winner's herd: their cows, counted big.
+            emblem={
+              won ? (
+                <span className="block font-display font-black tabular-nums">
+                  <span className="text-6xl leading-none lg:text-7xl" aria-hidden>
+                    🐄
+                  </span>
+                  <span className="ml-2 text-[3.5rem] leading-none lg:text-[4.5rem]">
+                    {view.scores.find((s) => s.id === view.winners[0])?.cows ?? 0}
+                  </span>
+                </span>
+              ) : (
+                '🐄'
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              room.isHost ? (
+                <StickyBar>
+                  <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+                    <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                </StickyBar>
+              ) : (
+                <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
+          >
+            {view.endReason === 'too-few' && (
+              <p className="font-semibold">Too few players left: the game ended with no winner.</p>
+            )}
+          </EndHero>
+        }
+      >
+        <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={view.scores.map((s) => ({
+                      id: s.id,
+                      name: s.left ? `${s.name} (left)` : s.name,
+                      score: s.cows,
+                      ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
+                    }))}
+                    you={view.me?.id}
+                    scoreLabel={(n) => cowCount(names, n)}
+                  />
+                ),
               },
-          ]}
-        />
-        {room.isHost ? (
-          <StickyBar>
-            <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-              <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                Play again
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </div>
-          </StickyBar>
-        ) : (
-          <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
-        )}
-      </Panel>
-      {wide && view.round?.result && (
-        <Panel>
-          <h3 className="mb-2 font-bold">The last question</h3>
-          <Reveal {...props} final />
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+            ]}
+          />
         </Panel>
-      )}
+        {/* The last question's herd, under the standings on every screen. */}
+        {view.round?.result && (
+          <Panel>
+            <h3 className="mb-2 font-bold">The last question</h3>
+            <Reveal {...props} final />
+          </Panel>
+        )}
+      </EndLayout>
     </div>
   );
 }

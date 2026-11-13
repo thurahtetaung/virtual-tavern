@@ -11,6 +11,8 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** your own marks only; others' as locked flags, then counts, and who marked a card only once it is shown; unshown marks are never revealed.
   - **Phones:** Table and Stars on the shared `TabBar`; Lock / Unlock and the slate's refusal sit in the fixed `StickyBar`. First-time tips are a closed fold on phones.
 
+- **UI:** The card grid is sized to the free height so Lock stays visible: on wide screens it grows to fill it (about 150 × 210 px cards at 1440 × 900): the word, the round, the latest moment and first-time tips sit at the top of the rail, which scrolls on its own, and on narrower screens a done round bounds it further so the results and Next round fit below it. On phones the grid is five cards across the width, and while the Scouts show it sits in the middle of the free height. Marked cards share one position-and-mark corner badge; a scored card's markers sit in a strip along its foot (the zoom sits at the strip's end); the marked count is in the display numerals; retain the explicit Zoom action for keyboard and touch access.
+
 ## Assets
 
-Starlight shows the same cards from Reverie's folder and needs no upload of its own; its printed words go in as a word list in `/tavern-keeper` tagged only for Starlight, one card per entry, `Top / Bottom` for a card with a second word printed upside down (each side is played as a word of its own).
+Starlight shows the same cards from Reverie's folder and needs no upload of its own; its printed words go in as a word list in `/tavern-keeper` tagged only for Starlight, one card per entry, `Top / Bottom` for a card with a second word printed upside down (each side is played as a word of its own). The guide's first two steps show Reverie's `cards/003.jpg` and `cards/004.jpg` at those fixed paths (the emoji while they can't load), and the lobby's pitch shows `components.firstScout`.

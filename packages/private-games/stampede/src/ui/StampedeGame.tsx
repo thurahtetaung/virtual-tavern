@@ -205,6 +205,7 @@ export function StampedeGame({
   }
 
   const props = { view, room, act, names, online };
+  const answering = view.round?.stage === 'answer' && view.round.myAnswer === null;
   return (
     <div className="space-y-3">
       <StampedeStyles />
@@ -229,16 +230,30 @@ export function StampedeGame({
               <span className="sp-moo">🐮</span> {moo} mooed at you! Hurry up!
             </p>
           )}
-          {view.phase === 'playing' && <Tips names={names} open={wide} />}
+          {/* Wide screens keep the tips in the rail, beside the question. */}
+          {view.phase === 'playing' && !wide && <Tips names={names} open={false} />}
           {view.phase === 'over' ? (
             <GameOver {...props} />
           ) : (
-            <Panel>
+            <Panel
+              // Wide screens: the question and the herd sit in the middle of the free height;
+              // phones centre the question above the answer bar while you answer.
+              className={cn(
+                // A pool of lamp light over the question, the pasture's evening glow.
+                'bg-[radial-gradient(70%_50%_at_50%_0%,var(--vt-lamp),transparent_75%)] lg:flex lg:min-h-[calc(100dvh-14rem)] lg:flex-col lg:justify-center',
+                answering &&
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-31.5rem)] max-sm:flex-col max-sm:justify-center',
+                // Phones: the reveal, the herd its centre, sits in the middle of the free height.
+                (view.round?.stage === 'reveal' || view.round?.stage === 'pick') &&
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-19.5rem)] max-sm:flex-col max-sm:justify-center',
+              )}
+            >
               <Stage {...props} />
             </Panel>
           )}
         </div>
         <aside className={cn('space-y-3', tab === 'play' && 'hidden lg:block')}>
+          {view.phase === 'playing' && wide && <Tips names={names} open />}
           <Panel
             className={cn('space-y-3', tab === 'rounds' && 'max-lg:hidden')}
             {...(!wide && tab === 'herd' && tabPanelProps(TABS_ID, 'herd'))}

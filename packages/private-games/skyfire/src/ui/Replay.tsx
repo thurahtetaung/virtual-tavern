@@ -1,4 +1,4 @@
-import { Button, cn } from '@vt/ui';
+import { Button, cn, TAP_BAND } from '@vt/ui';
 import { useState } from 'react';
 import { SUIT_SYMBOL, type Suit, cardName } from '../logic/cards.ts';
 import { CLUE_TOKENS, FUSES, type SkyfireView, type TurnRecord } from '../logic/types.ts';
@@ -88,7 +88,7 @@ export function Replay({
         {g.order.map((id) => (
           <li
             key={id}
-            className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 text-xs sm:grid-cols-[7rem_minmax(0,1fr)]"
+            className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 text-xs sm:grid-cols-[7rem_minmax(0,1fr)]"
           >
             <span className={cn('truncate', turn?.by === id && 'font-semibold')}>
               {turn?.by === id && '▸ '}
@@ -96,7 +96,8 @@ export function Replay({
             </span>
             <span
               className="grid gap-1"
-              style={{ gridTemplateColumns: 'repeat(5, minmax(0, 2.5rem))' }}
+              // 44 px wide at least: every card is a tap target.
+              style={{ gridTemplateColumns: 'repeat(5, minmax(0, 2.75rem))' }}
             >
               {(hands[id] ?? []).map((cid) => {
                 const c = r.cards[cid];
@@ -108,6 +109,8 @@ export function Replay({
                     type="button"
                     onClick={() => setDetail({ kind: 'card', card: c, where: 'replay' })}
                     aria-label={`${name(id)}: ${cardName(c)}`}
+                    // A narrow phone can still squeeze a card under 44 px: the band keeps the target.
+                    className={TAP_BAND}
                   >
                     <CardFace
                       card={c}
@@ -162,7 +165,7 @@ export function Replay({
           max={total}
           value={at}
           onChange={(e) => setStep(Number(e.target.value))}
-          className="min-w-0 flex-1 accent-accent"
+          className="h-6 min-w-0 flex-1 cursor-pointer accent-accent pointer-coarse:h-11"
           aria-label="Turn"
         />
         <Button

@@ -61,7 +61,12 @@ export function RoleCard({
   const r = view.role;
   const { open, setOpen, setHeld, flat, shown } = reveal;
   if (!r) return null;
-  const size = cn('relative mx-auto block', big ? 'w-44 sm:w-52' : 'w-32 sm:w-40');
+  // The big card grows with a tall desktop window (the deal's panel has the room), never past
+  // what keeps the quick reference and Ready on screen.
+  const size = cn(
+    'relative mx-auto block',
+    big ? 'w-44 sm:w-52 lg:w-[clamp(13rem,calc((100dvh-40rem)*0.75),22rem)]' : 'w-32 sm:w-40',
+  );
   // The face is only in the page while the card is up, so a face-down card carries no role name,
   // not even for a screen reader.
   return (
@@ -83,7 +88,8 @@ export function RoleCard({
               className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900"
             />
             <RoleBack c={c} className="relative" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[0.65rem] font-bold text-white drop-shadow">
+            {/* On a dark pill, so it reads over the envelope and the card's light art alike. */}
+            <span className="pointer-events-none absolute inset-x-1 bottom-2 rounded-full bg-black/75 px-2 py-1 text-center text-xs leading-tight font-bold text-white shadow-vt-1">
               ⬆ Slide up or hold
             </span>
           </span>
@@ -227,7 +233,7 @@ export function MeTab({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
-            className="text-sm font-semibold text-accent-text underline"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline"
             onClick={showGuide}
           >
             Rules →
@@ -237,7 +243,7 @@ export function MeTab({
             role="switch"
             aria-checked={moments}
             onClick={() => setMoments(!moments)}
-            className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
+            className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
           >
             Big moments: {moments ? 'on' : 'off'}
           </button>
@@ -247,7 +253,7 @@ export function MeTab({
               role="switch"
               aria-checked={!plain}
               onClick={() => setPlain(!plain)}
-              className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
+              className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
             >
               Themed lettering: {plain ? 'off' : 'on'}
             </button>
@@ -271,7 +277,9 @@ export function CreditBlock({ c }: { c: Content }) {
       <p>{cr.text}</p>
       {cr.changes.length > 0 && (
         <details className="mt-1">
-          <summary className="cursor-pointer font-semibold">What we changed</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
+            What we changed
+          </summary>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             {cr.changes.map((x) => (
               <li key={x}>{x}</li>

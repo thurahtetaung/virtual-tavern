@@ -250,7 +250,7 @@ test('one human and four bots play a whole Round Table game, off the record', as
   );
   await ana.getByRole('button', { name: 'Start game' }).click();
   const names = ['Ana', 'Ben', 'Cy', 'Dee', 'Eli'];
-  const over = ana.getByText(/^(🛡️ Good|🗡️ Evil) wins$/);
+  const over = ana.getByTestId('winner').filter({ hasText: /^(Good|Evil) wins$/ });
   await expect
     .poll(
       async () => {
@@ -381,7 +381,7 @@ test('a normal room opened in two tabs of one browser is still one player', asyn
   // A crafted seat fragment on a normal room is ignored and wiped.
   const second = await context.newPage();
   await second.goto(`${first.url()}#seat=${'A'.repeat(43)}&as=Mallory`);
-  await expect(second.getByRole('heading', { name: /Codenames/ })).toBeVisible();
+  await expect(second.getByRole('heading', { level: 1, name: /Codenames/ })).toBeVisible();
   expect(second.url()).not.toContain('#');
   await second.getByRole('button', { name: /^Players/ }).click();
   const drawer = second.getByRole('dialog', { name: 'Players' });

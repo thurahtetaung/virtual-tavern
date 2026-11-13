@@ -12,11 +12,12 @@ import type { Art } from './assets.ts';
 export const SUIT_STYLE: Record<Suit, { bg: string; fg: string }> = {
   red: { bg: '#cf3b36', fg: '#ffffff' },
   yellow: { bg: '#efc23a', fg: '#2b2105' },
-  green: { bg: '#3c9248', fg: '#ffffff' },
+  // One step darker than the printed green, so the white number and symbol clear 4.5:1.
+  green: { bg: '#2f7d3b', fg: '#ffffff' },
   blue: { bg: '#2d6cc9', fg: '#ffffff' },
   white: { bg: '#f3efe6', fg: '#2a2620' },
   multi: {
-    bg: 'linear-gradient(135deg, #cf3b36 0%, #efc23a 30%, #3c9248 55%, #2d6cc9 80%, #f3efe6 100%)',
+    bg: 'linear-gradient(135deg, #cf3b36 0%, #efc23a 30%, #2f7d3b 55%, #2d6cc9 80%, #f3efe6 100%)',
     fg: '#ffffff',
   },
   black: { bg: '#23211e', fg: '#f3efe6' },
@@ -27,22 +28,22 @@ export type CardSize = 'hand' | 'row' | 'stack' | 'mini';
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
   row: 'aspect-[5/7] w-full',
-  stack: 'aspect-[5/7] w-8 sm:w-14',
+  stack: 'aspect-[5/7] w-10 sm:w-14 lg:w-24',
   mini: 'aspect-[5/7] w-6',
 };
 
 const DIGIT: Record<CardSize, string> = {
   hand: 'text-[clamp(1.25rem,7vw,2.25rem)]',
   row: 'text-[clamp(1rem,5.5vw,1.9rem)]',
-  stack: 'text-xl sm:text-2xl',
-  mini: 'text-[11px]',
+  stack: 'text-xl sm:text-2xl lg:text-3xl',
+  mini: 'text-xs',
 };
 
 const SYMBOL: Record<CardSize, string> = {
   hand: 'text-[clamp(.7rem,3.4vw,1.05rem)]',
   row: 'text-[clamp(.6rem,2.8vw,.9rem)]',
-  stack: 'text-[10px] sm:text-xs',
-  mini: 'text-[7px]',
+  stack: 'text-xs',
+  mini: 'text-xs',
 };
 
 export const suitLabel = (suit: Suit) => `${SUIT_NAME[suit]} ${SUIT_SYMBOL[suit]}`;
@@ -88,12 +89,12 @@ export const CardFace = memo(function CardFace({
             aria-hidden
             className={cn(
               'absolute top-0 left-0 rounded-br-md px-[12%] leading-tight font-black tabular-nums shadow-sm',
-              size === 'mini' ? 'text-[9px]' : 'text-sm sm:text-base',
+              size === 'mini' ? 'text-xs' : 'text-sm sm:text-base',
             )}
             style={{ background: s.bg, color: s.fg, ...textShadow(card.suit) }}
           >
             {card.rank}
-            <span className="ml-0.5 text-[.7em]">{SUIT_SYMBOL[card.suit]}</span>
+            <span className="ml-0.5 text-[max(.75em,12px)]">{SUIT_SYMBOL[card.suit]}</span>
           </span>
         )}
       </span>
@@ -234,10 +235,7 @@ export function Marks({
   const ranks = poss ? [...new Set(poss.map((p) => p.rank))].sort() : null;
   return (
     <span
-      className={cn(
-        'flex min-h-4 flex-col items-center gap-px text-[10px] leading-tight sm:text-xs',
-        className,
-      )}
+      className={cn('flex min-h-4 flex-col items-center gap-px text-xs leading-tight', className)}
       aria-hidden
     >
       {yes && (

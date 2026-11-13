@@ -1,15 +1,19 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   NameDot,
   Panel,
   PlayerTag,
+  ProtectedImage,
   RefusalSlot,
-  StickyBar,
-  cn,
-  LobbySettings,
+  SeatToggle,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
@@ -27,6 +31,7 @@ import {
   maxPlayersOf,
   type RoleId,
 } from '../logic/types.ts';
+import { guide } from '../logic/guide.ts';
 import type { Content } from './assets.ts';
 import type { Status } from './status.ts';
 import { settingsSummary } from './summary.ts';
@@ -62,10 +67,10 @@ function Choice({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
+        'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
           ? 'bg-accent text-accent-fg ring-accent'
-          : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:opacity-60',
+          : 'bg-card text-ink-2 ring-line-strong hover:bg-panel disabled:cursor-default disabled:hover:bg-card',
       )}
     >
       {children}
@@ -126,7 +131,288 @@ export function Lobby({
   const max = maxPlayersOf(s);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
+    <LobbyLayout
+      className="lg:gap-y-3"
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Inquest'}
+          emblem="🔎"
+          art={
+            content.roleBack && (
+              <ProtectedImage
+                src={content.roleBack}
+                alt=""
+                className="aspect-[429/699] w-full -rotate-6 rounded-lg object-cover shadow-vt-2"
+              />
+            )
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={host}
+            summary={settingsSummary(s, content.roleName)}
+            className="space-y-3"
+          >
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Who is the Forensic Scientist?</h4>
+              <div className="flex flex-wrap gap-2">
+                {FS_MODES.map((m) => (
+                  <Choice
+                    key={m.id}
+                    on={s.fsMode === m.id}
+                    disabled={!host}
+                    onClick={() => set({ fsMode: m.id })}
+                  >
+                    {m.label}
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                {FS_MODES.find((m) => m.id === s.fsMode)!.hint}{' '}
+                {seated.some((x) => x.volunteer)
+                  ? `Volunteers: ${seated
+                      .filter((x) => x.volunteer)
+                      .map((x) => x.name)
+                      .join(', ')}.`
+                  : 'Nobody has volunteered yet.'}
+              </p>
+              {(s.fsMode === 'host' || s.fsMode === 'host-volunteers') && host && (
+                <div className="flex flex-wrap gap-2" aria-label="Pick the Forensic Scientist">
+                  {pickable.map((p) => (
+                    <Choice key={p.id} on={s.fsPick === p.id} onClick={() => set({ fsPick: p.id })}>
+                      <span className="flex min-w-0 items-center gap-1">
+                        <span className="truncate">{p.name}</span>
+                        <NameDot name={p.name} className="order-first" />
+                      </span>
+                    </Choice>
+                  ))}
+                  {!pickable.length && (
+                    <span className="text-sm text-ink-muted">Nobody to pick yet.</span>
+                  )}
+                </div>
+              )}
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">
+                Extra roles <span className="font-normal text-ink-muted">(6+ players)</span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <Choice
+                  on={s.accomplice}
+                  disabled={!host}
+                  onClick={() => set({ accomplice: !s.accomplice })}
+                >
+                  {s.accomplice ? '✓ ' : ''}
+                  {content.roleName('accomplice')}
+                </Choice>
+                <Choice
+                  on={s.witness}
+                  disabled={!host || !s.accomplice}
+                  onClick={() => set({ witness: !s.witness })}
+                >
+                  {s.witness ? '✓ ' : ''}
+                  {content.roleName('witness')}
+                </Choice>
+                <Choice on={s.events} disabled={!host} onClick={() => set({ events: !s.events })}>
+                  {s.events ? '✓ ' : ''}Event tiles
+                </Choice>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {extras ? '' : 'With fewer than 6 players there is no Accomplice or Witness. '}
+                The Witness needs the Accomplice. Events are shuffled in after round 1.
+              </p>
+            </section>
+            <section className="space-y-1.5" aria-label="Allies expansion">
+              <h4 className="text-sm font-semibold">
+                Allies expansion{' '}
+                <span className="font-normal text-ink-muted">(more cards, roles and up to 14)</span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <Choice on={allies.on} disabled={!host} onClick={() => set({ allies: !allies.on })}>
+                  {allies.on ? '✓ ' : ''}Allies expansion
+                </Choice>
+                {allies.on && (
+                  <Choice
+                    on={allies.unknownLocation}
+                    disabled={!host}
+                    onClick={() => set({ unknownLocation: !allies.unknownLocation })}
+                  >
+                    {allies.unknownLocation ? '✓ ' : ''}Unknown Location
+                  </Choice>
+                )}
+              </div>
+              {allies.on && (
+                <>
+                  <div className="flex flex-wrap gap-2" aria-label="Allies roles">
+                    <Choice
+                      on={allies.labTech}
+                      disabled={!host}
+                      onClick={() => set({ labTech: !allies.labTech })}
+                    >
+                      {allies.labTech ? '✓ ' : ''}
+                      {content.roleName('lab-technician')}
+                    </Choice>
+                    <Choice
+                      on={allies.insideMan}
+                      disabled={!host}
+                      onClick={() => set({ insideMan: !allies.insideMan })}
+                    >
+                      {allies.insideMan ? '✓ ' : ''}
+                      {content.roleName('inside-man')}
+                    </Choice>
+                    <Choice
+                      on={allies.protective}
+                      disabled={!host || !s.witness}
+                      onClick={() => set({ protective: !allies.protective })}
+                    >
+                      {allies.protective ? '✓ ' : ''}
+                      {content.roleName('protective-detail')}
+                    </Choice>
+                  </div>
+                  {host && seated.length >= 6 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => set(suggestedRoles(seated.length))}
+                    >
+                      Use the suggested roles for {Math.min(seated.length, 8)}
+                      {seated.length > 8 ? '+' : ''} players
+                    </Button>
+                  )}
+                  <p className="text-xs text-ink-muted">
+                    Suggested: the Lab Technician from 7 players, the Inside Man from 8. The
+                    Protective Detail needs the Witness. Unknown Location replaces the four Location
+                    tiles with one.
+                  </p>
+                </>
+              )}
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Cards each (difficulty)</h4>
+              <div className="flex flex-wrap gap-2">
+                {HAND_SIZES.map((n) => (
+                  <Choice
+                    key={n}
+                    on={s.hand === n}
+                    disabled={!host}
+                    onClick={() => set({ hand: n })}
+                  >
+                    {n} + {n}
+                    {n === 3 ? ' (easier)' : n === 5 ? ' (harder)' : ''}
+                  </Choice>
+                ))}
+              </div>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">How rounds end</h4>
+              <div className="flex flex-wrap gap-2">
+                <Choice
+                  on={presentationsOf(s)}
+                  disabled={!host}
+                  onClick={() => set({ presentations: !presentationsOf(s) })}
+                >
+                  {presentationsOf(s) ? '✓ ' : ''}Presentations
+                </Choice>
+                <Choice
+                  on={finalOf(s)}
+                  disabled={!host}
+                  onClick={() => set({ finalAccusations: !finalOf(s) })}
+                >
+                  {finalOf(s) ? '✓ ' : ''}Final accusations
+                </Choice>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {presentationsOf(s)
+                  ? 'After each discussion, everyone presents in turn. '
+                  : 'The discussion carries each round (no presentations). '}
+                {finalOf(s)
+                  ? 'After round 3, everyone with a badge accuses once, in turn (our table rule).'
+                  : 'After round 3 the Murderer wins, as printed.'}
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">Discussion time</h4>
+              <div className="flex flex-wrap gap-2" aria-label="Discussion time">
+                {DISCUSS_SECONDS_OPTIONS.map((n) => (
+                  <Choice
+                    key={n}
+                    on={discussSecondsOf(s) === n}
+                    disabled={!host}
+                    onClick={() => set({ discussSeconds: n })}
+                  >
+                    {n ? `${n / 60} min` : 'Off'}
+                  </Choice>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                Every round, after the last bullet. A reminder: the Forensic Scientist moves on
+                whenever the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
+              </p>
+            </section>
+            <section className="space-y-1.5">
+              <h4 className="text-sm font-semibold">
+                Turn time{' '}
+                <span className="font-normal text-ink-muted">
+                  (
+                  {[presentationsOf(s) && 'presentations', finalOf(s) && 'final accusations']
+                    .filter(Boolean)
+                    .join(' and ') || 'not used'}
+                  )
+                </span>
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {PRESENT_SECONDS_OPTIONS.map((n) => (
+                  <Choice
+                    key={n}
+                    on={s.presentSeconds === n}
+                    disabled={!host}
+                    onClick={() => set({ presentSeconds: n })}
+                  >
+                    {n} s
+                  </Choice>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Choice
+                  on={s.presentMode === 'soft'}
+                  disabled={!host}
+                  onClick={() => set({ presentMode: 'soft' })}
+                >
+                  Reminder
+                </Choice>
+                <Choice
+                  on={s.presentMode === 'hard'}
+                  disabled={!host}
+                  onClick={() => set({ presentMode: 'hard' })}
+                >
+                  Strict
+                </Choice>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {s.presentMode === 'soft'
+                  ? 'Reminder: the clock turns red at 0:00; the player finishes or the host skips.'
+                  : 'Strict: the turn passes by itself at 0:00 (a final accusation is skipped).'}
+              </p>
+            </section>
+            <RefusalSlot anchor="inquest-settings" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        host && (
+          <LobbyStart
+            label="Start the investigation"
+            blocker={problem}
+            onStart={() => void act({ type: 'start' }, { anchor: 'inquest-start' })}
+            refusal="inquest-start"
+          />
+        )
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <div className="flex items-center justify-between gap-2">
@@ -136,6 +422,13 @@ export function Lobby({
               ({seated.length}/{max})
             </span>
           </h3>
+          {me && (
+            <SeatToggle
+              id="inquest-sit"
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
         </div>
         <p className="text-sm text-ink-muted">
           {rolesSummary(seated.length, view, content) || `4 to ${max} can play.`}
@@ -146,7 +439,9 @@ export function Lobby({
               key={p.id}
               className={cn(
                 'flex items-center gap-1 rounded-full px-3 py-1 text-sm ring-1',
-                p.playing ? 'bg-card ring-line-strong' : 'opacity-60 ring-dashed ring-line-strong',
+                p.playing
+                  ? 'bg-card ring-line-strong'
+                  : 'text-ink-muted ring-dashed ring-line-strong',
               )}
             >
               <PlayerTag
@@ -167,289 +462,18 @@ export function Lobby({
             </li>
           ))}
         </ul>
-        {me && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              id="inquest-sit"
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'sit', playing: !me.playing })}
-            >
-              {me.playing ? 'Watch instead' : 'Take a seat'}
-            </Button>
-            {me.playing && (
-              <Button
-                variant={me.volunteer ? 'primary' : 'secondary'}
-                size="sm"
-                aria-pressed={me.volunteer}
-                onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
-              >
-                🔬 {me.volunteer ? 'You volunteered' : 'I’ll be the Forensic Scientist'}
-              </Button>
-            )}
-          </div>
+        {me?.playing && (
+          <Button
+            variant={me.volunteer ? 'primary' : 'secondary'}
+            size="sm"
+            aria-pressed={me.volunteer}
+            onClick={() => void act({ type: 'volunteer', on: !me.volunteer })}
+          >
+            🔬 {me.volunteer ? 'You volunteered' : 'I’ll be the Forensic Scientist'}
+          </Button>
         )}
       </Panel>
       <GuideLink title={room.gameName ?? 'Inquest'} onClick={showGuide} />
-
-      <LobbySettings
-        editable={host}
-        summary={settingsSummary(s, content.roleName)}
-        className="space-y-3"
-      >
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Who is the Forensic Scientist?</h4>
-          <div className="flex flex-wrap gap-2">
-            {FS_MODES.map((m) => (
-              <Choice
-                key={m.id}
-                on={s.fsMode === m.id}
-                disabled={!host}
-                onClick={() => set({ fsMode: m.id })}
-              >
-                {m.label}
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            {FS_MODES.find((m) => m.id === s.fsMode)!.hint}{' '}
-            {seated.some((x) => x.volunteer)
-              ? `Volunteers: ${seated
-                  .filter((x) => x.volunteer)
-                  .map((x) => x.name)
-                  .join(', ')}.`
-              : 'Nobody has volunteered yet.'}
-          </p>
-          {(s.fsMode === 'host' || s.fsMode === 'host-volunteers') && host && (
-            <div className="flex flex-wrap gap-2" aria-label="Pick the Forensic Scientist">
-              {pickable.map((p) => (
-                <Choice key={p.id} on={s.fsPick === p.id} onClick={() => set({ fsPick: p.id })}>
-                  <span className="flex min-w-0 items-center gap-1">
-                    <span className="truncate">{p.name}</span>
-                    <NameDot name={p.name} className="order-first" />
-                  </span>
-                </Choice>
-              ))}
-              {!pickable.length && (
-                <span className="text-sm text-ink-muted">Nobody to pick yet.</span>
-              )}
-            </div>
-          )}
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">
-            Extra roles <span className="font-normal text-ink-muted">(6+ players)</span>
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            <Choice
-              on={s.accomplice}
-              disabled={!host}
-              onClick={() => set({ accomplice: !s.accomplice })}
-            >
-              {s.accomplice ? '✓ ' : ''}
-              {content.roleName('accomplice')}
-            </Choice>
-            <Choice
-              on={s.witness}
-              disabled={!host || !s.accomplice}
-              onClick={() => set({ witness: !s.witness })}
-            >
-              {s.witness ? '✓ ' : ''}
-              {content.roleName('witness')}
-            </Choice>
-            <Choice on={s.events} disabled={!host} onClick={() => set({ events: !s.events })}>
-              {s.events ? '✓ ' : ''}Event tiles
-            </Choice>
-          </div>
-          <p className="text-xs text-ink-muted">
-            {extras ? '' : 'With fewer than 6 players there is no Accomplice or Witness. '}
-            The Witness needs the Accomplice. Events are shuffled in after round 1.
-          </p>
-        </section>
-        <section className="space-y-1.5" aria-label="Allies expansion">
-          <h4 className="text-sm font-semibold">
-            Allies expansion{' '}
-            <span className="font-normal text-ink-muted">(more cards, roles and up to 14)</span>
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            <Choice on={allies.on} disabled={!host} onClick={() => set({ allies: !allies.on })}>
-              {allies.on ? '✓ ' : ''}Allies expansion
-            </Choice>
-            {allies.on && (
-              <Choice
-                on={allies.unknownLocation}
-                disabled={!host}
-                onClick={() => set({ unknownLocation: !allies.unknownLocation })}
-              >
-                {allies.unknownLocation ? '✓ ' : ''}Unknown Location
-              </Choice>
-            )}
-          </div>
-          {allies.on && (
-            <>
-              <div className="flex flex-wrap gap-2" aria-label="Allies roles">
-                <Choice
-                  on={allies.labTech}
-                  disabled={!host}
-                  onClick={() => set({ labTech: !allies.labTech })}
-                >
-                  {allies.labTech ? '✓ ' : ''}
-                  {content.roleName('lab-technician')}
-                </Choice>
-                <Choice
-                  on={allies.insideMan}
-                  disabled={!host}
-                  onClick={() => set({ insideMan: !allies.insideMan })}
-                >
-                  {allies.insideMan ? '✓ ' : ''}
-                  {content.roleName('inside-man')}
-                </Choice>
-                <Choice
-                  on={allies.protective}
-                  disabled={!host || !s.witness}
-                  onClick={() => set({ protective: !allies.protective })}
-                >
-                  {allies.protective ? '✓ ' : ''}
-                  {content.roleName('protective-detail')}
-                </Choice>
-              </div>
-              {host && seated.length >= 6 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => set(suggestedRoles(seated.length))}
-                >
-                  Use the suggested roles for {Math.min(seated.length, 8)}
-                  {seated.length > 8 ? '+' : ''} players
-                </Button>
-              )}
-              <p className="text-xs text-ink-muted">
-                Suggested: the Lab Technician from 7 players, the Inside Man from 8. The Protective
-                Detail needs the Witness. Unknown Location replaces the four Location tiles with
-                one.
-              </p>
-            </>
-          )}
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Cards each (difficulty)</h4>
-          <div className="flex flex-wrap gap-2">
-            {HAND_SIZES.map((n) => (
-              <Choice key={n} on={s.hand === n} disabled={!host} onClick={() => set({ hand: n })}>
-                {n} + {n}
-                {n === 3 ? ' (easier)' : n === 5 ? ' (harder)' : ''}
-              </Choice>
-            ))}
-          </div>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">How rounds end</h4>
-          <div className="flex flex-wrap gap-2">
-            <Choice
-              on={presentationsOf(s)}
-              disabled={!host}
-              onClick={() => set({ presentations: !presentationsOf(s) })}
-            >
-              {presentationsOf(s) ? '✓ ' : ''}Presentations
-            </Choice>
-            <Choice
-              on={finalOf(s)}
-              disabled={!host}
-              onClick={() => set({ finalAccusations: !finalOf(s) })}
-            >
-              {finalOf(s) ? '✓ ' : ''}Final accusations
-            </Choice>
-          </div>
-          <p className="text-xs text-ink-muted">
-            {presentationsOf(s)
-              ? 'After each discussion, everyone presents in turn. '
-              : 'The discussion carries each round (no presentations). '}
-            {finalOf(s)
-              ? 'After round 3, everyone with a badge accuses once, in turn (our table rule).'
-              : 'After round 3 the Murderer wins, as printed.'}
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Discussion time</h4>
-          <div className="flex flex-wrap gap-2" aria-label="Discussion time">
-            {DISCUSS_SECONDS_OPTIONS.map((n) => (
-              <Choice
-                key={n}
-                on={discussSecondsOf(s) === n}
-                disabled={!host}
-                onClick={() => set({ discussSeconds: n })}
-              >
-                {n ? `${n / 60} min` : 'Off'}
-              </Choice>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            Every round, after the last bullet. A reminder: the Forensic Scientist moves on whenever
-            the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
-          </p>
-        </section>
-        <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">
-            Turn time{' '}
-            <span className="font-normal text-ink-muted">
-              (
-              {[presentationsOf(s) && 'presentations', finalOf(s) && 'final accusations']
-                .filter(Boolean)
-                .join(' and ') || 'not used'}
-              )
-            </span>
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {PRESENT_SECONDS_OPTIONS.map((n) => (
-              <Choice
-                key={n}
-                on={s.presentSeconds === n}
-                disabled={!host}
-                onClick={() => set({ presentSeconds: n })}
-              >
-                {n} s
-              </Choice>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Choice
-              on={s.presentMode === 'soft'}
-              disabled={!host}
-              onClick={() => set({ presentMode: 'soft' })}
-            >
-              Reminder
-            </Choice>
-            <Choice
-              on={s.presentMode === 'hard'}
-              disabled={!host}
-              onClick={() => set({ presentMode: 'hard' })}
-            >
-              Strict
-            </Choice>
-          </div>
-          <p className="text-xs text-ink-muted">
-            {s.presentMode === 'soft'
-              ? 'Reminder: the clock turns red at 0:00; the player finishes or the host skips.'
-              : 'Strict: the turn passes by itself at 0:00 (a final accusation is skipped).'}
-          </p>
-        </section>
-        <RefusalSlot anchor="inquest-settings" />
-      </LobbySettings>
-
-      {host && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={problem !== null}
-            onClick={() => void act({ type: 'start' }, { anchor: 'inquest-start' })}
-          >
-            Start the investigation
-          </Button>
-          {problem && <p className="mt-1 text-center text-xs text-ink-muted">{problem}</p>}
-          <RefusalSlot anchor="inquest-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

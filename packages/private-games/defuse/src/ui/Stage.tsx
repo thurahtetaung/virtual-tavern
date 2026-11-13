@@ -27,7 +27,7 @@ function StageResult({
   const stamp = art.stamp(defused ? 'defused' : 'exploded');
   return (
     <div className="flex flex-col items-center gap-4" data-testid="stage-result">
-      {stamp && <ProtectedImage src={stamp} alt="" className="h-64 w-auto" />}
+      {stamp && <ProtectedImage src={stamp} alt="" className="h-[40vh] w-auto" />}
       <p
         className={cn(
           'text-[72px] font-black tracking-widest uppercase',
@@ -112,6 +112,16 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
     };
   }, []);
   const defuser = v.seats.find((p) => p.id === v.defuser)?.name ?? 'Someone';
+  // The manual's cover, faint at the right edge behind the posters, clear of their headline (the
+  // pages themselves stay on the phones).
+  const cover = art.page(1);
+  const backdrop = cover && (
+    <ProtectedImage
+      src={cover}
+      alt=""
+      className="absolute top-1/2 -right-[6%] h-[70%] w-auto -translate-y-1/2 rotate-6 rounded-xl object-contain opacity-10 shadow-vt-3"
+    />
+  );
   const [closed, setClosed] = useState(-1);
   // Showing the bomb, the screen ends as the defuser's does: a defused room fades out over 9 s,
   // then (and at once after an explosion) the binder's results page.
@@ -187,17 +197,18 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
         eyebrow="Read the manual"
         headline={`${defuser} is defusing`}
         clock={<ManualClock v={v} offset={room.clockOffset} />}
+        background={backdrop}
         footer={{ icon: 'book-open', text: 'The manual is on the experts’ phones: read it out.' }}
       >
         {byExpert.size ? (
           <ul className="flex max-w-[1600px] flex-wrap justify-center gap-6" data-testid="claims">
             {[...byExpert].map(([id, pages]) => (
               <li key={id}>
-                <PosterSlate className="min-w-[280px] content-start gap-2 px-8 text-left">
-                  <span className="block text-[32px] [&_[data-color]]:size-5">
+                <PosterSlate className="min-w-[420px] content-start gap-3 px-10 py-7 text-left">
+                  <span className="block text-[48px] font-semibold [&_[data-color]]:size-7">
                     <PlayerTag name={names.get(id) ?? '?'} />
                   </span>
-                  <span className="block text-[28px] font-medium text-ink-2">
+                  <span className="block text-[36px] font-medium text-ink-2">
                     {pages.map((page) => pageName(art, page)).join(', ')}
                   </span>
                 </PosterSlate>
@@ -205,7 +216,24 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-[32px] text-ink-muted">No pages claimed yet.</p>
+          // Nothing claimed yet: the experts, big, as slates waiting for their pages.
+          <ul
+            className="flex max-w-[1600px] flex-wrap justify-center gap-6"
+            data-testid="claims-none"
+          >
+            {v.seats
+              .filter((p) => p.id !== v.defuser)
+              .map((p) => (
+                <li key={p.id}>
+                  <PosterSlate className="min-w-[420px] content-start gap-3 px-10 py-7 text-left">
+                    <span className="block text-[48px] font-semibold [&_[data-color]]:size-7">
+                      <PlayerTag name={p.name} />
+                    </span>
+                    <span className="block text-[36px] text-ink-muted">No page yet</span>
+                  </PosterSlate>
+                </li>
+              ))}
+          </ul>
         )}
       </Poster>
     );
@@ -219,6 +247,7 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
       eyebrow={v.stage === 'result' && last ? `Bomb ${last.no}` : 'Between bombs'}
       headline={v.stage === 'result' && last ? undefined : '💣 Waiting for the next bomb'}
       footer={{ icon: 'users', text: 'The host starts the next bomb from their phone.' }}
+      background={backdrop}
     >
       {v.stage === 'result' && last ? (
         <StageResult last={last} art={art} defuser={lastDefuser ?? 'Someone'} />

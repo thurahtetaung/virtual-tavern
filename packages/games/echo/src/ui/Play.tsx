@@ -7,15 +7,18 @@ import {
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
+  EndTabs,
   FoldSummary,
   Input,
   NameDot,
-  Panel,
   Row,
   Rows,
   StickyBar,
   Superlatives,
   cn,
+  useWideScreen,
 } from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
@@ -39,7 +42,7 @@ function SecretWord({ word, label = 'The word' }: { word: string; label?: string
       <span className="block text-small text-ink-muted">{label}</span>
       <span
         data-testid="secret-word"
-        className="block font-display text-title font-bold tracking-wide break-words uppercase"
+        className="block font-display text-display font-bold tracking-wide break-words uppercase lg:text-[clamp(56px,6vw,88px)] lg:leading-tight"
       >
         {word}
       </span>
@@ -68,10 +71,57 @@ function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act
   );
 }
 
+/** One face-down card per writer while the clues are written: who is still writing, who is done. */
+function WritingCards({ view, turn }: { view: EchoView; turn: TurnView }) {
+  const left = stillWriting(turn);
+  return (
+    <ul
+      aria-label="Clues being written"
+      className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:gap-3"
+    >
+      {turn.givers.map((id) => {
+        const writing = left.includes(id);
+        const name = nameOf(view, id);
+        return (
+          <li
+            key={id}
+            className={cn(
+              'flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-3 text-center lg:min-h-40',
+              writing
+                ? 'border-2 border-dashed border-line bg-sunk text-ink-2'
+                : 'bg-accent-soft text-ink shadow-vt-1-edge ring-1 ring-accent-line',
+            )}
+          >
+            <span className="font-display text-sub font-bold lg:text-heading">
+              {writing ? (
+                // Only the pencil pulses: the words stay at full strength, readable in a dim room.
+                <>
+                  <span aria-hidden className="motion-safe:animate-pulse">
+                    ✏️
+                  </span>{' '}
+                  writing…
+                </>
+              ) : (
+                '✓ Clue in'
+              )}
+            </span>
+            <span className="flex max-w-full items-center gap-1 text-caption text-ink-muted">
+              <NameDot name={name} />
+              <span className="truncate">{name}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Five face-down words: the guesser taps one, everyone else sees them waiting. */
 function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolean }) {
   return (
-    <div className="mx-auto grid max-w-lg grid-cols-5 gap-2">
+    // w-full: the panel centres its content on wide screens, which would otherwise shrink the row
+    // to the numerals' width; the cards take the panel's width instead (about 150 px each).
+    <div className="mx-auto grid w-full max-w-lg grid-cols-5 gap-2 lg:max-w-4xl lg:gap-5">
       {Array.from({ length: turn.cardSize }, (_, i) => (
         <button
           key={i}
@@ -80,11 +130,12 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
           aria-label={`Pick word ${i + 1}`}
           onClick={() => void act({ type: 'pick', index: i })}
           className={cn(
-            'flex aspect-[3/4] min-h-11 items-center justify-center rounded-xl text-3xl font-black ring-1 transition',
-            'bg-accent text-accent-fg ring-accent-line shadow-vt-1',
+            'flex aspect-[2/3] min-h-16 items-center justify-center rounded-xl font-display text-4xl font-black ring-1 transition lg:aspect-[3/4] lg:rounded-2xl lg:text-8xl',
+            // Waiting on the guesser, the cards turn to the soft accent (never faded, so the
+            // numbers stay readable in a bright room).
             mine
-              ? 'hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
-              : 'cursor-default opacity-60',
+              ? 'bg-accent text-accent-fg ring-accent-line shadow-vt-2 hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
+              : 'cursor-default bg-accent-soft text-accent-text shadow-vt-1-edge ring-accent-line',
           )}
         >
           {i + 1}
@@ -172,24 +223,24 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
     return <p className="text-center text-small text-ink-muted italic">No clues were given.</p>;
   }
   return (
-    <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:gap-3">
       {clues.map((c, i) => (
         <li
           key={`${c.by}-${i}`}
           className={cn(
-            'min-w-0 rounded-xl px-3 py-2 ring-1',
-            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft ring-accent-line',
+            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:flex lg:min-h-36 lg:flex-col lg:justify-center lg:gap-1.5 lg:px-5 lg:py-5 lg:text-center',
+            c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft shadow-vt-1-edge ring-accent-line',
           )}
         >
           <span
             className={cn(
-              'block truncate text-sub font-bold',
+              'block truncate font-display text-sub font-bold lg:text-title',
               c.cancelled && 'text-ink-muted line-through',
             )}
           >
             {c.text}
           </span>
-          <span className="flex items-center gap-1 text-caption text-ink-muted">
+          <span className="flex items-center gap-1 text-caption text-ink-muted lg:justify-center lg:text-small">
             <span className="truncate">
               {c.name ?? nameOf(view, c.by)}
               {c.cancelled && ` · ${cancelReason(view, c)}`}
@@ -211,10 +262,14 @@ function GuesserClues({ turn }: { turn: TurnView }) {
           {/* The shared rows, named so the list reads as the guesser's clues. */}
           <ul
             aria-label="Your clues"
-            className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 ring-1 ring-accent-line"
+            className="divide-y divide-accent-line rounded-xl bg-accent-soft px-4 shadow-vt-1-edge ring-1 ring-accent-line"
           >
             {turn.clues.map((c, i) => (
-              <Row key={i} className="justify-center text-heading font-bold">
+              // In the display face, larger on wide screens: the clues are the guesser's stage.
+              <Row
+                key={i}
+                className="min-h-12 justify-center font-display text-heading font-bold lg:min-h-20 lg:text-display"
+              >
                 {c.text}
               </Row>
             ))}
@@ -369,10 +424,18 @@ export function Stage({ view, act, room }: Props) {
       return <PickCards turn={turn} act={act} mine={guessing} />;
     case 'clues':
       return (
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
           {turn.word && <SecretWord word={turn.word} />}
           {writer ? <ClueForm key={cardKey} turn={turn} act={act} /> : null}
-          <Progress turn={turn} room={room} act={act} />
+          {/* Nothing to write here (the guesser, or a watcher): the writers' cards fill the panel. */}
+          {!writer && (
+            <div className="lg:col-span-2">
+              <WritingCards view={view} turn={turn} />
+            </div>
+          )}
+          <div className="lg:col-span-2">
+            <Progress turn={turn} room={room} act={act} />
+          </div>
         </div>
       );
     case 'guess':
@@ -384,8 +447,9 @@ export function Stage({ view, act, room }: Props) {
           </div>
         );
       }
+      // Waiting on the guesser: the word over the clues, both at the size they have on the reveal.
       return (
-        <div className="space-y-3">
+        <div className="space-y-4 lg:space-y-8">
           {turn.word && <SecretWord word={turn.word} />}
           <ClueList view={view} clues={turn.clues} />
         </div>
@@ -449,27 +513,103 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   );
 }
 
-/** `details`: on phones, the awards, cards and players as tabs, in place of the awards. */
-export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
-  const deck = view.settings.deckSize;
+/** The end: every card played as a tile, coloured by how it went (the result's art on wide screens, the Cards tab on phones). */
+export function CardWall({ history }: { history: ResolvedCard[] }) {
+  if (history.length === 0) return null;
+  // As in `History`: the won card a forfeit gave back is marked, not shown as won.
+  const givenBack = history.flatMap((h, i) =>
+    h.forfeit ? [history.findLastIndex((w, j) => j < i && w.outcome === 'right')] : [],
+  );
   return (
-    <>
-      <Panel className="space-y-3 text-center max-lg:space-y-1 max-lg:p-3">
-        <p className="text-5xl font-black tabular-nums max-lg:text-display">
-          {view.score}
-          <span className="text-heading text-ink-muted"> / {deck}</span>
-        </p>
-        <p className="font-display text-title font-bold">{rating(view.score, deck)}</p>
-        {!details && <Superlatives lines={room.superlatives} />}
-        {!details && <EndButtons view={view} act={act} room={room} />}
-      </Panel>
-      {details && (
-        <>
-          {details}
-          <EndButtons view={view} act={act} room={room} />
-        </>
-      )}
-    </>
+    <ul
+      aria-label="Cards played"
+      className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4"
+    >
+      {history.map((h, i) => (
+        <li
+          key={i}
+          className={cn(
+            'flex flex-col justify-center space-y-0.5 rounded-xl px-3 py-2.5 text-center ring-1 shadow-vt-1 lg:min-h-36 lg:space-y-2 lg:py-5',
+            h.outcome === 'right'
+              ? 'bg-success-soft text-success-ink ring-success-line'
+              : h.outcome === 'wrong'
+                ? 'bg-danger-soft text-danger-ink ring-danger-line'
+                : 'bg-sunk text-ink ring-line',
+          )}
+        >
+          <p className="font-display text-sub font-bold tracking-wide uppercase lg:text-heading">
+            {givenBack.includes(i) ? (
+              <span aria-label="given back" className="mr-1.5 text-body">
+                ↩️
+              </span>
+            ) : (
+              <span aria-label={h.outcome} className="mr-1.5 text-body">
+                {RESULT_ICON[h.outcome]}
+              </span>
+            )}
+            {h.word}
+          </p>
+          <p className="truncate text-caption opacity-90 lg:text-small">
+            {h.guesserName}
+            {h.outcome === 'pass'
+              ? h.timedOut
+                ? ' ran out of time'
+                : ' passed'
+              : ` guessed “${h.guess ?? '—'}”`}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The end: the score and verdict as the finale; the cards and the players (and, on phones, the
+ * awards) as its parts, beside it on wide screens.
+ */
+export function GameOver({ view, act, room, players }: Props & { players: ReactNode }) {
+  const deck = view.settings.deckSize;
+  const verdict = rating(view.score, deck);
+  const wide = useWideScreen();
+  return (
+    <EndLayout
+      hero={
+        <EndHero
+          title={verdict}
+          // The score is the emblem: everyone played together, so it is the whole result.
+          emblem={
+            <span className="font-black tabular-nums">
+              {view.score}
+              <span className="text-heading text-ink-muted"> / {deck}</span>
+            </span>
+          }
+          tone={verdict === 'Not this time' ? 'loss' : 'success'}
+          superlatives={wide ? room.superlatives : undefined}
+          actions={<EndButtons view={view} act={act} room={room} />}
+        >
+          <p className="sr-only">
+            Score: {view.score} of {deck}.
+          </p>
+        </EndHero>
+      }
+    >
+      <EndTabs
+        tabs={[
+          !wide &&
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+          view.history.length > 0 && {
+            id: 'cards',
+            label: '🃏 Cards',
+            content: <CardWall history={view.history} />,
+          },
+          { id: 'players', label: '👥 Players', content: players },
+        ]}
+      />
+    </EndLayout>
   );
 }
 

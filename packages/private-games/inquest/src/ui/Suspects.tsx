@@ -132,7 +132,8 @@ export function Suspects(props: Common) {
                   setGrid(false);
                 }}
                 className={cn(
-                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+                  // 44 px to a finger, the same chips to a mouse.
+                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11',
                   !grid && k === i
                     ? 'bg-accent text-accent-fg ring-accent'
                     : 'bg-card text-ink-2 ring-line-strong',
@@ -150,7 +151,7 @@ export function Suspects(props: Common) {
           aria-pressed={grid}
           onClick={() => setGrid(!grid)}
           className={cn(
-            'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+            'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11',
             grid ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
           )}
         >
@@ -209,7 +210,7 @@ export function Suspects(props: Common) {
           }}
         >
           <CardGrid {...props} p={p} />
-          <p className="mt-1 text-center text-[11px] text-ink-muted">
+          <p className="mt-1 text-center text-xs text-ink-muted">
             Swipe for the next suspect · hold a card to mark it ★ / ✕
           </p>
         </section>
@@ -218,17 +219,42 @@ export function Suspects(props: Common) {
   );
 }
 
+/**
+ * Wide desktops: as few rows of suspects as the width allows (up to six across, each suspect's
+ * cards keeping their size), so the suspects take one band and the tiles stay on a laptop's screen.
+ */
+const XL_COLS: Record<number, string> = {
+  4: 'xl:grid-cols-4',
+  5: 'xl:grid-cols-5',
+  6: 'xl:grid-cols-6',
+  7: 'xl:grid-cols-4',
+  8: 'xl:grid-cols-4',
+  9: 'xl:grid-cols-5',
+  10: 'xl:grid-cols-5',
+  11: 'xl:grid-cols-6',
+  12: 'xl:grid-cols-6',
+  13: 'xl:grid-cols-6',
+};
+
 /** Desktop: every suspect at once, one row of art cards each. */
 export function AllSuspects(props: Common) {
   const g = props.view.game!;
+  const n = suspectsOf(g).length;
   return (
-    <ul className="grid gap-3 xl:grid-cols-2" aria-label="Suspects">
+    // Across the full width: three a row on narrower desktops, more on wide ones (`XL_COLS`).
+    <ul
+      className={cn('grid gap-3 lg:grid-cols-3', XL_COLS[n], n === 2 && 'lg:grid-cols-2')}
+      aria-label="Suspects"
+    >
       {suspectsOf(g).map((p) => (
         <li key={p.id} className="rounded-xl bg-card/70 p-2 ring-1 ring-line">
           <h4 className="mb-1 flex items-center gap-1 text-sm font-bold">
             <ChipLabel p={p} view={props.view} /> <BadgeDot p={p} />
           </h4>
-          <CardGrid {...props} p={p} />
+          {/* As wide as the panel, but no taller than leaves the tiles on a 900 px screen. */}
+          <div className="mx-auto max-w-[max(16rem,calc(100dvh-40rem))]">
+            <CardGrid {...props} p={p} />
+          </div>
         </li>
       ))}
     </ul>
@@ -241,7 +267,7 @@ export function AllSuspects(props: Common) {
  */
 export function CrimePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
   const bar =
-    'flex min-h-10 items-center gap-1.5 rounded-xl bg-card px-3 text-xs text-ink-muted ring-1 ring-line';
+    'flex min-h-11 items-center gap-1.5 rounded-xl bg-card px-3 text-xs text-ink-muted ring-1 ring-line';
   return (
     <div data-testid="crime-peek">
       <Peek

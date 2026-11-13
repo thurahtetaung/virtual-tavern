@@ -27,8 +27,8 @@ Every screen is built from these (`packages/ui/src`, details and examples in `do
 - `Chips`: filter toggles. `Tag` (`Badge`): a pill of facts. `Notice`: one line on a meaning's soft surface. `Slate`: an empty, loading or error stand-in.
 - `Tabs`: parts of a screen. `TabBar` (with a tab `badge`): a phone game's bottom navigation.
 - `Rows`: lists of rows. `Panel` / `Card`: a group of parts / one thing on its own. `Fold`: a folded section. `GameCard`: a game in a list.
-- `StatusLine` (`Hint`): what is happening now, `me` for the viewer's move. `StickyBar` (`fixed`, `refusal`): the main action at the foot of a phone screen. `Countdown`: a deadline.
-- `Modal`: a dialog, a sheet on phones. `Standings`, `EndTabs`: the end screen.
+- `StatusLine` (`Hint`): what is happening now, `me` for the viewer's move. `StickyBar` (`fixed`, `refusal`): the main action at the foot of a phone screen, and lifted into a tray at the foot of a wider window while its spot is below it. `Countdown`: a deadline.
+- `Modal`: a dialog, a sheet on phones. `Standings`, `EndTabs`, `EndHero`, `EndLayout`: the end screen (two columns that fit the window on desktops). `LobbyLayout`, `LobbyPitch`, `LobbyStart`: the lobby (a settings rail on desktops, one Start everywhere).
 - `FitArea` / `useFitToScreen`: the shared phone-fit helper; a part takes the height left and scrolls inside, so the page never does.
 - `Icon`: a Lucide icon from the shared sprite.
 - The room frame (`apps/web/src/pages/RoomPage.tsx`): the header with its buttons, the status line under it, and the foot reserve (`useReservedHeight` in `reserve.ts`) that keeps the sticky bar's and tab bar's heights free.
@@ -55,7 +55,7 @@ Every player has a colour per room (`RoomPlayer.color`, the 16 `PLAYER_COLORS` i
 
 See `docs/adding-a-game.md` §3.
 
-`waitingFor`/`waitingForHost`, `Countdown` (`label`, strict/soft captions), `useSpectatorPrompt`, `act(action, { anchor })` with a `RefusalSlot` for refusals next to their control, `StickyBar` to keep Start reachable on phones, `Standings` for the shared end screen, and `EndTabs`, which splits an end screen on phones (below `lg`) into tabs so it fits a 390 × 844 phone. The snapshot's `hostAwayUntil` drives the "host is away" banner. A code chunk that fails to load after a deploy reloads the page once (`apps/web/src/lib/chunk-reload.ts`).
+`waitingFor`/`waitingForHost`, `Countdown` (`label`, strict/soft captions), `useSpectatorPrompt`, `act(action, { anchor })` with a `RefusalSlot` for refusals next to their control, `StickyBar` to keep Start reachable on every width, `Standings` for the shared end screen, and `EndTabs`, which splits an end screen on phones (below `lg`) into tabs so it fits a 390 × 844 phone. The snapshot's `hostAwayUntil` drives the "host is away" banner. A code chunk that fails to load after a deploy reloads the page once (`apps/web/src/lib/chunk-reload.ts`).
 
 ## Game settings
 

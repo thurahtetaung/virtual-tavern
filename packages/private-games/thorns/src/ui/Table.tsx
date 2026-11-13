@@ -2,6 +2,7 @@ import { type GameRoomInfo, type PlayerColor, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  PLAYER_DOT,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
@@ -11,8 +12,9 @@ import {
   cn,
   tabPanelProps,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { discName } from '../logic/names.ts';
 import {
   type Disc,
@@ -33,6 +35,10 @@ interface TableProps {
   act: Act;
   art: Art;
   name: NameOf;
+  /** The finished table as an end part: one column, mats only as wide as the part allows. */
+  ended?: boolean;
+  /** Wide screens: shown at the top of the rail, above the table talk. */
+  aside?: ReactNode;
 }
 
 const colorOf = (room: GameRoomInfo, id: string): PlayerColor | undefined =>
@@ -62,6 +68,7 @@ function Mat({
   room,
   art,
   onFlip,
+  ended = false,
 }: {
   p: PlayerView;
   seat: number;
@@ -69,6 +76,8 @@ function Mat({
   room: GameRoomInfo;
   art: Art;
   onFlip: (() => void) | null;
+  /** In the end part the mats are narrower, so the discs are a step smaller. */
+  ended?: boolean;
 }) {
   const g = view.game!;
   const r = g.round;
@@ -78,6 +87,10 @@ function Mat({
   const bid = r.bids.findLast((b) => b.by === p.id);
   const waiting = g.clock?.who.includes(p.id) ?? false;
   const set = art.set(seat);
+  // Wide screens: the mats take the table's height and the discs are read across the room.
+  const wide = useWideScreen();
+  // Three players while a disc is turned over: no move bar, so the mats take the free height.
+  const roomy = !ended && g.players.length <= 3 && (r.stage === 'flip' || r.stage === 'result');
   const matArt = p.points > 0 ? (set.matScored ?? set.mat) : set.mat;
   const offline = room.players.find((x) => x.id === p.id)?.connected === false;
   const chip = p.out
@@ -108,7 +121,7 @@ function Mat({
         {chip && (
           <span
             className={cn(
-              'shrink-0 rounded-full px-1.5 text-[11px] font-semibold ring-1',
+              'shrink-0 rounded-full px-1.5 text-xs font-semibold ring-1',
               chip === 'Challenger'
                 ? 'bg-accent-soft text-accent-text ring-accent-line'
                 : 'bg-panel text-ink-muted ring-line',
@@ -119,7 +132,25 @@ function Mat({
         )}
       </div>
       <div
-        className="relative flex min-h-14 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
+        // Phones: the mat art takes the free height (up to 6rem), shorter on short screens
+        // so six mats still fit.
+        className={cn(
+          // The mat is a seat at the table: the sunk surface, lit from above by the lamp.
+          'relative flex items-center justify-center rounded-xl bg-sunk bg-[radial-gradient(120%_80%_at_50%_0%,var(--vt-lamp),transparent_70%)] px-2 py-1.5 ring-1 ring-line dark:ring-0',
+          // Up to four players sit in two rows on phones, so their mats take more of the height;
+          // three take the most while a disc is turned over, when no move bar shares the screen.
+          roomy
+            ? 'min-h-[clamp(3.5rem,18dvh,10rem)]'
+            : g.players.length <= 4
+              ? 'min-h-[clamp(3.5rem,13dvh,8rem)]'
+              : 'min-h-[clamp(3.5rem,10dvh,6rem)]',
+          ended
+            ? 'lg:min-h-28'
+            : // Wide screens: three mats a row; more than three players take two rows, so shorter.
+              g.players.length > 3
+              ? 'lg:min-h-[clamp(7rem,17dvh,12rem)]'
+              : 'lg:min-h-[clamp(9rem,30dvh,18rem)]',
+        )}
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
         {matArt && (
@@ -141,9 +172,12 @@ function Mat({
                 seat={seat}
                 color={color}
                 art={art}
-                size={36}
+                size={wide ? (ended ? 64 : 110) : roomy ? 60 : 48}
                 flip={d.up}
-                className={cn(i > 0 && '-ml-4', you && !d.up && 'opacity-80')}
+                className={cn(
+                  i > 0 && (wide ? (ended ? '-ml-8' : '-ml-14') : roomy ? '-ml-8' : '-ml-6'),
+                  you && !d.up && 'opacity-80',
+                )}
               />
             ))
           )}
@@ -163,29 +197,39 @@ function Mat({
     </>
   );
   const box = cn(
-    'flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card/85 p-2 text-left shadow-sm ring-1 ring-line',
+    // A 4 px band of the player's colour along the top marks whose seat it is.
+    'relative flex min-w-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-card/85 p-2 pt-2.5 text-left shadow-sm ring-1 ring-line',
     waiting && 'ring-2 ring-accent',
     p.out && 'opacity-50',
     you && 'bg-accent-soft/40',
+  );
+  const band = (
+    <span
+      aria-hidden
+      className={cn('absolute inset-x-0 top-0 h-1', color ? PLAYER_DOT[color] : 'bg-line-strong')}
+    />
   );
   return onFlip ? (
     <button
       type="button"
       className={cn(
         box,
+        'h-full',
         'th-rise cursor-pointer hover:bg-panel focus-visible:outline-2 focus-visible:outline-accent',
       )}
       onClick={onFlip}
       aria-label={`Turn over ${you ? 'your own' : `${p.name}’s`} top disc`}
       data-flip={p.id}
     >
+      {band}
       {body}
       <span className="rounded-lg bg-accent px-2 py-1 text-center text-xs font-bold text-accent-fg">
         Turn over the top disc
       </span>
     </button>
   ) : (
-    <div className={box} data-mat={p.id}>
+    <div className={cn(box, 'h-full')} data-mat={p.id}>
+      {band}
       {body}
     </div>
   );
@@ -281,6 +325,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
   const r = g.round;
   const mine = view.mine;
   const me = g.players.find((p) => p.id === room.you);
+  const disc = useWideScreen() ? 110 : 64;
   if (!mine || !me) return null;
   const seat = g.order.indexOf(room.you);
   const color = colorOf(room, room.you);
@@ -320,7 +365,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                   className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-panel focus-visible:outline-2 focus-visible:outline-accent"
                   onClick={() => void act({ type: 'lose', disc: d }, { anchor: 'th-play' })}
                 >
-                  <DiscView face={d} seat={seat} color={color} art={art} size={56} />
+                  <DiscView face={d} seat={seat} color={color} art={art} size={disc} />
                   <span className="text-sm font-semibold">Lose a {discName(names, d)}</span>
                 </button>
               ))}
@@ -364,7 +409,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       aria-label={`Put down a ${discName(names, d)}`}
                       data-place={d}
                     >
-                      <DiscView face={d} seat={seat} color={color} art={art} size={56} />
+                      <DiscView face={d} seat={seat} color={color} art={art} size={disc} />
                     </button>
                   ) : (
                     <DiscView
@@ -373,7 +418,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       seat={seat}
                       color={color}
                       art={art}
-                      size={48}
+                      size={disc}
                     />
                   ),
                 )
@@ -404,7 +449,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
 
 /** The table: every mat, the viewer's discs and controls, the clock and the log. */
 export function Table(props: TableProps) {
-  const { view, room, act, art, name } = props;
+  const { view, room, act, art, name, ended = false, aside } = props;
   const g = view.game!;
   const r = g.round;
   const wide = useWideScreen();
@@ -416,7 +461,7 @@ export function Table(props: TableProps) {
   const shown: PlayTab | null = tabbed ? tab : null;
   const move = hasMove(view, room.you);
   const strict = view.settings.timerMode === 'strict';
-  const flipping = r.stage === 'flip' && r.challenger === room.you;
+  const flipping = playing && r.stage === 'flip' && r.challenger === room.you;
   const targets = useMemo(() => {
     if (!flipping) return new Set<string>();
     const me = g.players.find((p) => p.id === room.you)!;
@@ -441,8 +486,27 @@ export function Table(props: TableProps) {
     .filter((l): l is { id: number; text: string } => l.text !== null)
     .slice(-8)
     .reverse();
+  const talk = lines.length > 0 && (
+    <details
+      className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+      open
+      {...(shown === 'log' && tabPanelProps(PLAY_TABS_ID, 'log'))}
+    >
+      <FoldSummary className="-my-1 px-0 font-semibold">Table talk</FoldSummary>
+      <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
+        {lines.map((l) => (
+          <li key={l.id}>{l.text}</li>
+        ))}
+      </ol>
+    </details>
+  );
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+    <div
+      className={cn(
+        'grid gap-3',
+        !ended && 'lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6',
+      )}
+    >
       <div
         className={cn('flex min-w-0 flex-col gap-3', shown && shown !== 'table' && 'hidden')}
         {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
@@ -473,15 +537,33 @@ export function Table(props: TableProps) {
             )}
           </div>
         )}
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="The table">
+        <ul
+          className={cn(
+            'grid grid-cols-2 gap-2 sm:grid-cols-3',
+            ended
+              ? 'lg:grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))]'
+              : 'lg:grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))]',
+          )}
+          aria-label="The table"
+        >
           {g.players.map((p, seat) => (
-            <li key={p.id} className="min-w-0">
+            <li
+              key={p.id}
+              className={cn(
+                'min-w-0',
+                // Phones: a lone last mat sits in the middle of its row, at a mat's width.
+                g.players.length % 2 === 1 &&
+                  seat === g.players.length - 1 &&
+                  'max-sm:col-span-2 max-sm:mx-auto max-sm:w-[calc(50%-0.25rem)]',
+              )}
+            >
               <Mat
                 p={p}
                 seat={seat}
                 view={view}
                 room={room}
                 art={art}
+                ended={ended}
                 onFlip={
                   targets.has(p.id)
                     ? () => void act({ type: 'flip', owner: p.id }, { anchor: 'th-play' })
@@ -549,28 +631,24 @@ export function Table(props: TableProps) {
             <RefusalSlot anchor="th-host" />
           </div>
         )}
-        <p className="text-center text-xs text-ink-muted">
-          Round {r.number} · {g.players.filter((p) => !p.out).length} players in
-        </p>
+        {!ended && (
+          <p className="text-center text-xs text-ink-muted">
+            Round {r.number} · {g.players.filter((p) => !p.out).length} players in
+          </p>
+        )}
       </div>
       {shown === 'me' && (
         <div {...tabPanelProps(PLAY_TABS_ID, 'me')}>
           <MyArea {...props} show />
         </div>
       )}
-      {lines.length > 0 && (!shown || shown === 'log') && (
-        <details
-          className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
-          open
-          {...(shown === 'log' && tabPanelProps(PLAY_TABS_ID, 'log'))}
-        >
-          <summary className="cursor-pointer font-semibold">Table talk</summary>
-          <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
-            {lines.map((l) => (
-              <li key={l.id}>{l.text}</li>
-            ))}
-          </ol>
-        </details>
+      {!shown && !ended && aside ? (
+        <div className="flex min-w-0 flex-col gap-3">
+          {aside}
+          {talk}
+        </div>
+      ) : (
+        (!shown || shown === 'log') && talk
       )}
       {tabbed && (
         <TabBar

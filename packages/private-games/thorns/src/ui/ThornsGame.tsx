@@ -5,9 +5,12 @@ import {
   playersNeeded,
   storageKey,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
   EndTabs,
   Fold,
   GuideLink,
@@ -26,6 +29,12 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  SeatHeading,
+  SeatToggle,
+  cn,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { discName, fillNames } from '../logic/names.ts';
@@ -66,10 +75,19 @@ export function ThornsGame({
     };
   }, [setYourMove, tabAlert]);
 
-  const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const wide = useWideScreen();
-  const phoneEnd = view.phase === 'over' && !wide;
-  const table = <Table view={view} room={room} act={act} art={art} name={name} />;
+  const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const table = (
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={name}
+      ended={view.phase === 'over'}
+      aside={wide && view.phase === 'playing' ? <Tips art={art} /> : null}
+    />
+  );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -86,8 +104,8 @@ export function ThornsGame({
   return (
     <div
       className={
-        view.phase === 'playing'
-          ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl'
+        view.phase !== 'lobby'
+          ? 'mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-[84rem]'
           : 'mx-auto flex w-full max-w-3xl flex-col gap-3'
       }
     >
@@ -97,7 +115,7 @@ export function ThornsGame({
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && <Tips art={art} />}
+          {view.phase === 'playing' && !wide && <Tips art={art} />}
           {view.phase === 'over' && (
             <End
               view={view}
@@ -105,10 +123,11 @@ export function ThornsGame({
               act={act}
               art={art}
               name={name}
-              table={phoneEnd ? table : null}
+              // The finished table is one of the end's parts on every width (the end fills the window).
+              table={table}
             />
           )}
-          {!phoneEnd && table}
+          {view.phase !== 'over' && table}
         </>
       )}
     </div>
@@ -200,21 +219,92 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <>
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Thorns'}
+          emblem="🌹"
+          art={
+            art.lobby && (
+              <ProtectedImage src={art.lobby} alt="" className="w-full rounded-lg object-cover" />
+            )
+          }
+        >
+          <span className="mr-1.5 inline-flex gap-1 align-middle">
+            <DiscView face="rose" seat={0} color={undefined} art={art} size={24} />
+            <DiscView face="thorn" seat={0} color={undefined} art={art} size={24} />
+          </span>
+          {fillNames(
+            'Each player gets three {roses} and one {thorn}. Win two challenges, or be the last one left.',
+            art.names,
+          )}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              lastChance ? `${art.names.chance} on` : `no ${art.names.chance}`,
+              timersLine(timers, { clue: 'decisions', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <Switch
+              on={lastChance}
+              editable={room.isHost}
+              title={fillNames('{Chance}', art.names)}
+              help={fillNames(
+                'A Challenger who fails and is left with one disc borrows a known {rose} for the next round.',
+                art.names,
+              )}
+              onChange={(v) =>
+                void act({ type: 'update-settings', lastChance: v }, { anchor: 'th-lobby' })
+              }
+              testId="th-last-chance"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Decision timer"
+              clueHelp="Time for each move: putting a disc down, bidding, turning discs over."
+              strictHelp="a safe move is made for them (a rose, a pass, the next disc)"
+              onChange={(patch) =>
+                void act(
+                  {
+                    type: 'update-settings',
+                    ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                    ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                  },
+                  { anchor: 'th-lobby' },
+                )
+              }
+            />
+            <RefusalSlot anchor="th-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'th-start' })}
+            refusal="th-start"
+          />
+        )
+      }
+    >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({seated.length}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        {art.lobby && (
-          <ProtectedImage
-            src={art.lobby}
-            alt=""
-            className="max-h-40 w-full rounded-xl object-cover"
-          />
-        )}
+        <SeatHeading as="h2" title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+          {me && (
+            <SeatToggle
+              playing={me.playing}
+              full={seated.length >= MAX_PLAYERS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s, i) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -232,15 +322,6 @@ function Lobby({
                 offline={offline(s.id)}
                 className="flex-1"
               />
-              {s.id === room.you && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void act({ type: 'sit', playing: false })}
-                >
-                  Watch instead
-                </Button>
-              )}
             </li>
           ))}
         </ul>
@@ -252,76 +333,9 @@ function Lobby({
             ))}
           </p>
         )}
-        {me && !me.playing && seated.length < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
-        )}
-        <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <DiscView face="rose" seat={0} color={undefined} art={art} size={24} />
-          <DiscView face="thorn" seat={0} color={undefined} art={art} size={24} />
-          {fillNames(
-            'Each player gets three {roses} and one {thorn}. Win two challenges, or be the last one left.',
-            art.names,
-          )}
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Thorns'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          lastChance ? `${art.names.chance} on` : `no ${art.names.chance}`,
-          timersLine(timers, { clue: 'decisions', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <Switch
-          on={lastChance}
-          editable={room.isHost}
-          title={fillNames('{Chance}', art.names)}
-          help={fillNames(
-            'A Challenger who fails and is left with one disc borrows a known {rose} for the next round.',
-            art.names,
-          )}
-          onChange={(v) =>
-            void act({ type: 'update-settings', lastChance: v }, { anchor: 'th-lobby' })
-          }
-          testId="th-last-chance"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Decision timer"
-          clueHelp="Time for each move: putting a disc down, bidding, turning discs over."
-          strictHelp="a safe move is made for them (a rose, a pass, the next disc)"
-          onChange={(patch) =>
-            void act(
-              {
-                type: 'update-settings',
-                ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-              },
-              { anchor: 'th-lobby' },
-            )
-          }
-        />
-        <RefusalSlot anchor="th-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'th-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="th-start" />
-        </StickyBar>
-      )}
-    </>
+    </LobbyLayout>
   );
 }
 
@@ -338,7 +352,7 @@ function End({
   act: Act;
   art: Art;
   name: NameOf;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The finished table, as one of the end's parts. */
   table: ReactNode;
 }) {
   const g = view.game!;
@@ -349,97 +363,151 @@ function End({
       ? `lost: ${lost.map((d) => discName(art.names, d)).join(', ')}`
       : 'lost nothing';
   };
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
   return (
-    <Panel className="th-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  // The winner always tops the podium (a last player standing
-                  // may have fewer points); the column shows everyone's real points.
-                  name: p.name,
-                  score: p.points + (g.winners.includes(p.id) ? WINNER : 0),
-                  note: `${g.winners.includes(p.id) ? '👑 winner · ' : ''}${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
-                }))}
-                you={room.you}
-                scoreLabel={(n) => {
-                  const pts = n >= WINNER ? n - WINNER : n;
-                  return `${pts} ${pts === 1 ? 'point' : 'points'}`;
-                }}
-              />
-            ),
-          },
-          {
-            id: 'stacks',
-            label: '🌹 Stacks',
-            content: (
-              <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
-                <h3 className="font-semibold">What everyone had down</h3>
-                <ul className="flex flex-col gap-1">
-                  {g.players.map((p, seat) => {
-                    const stack = reveal.get(p.id)?.stack ?? [];
-                    return (
-                      <li key={p.id} className="flex items-center gap-2">
-                        <span className="w-24 truncate">{name(p.id)}</span>
-                        <span className="flex items-center">
-                          {stack.length === 0 ? (
-                            <span className="text-ink-muted">—</span>
-                          ) : (
-                            stack.map((d, i) => (
-                              <DiscView
-                                key={i}
-                                face={d}
-                                seat={seat}
-                                color={room.players.find((x) => x.id === p.id)?.color}
-                                art={art}
-                                size={28}
-                                className={i > 0 ? '-ml-2' : undefined}
-                              />
-                            ))
-                          )}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🪑 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <StickyBar refusal="th-end">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-    </Panel>
+    <div className="flex flex-col gap-3">
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={g.winners.length ? null : '🌹'}
+            // The winner's mat, scored side up, with their rose on it: the set they won with.
+            art={g.winners.map((id) => {
+              const seat = g.players.findIndex((p) => p.id === id);
+              const set = art.set(seat);
+              const mat = set.matScored ?? set.mat;
+              return (
+                <figure key={id} className="flex flex-col items-center gap-1.5">
+                  <span className="relative flex h-32 w-48 items-center justify-center overflow-hidden rounded-2xl bg-panel shadow-vt-2 ring-1 ring-line lg:h-56 lg:w-80">
+                    {mat && (
+                      <ProtectedImage
+                        src={mat}
+                        alt=""
+                        className="absolute inset-0 size-full object-cover"
+                      />
+                    )}
+                    <DiscView
+                      face="rose"
+                      seat={seat}
+                      color={room.players.find((x) => x.id === id)?.color}
+                      art={art}
+                      size={wide ? 128 : 76}
+                      className="relative shadow-vt-2"
+                    />
+                  </span>
+                  <figcaption className="text-small font-semibold text-ink">{name(id)}</figcaption>
+                </figure>
+              );
+            })}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <StickyBar refusal="th-end">
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button
+                        size="lg"
+                        onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
+                      >
+                        Play again
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
+                      >
+                        Change setup
+                      </Button>
+                    </div>
+                  </StickyBar>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+              </>
+            }
+          />
+        }
+      >
+        <Panel className="th-rise flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={g.players.map((p) => ({
+                      id: p.id,
+                      // The winner always tops the podium (a last player standing
+                      // may have fewer points); the column shows everyone's real points.
+                      name: p.name,
+                      score: p.points + (g.winners.includes(p.id) ? WINNER : 0),
+                      note: `${g.winners.includes(p.id) ? '👑 winner · ' : ''}${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
+                    }))}
+                    you={room.you}
+                    scoreLabel={(n) => {
+                      const pts = n >= WINNER ? n - WINNER : n;
+                      return `${pts} ${pts === 1 ? 'point' : 'points'}`;
+                    }}
+                  />
+                ),
+              },
+              {
+                id: 'stacks',
+                label: '🌹 Stacks',
+                content: (
+                  <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
+                    <h3 className="font-semibold">What everyone had down</h3>
+                    <ul className="flex flex-col gap-1">
+                      {g.players.map((p, seat) => {
+                        const stack = reveal.get(p.id)?.stack ?? [];
+                        return (
+                          <li key={p.id} className="flex min-h-11 items-center gap-2 py-1">
+                            <span className="w-24 truncate">{name(p.id)}</span>
+                            <span className="flex items-center">
+                              {stack.length === 0 ? (
+                                <span className="text-ink-muted">—</span>
+                              ) : (
+                                stack.map((d, i) => (
+                                  <DiscView
+                                    key={i}
+                                    face={d}
+                                    seat={seat}
+                                    color={room.players.find((x) => x.id === p.id)?.color}
+                                    art={art}
+                                    // Near the mats' size, side by side, the thorn ringed in danger.
+                                    size={wide ? 72 : 52}
+                                    className={cn(
+                                      i > 0 && 'ml-1.5',
+                                      d === 'thorn' &&
+                                        'rounded-full ring-[3px] ring-danger ring-offset-2 ring-offset-panel',
+                                    )}
+                                  />
+                                ))
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '🪑 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

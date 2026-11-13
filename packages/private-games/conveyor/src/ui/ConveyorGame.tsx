@@ -4,9 +4,12 @@ import {
   lobbyStatus,
   playersNeeded,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
   EndTabs,
   GuideLink,
   Hint,
@@ -17,7 +20,6 @@ import {
   ProtectedImage,
   RefusalSlot,
   Standings,
-  StickyBar,
   Superlatives,
   Switch,
   TimerSettings,
@@ -26,6 +28,12 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  FoldSummary,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -82,8 +90,8 @@ export function ConveyorGame({
     };
   }, [setYourMove, tabAlert]);
 
-  const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const wide = useWideScreen();
+  const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -94,7 +102,6 @@ export function ConveyorGame({
       : null,
   );
   const guide = (topic?: unknown) => showGuide(topic);
-  const phoneEnd = view.phase === 'over' && !wide;
   const table = (
     <Table
       view={view}
@@ -104,6 +111,7 @@ export function ConveyorGame({
       name={youName}
       logName={name}
       showGuide={guide}
+      aside={wide && view.phase === 'playing' && inGame ? <Tips art={art} /> : null}
     />
   );
 
@@ -115,7 +123,7 @@ export function ConveyorGame({
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && inGame && <Tips art={art} />}
+          {view.phase === 'playing' && inGame && !wide && <Tips art={art} />}
           {view.phase === 'over' && (
             <End
               view={view}
@@ -123,10 +131,11 @@ export function ConveyorGame({
               act={act}
               art={art}
               name={youName}
-              table={phoneEnd ? table : null}
+              // The finished table is one of the end's parts on every width (the end fills the window).
+              table={table}
             />
           )}
-          {!phoneEnd && table}
+          {view.phase !== 'over' && table}
         </>
       )}
     </div>
@@ -232,22 +241,103 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Conveyor'}
+          emblem="🍣"
+          art={
+            box && <ProtectedImage src={box} alt="" className="w-full rounded-lg object-cover" />
+          }
+        >
+          Everyone picks a dish at once and passes the rest of their hand along. Three quick rounds,
+          best with 4 or 5.
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              menuName,
+              ...(st.passBoth ? ['pass both ways'] : []),
+              ...(st.golf ? ['golf'] : []),
+              ...(n === 2 && st.drawPile ? ['draw piles'] : []),
+              timersLine(timers, { clue: 'picks', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <MenuPicker
+              view={view}
+              editable={room.isHost}
+              art={art}
+              n={n}
+              set={set}
+              showGuide={showGuide}
+            />
+            <Switch
+              on={st.passBoth}
+              editable={room.isHost}
+              title="Pass both ways"
+              help="Rounds 1 and 3 pass to the left, round 2 to the right. Off: always to the left."
+              onChange={(v) => set({ passBoth: v })}
+              testId="cv-pass-both"
+            />
+            <Switch
+              on={st.golf}
+              editable={room.isHost}
+              title="Golf"
+              help="The lowest score wins (a tie: fewest desserts). Scoring is the same."
+              onChange={(v) => set({ golf: v })}
+              testId="cv-golf"
+            />
+            <Switch
+              on={st.drawPile}
+              editable={room.isHost}
+              title="Draw piles (2 players)"
+              help="With 2 players: 5 cards in hand and 5 in your own pile, one drawn on each of the next 5 turns, so neither of you knows the other’s whole hand."
+              onChange={(v) => set({ drawPile: v })}
+              testId="cv-draw-pile"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Pick timer"
+              clueHelp="Time for each pick and each choice (a spoon’s giver always has 15 seconds)."
+              strictHelp="a random card or choice is made for them"
+              onChange={(patch) =>
+                set({
+                  ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                  ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                })
+              }
+            />
+            <RefusalSlot anchor="cv-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'cv-start' })}
+            refusal="cv-start"
+          />
+        )
+      }
+    >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({n}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        <div className="flex gap-3">
-          {box && (
-            <ProtectedImage
-              src={box}
-              alt=""
-              className="h-24 w-auto shrink-0 rounded-lg object-cover"
+        <SeatHeading as="h2" title={`Players (${n}/${MAX_PLAYERS})`}>
+          {me && (
+            <SeatToggle
+              playing={me.playing}
+              full={n >= MAX_PLAYERS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
             />
           )}
+        </SeatHeading>
+        <div className="flex gap-3">
           <ul className="flex flex-1 flex-col gap-1.5" aria-label="Seats">
             {seated.map((s) => (
               <li key={s.id} className="flex items-center gap-2">
@@ -258,15 +348,6 @@ function Lobby({
                   offline={offline(s.id)}
                   className="flex-1"
                 />
-                {s.id === room.you && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void act({ type: 'sit', playing: false })}
-                  >
-                    Watch instead
-                  </Button>
-                )}
               </li>
             ))}
           </ul>
@@ -279,90 +360,9 @@ function Lobby({
             ))}
           </p>
         )}
-        {me && !me.playing && n < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
-        )}
-        <p className="text-sm text-ink-muted">
-          Everyone picks a dish at once and passes the rest of their hand along. Three quick rounds,
-          best with 4 or 5.
-        </p>
       </Panel>
       <GuideLink title={room.gameName ?? 'Conveyor'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          menuName,
-          ...(st.passBoth ? ['pass both ways'] : []),
-          ...(st.golf ? ['golf'] : []),
-          ...(n === 2 && st.drawPile ? ['draw piles'] : []),
-          timersLine(timers, { clue: 'picks', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <MenuPicker
-          view={view}
-          editable={room.isHost}
-          art={art}
-          n={n}
-          set={set}
-          showGuide={showGuide}
-        />
-        <Switch
-          on={st.passBoth}
-          editable={room.isHost}
-          title="Pass both ways"
-          help="Rounds 1 and 3 pass to the left, round 2 to the right. Off: always to the left."
-          onChange={(v) => set({ passBoth: v })}
-          testId="cv-pass-both"
-        />
-        <Switch
-          on={st.golf}
-          editable={room.isHost}
-          title="Golf"
-          help="The lowest score wins (a tie: fewest desserts). Scoring is the same."
-          onChange={(v) => set({ golf: v })}
-          testId="cv-golf"
-        />
-        <Switch
-          on={st.drawPile}
-          editable={room.isHost}
-          title="Draw piles (2 players)"
-          help="With 2 players: 5 cards in hand and 5 in your own pile, one drawn on each of the next 5 turns, so neither of you knows the other’s whole hand."
-          onChange={(v) => set({ drawPile: v })}
-          testId="cv-draw-pile"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Pick timer"
-          clueHelp="Time for each pick and each choice (a spoon’s giver always has 15 seconds)."
-          strictHelp="a random card or choice is made for them"
-          onChange={(patch) =>
-            set({
-              ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-              ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-            })
-          }
-        />
-        <RefusalSlot anchor="cv-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'cv-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="cv-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
@@ -391,7 +391,7 @@ function MenuPicker({
           key={t}
           className={cn(
             'rounded-full bg-panel px-1.5 text-xs ring-1 ring-line',
-            !!count && !allowedAt(t, count) && 'line-through opacity-60',
+            !!count && !allowedAt(t, count) && 'text-ink-muted line-through',
           )}
         >
           {TYPES[t].emoji} {art.names.type(t)}
@@ -415,13 +415,15 @@ function MenuPicker({
                 className={cn(
                   'flex w-full flex-col gap-1 rounded-xl bg-card p-2 text-left ring-1 ring-line',
                   st.menu === p.id && 'ring-2 ring-accent',
-                  !ok && 'opacity-60',
+                  !ok && 'bg-sunk',
                 )}
               >
                 <span className="text-sm font-semibold">
                   {art.names.menu(p.id, p.name)}
                   {!ok && (
-                    <span className="ml-1 text-xs font-normal">(not for {count} players)</span>
+                    <span className="ml-1 text-xs font-normal text-ink-2">
+                      <span aria-hidden>🚫</span> not for {count} players
+                    </span>
                   )}
                 </span>
                 <span className="text-xs text-ink-muted">{p.blurb}</span>
@@ -555,104 +557,166 @@ function End({
   act: Act;
   art: Art;
   name: NameOf;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The finished table, as one of the end's parts. */
   table: ReactNode;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
+  // One winner's cards (a tie shows the first): up to ten fit two rows on a phone.
+  const winner = g.players.find((p) => g.winners.includes(p.id));
+  // Its tray, or (when the last round's tray was cleared at scoring) the desserts it kept.
+  const winnerTray = (winner?.tray.length ? winner.tray : (winner?.desserts ?? [])).slice(0, 10);
   return (
-    <Panel className="cv-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  score: p.score,
-                  note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
-                }))}
-                you={room.you}
-                lowerIsBetter={g.golf}
-              />
-            ),
-          },
-          !!g.dessertRows && {
-            id: 'desserts',
-            label: '🍮 Desserts',
-            content: (
-              <details className="text-sm" open>
-                <summary className="cursor-pointer font-semibold">Desserts at the end</summary>
-                <div className="mt-2">
-                  <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
-                </div>
-              </details>
-            ),
-          },
-          {
-            id: 'rounds',
-            label: '📋 Rounds',
-            content: (
-              <details className="text-sm">
-                <summary className="cursor-pointer font-semibold">Round by round</summary>
-                <table className="mt-2 w-full text-left tabular-nums">
-                  <thead>
-                    <tr>
-                      <th className="font-semibold">Player</th>
-                      {g.results.map((r) => (
-                        <th key={r.round}>R{r.round}</th>
-                      ))}
-                      <th>🍮</th>
-                      <th>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.players.map((p) => (
-                      <tr key={p.id}>
-                        <td>{name(p.id)}</td>
-                        {g.results.map((r) => (
-                          <td key={r.round}>{r.rows.find((x) => x.id === p.id)?.points ?? 0}</td>
+    <div className="flex flex-col gap-3">
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={winnerTray.length ? null : '🍣'}
+            // The winner's last tray, card by card: the meal that won it.
+            art={
+              winnerTray.length > 0 && (
+                // Wide screens: the finale's card size (about 140 px), two or three to a row, so the
+                // meal fills the column instead of a strip of stamps.
+                <ul
+                  aria-label="The winning tray"
+                  className={cn(
+                    'flex flex-wrap justify-center gap-1.5 lg:gap-3',
+                    winnerTray.length === 4 && 'lg:max-w-[19rem]',
+                  )}
+                >
+                  {winnerTray.map((c, i) => (
+                    <li key={`${c.id}-${i}`}>
+                      <CardFace
+                        k={c.copy ?? c.k}
+                        art={art}
+                        size="tray"
+                        flipped={!!c.flipped}
+                        className={cn(
+                          'shadow-vt-1',
+                          winnerTray.length <= 4
+                            ? 'lg:w-36'
+                            : winnerTray.length <= 6
+                              ? 'lg:w-28'
+                              : 'lg:w-24',
+                        )}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'cv-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+                <RefusalSlot anchor="cv-end" />
+              </>
+            }
+          />
+        }
+      >
+        <Panel className="cv-rise flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={g.players.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      score: p.score,
+                      note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
+                    }))}
+                    you={room.you}
+                    lowerIsBetter={g.golf}
+                  />
+                ),
+              },
+              !!g.dessertRows && {
+                id: 'desserts',
+                label: '🍮 Desserts',
+                content: (
+                  <details className="group text-sm" open>
+                    <FoldSummary className="-my-1 px-0 font-semibold">
+                      Desserts at the end
+                    </FoldSummary>
+                    <div className="mt-2">
+                      <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
+                    </div>
+                  </details>
+                ),
+              },
+              {
+                id: 'rounds',
+                label: '📋 Rounds',
+                content: (
+                  <details className="group text-sm">
+                    <FoldSummary className="-my-1 px-0 font-semibold">Round by round</FoldSummary>
+                    <table className="mt-2 w-full text-left tabular-nums">
+                      <thead>
+                        <tr>
+                          <th className="font-semibold">Player</th>
+                          {g.results.map((r) => (
+                            <th key={r.round}>R{r.round}</th>
+                          ))}
+                          <th>🍮</th>
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.players.map((p) => (
+                          <tr key={p.id}>
+                            <td>{name(p.id)}</td>
+                            {g.results.map((r) => (
+                              <td key={r.round}>
+                                {r.rows.find((x) => x.id === p.id)?.points ?? 0}
+                              </td>
+                            ))}
+                            <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
+                            <td className="font-bold">{p.score}</td>
+                          </tr>
                         ))}
-                        <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
-                        <td className="font-bold">{p.score}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🍣 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'cv-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cv-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="cv-end" />
-    </Panel>
+                      </tbody>
+                    </table>
+                  </details>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '🍣 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

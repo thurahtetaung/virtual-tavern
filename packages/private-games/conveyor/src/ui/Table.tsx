@@ -2,6 +2,7 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   CardViewer,
+  Chip,
   Countdown,
   Modal,
   PlayerTag,
@@ -14,8 +15,9 @@ import {
   useWideScreen,
   type ViewerItem,
   cn,
+  FoldSummary,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { TYPES, type TypeId, fullMenu, typeOf, variantOf } from '../logic/cards.ts';
 import { roundRows } from '../logic/score.ts';
 import type {
@@ -66,6 +68,8 @@ export interface TableProps {
   name: NameOf;
   logName: NameOf;
   showGuide: (topic?: string) => void;
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
 }
 
 /** What each tray scores now (this round only). */
@@ -131,7 +135,7 @@ function useZoom(art: Art) {
   return { open, viewer };
 }
 
-export function Table({ view, room, act, art, name, logName, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, logName, showGuide, aside }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you) ?? null;
   const live = useMemo(() => livePoints(g), [g]);
@@ -178,7 +182,7 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
       <div className="flex min-w-0 flex-col gap-3">
         {shown !== null && trays}
         <div className={cn('flex flex-col gap-3', hide('play'))} {...panel('play')}>
-          <MenuStrip g={g} art={art} showGuide={showGuide} />
+          {!wide && <MenuStrip g={g} art={art} showGuide={showGuide} />}
           <Moments view={view} you={room.you} art={art} name={name} />
           {shown === null && (
             <Others
@@ -202,14 +206,22 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
               act={act}
             />
           )}
-          {view.phase === 'playing' && g.stage === 'scores' ? (
-            <RoundScores view={view} room={room} act={act} art={art} name={name} />
-          ) : view.phase === 'playing' ? (
-            <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
-          ) : null}
+          {/* Wide screens: your hand (or the round's scores) first, the trays under it. */}
+          {view.phase === 'playing' && (
+            <div className="flex flex-col gap-3 lg:order-first">
+              {g.stage === 'scores' ? (
+                <RoundScores view={view} room={room} act={act} art={art} name={name} />
+              ) : (
+                <Play view={view} room={room} act={act} art={art} name={name} zoom={zoom.open} />
+              )}
+            </div>
+          )}
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', hide('scores'))} {...panel('scores')}>
+        {shown === null && aside}
+        {/* Wide screens: the menu sits in the rail, so the hand and the trays share the column. */}
+        {wide && <MenuStrip g={g} art={art} showGuide={showGuide} />}
         {view.phase !== 'over' && <Totals g={g} name={name} live={live} you={room.you} />}
         <Log view={view} name={logName} art={art} />
       </aside>
@@ -248,7 +260,10 @@ function MenuStrip({
   showGuide: (t?: string) => void;
 }) {
   return (
-    <nav aria-label="Menu" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+    <nav
+      aria-label="Menu"
+      className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible"
+    >
       {fullMenu(g.menu).map((t) => {
         const tile = art.tile(t);
         return (
@@ -256,7 +271,7 @@ function MenuStrip({
             key={t}
             type="button"
             onClick={() => showGuide(t)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-card px-2 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-semibold ring-1 ring-line hover:bg-panel"
             title={`${art.names.type(t)}: ${TYPES[t].short}`}
           >
             {tile ? (
@@ -320,7 +335,7 @@ function Moments({
                 )}
               </CardFace>
             </span>
-            <span className={cn('max-w-14 truncate text-[0.65rem]', p.by === you && 'font-bold')}>
+            <span className={cn('max-w-14 truncate text-xs', p.by === you && 'font-bold')}>
               {name(p.by)}
             </span>
           </li>
@@ -568,16 +583,14 @@ function TrayGroups({
                       </span>
                     )}
                     {typeOf(c.k) === 'wasabi' && c.filled && !c.flipped && (
-                      <span className="absolute right-0.5 bottom-0.5 text-[0.6rem] font-bold">
-                        used
-                      </span>
+                      <span className="absolute right-0.5 bottom-0.5 text-xs font-bold">used</span>
                     )}
                   </CardFace>
                 </button>
               );
             })}
           </span>
-          <span className="text-[0.65rem] text-ink-muted">
+          <span className="text-xs text-ink-muted">
             {t === 'flipped' ? 'face down' : art.names.type(t as TypeId)} ×{cards.length}
           </span>
         </li>
@@ -751,8 +764,8 @@ function Log({ view, name, art }: { view: ConveyorView; name: NameOf; art: Art }
       return l ? [{ id: e.id, l }] : [];
     });
   return (
-    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={false}>
-      <summary className="cursor-pointer text-sm font-semibold">What happened</summary>
+    <details className="group rounded-2xl bg-panel p-3 ring-1 ring-line" open={false}>
+      <FoldSummary className="-my-1 px-0 font-semibold">What happened</FoldSummary>
       <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto text-sm">
         {lines.map((x) => (
           <li key={x.id}>{x.l}</li>
@@ -872,17 +885,17 @@ function Play({
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-bold">{title}</h2>
             {selectable && !giveStep && (
-              <label className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={preview}
-                  onChange={(e) => {
-                    setPreview(e.target.checked);
-                    write(PREVIEW_KEY, e.target.checked);
-                  }}
-                />
+              // The shared on/off chip, pulled into the heading's line so the hand doesn't move.
+              <Chip
+                pressed={preview}
+                className="-my-2 min-h-11"
+                onClick={() => {
+                  setPreview(!preview);
+                  write(PREVIEW_KEY, !preview);
+                }}
+              >
                 Points now
-              </label>
+              </Chip>
             )}
           </div>
           {choices.length ? (
@@ -923,7 +936,7 @@ function Play({
                       {delta !== null && typeOf(c.k) !== 'order' && (
                         <span
                           className={cn(
-                            'rounded-full px-1.5 text-[0.65rem] font-bold tabular-nums',
+                            'rounded-full px-1.5 text-xs font-bold tabular-nums',
                             delta > 0
                               ? 'bg-success-soft text-success-ink'
                               : delta < 0
@@ -945,7 +958,7 @@ function Play({
           {chosen && (
             <button
               type="button"
-              className="self-start text-xs underline"
+              className="min-h-11 self-start text-sm underline"
               onClick={() => zoom(choices, choices.indexOf(chosen), title)}
             >
               🔍 See {art.names.card(chosen.k)} big
@@ -1008,45 +1021,55 @@ function Play({
         <p className="text-sm text-ink-muted">You’re watching this game.</p>
       )}
       {spoonStep && <SpoonPicker g={g} art={art} act={act} />}
-      {clock?.deadline && waiting.length > 0 && (
-        <Countdown
-          deadline={clock.deadline}
-          clockOffset={room.clockOffset}
-          label={clock.fixed ? 'to choose' : g.stage === 'pick' ? 'to pick' : 'to choose'}
-          {...(clock.fixed || view.settings.timerMode === 'strict'
-            ? {
-                atZero: clock.fixed
-                  ? 'then a random card that fits is given'
-                  : 'then a random choice is made',
-              }
-            : {
-                soft: true,
-                expiredHint: room.isHost
-                  ? 'You can Act for anyone still choosing.'
-                  : 'The host can choose for anyone still choosing.',
-              })}
-        />
-      )}
-      {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
-        <p className="text-center text-sm text-ink-muted">
-          {waitingFor(waiting, room.players, { you: room.you })}
-          {room.isHost &&
-            waiting
-              .filter((id) => id !== room.you)
-              .slice(0, 3)
-              .map((id) => (
-                <Button
-                  key={id}
-                  size="sm"
-                  variant="ghost"
-                  className="ml-1"
-                  onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })}
-                >
-                  Act for {name(id)}
-                </Button>
-              ))}
-        </p>
-      )}
+      {/* Wide screens: the clock, the waiting line and the host's Act for buttons share one row,
+          so your hand, Lock in and the trays stay in view. */}
+      <div className="flex flex-col gap-3 empty:hidden lg:flex-row-reverse lg:items-center lg:justify-between lg:gap-4">
+        {clock?.deadline && waiting.length > 0 && (
+          <Countdown
+            deadline={clock.deadline}
+            clockOffset={room.clockOffset}
+            label={clock.fixed ? 'to choose' : g.stage === 'pick' ? 'to pick' : 'to choose'}
+            {...(clock.fixed || view.settings.timerMode === 'strict'
+              ? {
+                  atZero: clock.fixed
+                    ? 'then a random card that fits is given'
+                    : 'then a random choice is made',
+                }
+              : {
+                  soft: true,
+                  expiredHint: room.isHost
+                    ? 'You can Act for anyone still choosing.'
+                    : 'The host can choose for anyone still choosing.',
+                })}
+          />
+        )}
+        {waiting.length > 0 && !(waiting.length === 1 && waiting[0] === room.you) && (
+          <div className="space-y-2 text-center text-sm text-ink-muted lg:flex lg:flex-wrap lg:items-center lg:gap-3 lg:space-y-0 lg:text-left">
+            <p>{waitingFor(waiting, room.players, { you: room.you })}</p>
+            {room.isHost && waiting.some((id) => id !== room.you) && (
+              // One even row of the host's Act for buttons under the waiting line.
+              <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                {waiting
+                  .filter((id) => id !== room.you)
+                  .slice(0, 3)
+                  .map((id) => (
+                    <Button
+                      key={id}
+                      size="sm"
+                      variant="secondary"
+                      className="min-w-28"
+                      onClick={() =>
+                        void act({ type: 'act-for', player: id }, { anchor: 'cv-play' })
+                      }
+                    >
+                      Act for {name(id)}
+                    </Button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       {selectable && me && (
         <StickyBar fixed refusal="cv-play" refusalKey={key}>
           <div className="flex gap-2">
@@ -1230,23 +1253,18 @@ export function ScoreRows({
   you: string;
 }) {
   const sorted = [...rows].sort((x, y) => y.points - x.points);
+  // Phones: your own breakdown in full, everyone else's folded to the total (a tap opens it), so
+  // the whole table fits above the Ready bar.
+  const wide = useWideScreen();
   return (
     <ul className="grid gap-2 sm:grid-cols-2">
-      {sorted.map((r, i) => (
-        <li
-          key={r.id}
-          className={cn(
-            'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line',
-            r.id === you && 'ring-2 ring-accent',
-          )}
-          style={{ animationDelay: `${i * 120}ms` }}
-        >
-          <p className="flex justify-between font-semibold">
-            <span>{name(r.id)}</span>
-            <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>
-              {r.points} {Math.abs(r.points) === 1 ? 'point' : 'points'}
-            </span>
-          </p>
+      {sorted.map((r, i) => {
+        const total = (
+          <span className={cn('tabular-nums', r.points >= 25 && 'cv-pop')}>
+            {r.points} {Math.abs(r.points) === 1 ? 'point' : 'points'}
+          </span>
+        );
+        const parts = (
           <ul className="text-sm">
             {r.parts.map((p, j) => (
               <li key={j} className="flex justify-between gap-2">
@@ -1258,8 +1276,36 @@ export function ScoreRows({
             ))}
             {!r.parts.length && <li className="text-ink-muted">Nothing scored</li>}
           </ul>
-        </li>
-      ))}
+        );
+        return (
+          <li
+            key={r.id}
+            className={cn(
+              'cv-rise rounded-xl bg-panel p-2 ring-1 ring-line',
+              r.id === you && 'ring-2 ring-accent',
+            )}
+            style={{ animationDelay: `${i * 120}ms` }}
+          >
+            {wide || r.id === you ? (
+              <>
+                <p className="flex justify-between font-semibold">
+                  <span>{name(r.id)}</span>
+                  {total}
+                </p>
+                {parts}
+              </>
+            ) : (
+              <details className="group">
+                <FoldSummary className="-my-2 min-h-11 justify-between px-0 text-body font-semibold">
+                  <span className="flex-1">{name(r.id)}</span>
+                  {total}
+                </FoldSummary>
+                <div className="pt-1">{parts}</div>
+              </details>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

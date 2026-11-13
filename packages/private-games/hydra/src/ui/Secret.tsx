@@ -37,8 +37,10 @@ export function Sheet({
     };
   }, [open, onClose]);
   if (!open) return null;
+  // Phones: a bottom sheet as tall as what it holds (a full-screen sheet left an empty band above
+  // short contents); larger screens: a centred card.
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6">
       <div
         ref={ref}
         role="dialog"
@@ -46,7 +48,7 @@ export function Sheet({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'hy-rise flex w-full flex-col overflow-hidden bg-panel text-ink shadow-2xl outline-none sm:max-w-lg sm:rounded-3xl',
+          'hy-rise flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-panel text-ink shadow-2xl outline-none sm:max-h-full sm:max-w-lg sm:rounded-3xl',
           tone === 'red' && 'sm:ring-2 sm:ring-red-500/50',
           tone === 'blue' && 'sm:ring-2 sm:ring-sky-500/50',
         )}
@@ -168,7 +170,7 @@ export function SecretHand({
                   back={<PolicyBack c={c} />}
                 />
                 {isSel && (
-                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line px-2 text-[0.65rem] font-black text-ink uppercase shadow">
+                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line px-2 text-xs font-black text-ink uppercase shadow">
                     {verb ?? 'Picked'}
                   </span>
                 )}

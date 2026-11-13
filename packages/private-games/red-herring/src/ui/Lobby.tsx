@@ -1,24 +1,28 @@
 import { type GameRoomInfo, lobbyStatus } from '@vt/game-sdk';
 import { cardSetChoices, useManifest as useReverieManifest } from '@vt/private-reverie/card';
 import {
-  Button,
   type Choice,
   ChoicePicker,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
   LobbySettings,
+  LobbyStart,
   Panel,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
-  StickyBar,
+  SeatHeading,
+  SeatToggle,
   Switch,
   TimerSettings,
-  cn,
   timersLine,
 } from '@vt/ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { cardsNeeded, poolOf, roundsFor, startProblem } from '../logic/game.ts';
+import { guide } from '../logic/guide.ts';
 import {
   MAX_PLAYERS,
   MAX_TOPIC,
@@ -95,22 +99,179 @@ export function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <>
+    <LobbyLayout
+      className="w-full"
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Red Herring'}
+          emblem="🐟"
+          art={
+            art.lobby && (
+              <ProtectedImage
+                src={art.lobby}
+                alt=""
+                className="aspect-[3/4] w-full rounded-xl object-cover shadow-vt-2"
+              />
+            )
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={host}
+            summary={[
+              deckLine,
+              `${rounds} rounds`,
+              s.openVote ? 'open vote' : 'secret vote',
+              SCORING_NAME[s.scoring].toLowerCase(),
+              s.noDiscussion && 'no discussion',
+              s.balanced && 'balanced deal',
+              s.topic && `topic: ${s.topic}`,
+              timersLine(timers, { clue: 'turns', guess: 'talk' }),
+            ].filter((x): x is string => !!x)}
+            className="space-y-4"
+          >
+            {host && <h3 className="text-lg font-bold">Game settings</h3>}
+            <Group title="Cards" testId="rh-group-cards">
+              <div data-testid="rh-sets">
+                <ChoicePicker
+                  selectedIds={sets}
+                  choices={choices}
+                  editable={host}
+                  onSave={(ids) =>
+                    act({ type: 'update-settings', sets: ids }, { anchor: 'rh-lobby' })
+                  }
+                  labels={{
+                    title: 'Picture cards',
+                    unit: 'cards',
+                    noun: 'set',
+                    change: 'Change card sets',
+                    summary: (picked, total) =>
+                      `Playing with ${picked.length === 1 ? 'this set' : 'these sets'} (${total} cards; ${n} players need ${cardsNeeded(n, s.twice)}).`,
+                  }}
+                />
+              </div>
+            </Group>
+            <Group title="Rounds" testId="rh-group-rounds">
+              <Switch
+                on={s.twice}
+                editable={host}
+                title="Twice around"
+                help={`Everyone picks the word twice (always so with 4 players). This table: ${rounds} rounds.`}
+                onChange={(v) => {
+                  set({ twice: v });
+                }}
+                testId="rh-twice"
+              />
+            </Group>
+            <Group title="Talk and vote" testId="rh-group-vote">
+              <Switch
+                on={s.noDiscussion}
+                editable={host}
+                title="No Discussion"
+                help="Straight from the cards to the vote: the word isn’t said and nobody talks it over."
+                onChange={(v) => {
+                  set({ noDiscussion: v });
+                }}
+                testId="rh-no-discussion"
+              />
+              <Switch
+                on={s.openVote}
+                editable={host}
+                title="Open vote in turn"
+                help="The printed way: one at a time from the word-picker’s left, each vote shown as it is cast. Off: everyone votes in secret at once."
+                onChange={(v) => {
+                  set({ openVote: v });
+                }}
+                testId="rh-open-vote"
+              />
+              <fieldset className="space-y-1">
+                <legend className="text-sm font-semibold">Scoring</legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {SCORINGS.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={s.scoring === k}
+                      disabled={!host}
+                      onClick={() => {
+                        set({ scoring: k });
+                      }}
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
+                        s.scoring === k
+                          ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
+                          : 'ring-line hover:bg-panel disabled:hover:bg-transparent',
+                      )}
+                    >
+                      <span className="block text-sm font-semibold">{SCORING_NAME[k]}</span>
+                      <span className="block text-xs text-ink-muted">{SCORING_HELP[k]}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </Group>
+            <Group title="The Conspirator" testId="rh-group-conspirator">
+              <Switch
+                on={s.balanced}
+                editable={host}
+                title="Balanced deal"
+                help="The Conspirator is still secret and random, but everyone gets the role about equally."
+                onChange={(v) => {
+                  set({ balanced: v });
+                }}
+                testId="rh-balanced"
+              />
+            </Group>
+            <Group title="Topic" testId="rh-group-topic">
+              <TopicField topic={s.topic} editable={host} onSave={(topic) => set({ topic })} />
+            </Group>
+            <Group title="Timers" testId="rh-group-timers">
+              <TimerSettings
+                values={timers}
+                editable={host}
+                clueLabel="Turn timer"
+                clueHelp="Time for the word, each card and the vote."
+                guessLabel="Talk timer"
+                guessHelp="Time to talk it over before the vote. The host starts the vote."
+                strictHelp="a random card is played, the talk ends and the vote starts, or a random vote is cast (the word is never written for anyone)"
+                onChange={(patch) => {
+                  set({
+                    ...(patch.clueSeconds !== undefined && { turnSeconds: patch.clueSeconds }),
+                    ...(patch.guessSeconds !== undefined && { discussSeconds: patch.guessSeconds }),
+                    ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                  });
+                }}
+              />
+            </Group>
+            <RefusalSlot anchor="rh-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        host && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'rh-start' })}
+            refusal="rh-start"
+          />
+        )
+      }
+    >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({seated.length}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        <div className="flex gap-3">
-          {art.lobby && (
-            <ProtectedImage
-              src={art.lobby}
-              alt=""
-              className="hidden h-44 w-24 shrink-0 rounded-xl object-cover sm:block"
+        <SeatHeading as="h2" title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+          {me && (me.playing || seated.length < MAX_PLAYERS) && (
+            <SeatToggle
+              playing={me.playing}
+              onChange={(playing) => void act({ type: 'sit', playing })}
             />
           )}
+        </SeatHeading>
+        <div className="flex gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <ul className="flex flex-col gap-1.5" aria-label="Seats">
               {seated.map((x) => (
@@ -122,15 +283,6 @@ export function Lobby({
                     offline={offline(x.id)}
                     className="flex-1"
                   />
-                  {x.id === room.you && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void act({ type: 'sit', playing: false })}
-                    >
-                      Watch instead
-                    </Button>
-                  )}
                 </li>
               ))}
             </ul>
@@ -141,11 +293,6 @@ export function Lobby({
                   <PlayerTag key={x.id} name={x.name} />
                 ))}
               </p>
-            )}
-            {me && !me.playing && seated.length < MAX_PLAYERS && (
-              <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-                Take a seat
-              </Button>
             )}
             <div className="flex items-start gap-3">
               <DrawPile
@@ -163,148 +310,7 @@ export function Lobby({
         </div>
       </Panel>
       <GuideLink title={room.gameName ?? 'Red Herring'} onClick={showGuide} />
-      <LobbySettings
-        editable={host}
-        summary={[
-          deckLine,
-          `${rounds} rounds`,
-          s.openVote ? 'open vote' : 'secret vote',
-          SCORING_NAME[s.scoring].toLowerCase(),
-          s.noDiscussion && 'no discussion',
-          s.balanced && 'balanced deal',
-          s.topic && `topic: ${s.topic}`,
-          timersLine(timers, { clue: 'turns', guess: 'talk' }),
-        ].filter((x): x is string => !!x)}
-        className="space-y-4"
-      >
-        {host && <h3 className="text-lg font-bold">Game settings</h3>}
-        <Group title="Cards" testId="rh-group-cards">
-          <div data-testid="rh-sets">
-            <ChoicePicker
-              selectedIds={sets}
-              choices={choices}
-              editable={host}
-              onSave={(ids) => act({ type: 'update-settings', sets: ids }, { anchor: 'rh-lobby' })}
-              labels={{
-                title: 'Picture cards',
-                unit: 'cards',
-                noun: 'set',
-                change: 'Change card sets',
-                summary: (picked, total) =>
-                  `Playing with ${picked.length === 1 ? 'this set' : 'these sets'} (${total} cards; ${n} players need ${cardsNeeded(n, s.twice)}).`,
-              }}
-            />
-          </div>
-        </Group>
-        <Group title="Rounds" testId="rh-group-rounds">
-          <Switch
-            on={s.twice}
-            editable={host}
-            title="Twice around"
-            help={`Everyone picks the word twice (always so with 4 players). This table: ${rounds} rounds.`}
-            onChange={(v) => {
-              set({ twice: v });
-            }}
-            testId="rh-twice"
-          />
-        </Group>
-        <Group title="Talk and vote" testId="rh-group-vote">
-          <Switch
-            on={s.noDiscussion}
-            editable={host}
-            title="No Discussion"
-            help="Straight from the cards to the vote: the word isn’t said and nobody talks it over."
-            onChange={(v) => {
-              set({ noDiscussion: v });
-            }}
-            testId="rh-no-discussion"
-          />
-          <Switch
-            on={s.openVote}
-            editable={host}
-            title="Open vote in turn"
-            help="The printed way: one at a time from the word-picker’s left, each vote shown as it is cast. Off: everyone votes in secret at once."
-            onChange={(v) => {
-              set({ openVote: v });
-            }}
-            testId="rh-open-vote"
-          />
-          <fieldset className="space-y-1">
-            <legend className="text-sm font-semibold">Scoring</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {SCORINGS.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  aria-pressed={s.scoring === k}
-                  disabled={!host}
-                  onClick={() => {
-                    set({ scoring: k });
-                  }}
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-                    s.scoring === k
-                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
-                      : 'ring-line hover:bg-panel disabled:hover:bg-transparent',
-                  )}
-                >
-                  <span className="block text-sm font-semibold">{SCORING_NAME[k]}</span>
-                  <span className="block text-xs text-ink-muted">{SCORING_HELP[k]}</span>
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        </Group>
-        <Group title="The Conspirator" testId="rh-group-conspirator">
-          <Switch
-            on={s.balanced}
-            editable={host}
-            title="Balanced deal"
-            help="The Conspirator is still secret and random, but everyone gets the role about equally."
-            onChange={(v) => {
-              set({ balanced: v });
-            }}
-            testId="rh-balanced"
-          />
-        </Group>
-        <Group title="Topic" testId="rh-group-topic">
-          <TopicField topic={s.topic} editable={host} onSave={(topic) => set({ topic })} />
-        </Group>
-        <Group title="Timers" testId="rh-group-timers">
-          <TimerSettings
-            values={timers}
-            editable={host}
-            clueLabel="Turn timer"
-            clueHelp="Time for the word, each card and the vote."
-            guessLabel="Talk timer"
-            guessHelp="Time to talk it over before the vote. The host starts the vote."
-            strictHelp="a random card is played, the talk ends and the vote starts, or a random vote is cast (the word is never written for anyone)"
-            onChange={(patch) => {
-              set({
-                ...(patch.clueSeconds !== undefined && { turnSeconds: patch.clueSeconds }),
-                ...(patch.guessSeconds !== undefined && { discussSeconds: patch.guessSeconds }),
-                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-              });
-            }}
-          />
-        </Group>
-        <RefusalSlot anchor="rh-lobby" />
-      </LobbySettings>
-      {host && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'rh-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="rh-start" />
-        </StickyBar>
-      )}
-    </>
+    </LobbyLayout>
   );
 }
 

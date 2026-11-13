@@ -261,7 +261,7 @@ export function Logbook({
       </ol>
       <button
         type="button"
-        className="min-h-10 text-sm font-semibold underline sm:hidden"
+        className="min-h-11 text-sm font-semibold underline sm:hidden"
         onClick={() => setAll(!all)}
         aria-expanded={all}
       >

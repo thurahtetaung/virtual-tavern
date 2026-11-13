@@ -162,6 +162,27 @@ export function showdownScore(view: EnigmaView): ShowdownScore | null {
 export const endReason = (view: EnigmaView) =>
   winReason(view.teams, view.round, showdownScore(view));
 
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+/**
+ * The end's verdict in one line when the full reason is a paragraph (the score or the showdown
+ * decided it), so the result reads first; null when the reason is already one short line.
+ */
+export function endVerdict(view: EnigmaView): string | null {
+  const reason = endReason(view);
+  if (!reason) return null;
+  const scores = (['red', 'blue'] as const)
+    .map((t) => `${TEAM_LABEL[t]} ${signed(view.teams[t].intercepts - view.teams[t].misses)}`)
+    .join(', ');
+  const sd = showdownScore(view);
+  if (sd) {
+    return sd.red === sd.blue
+      ? `Level on ${scores}; the showdown tied ${sd.red}–${sd.blue}: a shared win.`
+      : `Level on ${scores}; showdown: Red ${sd.red}, Blue ${sd.blue}.`;
+  }
+  return reason.includes('the score decides') ? `The score decided it: ${scores}.` : null;
+}
+
 function showdownStatus(view: EnigmaView): Status {
   const team = view.me?.team;
   if (!team) {

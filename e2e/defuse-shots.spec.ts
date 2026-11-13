@@ -77,7 +77,8 @@ for (const [label, viewport, colorScheme] of [
     await ben.getByRole('button', { name: 'Claim' }).click();
     await shot(ben, '12-expert-page');
     await ben.getByTestId('notes').fill('Serial ends in 2. Two batteries.');
-    await ben.getByRole('button', { name: '◂ Index' }).click();
+    // Desktops keep the index beside the page; phones go back to it.
+    if (phone) await ben.getByRole('button', { name: '◂ Index' }).click();
     await ben.getByTestId('manual-search').fill('');
     await ben.getByText('Who has claimed what').click();
     await shot(ben, '13-expert-claims');

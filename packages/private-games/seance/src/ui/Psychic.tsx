@@ -1,5 +1,14 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, FitArea, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  FitArea,
+  Panel,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useWideScreen,
+} from '@vt/ui';
 import { PILLARS, type Pillar, isPillarCard, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -123,6 +132,7 @@ export function MineTab({
   compare: (spec: CompareSpec) => void;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
   const me = myPsychic(view)!;
   const pillar = PILLARS[me.step];
   const open = g.stage === 'visions';
@@ -214,7 +224,8 @@ export function MineTab({
           )}
         </div>
         {/* Phones: your vision and the cards on the table take what the screen has left and scroll inside it. */}
-        <FitArea phone plain min={128} className="-mx-1 space-y-2 px-1 py-1">
+        {/* Desktops too: the column fits the window beside the others and the table. */}
+        <FitArea plain min={wide ? 220 : 128} className="-mx-1 space-y-2 px-1 py-1">
           {/* No vision yet: the status line and the waiting line already say so. */}
           {me.visions.length > 0 && (
             <VisionStrip
@@ -255,6 +266,8 @@ export function MineTab({
             className={cn(
               'grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-4',
               candidates.length > 6 ? 'grid-cols-3' : 'grid-cols-2',
+              // Between hours these are next hour's cards: one row on desktops, under the verdicts.
+              g.stage === 'reveal' && 'lg:grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))]',
             )}
             aria-label="Candidates"
           >
@@ -333,7 +346,7 @@ export function TriedStamp({ hour }: { hour: number }) {
   return (
     <span
       aria-hidden
-      className="absolute top-1 right-1 rounded bg-danger px-1 text-[10px] leading-snug font-bold text-white shadow"
+      className="absolute top-1 right-1 rounded bg-danger px-1 text-xs leading-snug font-bold text-white shadow"
     >
       ✗ tried in hour {roman(hour)}
     </span>
@@ -600,7 +613,7 @@ export function OthersTab({
                           }
                         />
                       ) : (
-                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-center text-[11px] text-ink-muted">
+                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-line text-center text-xs text-ink-muted">
                           no guess yet
                         </div>
                       )}

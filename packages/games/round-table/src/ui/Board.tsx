@@ -37,7 +37,9 @@ export function QuestTrack({
             <span
               className={cn(
                 'flex items-center justify-center rounded-full font-bold ring-2',
-                compact ? 'size-8 text-small' : 'aspect-square w-full max-w-16 text-lg sm:text-xl',
+                compact
+                  ? 'size-8 text-small'
+                  : 'aspect-square w-full max-w-16 font-display text-lg sm:text-xl lg:max-w-[5rem] lg:text-title',
                 result?.success && 'bg-team-b text-on-fill ring-team-b',
                 result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
@@ -202,7 +204,11 @@ export function Seats({
   return (
     <ul
       aria-label="Seats"
-      className={cn('grid gap-1.5 sm:grid-cols-3', compact ? 'grid-cols-3' : 'grid-cols-2')}
+      className={cn(
+        // Wide screens: as many seats to a row as fit at 11 rem (five or six on a laptop).
+        'grid gap-1.5 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] lg:gap-2.5',
+        compact ? 'grid-cols-3' : 'grid-cols-2',
+      )}
     >
       {g.players.map((p) => {
         const me = p.id === view.me?.id;
@@ -221,7 +227,9 @@ export function Seats({
               aria-label={pick ? pick.label(p.name) : p.name}
               onClick={() => pick?.onPick(p.id)}
               className={cn(
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left',
+                // Wide screens: seat cards (128 px tall, the name in the display face at title size,
+                // the badges at body size), so the table fills its column.
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1-edge lg:min-h-32 lg:gap-2 lg:pl-4',
                 compact
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
@@ -234,7 +242,7 @@ export function Seats({
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold">
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:gap-1.5 lg:font-display lg:text-title">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
@@ -274,7 +282,7 @@ export function Seats({
                   </span>
                 )}
               </span>
-              <span className="flex flex-wrap items-center gap-1 text-caption leading-tight">
+              <span className="flex flex-wrap items-center gap-1 text-caption leading-tight lg:gap-1.5 lg:text-small lg:[&>.rounded-full]:px-2.5 lg:[&>.rounded-full]:py-0.5">
                 {me && compact && <span className="text-ink-muted sm:hidden">you</span>}
                 {k === 'evil' && (
                   <span className="rounded-full bg-team-a px-1.5 font-bold text-on-fill">Evil</span>

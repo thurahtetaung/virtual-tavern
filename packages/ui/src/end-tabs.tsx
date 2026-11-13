@@ -1,5 +1,15 @@
-import { Fragment, type ReactNode, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useFitToScreen } from './fit-area.tsx';
+import { MoreBelow, useMarkMore } from './more-below.tsx';
 import { Tabs, tabPanelProps } from './tabs.tsx';
 
 /** Wider screens (Tailwind's `lg`) show the whole end screen at once, as they always have. */
@@ -18,6 +28,12 @@ export function useWideScreen(): boolean {
   return useSyncExternalStore(subscribe, wide, () => false);
 }
 
+/** True inside `EndLayout`'s wide columns: the finale and the end's parts size for a column. */
+export const EndColumns = createContext(false);
+
+/** Whether a finale without art may become a banner across the top (`EndLayout`'s `banner`). */
+export const EndBanner = createContext(true);
+
 export interface EndTab {
   id: string;
   /** Short, with its emoji: "🏆 Scores". */
@@ -29,23 +45,29 @@ export interface EndTab {
  * A finished game's end screen on phones: a tab strip and one part at a time (the scores, the
  * awards, the game's own details), so the end, the room's buttons and Play again fit the screen.
  * A part taller than the screen leaves scrolls inside, never the page. Wider screens get every
- * part in order with no strip, exactly as without it. Leave out parts
- * with nothing to show (`null` or `false`); with one part left there is no strip.
+ * part in order with no strip; with `columns`, they flow into two columns from `xl` (each part kept
+ * whole), so a long end uses the width instead of a long scroll. Leave out parts with nothing to
+ * show (`null` or `false`); with one part left there is no strip.
  */
 export function EndTabs({
   tabs,
   label = 'The end',
   testId = 'end-tabs',
   className,
+  columns = false,
 }: {
   tabs: readonly (EndTab | null | false | undefined)[];
   label?: string;
   testId?: string;
   /** Classes for the strip. */
   className?: string;
+  /** Wide screens: flow the parts into two columns from `xl` instead of one long stack. */
+  columns?: boolean;
 }) {
   const parts = tabs.filter((t): t is EndTab => !!t);
   const isWide = useWideScreen();
+  // In `EndLayout`'s right column the parts stack in that column, which scrolls on its own.
+  const inColumn = useContext(EndColumns);
   const id = useId();
   const [chosen, setChosen] = useState(parts[0]?.id ?? '');
   const current = parts.find((t) => t.id === chosen) ?? parts[0];
@@ -56,6 +78,18 @@ export function EndTabs({
     resetKey: current?.id ?? '',
     content: inner,
   });
+  // A part that scrolls inside shows "More below" at its foot until it is read to the end.
+  useMarkMore(box, [isWide, current?.id, parts.length]);
+  if (isWide && columns && !inColumn && parts.length > 1)
+    return (
+      <div data-ui="end-columns" className="gap-4 xl:columns-2">
+        {parts.map((t) => (
+          <div key={t.id} className="mb-4 break-inside-avoid">
+            {t.content}
+          </div>
+        ))}
+      </div>
+    );
   if (isWide || parts.length < 2)
     return (
       <>
@@ -75,15 +109,18 @@ export function EndTabs({
         onChange={setChosen}
         className={className}
       />
-      <div
-        ref={box}
-        {...tabPanelProps(id, current?.id ?? '')}
-        aria-label={current?.label}
-        className="min-w-0 overflow-y-auto overscroll-contain"
-      >
-        <div ref={inner} className="p-px">
-          {current?.content}
+      <div className="relative min-w-0">
+        <div
+          ref={box}
+          {...tabPanelProps(id, current?.id ?? '')}
+          aria-label={current?.label}
+          className="peer min-w-0 overflow-y-auto overscroll-contain"
+        >
+          <div ref={inner} className="p-px">
+            {current?.content}
+          </div>
         </div>
+        <MoreBelow column={box} surface="panel" />
       </div>
     </>
   );

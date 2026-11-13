@@ -14,8 +14,9 @@ export const TOKEN_FILL: Record<Token, string> = {
   white: 'bg-stone-50 text-stone-800 ring-stone-400 dark:bg-stone-100',
   // vt-palette: gem colours
   blue: 'bg-blue-600 text-white ring-blue-800',
+  // One step darker than the other gems' shade, so white counts clear 4.5:1.
   // vt-palette: gem colours
-  green: 'bg-emerald-600 text-white ring-emerald-800',
+  green: 'bg-emerald-700 text-white ring-emerald-900',
   // vt-palette: gem colours
   red: 'bg-red-600 text-white ring-red-800',
   black: 'bg-stone-900 text-white ring-stone-600 dark:ring-stone-400',
@@ -29,7 +30,7 @@ export const BAND: Record<Gem, string> = {
   // vt-palette: gem colours
   blue: 'bg-blue-600/85',
   // vt-palette: gem colours
-  green: 'bg-emerald-600/85',
+  green: 'bg-emerald-700/90',
   // vt-palette: gem colours
   red: 'bg-red-600/85',
   black: 'bg-stone-800',
@@ -64,11 +65,11 @@ export const TokenChip = memo(function TokenChip({
     <span
       role="img"
       aria-label={count === undefined ? TOKEN_NAME[token] : `${count} ${TOKEN_NAME[token]}`}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.46) }}
+      style={{ width: size, height: size, fontSize: Math.max(12, Math.round(size * 0.46)) }}
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center rounded-full font-black tabular-nums shadow-sm ring-2',
-        TOKEN_FILL[token],
-        dim && 'opacity-35',
+        // None left: a neutral surface rather than a faded chip, so the 0 stays readable.
+        dim && !src ? 'bg-sunk text-ink-muted ring-line' : TOKEN_FILL[token],
         className,
       )}
     >
@@ -76,7 +77,10 @@ export const TokenChip = memo(function TokenChip({
         <ProtectedImage
           src={src}
           alt=""
-          className="absolute inset-0 size-full rounded-full object-cover"
+          className={cn(
+            'absolute inset-0 size-full rounded-full object-cover',
+            dim && 'opacity-35',
+          )}
         />
       )}
       {count !== undefined && (
@@ -117,9 +121,10 @@ function Pip({
   return (
     <span
       className={cn(
-        'inline-flex size-4 items-center justify-center rounded-full text-[10px] leading-none font-black tabular-nums ring-1 sm:size-5 sm:text-xs',
+        'inline-flex size-5 items-center justify-center rounded-full text-sm leading-none font-black tabular-nums ring-1 lg:size-6',
         TOKEN_FILL[gem],
-        covered && 'opacity-30',
+        // A cost your cards already cover: a tick in the gem's own colours, at full contrast.
+        covered && 'scale-90',
         short && 'ring-2 ring-offset-1 ring-offset-card',
       )}
     >
@@ -171,7 +176,7 @@ function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-[11px] font-black text-ink shadow-md ring-2',
+        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-xs font-black text-ink shadow-md ring-2',
         hold.mine ? 'ring-accent' : 'ring-ink/60',
         size === 'lg' && 'gap-1 px-2 py-1 text-base',
       )}
@@ -180,7 +185,7 @@ function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
       <StrongholdIcon art={hold.art} size={size === 'lg' ? 28 : 16} />
       <span className="tabular-nums">×{hold.n}</span>
       {hold.color && <PlayerDot color={hold.color} label={false} />}
-      {!hold.mine && <span className="text-[10px]">🔒</span>}
+      {!hold.mine && <span className="text-xs">🔒</span>}
     </span>
   );
 }
@@ -267,7 +272,7 @@ export const CardTile = memo(function CardTile({
           <span
             className={cn(
               'relative flex items-center justify-between px-1.5',
-              size === 'lg' ? 'h-12 text-3xl' : 'h-5 text-sm sm:h-7 sm:text-lg',
+              size === 'lg' ? 'h-12 text-3xl' : 'h-6 text-base sm:h-7 sm:text-lg',
               BAND[card.bonus],
               BAND_TEXT[card.bonus],
             )}
@@ -302,7 +307,10 @@ export const CardTile = memo(function CardTile({
   );
   const box = cn(
     'relative flex flex-col overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-line',
-    size === 'lg' ? 'h-64 w-44' : 'aspect-[6/5] w-full sm:aspect-[4/5]',
+    // Tall phones give the market's cards their portrait shape (the screen has the height).
+    size === 'lg'
+      ? 'h-64 w-44'
+      : 'aspect-[6/5] w-full max-sm:[@media(min-height:800px)]:aspect-[4/5] sm:aspect-[4/5] lg:aspect-[3/2]',
     afford === 'yes' && 'ring-[3px] ring-success',
     afford === 'gold' && 'ring-[3px] ring-warn',
     fresh && 'jw-deal',
@@ -358,7 +366,7 @@ export function CardBack({
         {'•'.repeat(level)}
       </span>
       {count !== undefined && (
-        <span className="relative rounded bg-card/80 px-1 text-[11px] font-bold tabular-nums text-ink">
+        <span className="relative rounded bg-card/80 px-1 text-xs font-bold tabular-nums text-ink">
           {count}
         </span>
       )}
@@ -426,7 +434,7 @@ export const NobleTile = memo(function NobleTile({
           <span key={g} className="flex items-center gap-0.5">
             <span
               className={cn(
-                'inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[10px] font-black ring-1',
+                'inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-xs font-black ring-1',
                 size === 'lg' && 'h-6 min-w-6 text-sm',
                 TOKEN_FILL[g],
               )}
@@ -434,7 +442,7 @@ export const NobleTile = memo(function NobleTile({
               {noble.requires[g]}
             </span>
             {bonuses && (
-              <span className="rounded bg-card/85 px-0.5 text-[10px] font-semibold tabular-nums text-ink-muted">
+              <span className="rounded bg-card/85 px-0.5 text-xs font-semibold tabular-nums text-ink-muted">
                 {Math.min(bonuses[g], noble.requires[g])}
               </span>
             )}
@@ -469,7 +477,7 @@ export const NobleTile = memo(function NobleTile({
 
 /** A City's requirement pips, by tile size. */
 const PIP = {
-  sm: 'h-3.5 min-w-3.5 text-[9px] sm:h-4 sm:min-w-4 sm:text-[10px]',
+  sm: 'h-4 min-w-4 text-xs',
   lg: 'h-6 min-w-6 text-sm',
 } as const;
 
@@ -555,7 +563,7 @@ export const CityTile = memo(function CityTile({
         </span>
       )}
       {met && (
-        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line">
+        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-xs font-black text-success-ink ring-1 ring-success-line">
           ✓
         </span>
       )}

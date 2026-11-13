@@ -1,7 +1,17 @@
 import { storageKey } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import { Button, Modal, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import {
+  Button,
+  Modal,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useScrollEnds,
+  scrollFadeMask,
+} from '@vt/ui';
+import { useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
 import type { Trick } from '../logic/checks.ts';
 import {
@@ -121,7 +131,7 @@ function Seat({
       {tasks.length > 0 && (
         <button
           type="button"
-          className="flex min-h-7 w-full items-center gap-1 rounded-lg bg-panel px-1.5 text-xs ring-1 ring-line sm:hidden"
+          className="flex min-h-11 w-full items-center gap-1 rounded-lg bg-panel px-2 text-sm ring-1 ring-line sm:hidden"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
           data-testid="mc-seat-tasks"
@@ -325,6 +335,8 @@ export function PlayTable({
   const inCrew = a.crew.some((c) => c.id === me);
   const myTurnSeat = a.stage === 'play' && a.controls.includes(a.turn) ? a.turn : null;
   const hand = a.hand ?? [];
+  // Phones: as many rows as seven to a row would take, the cards filling each row (six at least).
+  const handCols = Math.max(6, Math.ceil(hand.length / Math.max(1, Math.ceil(hand.length / 7))));
   const trickKey = `${a.trickCount}:${a.current.length}`;
   // A picked card counts only in the trick where it was picked.
   const [pick, setPick] = useState<{ at: string; card: CardId } | null>(null);
@@ -378,11 +390,10 @@ export function PlayTable({
   const showLast = !a.current.length && last && last.no === a.trickCount;
   const canHold = !a.signalBlock && !a.current.length && !a.holds.includes(me) && a.turn !== me;
   const order = a.crew.map((c) => c.id);
+  const { ref: seatsRef, ends: seatsEnds } = useScrollEnds(order.join(','));
   // The viewer's signal is spent (their own token, or the shared ones): show the used side.
   const tokenUsed =
     a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
-  // Phones keep the hand on one row, overlapping the cards as much as it takes (a w-11 card each).
-  const overlap = `min(0.375rem, calc((100% - ${hand.length} * 2.75rem) / ${Math.max(hand.length - 1, 1)}))`;
 
   return (
     <div className="space-y-3">
@@ -392,7 +403,11 @@ export function PlayTable({
           ? '🗣️ Open table'
           : '🤫 Silent running: no talking about cards. Let the play speak.'}
       </p>
-      <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible">
+      <ul
+        ref={seatsRef}
+        style={scrollFadeMask(seatsEnds)}
+        className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible"
+      >
         {order.map((seat) => (
           <Seat
             key={seat}
@@ -468,9 +483,13 @@ export function PlayTable({
 
       {inCrew && (
         <div className="space-y-2" data-testid="mc-hand">
+          {/* Phones: the cards fill the row width in as many rows as seven to a row would take
+              (at least six across); wider screens wrap them centred. */}
           <div
-            className="flex justify-center pt-2 max-sm:[&>*+*]:ml-(--mc-overlap) sm:flex-wrap sm:gap-1.5 sm:pt-0"
-            style={{ '--mc-overlap': overlap } as CSSProperties}
+            className="grid gap-1.5 pt-2 sm:flex sm:flex-wrap sm:justify-center sm:pt-0"
+            style={{
+              gridTemplateColumns: `repeat(${handCols}, minmax(0, 1fr))`,
+            }}
           >
             {hand.map((c) => {
               const signalled = a.signals.some((s) => s.card === c && !s.played);
@@ -490,7 +509,7 @@ export function PlayTable({
                 <CardFace
                   key={c}
                   card={c}
-                  size="hand"
+                  size={handCols > 6 ? 'handFillLow' : 'handFill'}
                   state={state}
                   onClick={() => tapHand(c)}
                   testId={`mc-card-${c}`}
@@ -523,7 +542,11 @@ export function PlayTable({
               {queued && myTurnSeat !== me && (
                 <span className="basis-full text-center text-sm">
                   Plays when it’s your turn: <CardChip card={queued} />{' '}
-                  <button type="button" className="underline" onClick={() => setQueued(null)}>
+                  <button
+                    type="button"
+                    className="-my-2 inline-flex min-h-11 items-center px-2 font-semibold underline"
+                    onClick={() => setQueued(null)}
+                  >
                     cancel
                   </button>
                 </span>

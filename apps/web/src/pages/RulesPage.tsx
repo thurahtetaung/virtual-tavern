@@ -174,34 +174,38 @@ export function RulesPage() {
   const open = !off.has(game.id);
   return (
     <Layout>
-      <Link
-        to={back.to}
-        className={buttonClass({ variant: 'quiet', size: 'sm', className: '-ml-3' })}
-      >
-        <Icon name="arrow-left" size={16} />
-        {back.label}
-      </Link>
-      <h1 className="mt-2 text-title font-semibold">
-        <span aria-hidden>{game.icon}</span> How to play {game.name}
-      </h1>
-      <Tagline game={game} />
-      {!open && <NotAvailable name={game.name} />}
-      <GameGuideView
-        game={game}
-        ready={open ? <CreateRoom game={game} /> : undefined}
-        done={
-          open ? (
-            <Button
-              size="sm"
-              onClick={() =>
-                document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
-              }
-            >
-              {`Create ${article(game.name)} ${game.name} room`}
-            </Button>
-          ) : undefined
-        }
-      />
+      {/* Wide screens: the guide steps out of the page's column (up to 72rem), so its pictures,
+          tiles and card lists use the width; the rules' prose keeps a reading width inside. */}
+      <div className="xl:mx-[calc(50%_-_min(50vw_-_2rem,36rem))]">
+        <Link
+          to={back.to}
+          className={buttonClass({ variant: 'quiet', size: 'sm', className: '-ml-3' })}
+        >
+          <Icon name="arrow-left" size={16} />
+          {back.label}
+        </Link>
+        <h1 className="mt-2 text-title font-semibold">
+          <span aria-hidden>{game.icon}</span> How to play {game.name}
+        </h1>
+        <Tagline game={game} />
+        {!open && <NotAvailable name={game.name} />}
+        <GameGuideView
+          game={game}
+          ready={open ? <CreateRoom game={game} /> : undefined}
+          done={
+            open ? (
+              <Button
+                size="sm"
+                onClick={() =>
+                  document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
+                }
+              >
+                {`Create ${article(game.name)} ${game.name} room`}
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
     </Layout>
   );
 }

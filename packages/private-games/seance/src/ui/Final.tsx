@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Countdown, Panel, RefusalSlot, StickyBar, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
@@ -33,7 +33,18 @@ export function castable(g: GameView, myTurn: boolean, choice: number | null): n
 }
 
 /** The shared vision: face-up cards, then face-down ones. */
-export function SharedRow({ g, content, tags }: { g: GameView; content: Content; tags?: boolean }) {
+export function SharedRow({
+  g,
+  content,
+  tags,
+  side = false,
+}: {
+  g: GameView;
+  content: Content;
+  tags?: boolean;
+  /** Desktops: a narrow column beside the line-up (four groups or more), the cards stacked. */
+  side?: boolean;
+}) {
   const f = g.final!;
   const { look, viewer } = useLook(content);
   if (!f.sharedCount) return null;
@@ -58,7 +69,15 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
         The shared vision{' '}
         <span className="font-normal text-ink-muted">({Math.min(f.revealed, 3)} of 3 face up)</span>
       </h4>
-      <ul className="grid grid-cols-3 gap-2 sm:max-w-sm">
+      {/* Phones keep the three a little smaller, so the groups below fit with them, and smaller
+          still while the votes are cast (tap one to see it full screen). */}
+      <ul
+        className={cn(
+          'grid grid-cols-3 gap-2 sm:max-w-sm',
+          g.stage === 'vote' ? 'max-sm:max-w-[12rem]' : 'max-sm:max-w-[17rem]',
+          side && 'lg:max-w-none lg:grid-cols-1',
+        )}
+      >
         {[0, 1, 2].map((i) => {
           const card = f.shared[i];
           const up = i < f.revealed || g.stage === 'done';
@@ -84,7 +103,14 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
                 <CardBack content={content} />
               )}
               {tags && tag && (
-                <p className="text-center text-xs font-semibold">
+                // Beside the line-up the tag sits on the card's foot, so the column stays short.
+                <p
+                  className={cn(
+                    'text-center text-xs font-semibold',
+                    side &&
+                      'lg:relative lg:z-10 lg:mx-1 lg:-mt-6 lg:rounded lg:bg-black/70 lg:py-0.5 lg:text-white',
+                  )}
+                >
                   {content.pillarIcon(tag)} {content.pillarName(tag)}
                 </p>
               )}
@@ -130,9 +156,46 @@ export function Lineup({
   // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
   const [choice, setChoice] = useState<number | null>(null);
   const cast = castable(g, myTurn, choice);
+  // Phones: each group is a name line, with its action (Choose, or the ghost's Culprit) at its
+  // end, over its three cards at the full width, so the cards stay big enough to read and tap
+  // and no group needs a button row of its own. Wide screens: the groups side by side, at equal
+  // size, each with its action under its cards.
+  const wide = useWideScreen();
+  // Phones: once the ghost has named the culprit's group, the groups fold to their name lines
+  // (each still with its Culprit button), so the hand to pick from is right under them.
+  const [showCards, setShowCards] = useState(false);
+  const folded = !wide && picking && draft?.group != null && !showCards;
+  const castBar = myTurn && (
+    // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
+    <StickyBar fixed refusal="seance-vote">
+      <Button
+        size="lg"
+        className="w-full"
+        disabled={cast === null}
+        onClick={() =>
+          cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
+        }
+      >
+        {cast === null ? 'Tap a group to choose it first' : `Cast my vote for group ${cast + 1}`}
+      </Button>
+    </StickyBar>
+  );
   return (
     <div className="space-y-2">
-      <ul className="space-y-2" aria-label="Line-up">
+      {/* Desktops: two groups a row with two or four, three with three, five or six, so every
+          group is on screen at once, the cards large; beside the ghost's picker the groups share
+          half the width. */}
+      <ul
+        className={cn(
+          'grid grid-cols-1 gap-2',
+          picking
+            ? 'lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]'
+            : f.groups.length === 2 || f.groups.length === 4
+              ? 'lg:grid-cols-2 lg:gap-3'
+              : 'lg:grid-cols-3 lg:gap-3',
+        )}
+        aria-label="Line-up"
+      >
         {viewer}
         {f.groups.map((color, i) => {
           const p = psychicByColor(g, color);
@@ -141,8 +204,76 @@ export function Lineup({
           const chosen = over && g.result?.chosen === i;
           const selected = picking && draft?.group === i;
           const votes = over ? (g.result?.tally[i] ?? 0) : null;
+          const action = myTurn ? (
+            <Button
+              size="sm"
+              variant={choice === i ? 'primary' : 'secondary'}
+              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
+              aria-pressed={choice === i}
+              aria-label={choice === i ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
+              onClick={() => setChoice(toggleChoice(choice, i))}
+            >
+              {choice === i
+                ? wide
+                  ? `✓ Group ${i + 1} chosen`
+                  : '✓ Chosen'
+                : wide
+                  ? `Choose group ${i + 1}`
+                  : 'Choose'}
+            </Button>
+          ) : picking ? (
+            <Button
+              size="sm"
+              variant={selected ? 'primary' : 'secondary'}
+              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
+              aria-pressed={selected}
+              aria-label={
+                selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`
+              }
+              onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
+            >
+              {selected
+                ? '👻 The culprit’s group'
+                : wide
+                  ? `This is the culprit (group ${i + 1})`
+                  : 'Culprit'}
+            </Button>
+          ) : null;
+          // Phones while you vote: each group is one row (its number and psychic, its three
+          // cards, Choose), so every group is on screen above the bar; tap a card to look.
+          if (!wide && myTurn)
+            return (
+              <li key={color} className="min-w-0">
+                <div
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl p-1.5 ring-1 ring-line',
+                    choice === i && 'ring-2 ring-special bg-special/10',
+                  )}
+                  aria-label={`Group ${i + 1}${p ? `: ${p.name}’s cards` : ''}`}
+                >
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
+                      {i + 1}
+                    </span>
+                    {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
+                  </div>
+                  <div className="grid min-w-0 flex-1 grid-cols-3 gap-1">
+                    {cards.map((c, k) => (
+                      <Card
+                        key={k}
+                        kind={content.kindOf(PILLARS[k]!)}
+                        n={c}
+                        content={content}
+                        onTap={() => look(all, startOf(i) + k, 'The line-up')}
+                      />
+                    ))}
+                  </div>
+                  {action}
+                </div>
+              </li>
+            );
           return (
-            <li key={color}>
+            <li key={color} className="min-w-0">
               <div
                 className={cn(
                   'rounded-xl p-2 ring-1 ring-line',
@@ -152,8 +283,8 @@ export function Lineup({
                 )}
                 aria-label={`Group ${i + 1}`}
               >
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
+                <div className={cn('flex min-h-7 items-center gap-2', !folded && 'mb-1.5')}>
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
                   {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
@@ -171,8 +302,9 @@ export function Lineup({
                   {f.myVote === i && !over && (
                     <span className="text-xs font-semibold">your vote</span>
                   )}
+                  {!wide && action}
                 </div>
-                <div className="grid grid-cols-3 gap-1">
+                <div className={cn('grid grid-cols-3 gap-1', folded && 'hidden')}>
                   {cards.map((c, k) => (
                     <Card
                       key={k}
@@ -183,50 +315,23 @@ export function Lineup({
                     />
                   ))}
                 </div>
-                {myTurn && (
-                  <Button
-                    size="sm"
-                    variant={choice === i ? 'primary' : 'secondary'}
-                    className="mt-1.5 w-full"
-                    aria-pressed={choice === i}
-                    onClick={() => setChoice(toggleChoice(choice, i))}
-                  >
-                    {choice === i ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
-                  </Button>
-                )}
-                {picking && (
-                  <Button
-                    size="sm"
-                    variant={selected ? 'primary' : 'secondary'}
-                    className="mt-1.5 w-full"
-                    aria-pressed={selected}
-                    onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
-                  >
-                    {selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`}
-                  </Button>
-                )}
+                {wide && action}
               </div>
             </li>
           );
         })}
       </ul>
-      {myTurn && (
-        // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
-        <StickyBar fixed refusal="seance-vote">
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={cast === null}
-            onClick={() =>
-              cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
-            }
-          >
-            {cast === null
-              ? 'Tap a group to choose it first'
-              : `Cast my vote for group ${cast + 1}`}
-          </Button>
-        </StickyBar>
+      {!wide && picking && draft?.group != null && (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-expanded={showCards}
+          onClick={() => setShowCards(!showCards)}
+        >
+          {showCards ? 'Fold the groups' : 'Show the groups’ cards'}
+        </Button>
       )}
+      {castBar}
     </div>
   );
 }
@@ -312,6 +417,7 @@ export function SharedPicker({
             Tap Throw away on the cards to lose, then draw back up to 7.
           </p>
           <HandCards
+            dense
             hand={hand}
             content={content}
             picked={throwing}
@@ -343,6 +449,7 @@ export function SharedPicker({
         </>
       ) : (
         <HandCards
+          dense
           hand={hand}
           content={content}
           picked={cards}
@@ -435,24 +542,28 @@ export function VoteBar({ view, room, act }: { view: SeanceView; room: GameRoomI
   const strict = view.settings.timerMode === 'strict';
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft px-3 py-1.5 text-sm ring-1 ring-special-line">
-      <p className="min-w-0 flex-1">
+      {/* The words keep at least a readable measure: when the clock and Close this round don't
+          leave it, they wrap to a row of their own under it, on the right. */}
+      <p className="min-w-[min(100%,14rem)] flex-1">
         🗳️ Card {f.revealed} of 3 is up.{' '}
         {now.length
           ? `Voting now: ${now.map((p) => (p.color === g.me ? 'you' : p.name)).join(', ')}.`
           : ''}
       </p>
-      <Countdown
-        deadline={g.deadline}
-        clockOffset={room.clockOffset}
-        soft={!strict}
-        atZero={strict ? 'missing votes abstain' : undefined}
-        expiredHint={strict ? undefined : 'The host can close this round.'}
-      />
-      {room.isHost && (
-        <Button size="sm" variant="secondary" onClick={() => void act({ type: 'lock-now' })}>
-          Close this round
-        </Button>
-      )}
+      <div className="ml-auto flex items-center gap-2">
+        <Countdown
+          deadline={g.deadline}
+          clockOffset={room.clockOffset}
+          soft={!strict}
+          atZero={strict ? 'missing votes abstain' : undefined}
+          expiredHint={strict ? undefined : 'The host can close this round.'}
+        />
+        {room.isHost && (
+          <Button size="sm" variant="secondary" onClick={() => void act({ type: 'lock-now' })}>
+            Close this round
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

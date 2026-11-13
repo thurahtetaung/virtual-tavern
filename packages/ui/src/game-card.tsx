@@ -38,7 +38,10 @@ export function GameCard({
   meta?: ReactNode;
   tagline?: ReactNode;
   cover?: GameCover | null;
-  /** Always show the 16:9 art strip, with the emblem in it while there is no cover. */
+  /**
+   * Always show the art strip, with the emblem in it while there is no cover (wider screens only:
+   * phones show a cover's strip alone).
+   */
   strip?: boolean;
   createLabel?: string;
   createAriaLabel?: string;
@@ -62,8 +65,12 @@ export function GameCard({
       )}
     >
       {(art || strip) && (
-        <div className="bg-sunk p-2.5">
+        // Phones drop an emblem-only strip (the emblem is beside the name already), so a long
+        // list stays short; a real cover always shows.
+        <div className={cn('bg-sunk p-2.5', !art && 'max-sm:hidden')}>
           {art ? (
+            // Covers keep their full 16:9 on phones too: box art often carries the title near
+            // its top or bottom edge, which a shallower crop would cut.
             <div className="aspect-video overflow-hidden rounded-lg shadow-vt-1 ring-1 ring-line">
               <ProtectedImage
                 src={art.src}
@@ -77,9 +84,11 @@ export function GameCard({
             <div
               aria-hidden
               data-ui="game-card-emblem-strip"
-              className="grid aspect-video place-items-center rounded-lg text-5xl leading-none"
+              className="grid aspect-video place-items-center rounded-lg max-sm:aspect-[21/9]"
             >
-              {emblem}
+              <span className="grid size-24 place-items-center rounded-2xl bg-card text-6xl leading-none shadow-vt-1 ring-1 ring-line">
+                {emblem}
+              </span>
             </div>
           )}
         </div>

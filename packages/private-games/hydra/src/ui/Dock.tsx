@@ -120,15 +120,27 @@ export function Dock({
             aria-label={`Vote ${c.ballotName(b)}`}
             onClick={() => void act({ type: 'vote', ballot: b }, { anchor: 'dock' })}
             className={cn(
-              'flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
+              'relative flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
               g.myVote === b
                 ? 'bg-accent-soft ring-4 ring-accent'
-                : g.myVote
-                  ? 'opacity-55 ring-line-strong'
-                  : 'bg-card ring-line-strong hover:scale-[1.02]',
+                : 'bg-card ring-line-strong hover:scale-[1.02]',
             )}
           >
-            <BallotFace ballot={b} c={c} className="h-10 sm:h-14" />
+            {/* The ballot is the vote: as large as the screen allows (phones have no height to
+                spare under the hall; desktops grow it from 64 to 80 px tall once the window has the height). */}
+            <BallotFace
+              ballot={b}
+              c={c}
+              className="h-10 sm:h-14 lg:h-[clamp(4rem,calc(100dvh-53rem),5rem)] xl:h-[clamp(4rem,calc(100dvh-47rem),7rem)]"
+            />
+            {g.myVote === b && (
+              <span
+                aria-hidden
+                className="absolute -top-2 -right-2 grid size-6 place-items-center rounded-full bg-accent text-sm font-bold text-accent-fg shadow"
+              >
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -209,7 +221,7 @@ function SeatsPrompt({ text, onClick }: { text: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-center text-sm font-semibold text-accent-text"
+      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-1 text-center text-sm font-semibold text-accent-text"
       data-testid="seats-prompt"
     >
       <span className="hy-breathe inline-block">{text}</span>

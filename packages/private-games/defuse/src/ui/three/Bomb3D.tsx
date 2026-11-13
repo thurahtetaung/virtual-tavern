@@ -187,10 +187,13 @@ export function Bomb3D({
     snoozeRef.current = snooze;
   });
 
-  // One scene per mount, on the page's one renderer.
+  // One scene per mount, on the page's one renderer; a new scene (the manifest's packs arriving
+  // after a plain first one, on a reload straight into a live bomb) loads again, so the bomb and
+  // briefcase effects below run on it once it is ready.
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
+    setReady('loading');
     const light = lite();
     const renderer = sharedRenderer(light ? 1 : 2);
     el.prepend(renderer.domElement);
@@ -377,7 +380,9 @@ export function Bomb3D({
   // The round Back button, on touch away from the desk; the desk's Lobby button moves beside it.
   const backShown = touch && pose !== 'desk' && !b?.end;
   const step =
-    readOnly || b?.end || briefcase ? null : hintFor(pose === 'clock' ? 'desk' : pose, done);
+    readOnly || b?.end || briefcase || ready === 'loading'
+      ? null
+      : hintFor(pose === 'clock' ? 'desk' : pose, done);
   const scene = sceneRef.current;
   const exploded = !!b?.end && b.end.how !== 'defused';
   // `GameplayState.StartRound`: Start fades to black, then the dark room with the timer. Worked

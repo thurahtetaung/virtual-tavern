@@ -97,6 +97,8 @@ export function ShelfCard({
       name={game.name}
       meta={`${guide.players} · ${guide.duration}`}
       tagline={guide.tagline}
+      // The emblem band the back room's cards open with, so both rooms share one card.
+      strip
       createAriaLabel={`Create ${article(game.name)} ${game.name} room`}
       creating={creating === game.id}
       disabled={creating !== null}

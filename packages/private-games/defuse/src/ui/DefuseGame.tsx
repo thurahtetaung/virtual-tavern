@@ -11,6 +11,9 @@ import {
   Button,
   Hint,
   LobbySettings,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
   PHONE,
   Modal,
   Fold,
@@ -19,14 +22,17 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
+  Tabs,
   Superlatives,
   Switch,
   cn,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { leftAt, timerText } from '../logic/bomb.ts';
 import { MIN_PLAYERS } from '../logic/game.ts';
+import { guide } from '../logic/guide.ts';
 import { MISSIONS, SECTIONS, missionById, missionNumber, moduleCount } from '../logic/missions.ts';
 import {
   type Action,
@@ -459,7 +465,7 @@ function Expert({
   const [hand, setHand] = useState(false);
   const defuserHere = v.seats.some((p) => p.id === v.defuser);
   return (
-    <div className="mx-auto max-w-3xl space-y-3" data-testid="expert">
+    <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl" data-testid="expert">
       <div data-testid="status">
         <Hint tone={v.role === 'expert' ? 'action' : 'neutral'} dense>
           📖 {defuser} is defusing bomb {v.bombNo}: read them the manual.
@@ -468,13 +474,9 @@ function Expert({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <ExpertClock v={v} offset={offset} />
         {isHost && defuserHere && (
-          <button
-            type="button"
-            className="text-xs text-ink-muted underline"
-            onClick={() => setHand(true)}
-          >
+          <Button size="sm" variant="quiet" onClick={() => setHand(true)}>
             Hand the bomb over
-          </button>
+          </Button>
         )}
       </div>
       {!defuserHere && (
@@ -777,7 +779,7 @@ function SharedSettings({
       </div>
       {!mission && (
         <details data-testid="vetoes">
-          <summary className="cursor-pointer text-sm font-semibold">
+          <summary className="cursor-pointer py-3 text-sm font-semibold">
             Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
           </summary>
           <div className="mt-2 flex flex-wrap gap-1">
@@ -1037,68 +1039,97 @@ function Lobby({
     room,
     !enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null,
   );
+  const cover = art.page(1);
+  // The phone lobby is full already (seats, who defuses, the first-time tip): the pitch card is
+  // for wide screens only.
+  const wide = useWideScreen();
+  const toDesk = desk && (
+    <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
+      🧳 To the desk
+    </Button>
+  );
   return (
-    <div className="mx-auto max-w-2xl space-y-3" data-testid="lobby">
-      {line && (
-        <div data-testid={line.me ? undefined : 'waiting'}>
-          <Hint dense tone={line.me ? 'action' : 'neutral'}>
-            {line.text}
-          </Hint>
-        </div>
-      )}
-      {intro && (
-        <TalkIntro
-          onDone={() => {
-            remember(INTRO_KEY);
-            setIntro(false);
-          }}
-        />
-      )}
-      <Panel className="space-y-2">
-        <h3 className="font-semibold">At the table ({v.seats.length})</h3>
-        <ul className="flex flex-wrap gap-2">
-          {v.seats.map((p) => (
-            <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm">
-              <PlayerTag name={p.name} you={p.id === you} />
-            </li>
-          ))}
-        </ul>
-        {v.watchers.length > 0 && (
-          <p className="text-xs text-ink-muted">
-            Watching: {v.watchers.map((p) => p.name).join(', ')}
-          </p>
-        )}
-        <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
-        {viewChoice}
-      </Panel>
-      <GuideLink title={room.gameName ?? 'Defuse'} onClick={() => showGuide()} />
-      <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
-      {sound}
-      <StickyBar>
-        <div className="flex flex-wrap items-center gap-2">
-          {desk && (
-            <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
-              🧳 To the desk
-            </Button>
-          )}
-          {isHost ? (
-            <Button
-              size="lg"
-              className="flex-1"
-              disabled={!enough || !ready}
-              onClick={() => send({ type: 'start' }, 'defuse-start')}
-              data-testid="start"
+    <div data-testid="lobby">
+      <LobbyLayout
+        className="lg:gap-y-3"
+        pitch={
+          wide && (
+            <LobbyPitch
+              title={room.gameName ?? 'Defuse'}
+              emblem="💣"
+              art={
+                cover && (
+                  <ProtectedImage
+                    src={cover}
+                    alt=""
+                    className="aspect-[3/4] w-full -rotate-3 rounded-md object-cover shadow-vt-2"
+                  />
+                )
+              }
             >
-              {enough
-                ? ready
-                  ? 'Start the bomb'
-                  : 'Waiting for a defuser'
-                : 'Waiting for an expert'}
-            </Button>
-          ) : null}
-        </div>
-        <RefusalSlot anchor="defuse-start" />
-      </StickyBar>
+              {guide.tagline}
+            </LobbyPitch>
+          )
+        }
+        rail={
+          <>
+            <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
+            {sound}
+          </>
+        }
+        start={
+          isHost ? (
+            <LobbyStart
+              label="Start the bomb"
+              blocker={!enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null}
+              onStart={() => send({ type: 'start' }, 'defuse-start')}
+              refusal="defuse-start"
+              testId="start"
+              secondary={toDesk}
+            />
+          ) : (
+            toDesk && (
+              <StickyBar>
+                <div className="flex justify-center">{toDesk}</div>
+              </StickyBar>
+            )
+          )
+        }
+      >
+        {line && (
+          <div data-testid={line.me ? undefined : 'waiting'}>
+            <Hint dense tone={line.me ? 'action' : 'neutral'}>
+              {line.text}
+            </Hint>
+          </div>
+        )}
+        {intro && (
+          <TalkIntro
+            onDone={() => {
+              remember(INTRO_KEY);
+              setIntro(false);
+            }}
+          />
+        )}
+        <Panel className="space-y-2">
+          <h3 className="font-semibold">At the table ({v.seats.length})</h3>
+          <ul className="flex flex-wrap gap-2">
+            {v.seats.map((p) => (
+              <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm">
+                <PlayerTag name={p.name} you={p.id === you} />
+              </li>
+            ))}
+          </ul>
+          {v.watchers.length > 0 && (
+            <p className="text-xs text-ink-muted">
+              Watching: {v.watchers.map((p) => p.name).join(', ')}
+            </p>
+          )}
+          <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
+          {viewChoice}
+        </Panel>
+        <GuideLink title={room.gameName ?? 'Defuse'} onClick={() => showGuide()} />
+      </LobbyLayout>
     </div>
   );
 }
@@ -1175,34 +1206,20 @@ function Result({
           {!defused && ` · ${clockText(b.total - end.left)} used`}
         </p>
       </Panel>
-      <div
-        role="tablist"
-        aria-label="Result"
-        className={cn('grid gap-1 lg:hidden', tonight ? 'grid-cols-3' : 'grid-cols-2')}
-      >
-        {(
-          [
-            ['bomb', 'The bomb'],
-            ['next', 'Next bomb'],
-            ...(tonight ? [['tonight', 'Tonight']] : []),
-          ] as [typeof tab, string][]
-        ).map(([t, label]) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1',
-              tab === t ? 'bg-accent text-accent-fg ring-accent' : 'bg-card ring-line',
-            )}
-            data-testid={`result-tab-${t}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Phones: the shared underline tabs, so the parts never look like the Next bomb button. */}
+      <Tabs
+        id="defuse-result"
+        label="Result"
+        testId="result-tab"
+        className="lg:hidden"
+        tabs={[
+          { id: 'bomb', label: 'The bomb' },
+          { id: 'next', label: 'Next up' },
+          ...(tonight ? [{ id: 'tonight' as const, label: 'Tonight' }] : []),
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
       <div className={cn('space-y-3', part('bomb'))}>
         <Panel className="space-y-2">
           <h3 className="font-semibold">The bomb</h3>

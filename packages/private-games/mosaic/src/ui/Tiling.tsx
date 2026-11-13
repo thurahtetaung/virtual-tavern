@@ -48,11 +48,14 @@ export function Tiling({
   room,
   act,
   art,
+  size,
 }: {
   view: MosaicView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
+  /** The boards' size on wider screens (the end's finale shows them larger). */
+  size?: Size;
 }) {
   const g = view.game!;
   const s = g.scoring;
@@ -90,7 +93,7 @@ export function Tiling({
   return (
     <section
       aria-label={`Round ${s.round} wall-tiling`}
-      className="mo-rise flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
+      className="flex flex-col gap-2 rounded-2xl bg-card/90 p-2.5 shadow-sm ring-1 ring-line"
       data-testid="mo-tiling"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -106,7 +109,7 @@ export function Tiling({
       {large.length > 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
           {large.map((p) => (
-            <div key={p.id}>{card(p, compact ? 'md' : 'sm')}</div>
+            <div key={p.id}>{card(p, compact ? 'md' : (size ?? 'sm'))}</div>
           ))}
         </div>
       )}

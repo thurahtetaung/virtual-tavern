@@ -1,11 +1,33 @@
-import { cn } from '@vt/ui';
-import { memo, useRef } from 'react';
+import { cn, useFreeHeight, usePhone, useWideScreen } from '@vt/ui';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { CARD_TYPES } from '../logic/cards.ts';
 import type { Art, CardView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardFace } from './Card.tsx';
 
 const LONG_PRESS_MS = 450;
+const GAP = 6;
+
+/**
+ * A phone hand's card width: one row or two, whichever gives the bigger cards in the band above
+ * the bar (cards are 5:7), from 64 px (the scrolling strip) up to 96 px. `null` keeps the strip.
+ */
+function phoneLayout(n: number, room: number, free: number | null) {
+  if (free === null || n < 2) return null;
+  // The hint under the hand (two lines on a phone), the strip's top padding for a picked card's
+  // lift and the 8 px gap to what follows the hand's column.
+  const height = free - 64;
+  let best: { w: number; cols: number } | null = null;
+  for (const rows of [1, 2]) {
+    const cols = Math.ceil(n / rows);
+    // The list's own 4 px side padding stays inside the section's width.
+    const byWidth = Math.floor((room - 8 - GAP * (cols - 1)) / cols);
+    const byHeight = Math.floor(((height - GAP * (rows - 1)) / rows) * (5 / 7));
+    const w = Math.min(96, byWidth, byHeight);
+    if (w >= 64 && (!best || w > best.w)) best = { w, cols };
+  }
+  return best;
+}
 
 /** The hand in a fixed order (same names together), so pairs are easy to spot. */
 export const sortHand = (cards: CardView[]) =>
@@ -35,6 +57,25 @@ export const Hand = memo(function Hand({
   label: string;
 }) {
   const timer = useRef<number | null>(null);
+  const box = useRef<HTMLElement>(null);
+  const phone = usePhone();
+  const wide = useWideScreen();
+  const free = useFreeHeight(box, phone || wide);
+  const [room, setRoom] = useState(358);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || !phone) return;
+    const ro = new ResizeObserver(() => setRoom(el.clientWidth));
+    ro.observe(el);
+    setRoom(el.clientWidth);
+    return () => ro.disconnect();
+  }, [phone]);
+  const fit = phone ? phoneLayout(cards.length, room, free) : null;
+  // Desktops: one row of cards up to 128 px wide, smaller (down to 80) when what sits above the
+  // hand (a decision, the host's tools) leaves less height, so the row stays above the fold. The
+  // row's lift padding and the hint under it take 40 px.
+  const deskW =
+    wide && free !== null ? Math.max(80, Math.min(128, Math.floor(((free - 40) * 5) / 7))) : null;
   const held = useRef(false);
   const start = (card: CardView) => {
     held.current = false;
@@ -54,17 +95,30 @@ export const Hand = memo(function Hand({
       </p>
     );
   return (
-    <section aria-label={label}>
+    <section ref={box} aria-label={label}>
       <ul
-        className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pt-3 pb-1 [scrollbar-width:thin] sm:gap-2 lg:flex-wrap lg:overflow-visible"
+        className={cn(
+          '-mx-1 flex gap-1.5 px-1 pt-3 pb-1 sm:gap-2',
+          // A phone hand that fits (one or two rows) uses the band above the bar; else it scrolls.
+          fit
+            ? 'mx-auto flex-wrap justify-center'
+            : 'snap-x overflow-x-auto [scrollbar-width:thin]',
+        )}
+        style={fit ? { maxWidth: fit.cols * fit.w + GAP * (fit.cols - 1) + 8 } : undefined}
         data-testid="hand"
       >
         {sortHand(cards).map((card) => (
-          <li key={card.id} className="shrink-0 snap-start">
+          <li
+            key={card.id}
+            className="shrink-0 snap-start"
+            style={fit ? { width: fit.w } : deskW !== null ? { width: deskW } : undefined}
+          >
             <button
               type="button"
               className={cn(
                 'block rounded-[0.6rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                // A button doesn't stretch to its box by itself: a sized card fills it.
+                (fit || deskW !== null) && 'w-full',
               )}
               aria-pressed={selected.has(card.id)}
               aria-label={c.name(card.t)}
@@ -94,6 +148,9 @@ export const Hand = memo(function Hand({
                 size="md"
                 eager
                 selected={selected.has(card.id)}
+                // Desktops: one row (as on phones, scrolling past eight or so), cards large
+                // enough to read their art, so the whole hand stays above the fold.
+                className={fit || deskW !== null ? 'w-full sm:w-full' : 'lg:w-32'}
               />
             </button>
           </li>

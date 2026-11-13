@@ -31,7 +31,7 @@ export function useMatch(query: string) {
 }
 
 /** Board sizes: one cell's width in px. */
-export const CELL = { lg: 34, md: 28, sm: 18, xs: 9 } as const;
+export const CELL = { xl: 44, lg: 34, md: 28, sm: 18, xs: 9 } as const;
 export type Size = keyof typeof CELL;
 
 /** One tile: its face from the manifest, or a plain colour, always with its symbol. */
@@ -66,10 +66,10 @@ export function Tile({
       {src && (
         <ProtectedImage src={src} alt="" className="absolute inset-0 size-full rounded-[inherit]" />
       )}
-      {size >= 14 && (
+      {size >= (src ? 28 : 14) && (
         <span
           className={cn('mo-sym', src && 'mo-sym-corner')}
-          style={{ fontSize: src ? Math.max(8, size * 0.3) : size * 0.5 }}
+          style={{ fontSize: Math.max(12, size * (src ? 0.3 : 0.5)) }}
         >
           {SYMBOL[colour]}
         </span>
@@ -167,6 +167,8 @@ export function BoardView({
   className?: string;
 }) {
   const cell = CELL[size];
+  const wallCell = spaces ? Math.max(44, cell) : cell;
+  const patternCell = spaces ? Math.min(18, cell) : cell;
   const gap = size === 'xs' ? 1 : size === 'sm' ? 2 : 3;
   // During the tiling: the lines that are still to tile show full, their wall tiles not yet there.
   const pending = frame ? frame.score.placed.slice(frame.shown) : [];
@@ -219,13 +221,17 @@ export function BoardView({
             const body = Array.from({ length: SIZE }, (_, i) => {
               const slot = SIZE - 1 - i;
               if (slot >= capacity(row))
-                return <span key={i} style={{ width: cell, height: cell }} />;
+                return <span key={i} style={{ width: patternCell, height: patternCell }} />;
               const tile: TileKind | null =
                 slot >= l.count ? null : slot < l.count - jokers ? l.colour : 'joker';
               return tile ? (
-                <Tile key={i} colour={tile} art={art} size={cell} />
+                <Tile key={i} colour={tile} art={art} size={patternCell} />
               ) : (
-                <span key={i} className="mo-slot" style={{ width: cell, height: cell }} />
+                <span
+                  key={i}
+                  className="mo-slot"
+                  style={{ width: patternCell, height: patternCell }}
+                />
               );
             });
             const label = `Line ${row + 1}: ${l.count} of ${capacity(row)}${l.colour ? ` ${COLOUR_NAME[l.colour]}` : ''}${jokers ? ` with ${jokers} ${jokers === 1 ? 'joker' : 'jokers'}` : ''}`;
@@ -263,7 +269,7 @@ export function BoardView({
         </div>
         <div
           className="grid"
-          style={{ gridTemplateColumns: `repeat(${SIZE}, ${cell}px)`, gap }}
+          style={{ gridTemplateColumns: `repeat(${SIZE}, ${wallCell}px)`, gap }}
           role="group"
           aria-label="Wall"
           data-wall
@@ -275,22 +281,25 @@ export function BoardView({
               const isNew = latest && latest.row === r && latest.col === c;
               const open = spaces?.row === r && spaces.cols.includes(c);
               const empty = grey ? (
-                <span className="mo-slot mo-grey-slot" style={{ width: cell, height: cell }} />
+                <span
+                  className="mo-slot mo-grey-slot"
+                  style={{ width: wallCell, height: wallCell }}
+                />
               ) : (
-                <Tile colour={colourAt(r, c)} art={art} size={cell} ghost />
+                <Tile colour={colourAt(r, c)} art={art} size={wallCell} ghost />
               );
               return (
                 <span
                   key={key}
                   className={cn('relative', glow.has(key) && 'mo-glow')}
-                  style={{ width: cell, height: cell }}
+                  style={{ width: wallCell, height: wallCell }}
                   data-cell={key}
                 >
                   {show ? (
                     <Tile
                       colour={t}
                       art={art}
-                      size={cell}
+                      size={wallCell}
                       className={cn(isNew && 'mo-pop')}
                       label={`${COLOUR_NAME[t]}, row ${r + 1}`}
                     />
@@ -301,7 +310,7 @@ export function BoardView({
                         'mo-space rounded-[18%] focus-visible:outline-2 focus-visible:outline-accent',
                         spaces.chosen === c && 'mo-chosen',
                       )}
-                      style={{ width: cell, height: cell }}
+                      style={{ width: wallCell, height: wallCell }}
                       onClick={() => spaces.onPick!(c)}
                       aria-label={`Row ${r + 1}, column ${c + 1}${grey ? '' : ` (the ${COLOUR_NAME[colourAt(r, c)]} space)`}`}
                       aria-pressed={spaces.chosen === c}
@@ -312,7 +321,8 @@ export function BoardView({
                   ) : (
                     empty
                   )}
-                  {isNew && (
+                  {/* The smallest boards skip the points flourish: it would cover the cells. */}
+                  {isNew && size !== 'xs' && (
                     <span className="mo-plus" aria-hidden>
                       +{latest.points}
                     </span>
@@ -372,7 +382,7 @@ function FloorLine({
             <span className="mo-slot mo-floor-slot" style={{ width: cell, height: cell }} />
           )}
           {cell >= 14 && (
-            <span className="text-[10px] leading-tight tabular-nums text-ink-muted">{n}</span>
+            <span className="text-xs leading-tight tabular-nums text-ink-muted">{n}</span>
           )}
         </span>
       ))}
@@ -389,7 +399,7 @@ function FloorLine({
           ) : (
             <span className="mo-slot mo-shield-slot" style={{ width: cell, height: cell }} />
           )}
-          {cell >= 14 && <span className="text-[10px] leading-tight text-ink-muted">🛡</span>}
+          {cell >= 14 && <span className="text-xs leading-tight text-ink-muted">🛡</span>}
         </span>
       )}
       <span
@@ -448,21 +458,22 @@ export function MiniWall({ wall }: { wall: (TileKind | null)[][] }) {
 const CSS = `
 .mo-tile { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 18%; line-height: 1; font-weight: 800; box-shadow: 0 0 0 1px rgba(28,25,23,.35), 0 1px 2px rgba(28,25,23,.25); user-select: none; }
 [data-theme='dark'] .mo-tile { box-shadow: 0 0 0 1px rgba(245,245,244,.4), 0 1px 2px rgba(0,0,0,.5); }
-.mo-c-blue { background: #2361b8; color: #fff; }
-.mo-c-yellow { background: #e9b824; color: #3b2a00; }
-.mo-c-red { background: #c4362c; color: #fff; }
-.mo-c-black { background: #26262a; color: #f5f5f4; }
-.mo-c-aqua { background: #8fd0dc; color: #0f3940; }
+.mo-c-blue { --mo-bg: #2361b8; background: #2361b8; color: #fff; }
+.mo-c-yellow { --mo-bg: #e9b824; background: #e9b824; color: #3b2a00; }
+.mo-c-red { --mo-bg: #c4362c; background: #c4362c; color: #fff; }
+.mo-c-black { --mo-bg: #26262a; background: #26262a; color: #f5f5f4; }
+.mo-c-aqua { --mo-bg: #8fd0dc; background: #8fd0dc; color: #0f3940; }
 .mo-first { background: #f4efe6; color: #1c1917; }
 .mo-gold { box-shadow: 0 0 0 2px #c8961e, 0 0 8px rgba(200,150,30,.45); }
-.mo-c-joker { background: #f6f1e7; color: #9a3412; }
+.mo-c-joker { --mo-bg: #f6f1e7; background: #f6f1e7; color: #9a3412; }
 .mo-grey-slot { border-style: solid; background: rgba(120,113,108,.12); }
 .mo-shield-slot { border: 1px dashed rgba(180,130,20,.8); border-radius: 50%; background: rgba(234,179,8,.08); }
 .mo-space { display: inline-flex; outline: 2px dashed rgba(234,138,0,.8); outline-offset: 0; }
 .mo-sym { position: relative; pointer-events: none; }
 .mo-sym-corner { position: absolute; right: 1px; bottom: 0; padding: 0 2px; border-radius: 4px; background: rgba(255,255,255,.82); color: #1c1917; line-height: 1.15; }
-.mo-ghost { opacity: .22; box-shadow: none; }
-[data-theme='dark'] .mo-ghost { opacity: .28; box-shadow: none; }
+/* The wall's guide: a faint wash of the colour, but its symbol in full page ink so colour-blind players can read it. */
+.mo-ghost { background: color-mix(in srgb, var(--mo-bg) 30%, transparent); color: var(--vt-ink); box-shadow: none; }
+[data-theme='dark'] .mo-ghost { background: color-mix(in srgb, var(--mo-bg) 32%, transparent); box-shadow: none; }
 .mo-slot { display: inline-block; border-radius: 18%; border: 1px dashed rgba(120,113,108,.55); }
 .mo-floor-slot { border-style: solid; background: rgba(190,60,50,.07); }
 .mo-dot { display: inline-block; }

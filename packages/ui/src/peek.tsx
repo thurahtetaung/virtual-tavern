@@ -185,14 +185,15 @@ export function Peek({
     >
       {!shown &&
         (cover ?? (
-          <span className="flex min-h-32 flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-b from-stone-700 to-stone-900 p-4 text-center text-stone-100">
+          // A face-down card: the card surface, lifted, with a band along its top (light and dark).
+          <span className="flex min-h-32 flex-col items-center justify-center gap-1 rounded-2xl border-t-4 border-accent bg-card p-4 text-center text-ink shadow-vt-3 ring-1 ring-line">
             <span aria-hidden className="text-3xl">
               {slide ? '⬆️' : '🙈'}
             </span>
             <span className="font-semibold">
               {slide ? `Slide up, or hold, to see ${what}` : `Hold to see ${what}`}
             </span>
-            <span className="text-xs text-stone-300">Keep it hidden from the others</span>
+            <span className="text-xs text-ink-muted">Keep it hidden from the others</span>
           </span>
         ))}
     </button>

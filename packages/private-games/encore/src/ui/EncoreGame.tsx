@@ -5,9 +5,12 @@ import {
   playersNeeded,
   storageKey,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
   EndTabs,
   Fold,
   GuideLink,
@@ -18,7 +21,6 @@ import {
   ProtectedImage,
   RefusalSlot,
   Standings,
-  StickyBar,
   Superlatives,
   Switch,
   TimerSettings,
@@ -27,12 +29,19 @@ import {
   usePhone,
   useSpectatorPrompt,
   useWideScreen,
+  FoldSummary,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  END_ART,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
 import { wordsOf } from '../logic/names.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
-import { EncoreStyles, Hand } from './Cards.tsx';
+import { CardFace, EncoreStyles, Hand } from './Cards.tsx';
 import { type Act, ScoreTable, TIPS_KEY, Table, tipsSeen } from './Table.tsx';
 import { WordsContext, useSay } from './say.ts';
 import { type NameOf, statusFor } from './text.ts';
@@ -75,7 +84,6 @@ export function EncoreGame({
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const wide = useWideScreen();
-  const phoneEnd = view.phase === 'over' && !wide;
   const table = (
     <Table
       view={view}
@@ -85,6 +93,7 @@ export function EncoreGame({
       name={youName}
       logName={name}
       showGuide={showGuide}
+      aside={wide && view.phase === 'playing' && inGame ? <Tips /> : null}
     />
   );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
@@ -106,7 +115,7 @@ export function EncoreGame({
         ) : (
           <>
             <StatusLine text={status.text} yourMove={status.yourMove} />
-            {view.phase === 'playing' && inGame && <Tips />}
+            {view.phase === 'playing' && inGame && !wide && <Tips />}
             {view.phase === 'over' && (
               <End
                 view={view}
@@ -114,10 +123,11 @@ export function EncoreGame({
                 act={act}
                 art={art}
                 name={youName}
-                table={phoneEnd ? table : null}
+                // The finished table is one of the end's parts on every width (the end fills the window).
+                table={table}
               />
             )}
-            {!phoneEnd && table}
+            {view.phase !== 'over' && table}
           </>
         )}
       </div>
@@ -223,21 +233,103 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={
+            art.logo ? (
+              <ProtectedImage
+                src={art.logo}
+                alt={room.gameName ?? 'Encore'}
+                className="max-h-12 w-auto max-w-full rounded-lg object-contain lg:max-h-16"
+              />
+            ) : (
+              (room.gameName ?? 'Encore')
+            )
+          }
+          artClassName="w-24 sm:w-28 lg:w-36"
+          art={
+            <Hand
+              cards={[
+                { id: '4-8', up: 4 },
+                { id: '5-6', up: 5 },
+                { id: '6-9', up: 6 },
+              ]}
+              art={art}
+              columns={3}
+              className="w-full"
+              label="A run of three"
+            />
+          }
+        >
+          {say(
+            'Show sets and runs from a hand you can’t rearrange, or recruit a card from the table to build a bigger show. Best with 4 or 5.',
+          )}
+          {n === 2 && ' Two players use the official 2-player rules: 3 chips each a round.'}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              `${twoEach ? 'Two rounds' : 'One round'} each (${rounds} rounds)`,
+              timersLine(timers, { clue: 'turns', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <Switch
+              on={twoEach}
+              editable={room.isHost}
+              title="Two rounds each"
+              help="Everyone starts two rounds instead of one, for a longer game. Off is the usual: one round each."
+              onChange={(v) =>
+                void act({ type: 'update-settings', twoEach: v }, { anchor: 'en-lobby' })
+              }
+              testId="en-two-each"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Turn timer"
+              clueHelp="Time for each turn, and for the keep-or-flip choice."
+              strictHelp="the app makes its best move for them"
+              onChange={(patch) =>
+                void act(
+                  {
+                    type: 'update-settings',
+                    ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                    ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                  },
+                  { anchor: 'en-lobby' },
+                )
+              }
+            />
+            <RefusalSlot anchor="en-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'en-start' })}
+            refusal="en-start"
+          />
+        )
+      }
+    >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({n}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        {art.logo && (
-          <ProtectedImage
-            src={art.logo}
-            alt=""
-            className="max-h-24 w-full rounded-xl object-cover"
-          />
-        )}
+        <SeatHeading as="h2" title={`Players (${n}/${MAX_PLAYERS})`}>
+          {me && (
+            <SeatToggle
+              playing={me.playing}
+              full={n >= MAX_PLAYERS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -248,15 +340,6 @@ function Lobby({
                 offline={offline(s.id)}
                 className="flex-1"
               />
-              {s.id === room.you && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void act({ type: 'sit', playing: false })}
-                >
-                  Watch instead
-                </Button>
-              )}
             </li>
           ))}
         </ul>
@@ -268,84 +351,9 @@ function Lobby({
             ))}
           </p>
         )}
-        {me && !me.playing && n < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
-        )}
-        <div className="flex items-center gap-3 text-sm text-ink-muted">
-          <Hand
-            cards={[
-              { id: '4-8', up: 4 },
-              { id: '5-6', up: 5 },
-              { id: '6-9', up: 6 },
-            ]}
-            art={art}
-            columns={3}
-            className="w-28 shrink-0"
-            label="A run of three"
-          />
-          <p>
-            {say(
-              'Show sets and runs from a hand you can’t rearrange, or recruit a card from the table to build a bigger show. Best with 4 or 5.',
-            )}
-            {n === 2 && ' Two players use the official 2-player rules: 3 chips each a round.'}
-          </p>
-        </div>
       </Panel>
       <GuideLink title={room.gameName ?? 'Encore'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          `${twoEach ? 'Two rounds' : 'One round'} each (${rounds} rounds)`,
-          timersLine(timers, { clue: 'turns', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <Switch
-          on={twoEach}
-          editable={room.isHost}
-          title="Two rounds each"
-          help="Everyone starts two rounds instead of one, for a longer game. Off is the usual: one round each."
-          onChange={(v) =>
-            void act({ type: 'update-settings', twoEach: v }, { anchor: 'en-lobby' })
-          }
-          testId="en-two-each"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Turn timer"
-          clueHelp="Time for each turn, and for the keep-or-flip choice."
-          strictHelp="the app makes its best move for them"
-          onChange={(patch) =>
-            void act(
-              {
-                type: 'update-settings',
-                ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-              },
-              { anchor: 'en-lobby' },
-            )
-          }
-        />
-        <RefusalSlot anchor="en-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'en-start' })}
-          >
-            Start game
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="en-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
@@ -362,96 +370,143 @@ function End({
   act: Act;
   art: Art;
   name: NameOf;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The finished table, as one of the end's parts. */
   table: ReactNode;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
+  const finale = g.results.at(-1)?.last ?? [];
   return (
-    <Panel className="en-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => {
-                  const ended = g.results.filter((r) => r.ender === p.id).length;
-                  return {
-                    id: p.id,
-                    name: p.name,
-                    score: p.total,
-                    ...(ended > 0 && {
-                      note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}`,
-                    }),
-                  };
-                })}
-                you={room.you}
-              />
-            ),
-          },
-          {
-            id: 'rounds',
-            label: '📋 Rounds',
-            content: <ScoreTable g={g} name={name} you={room.you} />,
-          },
-          !!g.finalHands && {
-            id: 'hands',
-            label: '🃏 Hands',
-            content: (
-              <details className="text-sm">
-                <summary className="cursor-pointer font-semibold">
-                  What everyone held at the end
-                </summary>
-                <ul className="mt-2 flex flex-col gap-2">
-                  {g.players.map((p) => (
-                    <li key={p.id} className="flex flex-col gap-1">
-                      <span>{p.name}</span>
-                      {(g.finalHands![p.id] ?? []).length ? (
-                        <Hand
-                          cards={g.finalHands![p.id]!}
-                          art={art}
-                          columns={12}
-                          label={`${p.name}’s last hand`}
-                        />
-                      ) : (
-                        <span className="text-ink-muted">No cards left</span>
-                      )}
+    <div className="flex flex-col gap-3">
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={finale.length ? null : '🎪'}
+            // The show the last round ended on: the night's closing act.
+            art={
+              finale.length > 0 && (
+                <ul
+                  aria-label="The closing show"
+                  className="flex w-full flex-wrap justify-center gap-1.5 lg:gap-2"
+                >
+                  {finale.map((c) => (
+                    <li
+                      key={c.id}
+                      // A short closing show stands at the shared finale sizes; a long one stays in a row.
+                      className={
+                        finale.length <= 3
+                          ? END_ART[finale.length as 1 | 2 | 3]
+                          : finale.length <= 5
+                            ? 'w-16 sm:w-20 lg:w-28'
+                            : 'w-16 sm:w-20 lg:w-24'
+                      }
+                    >
+                      <CardFace card={c} art={art} size="float" className="!w-full shadow-vt-2" />
                     </li>
                   ))}
                 </ul>
-              </details>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🎪 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'en-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'en-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="en-end" />
-    </Panel>
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'en-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'en-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+                )}
+                <RefusalSlot anchor="en-end" />
+              </>
+            }
+          />
+        }
+      >
+        <Panel className="en-rise flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={g.players.map((p) => {
+                      const ended = g.results.filter((r) => r.ender === p.id).length;
+                      return {
+                        id: p.id,
+                        name: p.name,
+                        score: p.total,
+                        ...(ended > 0 && {
+                          note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}`,
+                        }),
+                      };
+                    })}
+                    you={room.you}
+                  />
+                ),
+              },
+              {
+                id: 'rounds',
+                label: '📋 Rounds',
+                content: <ScoreTable g={g} name={name} you={room.you} />,
+              },
+              !!g.finalHands && {
+                id: 'hands',
+                label: '🃏 Hands',
+                content: (
+                  <details className="group text-sm">
+                    <FoldSummary className="-my-1 px-0 font-semibold">
+                      What everyone held at the end
+                    </FoldSummary>
+                    <ul className="mt-2 flex flex-col gap-2">
+                      {g.players.map((p) => (
+                        <li key={p.id} className="flex flex-col gap-1">
+                          <span>{p.name}</span>
+                          {(g.finalHands![p.id] ?? []).length ? (
+                            <Hand
+                              cards={g.finalHands![p.id]!}
+                              art={art}
+                              columns={12}
+                              label={`${p.name}’s last hand`}
+                            />
+                          ) : (
+                            <span className="text-ink-muted">No cards left</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '🎪 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import { Button, Input, Panel, Row, Rows, StickyBar, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { KEYWORD_COUNT, MAX_NOTE_LENGTH } from '../logic/types.ts';
-import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
+import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -61,14 +61,16 @@ function ShowdownForm({ view, team, act }: { view: EnigmaView; team: Team; act: 
 }
 
 /** One team's handed-in guesses, marked right or wrong once the game is over. */
-function GuessList({ view, team }: { view: EnigmaView; team: Team }) {
+function GuessList({ view, team, boxed }: { view: EnigmaView; team: Team; boxed?: boolean }) {
   const showdown = view.showdown!;
   const guesses = showdown.guesses[team];
   const right = showdown.right?.[team];
   const by = nameOf(view, showdown.by[team]);
   if (!guesses) return null;
   return (
-    <div className="space-y-1">
+    <div
+      className={cn('space-y-1 text-left', boxed && cn('rounded-xl p-3 ring-1', TEAM_PANEL[team]))}
+    >
       <p className="text-small">
         <b className={TEAM_TEXT[team]}>{TEAM_LABEL[team]}</b>’s guesses at {TEAM_LABEL[other(team)]}
         ’s keywords
@@ -101,9 +103,13 @@ export function ShowdownPanel({ view, act }: { view: EnigmaView; act: Act }) {
   const team = view.me?.team ?? null;
   if (view.phase === 'over') {
     return (
-      <section aria-label="Showdown" className="space-y-2">
+      // Side by side from md up, each in its team's colours.
+      <section
+        aria-label="Showdown"
+        className="mx-auto w-full max-w-lg space-y-3 md:grid md:max-w-none md:grid-cols-2 md:gap-4 md:space-y-0"
+      >
         {(['red', 'blue'] as const).map((t) => (
-          <GuessList key={t} view={view} team={t} />
+          <GuessList key={t} view={view} team={t} boxed />
         ))}
       </section>
     );

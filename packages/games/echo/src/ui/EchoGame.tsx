@@ -1,15 +1,5 @@
 import type { GameUiProps } from '@vt/game-sdk';
-import {
-  Countdown,
-  EndTabs,
-  Hint,
-  Panel,
-  Superlatives,
-  cn,
-  useSpectatorPrompt,
-  useAbandonGame,
-  useWideScreen,
-} from '@vt/ui';
+import { Countdown, Hint, Panel, cn, useSpectatorPrompt, useAbandonGame } from '@vt/ui';
 import { useEffect } from 'react';
 import { type EchoAction, type EchoView, MAX_PLAYERS, type TurnView } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
@@ -74,7 +64,6 @@ export function EchoGame({
   setAbandon,
 }: EchoUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const wide = useWideScreen();
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
@@ -126,7 +115,12 @@ export function EchoGame({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
+    <div
+      className={cn(
+        'grid gap-4',
+        view.phase !== 'over' && 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6',
+      )}
+    >
       <div className="min-w-0 space-y-3">
         {/* At the end the score shows once, big, in the result. */}
         {view.phase !== 'over' && <Scoreboard view={view} clockOffset={room.clockOffset} />}
@@ -138,45 +132,39 @@ export function EchoGame({
             view={view}
             act={act}
             room={room}
-            details={
-              wide ? null : (
-                <EndTabs
-                  tabs={[
-                    !!room.superlatives?.length && {
-                      id: 'awards',
-                      label: '✨ Awards',
-                      content: <Superlatives lines={room.superlatives} />,
-                    },
-                    view.history.length > 0 && {
-                      id: 'cards',
-                      label: '🃏 Cards',
-                      content: <History history={view.history} open />,
-                    },
-                    {
-                      id: 'players',
-                      label: '👥 Players',
-                      content: <Table view={view} online={online} act={act} hostId={room.hostId} />,
-                    },
-                  ]}
-                />
-              )
+            players={
+              <Panel>
+                <Table view={view} online={online} act={act} hostId={room.hostId} />
+              </Panel>
             }
           />
         ) : (
           view.turn && (
-            <Panel>
+            // Wide screens: the card sits in the middle of the free height, not a strip at the top.
+            // Phones: the pick row and the wait for the guess sit in the middle of the free height too.
+            <Panel
+              className={cn(
+                // The table under the lamp: a warm pool of light at the panel's top centre.
+                'bg-[radial-gradient(70%_55%_at_50%_0%,var(--vt-lamp),transparent_75%)] lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10',
+                (view.turn.stage === 'pick' ||
+                  (view.turn.stage === 'guess' && view.role !== 'guesser')) &&
+                  'max-lg:flex max-lg:min-h-[clamp(11rem,calc(100dvh-27rem),24rem)] max-lg:flex-col max-lg:justify-center',
+              )}
+            >
               <Stage view={view} act={act} room={room} />
             </Panel>
           )
         )}
       </div>
-      {/* Phones: the end's own tabs hold the players and the cards, so it fits the screen. */}
-      <aside className={cn('space-y-3', view.phase === 'over' && !wide && 'hidden')}>
-        <Panel className="space-y-1">
-          <Table view={view} online={online} act={act} hostId={room.hostId} />
-          <History key={view.phase} history={view.history} open={view.phase === 'over'} />
-        </Panel>
-      </aside>
+      {/* The end holds the players and the cards as its own parts. */}
+      {view.phase !== 'over' && (
+        <aside className="space-y-3">
+          <Panel className="space-y-1">
+            <Table view={view} online={online} act={act} hostId={room.hostId} />
+            <History history={view.history} />
+          </Panel>
+        </aside>
+      )}
     </div>
   );
 }

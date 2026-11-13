@@ -2,17 +2,21 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  FitArea,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
   StickyBar,
+  TAP_BAND,
   TabBar,
   type TabBarItem,
   cn,
   tabPanelProps,
+  useFreeHeight,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type HandCard,
   type Strength,
@@ -39,6 +43,12 @@ export type Act = (action: EncoreAction, options?: { anchor?: string }) => Promi
 
 export const TIPS_KEY = 'encore.tips';
 
+/**
+ * The free band (px) a phone needs from the hand's top to the bars to show the bigger cards: the
+ * grown hand panel and the "What beats what?" line under it.
+ */
+const HAND_GROW_ROOM = 240;
+
 export function tipsSeen(): boolean {
   try {
     return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
@@ -48,6 +58,8 @@ export function tipsSeen(): boolean {
 }
 
 export interface TableProps {
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
   view: EncoreView;
   room: GameRoomInfo;
   act: Act;
@@ -75,7 +87,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const containing = (shows: [number, number][], i: number) =>
   shows.filter(([a, b]) => a <= i && i <= b);
 
-export function Table({ view, room, act, art, name, logName, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, logName, showGuide, aside }: TableProps) {
   const g = view.game!;
   // The viewer's flip choice, kept past the flip step so the hand can play its half-turn once.
   const [chose, setChose] = useState<{ round: number; flip: boolean } | null>(null);
@@ -92,15 +104,24 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
   const [tab, setTab] = useState<PlayTab>('table');
   const shown: PlayTab | null = wide || view.phase !== 'playing' ? null : tab;
   const scores = g.results.length > 0 && view.phase === 'playing' && (
-    <details className="rounded-2xl bg-panel p-3 ring-1 ring-line" open={shown === 'scores'}>
-      <summary className="min-h-11 cursor-pointer text-sm font-semibold">
+    <details className="group rounded-2xl bg-panel p-3 ring-1 ring-line" open={shown === 'scores'}>
+      <FoldSummary className="-my-1 px-0 font-semibold">
         Scores after {plural(g.results.length, 'round')}
-      </summary>
+      </FoldSummary>
       <ScoreTable g={g} name={name} you={room.you} className="mt-2" />
     </details>
   );
   return (
-    <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+    <div
+      className={cn(
+        'flex flex-col gap-3 lg:grid lg:items-start lg:gap-6',
+        // The flip step takes the whole width on wide screens (both hands side by side); the
+        // rail follows under it.
+        g.stage === 'flip' && view.phase === 'playing'
+          ? 'lg:grid-cols-1'
+          : 'lg:grid-cols-[minmax(0,1fr)_320px]',
+      )}
+    >
       <div
         className={cn(
           'flex min-w-0 flex-col gap-3',
@@ -126,7 +147,16 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
         )}
       </div>
       {shown === null ? (
-        <aside className="flex min-w-0 flex-col gap-3">
+        <aside
+          className={cn(
+            'flex min-w-0 flex-col gap-3',
+            // Under the flip step: the rail's parts side by side, so they stay short.
+            g.stage === 'flip' &&
+              view.phase === 'playing' &&
+              'lg:grid lg:grid-cols-3 lg:items-start',
+          )}
+        >
+          {aside}
           {scores}
           <Log view={view} name={logName ?? name} />
         </aside>
@@ -211,13 +241,16 @@ function Seats({
             <span className="flex items-center gap-0.5 tabular-nums" title="Cards in hand">
               <CardBack art={art} className="h-4 w-3" />
               {p.hand}
+              <span className="text-ink-muted max-sm:sr-only">cards</span>
             </span>
             <span className="tabular-nums text-ink-muted" title="Captured">
               ▢{p.captured}
+              <span className="max-sm:sr-only"> captured</span>
             </span>
             <span className="flex items-center gap-0.5 tabular-nums" title="Chips">
               <ChipIcon art={art} />
               {p.chips}
+              <span className="text-ink-muted max-sm:sr-only">chips</span>
             </span>
             {!g.twoPlayer &&
               (p.marker ? (
@@ -272,6 +305,7 @@ function FlipStep({
   const hand = g.hand;
   const me = g.players.find((p) => p.id === room.you);
   const open = g.players.filter((p) => !p.done);
+  const wide = useWideScreen();
   const choose = (flip: boolean) => void act({ type: 'flip', flip }, { anchor: 'en-flip' });
   return (
     <section className="flex flex-col gap-3" aria-label="Keep or flip">
@@ -289,7 +323,8 @@ function FlipStep({
         />
       </div>
       {hand && me ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        // Side by side from tablets up; on wide screens each hand wraps into two rows of bigger cards.
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           {[false, true].map((flip) => {
             const shown = flip ? flipHand(hand) : hand;
             const chosen = g.myFlip === flip;
@@ -297,7 +332,7 @@ function FlipStep({
               <div
                 key={String(flip)}
                 className={cn(
-                  'flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line',
+                  'flex min-w-0 flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line',
                   chosen && 'ring-[3px] ring-accent',
                 )}
                 data-testid={flip ? 'en-flip-turned' : 'en-flip-kept'}
@@ -309,6 +344,7 @@ function FlipStep({
                 <Hand
                   cards={shown}
                   art={art}
+                  columns={wide && shown.length > 8 ? Math.ceil(shown.length / 2) : undefined}
                   label={flip ? 'Hand turned round' : 'Hand as dealt'}
                 />
                 <Button
@@ -396,6 +432,11 @@ function Play({
   const table = g.table?.cards ?? [];
   const turnKey = `${g.round}:${view.log.at(-1)?.id ?? 0}:${g.current}`;
   const [recruiting, setRecruiting] = useState<Recruiting | null>(null);
+  const wide = useWideScreen();
+  // Phones: the hand's cards grow only when the band from the hand down to the bars has room.
+  const handRef = useRef<HTMLDivElement>(null);
+  const free = useFreeHeight(handRef, !wide && !!g.hand);
+  const roomyHand = free !== null && free >= HAND_GROW_ROOM;
   const [picking, setPicking] = useState<{ double: boolean } | null>(null);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -540,7 +581,7 @@ function Play({
                     data-table-end={end}
                   >
                     {face}
-                    <span className="text-[11px] text-info-ink">{say('recruit')}</span>
+                    <span className="text-xs text-info-ink">{say('recruit')}</span>
                   </button>
                 ) : (
                   <span key={c.id} className="flex flex-col items-center gap-0.5">
@@ -557,27 +598,38 @@ function Play({
             )}
           </>
         ) : (
-          <p className="text-center text-sm text-ink-muted">
-            {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
-            The table is empty: the next player shows anything.
+          // An empty place on the felt, a show's height, waiting for the next one.
+          <p
+            data-testid="en-table-empty"
+            className="flex min-h-24 w-full max-w-md items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-sunk px-4 py-3 text-center text-sm text-ink-2 sm:min-h-28 lg:min-h-36"
+          >
+            <span>
+              {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
+              The table is empty: the next player shows anything.
+            </span>
           </p>
         )}
       </div>
 
       {recruiting && placedCard && (
-        <Placing
-          recruiting={recruiting}
-          card={placedCard}
-          hand={shownHand}
-          art={art}
-          owner={ownerName}
-          twoPlayer={g.twoPlayer}
-          onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
-        />
+        <FitArea phone plain min={64}>
+          <Placing
+            recruiting={recruiting}
+            card={placedCard}
+            hand={shownHand}
+            art={art}
+            owner={ownerName}
+            twoPlayer={g.twoPlayer}
+            onFlip={() => setRecruiting({ ...recruiting, flip: !recruiting.flip })}
+          />
+        </FitArea>
       )}
 
       {g.hand ? (
-        <div className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line">
+        <div
+          ref={handRef}
+          className="flex flex-col gap-2 rounded-2xl bg-panel p-3 ring-1 ring-line"
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold">Your hand · {plural(hand.length, 'card')}</h3>
             <span className="text-xs text-ink-muted">
@@ -588,6 +640,18 @@ function Play({
           </div>
           <Hand
             cards={shownHand}
+            // Wide screens: two rows of bigger cards rather than one row of small ones (a recruit
+            // keeps one row with its gaps).
+            columns={
+              wide && !recruiting && shownHand.length > 8
+                ? Math.ceil(shownHand.length / 2)
+                : undefined
+            }
+            // Wide screens: cards about 104 × 146 px.
+            cardMax={wide && !recruiting ? '6.5rem' : undefined}
+            // Phones with room under the hand: about 70 × 98 px, so both numbers on each card read;
+            // the lane scrolls.
+            cardMin={!wide && roomyHand ? '4.4rem' : undefined}
             turning={turning}
             art={art}
             selected={choosingShow ? sel : null}
@@ -726,7 +790,7 @@ function Play({
       {g.results.length === 0 && g.round === 1 && (
         <button
           type="button"
-          className="self-start text-xs text-ink-muted underline"
+          className={cn('self-start text-xs text-ink-muted underline lg:py-1', TAP_BAND)}
           onClick={() => showGuide('cards')}
         >
           What beats what?
@@ -867,13 +931,23 @@ function ScoresStep({
   const me = g.players.find((p) => p.id === room.you);
   const open = g.players.filter((p) => !p.done && !p.left);
   return (
-    <section className="en-rise flex flex-col gap-3" aria-label="Round scores">
+    <section className="flex flex-col gap-3" aria-label="Round scores">
       <div
         className="rounded-2xl bg-special-soft p-3 text-special-ink ring-1 ring-special-line"
         data-testid="en-round-end"
       >
         <p className="font-semibold">👏 Round {r.round} is over</p>
         <p className="text-sm">{say(endLine(r, name))}</p>
+        {/* The show the round ended on, as it was played. */}
+        {r.last.length > 0 && (
+          <ul aria-label="The last show" className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {r.last.map((c) => (
+              <li key={c.id}>
+                <CardFace card={c} art={art} size="table" className="shadow-vt-1" />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">
         <RoundBreakdown g={g} round={r.round} name={name} you={room.you} art={art} />

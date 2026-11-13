@@ -3,9 +3,12 @@ import {
   Badge,
   Button,
   Countdown,
+  EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   Hint,
+  MoreBelow,
   NameDot,
   Panel,
   Peek,
@@ -16,10 +19,18 @@ import {
   cn,
   tabPanelProps,
   useFitToScreen,
+  useMarkMore,
   useSecondsLeft,
   useWideScreen,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  type ReactNode,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -332,26 +343,56 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
   const artifacts = roles.includes('curator')
     ? view.settings.artifacts.filter((a) => defaultArtifacts(roles).includes(a))
     : [];
+  const wide = useWide();
   return (
     <div className="space-y-3">
-      <ul className="space-y-2" aria-label="Roles in play">
-        {sorted.map((r) => (
-          <li key={r} className="flex gap-2">
-            <span className="flex shrink-0 items-center gap-1">
+      {wide ? (
+        // Wide screens: the roles as their cards, in wake order, each with how it wins.
+        <ul
+          className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-2 gap-y-3"
+          aria-label="Roles in play"
+        >
+          {sorted.map((r) => (
+            <li key={r} className="flex flex-col items-center gap-1.5 text-center">
+              <span className="relative">
+                <CardFace role={r} deck={deck} className="w-20 rounded-lg" />
+                {copies(r) > 1 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-accent px-1.5 text-xs font-bold text-accent-fg shadow-vt-1"
+                    data-testid="copies"
+                  >
+                    ×{copies(r)}
+                  </span>
+                )}
+              </span>
               <RoleChip role={r} deck={deck} />
-              {copies(r) > 1 && (
-                <span className="text-xs font-semibold" data-testid="copies">
-                  ×{copies(r)}
-                </span>
-              )}
-            </span>
-            <span className="text-sm text-ink-muted">
-              {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
-              {winFor(r, roles, view.settings.artifacts)}
-            </span>
-          </li>
-        ))}
-      </ul>
+              <span className="text-xs text-ink-muted">
+                {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
+                {winFor(r, roles, view.settings.artifacts)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="space-y-2" aria-label="Roles in play">
+          {sorted.map((r) => (
+            <li key={r} className="flex gap-2">
+              <span className="flex shrink-0 items-center gap-1">
+                <RoleChip role={r} deck={deck} />
+                {copies(r) > 1 && (
+                  <span className="text-xs font-semibold" data-testid="copies">
+                    ×{copies(r)}
+                  </span>
+                )}
+              </span>
+              <span className="text-sm text-ink-muted">
+                {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
+                {winFor(r, roles, view.settings.artifacts)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {rewakes.length > 0 && (
         <p className="text-sm" data-testid="doppel-rewakes">
           The <RoleChip role="doppelganger" deck={deck} /> wakes again later if she copied:{' '}
@@ -467,15 +508,37 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
  * Your starting card, Mark and artifact: covered until you hold or Show, like the card at the deal,
  * so a phone left face up on the table says nothing about you.
  */
-function MySecrets({ children }: { children: ReactNode }) {
+/**
+ * Your card and Mark behind a hold. At night and on wide screens by day (`big`) the cover is the
+ * card back itself, the art the ready screen showed; on phones by day it's the card back at a
+ * smaller size beside the words, on the theme's own card surface.
+ */
+function MySecrets({
+  deck,
+  big = false,
+  children,
+}: {
+  deck: Deck;
+  big?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div data-testid="my-secrets" className="w-full">
       <Peek
         what="your card"
         cover={
-          <span className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
-            <span aria-hidden>🂠</span> Hold to see your card
-          </span>
+          big ? (
+            // The theme's own ink: the night forces the dark theme, and by day it sits on the page.
+            <span className="flex flex-col items-center gap-2 text-sm font-semibold text-ink">
+              <CardBack deck={deck} size="md" className="shadow-vt-3 lg:w-52 lg:rounded-xl" />
+              Hold to see your card
+            </span>
+          ) : (
+            <span className="flex min-h-11 items-center justify-center gap-3 rounded-xl bg-card px-3 py-2 text-sm font-semibold text-ink shadow-vt-1 ring-1 ring-line">
+              <CardBack deck={deck} className="w-16 rounded-md shadow-vt-1" />
+              Hold to see your card
+            </span>
+          )
         }
       >
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">{children}</div>
@@ -514,62 +577,69 @@ export function Ready({
   const seen = seenDeal === deal;
   const role = view.myRole;
   return (
-    <div className="mx-auto max-w-md space-y-4 text-center">
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {role && (
-        <Panel className="flex flex-col items-center gap-3">
-          {/* Phones: the card scrolls inside when it is shown, so the host's buttons stay above Ready. */}
-          <FitArea phone resetKey={deal}>
-            <Peek
-              key={deal}
-              what="your card"
-              onReveal={() => setSeenDeal(deal)}
-              cover={
-                <span className="flex flex-col items-center gap-2 font-semibold">
-                  <CardBack deck={deck} size="lg" />
-                  Hold to see your card
-                </span>
-              }
-            >
-              <div className="flex flex-col items-center gap-3">
-                <CardFace role={role} deck={deck} size="lg" />
-                <p className="text-lg">
-                  You are the <RoleChip role={role} deck={deck} />
-                </p>
-                <p className="text-sm text-ink-muted">{deck.text(role)}</p>
-              </div>
-            </Peek>
-          </FitArea>
-          {!view.meReady ? (
-            // Phones keep Ready in the bar at the foot of the screen.
-            <StickyBar fixed className="flex flex-col items-center gap-1">
-              <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
-                Ready
+    // Wide screens: the roles in play stand beside the card, so the table can read the night ahead.
+    <div className="mx-auto max-w-md lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <div className="space-y-4 text-center">
+        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {role && (
+          <Panel className="flex flex-col items-center gap-3">
+            {/* Phones: the card scrolls inside when it is shown, so the host's buttons stay above Ready. */}
+            <FitArea phone resetKey={deal}>
+              <Peek
+                key={deal}
+                what="your card"
+                onReveal={() => setSeenDeal(deal)}
+                cover={
+                  <span className="flex flex-col items-center gap-2 font-semibold">
+                    <CardBack deck={deck} size="lg" className="lg:w-64" />
+                    Hold to see your card
+                  </span>
+                }
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <CardFace role={role} deck={deck} size="lg" className="lg:w-64" />
+                  <p className="text-lg">
+                    You are the <RoleChip role={role} deck={deck} />
+                  </p>
+                  <p className="text-sm text-ink-muted">{deck.text(role)}</p>
+                </div>
+              </Peek>
+            </FitArea>
+            {!view.meReady ? (
+              // Phones keep Ready in the bar at the foot of the screen.
+              <StickyBar fixed className="flex flex-col items-center gap-1">
+                <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
+                  Ready
+                </Button>
+                {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
+              </StickyBar>
+            ) : (
+              <p className="text-sm">
+                Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
+              </p>
+            )}
+          </Panel>
+        )}
+        {room.isHost && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
+                Start the night now
               </Button>
-              {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
-            </StickyBar>
-          ) : (
-            <p className="text-sm">
-              Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
+                Shuffle and deal again
+              </Button>
+            </div>
+            <p className="text-xs text-ink-muted">
+              If someone dropped out, start the night now: their card still plays.
             </p>
-          )}
-        </Panel>
-      )}
-      {room.isHost && (
-        <div className="space-y-1">
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
-              Start the night now
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
-              Shuffle and deal again
-            </Button>
           </div>
-          <p className="text-xs text-ink-muted">
-            If someone dropped out, start the night now: their card still plays.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
+      <Panel className="hidden lg:block">
+        <h3 className="mb-2 text-sm font-semibold">🃏 Roles in play</h3>
+        <RolesInPlay view={view} deck={deck} />
+      </Panel>
     </div>
   );
 }
@@ -832,13 +902,23 @@ function NightClock({
  * chosen theme, so no light strip glows around the night screen. The theme comes back at daybreak.
  */
 function useDarkNight() {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
-    const before = root.dataset.theme;
-    root.dataset.theme = 'dark';
+    let before = root.dataset.theme;
+    const force = () => {
+      if (root.dataset.theme !== 'dark') {
+        before = root.dataset.theme;
+        root.dataset.theme = 'dark';
+      }
+    };
+    force();
+    // The site's theme switch sets it again as the page settles (and when the device's theme
+    // changes): the night stays dark until daybreak.
+    const watch = new MutationObserver(force);
+    watch.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
     return () => {
-      // Leave it alone if the theme was changed during the night.
-      if (root.dataset.theme === 'dark' && before !== undefined) root.dataset.theme = before;
+      watch.disconnect();
+      if (before !== undefined) root.dataset.theme = before;
     };
   }, []);
 }
@@ -885,7 +965,7 @@ export function Night({
         acting
           ? // Your turn takes the whole screen, lit up, so nobody sleeps through it.
             'fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-indigo-950 text-indigo-50'
-          : '-mx-4 -my-4 min-h-[70dvh] space-y-3 bg-stone-950 px-4 py-4 text-stone-300 sm:mx-0 sm:my-0 sm:rounded-2xl',
+          : '-mx-4 -my-4 flex min-h-[70dvh] flex-col bg-stone-950 px-4 py-4 text-stone-300 sm:mx-0 sm:my-0 sm:rounded-2xl lg:min-h-[calc(100dvh-12rem)]',
       )}
       data-testid={acting ? 'night-acting' : 'night-idle'}
     >
@@ -915,7 +995,12 @@ export function Night({
           </p>
         </div>
       )}
-      <div className={cn('space-y-3', acting && 'mx-auto max-w-xl px-4 py-4')}>
+      <div
+        className={cn(
+          'space-y-3',
+          acting ? 'mx-auto max-w-xl px-4 py-4' : 'flex flex-1 flex-col [&>*:last-child]:mt-auto',
+        )}
+      >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">
             {night.index < 0 ? 'Night falls…' : `Step ${night.index + 1} of ${night.count}`}
@@ -1066,11 +1151,11 @@ export function Night({
             <Announcements list={said} view={view} deck={deck} light />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <span aria-hidden className="text-6xl">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
+            <span aria-hidden className="text-6xl lg:text-7xl">
               {view.myRole ? '🌕' : '👀'}
             </span>
-            <p className="font-serif text-2xl text-stone-100">
+            <p className="font-serif text-2xl text-stone-100 lg:text-4xl">
               {view.myRole ? 'Night has fallen…' : 'You’re watching the night'}
             </p>
             <p className="text-sm" data-testid="idle-hint">
@@ -1079,7 +1164,7 @@ export function Night({
                 : status.text}
             </p>
             {view.myRole && (
-              <MySecrets>
+              <MySecrets deck={deck} big>
                 <MyCardChip view={view} deck={deck} />
                 <MyMark view={view} deck={deck} />
               </MySecrets>
@@ -1105,7 +1190,12 @@ export function Night({
             </div>
           </div>
         )}
-        <div className="flex justify-center">{sound}</div>
+        <div className="flex items-center justify-center gap-1">
+          {sound}
+          <span className="text-small text-ink-muted" aria-hidden>
+            Sound
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -1212,7 +1302,7 @@ function TableList({
                 aria-label={`Vote for ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
-                  'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
+                  'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition lg:min-h-20 lg:justify-center lg:px-4 lg:text-lg',
                   picked === p.id || picked2 === p.id
                     ? 'bg-danger text-white ring-danger'
                     : 'bg-card ring-line-strong hover:bg-danger-soft',
@@ -1231,7 +1321,9 @@ function TableList({
                 </span>
               </button>
             ) : (
-              <div className="flex min-h-12 flex-col rounded-lg bg-sunk px-3 py-1.5">{body}</div>
+              <div className="flex min-h-12 flex-col rounded-lg bg-sunk px-3 py-1.5 lg:min-h-20 lg:justify-center lg:px-4 lg:text-lg">
+                {body}
+              </div>
             )}
           </li>
         );
@@ -1282,6 +1374,8 @@ export function Day({
   // Phones: a big table scrolls inside its panel rather than the page.
   const tablePanel = useRef<HTMLDivElement>(null);
   useFitToScreen(tablePanel, { phone: true, min: 160 });
+  // Fitted to a phone's screen, the table shows "More below" while some of it is under the fold.
+  useMarkMore(tablePanel, [tab]);
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
@@ -1340,131 +1434,137 @@ export function Day({
         className="lg:hidden"
       />
       <div {...panel('table')}>
-        <div ref={tablePanel} className="max-sm:overflow-y-auto max-sm:overscroll-contain">
-          <Panel className="space-y-3">
-            {playing && view.myRole && (
-              <MySecrets>
-                <MyCardChip view={view} deck={deck} />
-                <MyMark view={view} deck={deck} />
-                {myArtifact?.kind === 'artifact' && (
-                  <span className="text-sm">
-                    Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-                  </span>
-                )}
-              </MySecrets>
-            )}
-            {(view.day?.centerUp?.length ?? 0) > 0 && (
-              <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
-                Face up in the centre:
-                {view.day!.centerUp!.map((c) => (
-                  <span key={c.center} className="inline-flex items-center gap-1">
-                    {centreName(c.center, view.day!.centerKinds)}
-                    <RoleChip role={c.role} deck={deck} />
-                  </span>
-                ))}
-              </p>
-            )}
-            {voting && playing && view.vote?.hands === 2 && (
-              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
-                <span>✌️ You vote with both hands:</span>
-                {([1, 2] as const).map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    aria-pressed={hand === h}
-                    onClick={() => setHand(h)}
-                    className={cn(
-                      'rounded-lg px-2 py-1 font-semibold ring-1 ring-line-strong',
-                      hand === h && 'bg-danger text-on-fill ring-danger',
-                    )}
-                  >
-                    {h === 1 ? 'First hand' : 'Second hand'}
-                    {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-            {voting && playing && protectPossible(view) && (
-              <Peek
-                what="what your pick does"
-                cover={
-                  <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
-                    <span aria-hidden>🙈</span> Hold to see what your pick does
-                  </span>
-                }
-              >
-                <p
-                  className="rounded-xl bg-sunk px-3 py-2 text-sm font-semibold"
-                  data-testid="vote-power"
-                >
-                  {votePowerText(votePower(view))}
+        <div className="relative min-w-0">
+          <div ref={tablePanel} className="peer max-sm:overflow-y-auto max-sm:overscroll-contain">
+            <Panel className="space-y-3">
+              {playing && view.myRole && (
+                <MySecrets deck={deck} big={wide}>
+                  <MyCardChip view={view} deck={deck} />
+                  <MyMark view={view} deck={deck} />
+                  {myArtifact?.kind === 'artifact' && (
+                    <span className="text-sm">
+                      Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+                    </span>
+                  )}
+                </MySecrets>
+              )}
+              {(view.day?.centerUp?.length ?? 0) > 0 && (
+                <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
+                  Face up in the centre:
+                  {view.day!.centerUp!.map((c) => (
+                    <span key={c.center} className="inline-flex items-center gap-1">
+                      {centreName(c.center, view.day!.centerKinds)}
+                      <RoleChip role={c.role} deck={deck} />
+                    </span>
+                  ))}
                 </p>
-              </Peek>
-            )}
-            <TableList
-              view={view}
-              deck={deck}
-              pick={
-                voting && playing
-                  ? (id) => void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
-                  : undefined
-              }
-              picked={view.vote?.myVote}
-              picked2={view.vote?.mySecond}
-              online={online}
-            />
-            {voting && playing && view.vote?.app && (
-              <Button
-                variant={
-                  view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
-                    ? 'primary'
-                    : 'secondary'
-                }
-                className="w-full"
-                data-testid="vote-app"
-                onClick={() =>
-                  void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
-                }
-              >
-                📱 Vote for the app (if it gets the most votes, nobody dies)
-                {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
-              </Button>
-            )}
-            {!voting && (playing || room.isHost) && (
-              // Phones keep the day's move in the bar at the foot of the Table tab, the host's
-              // Start the vote now beside it.
-              <StickyBar fixed off={!wide && tab !== 'table'} className="space-y-1 text-center">
-                <div className="flex gap-2">
-                  {playing && (
-                    <Button
-                      size="lg"
-                      className="flex-1"
-                      variant={view.day?.meReady ? 'secondary' : 'primary'}
-                      onClick={() => void act({ type: 'ready-to-vote', ready: !view.day?.meReady })}
+              )}
+              {voting && playing && view.vote?.hands === 2 && (
+                <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
+                  <span>✌️ You vote with both hands:</span>
+                  {([1, 2] as const).map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      aria-pressed={hand === h}
+                      onClick={() => setHand(h)}
+                      className={cn(
+                        'rounded-lg px-2 py-1 font-semibold ring-1 ring-line-strong',
+                        hand === h && 'bg-danger text-on-fill ring-danger',
+                      )}
                     >
-                      {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
-                    </Button>
-                  )}
-                  {room.isHost && (
-                    <Button
-                      variant="secondary"
-                      size="lg"
-                      className={playing ? 'px-3' : 'flex-1'}
-                      onClick={() => void act({ type: 'start-vote' })}
-                    >
-                      Start the vote now
-                    </Button>
-                  )}
+                      {h === 1 ? 'First hand' : 'Second hand'}
+                      {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
+                    </button>
+                  ))}
                 </div>
-                {room.isHost && (
-                  <p className="text-caption text-ink-muted">
-                    Opens the vote without waiting for everyone to be ready (someone dropped out,
-                    say).
+              )}
+              {voting && playing && protectPossible(view) && (
+                <Peek
+                  what="what your pick does"
+                  cover={
+                    <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+                      <span aria-hidden>🙈</span> Hold to see what your pick does
+                    </span>
+                  }
+                >
+                  <p
+                    className="rounded-xl bg-sunk px-3 py-2 text-sm font-semibold"
+                    data-testid="vote-power"
+                  >
+                    {votePowerText(votePower(view))}
                   </p>
-                )}
-              </StickyBar>
-            )}
-          </Panel>
+                </Peek>
+              )}
+              <TableList
+                view={view}
+                deck={deck}
+                pick={
+                  voting && playing
+                    ? (id) =>
+                        void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
+                    : undefined
+                }
+                picked={view.vote?.myVote}
+                picked2={view.vote?.mySecond}
+                online={online}
+              />
+              {voting && playing && view.vote?.app && (
+                <Button
+                  variant={
+                    view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
+                      ? 'primary'
+                      : 'secondary'
+                  }
+                  className="w-full"
+                  data-testid="vote-app"
+                  onClick={() =>
+                    void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
+                  }
+                >
+                  📱 Vote for the app (if it gets the most votes, nobody dies)
+                  {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
+                </Button>
+              )}
+              {!voting && (playing || room.isHost) && (
+                // Phones keep the day's move in the bar at the foot of the Table tab, the host's
+                // Start the vote now beside it.
+                <StickyBar fixed off={!wide && tab !== 'table'} className="space-y-1 text-center">
+                  <div className="flex gap-2">
+                    {playing && (
+                      <Button
+                        size="lg"
+                        className="flex-1"
+                        variant={view.day?.meReady ? 'secondary' : 'primary'}
+                        onClick={() =>
+                          void act({ type: 'ready-to-vote', ready: !view.day?.meReady })
+                        }
+                      >
+                        {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
+                      </Button>
+                    )}
+                    {room.isHost && (
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        className={playing ? 'px-3' : 'flex-1'}
+                        onClick={() => void act({ type: 'start-vote' })}
+                      >
+                        Start the vote now
+                      </Button>
+                    )}
+                  </div>
+                  {room.isHost && (
+                    <p className="text-caption text-ink-muted">
+                      Opens the vote without waiting for everyone to be ready (someone dropped out,
+                      say).
+                    </p>
+                  )}
+                </StickyBar>
+              )}
+            </Panel>
+          </div>
+          <MoreBelow column={tablePanel} compact />
         </div>
       </div>
       <div className="space-y-3">
@@ -1493,7 +1593,12 @@ export function Day({
           </Panel>
         </div>
       </div>
-      <div className="flex justify-center lg:col-span-2">{sound}</div>
+      <div className="flex items-center justify-center gap-1 lg:col-span-2">
+        {sound}
+        <span className="text-small text-ink-muted" aria-hidden>
+          Sound
+        </span>
+      </div>
     </div>
   );
 }
@@ -1512,9 +1617,12 @@ export function artifactEffect(id: ArtifactId, deck: Deck): string {
 function CentreCards({
   reveal,
   deck,
+  wide = false,
 }: {
   reveal: NonNullable<NightfallView['reveal']>;
   deck: Deck;
+  /** A wide screen: the cards at reading size. */
+  wide?: boolean;
 }) {
   const open = useRoleDetails();
   return (
@@ -1528,7 +1636,7 @@ function CentreCards({
               onClick={() => open(c.card.role)}
               aria-label={`Read ${deck.name(c.card.role)}`}
             >
-              <CardFace role={c.card.role} deck={deck} size="sm" />
+              <CardFace role={c.card.role} deck={deck} size={wide ? 'md' : 'sm'} />
             </button>
             {c.kind === 'wolf' ? 'Wolf slot' : `Centre ${i + 1}`}
           </li>
@@ -1679,7 +1787,6 @@ export function Reveal({
           {line}
         </p>
       ))}
-      {wide && <Superlatives lines={room.superlatives} className="mt-2" />}
     </Panel>
   );
   const cardsPanel = (
@@ -1689,7 +1796,12 @@ export function Reveal({
         <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
         decides their team.
       </p>
-      <ul className="space-y-2" aria-label="Everyone’s cards">
+      {/* Wide screens: three players a row, each a tile with their card at reading size on top
+          (the reveal is the night's payoff). */}
+      <ul
+        className={cn(wide ? 'grid grid-cols-3 gap-2' : 'space-y-2')}
+        aria-label="Everyone’s cards"
+      >
         {view.table!.map((p) => {
           const card = reveal.cards[p.id]!;
           const id = result.identities[p.id]!;
@@ -1705,11 +1817,26 @@ export function Reveal({
               data-team={id.team}
               data-mark={pm?.id ?? ''}
               data-won={won}
-              className="flex items-start gap-2 rounded-lg bg-sunk px-2 py-1.5 text-sm"
+              className={cn(
+                'rounded-lg bg-sunk px-2 py-1.5 text-sm',
+                wide
+                  ? 'flex flex-col items-center gap-2 py-2 text-center'
+                  : 'flex items-start gap-2',
+              )}
             >
-              <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-baseline justify-between gap-2">
+              <CardFace
+                role={card.role}
+                deck={deck}
+                size={wide ? 'md' : 'sm'}
+                className={cn('shrink-0', !wide && 'w-12')}
+              />
+              <div className={cn('min-w-0 space-y-1', wide ? 'w-full' : 'flex-1')}>
+                <div
+                  className={cn(
+                    'flex gap-2',
+                    wide ? 'flex-col items-center gap-0.5' : 'items-baseline justify-between',
+                  )}
+                >
                   <span className="flex min-w-0 items-center gap-1 font-semibold">
                     <span className="truncate">
                       {dead && '☠️ '}
@@ -1722,7 +1849,7 @@ export function Reveal({
                     {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1">
+                <div className={cn('flex flex-wrap items-center gap-1', wide && 'justify-center')}>
                   <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
                   <span aria-hidden>→</span>
                   <RoleChip role={id.role} deck={deck} />
@@ -1782,7 +1909,7 @@ export function Reveal({
           );
         })}
       </ul>
-      <CentreCards reveal={reveal} deck={deck} />
+      <CentreCards reveal={reveal} deck={deck} wide={wide} />
     </Panel>
   );
   const nightPanel = (
@@ -1838,80 +1965,176 @@ export function Reveal({
       </ol>
     </Panel>
   );
+  const wonLines = teamLines(result).filter((t) => t.won);
+  const me = view.me?.id;
+  const meSeated = !!me && !!result.identities[me];
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
+    <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
       <Hint>{status.text}</Hint>
-      {wide ? (
-        <>
-          {resultPanel}
-          <div role="tablist" className="flex gap-1 rounded-xl bg-sunk p-1">
-            {(['cards', 'night'] as const).map((t) => (
-              <button
-                key={t}
-                role="tab"
-                type="button"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={cn(
-                  'h-9 flex-1 rounded-lg text-sm font-semibold',
-                  tab === t && 'bg-card shadow',
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              wonLines.length
+                ? wonLines.map((t) => teamOutcome(t.team, true)).join(' · ')
+                : 'Nobody wins'
+            }
+            emblem={result.winners.length ? null : '🌑'}
+            // The winners' cards as they ended the night: the result in the game's own art.
+            art={
+              result.winners.length > 0 &&
+              view
+                .table!.filter((p) => result.winners.includes(p.id))
+                .map((p) => (
+                  <figure
+                    key={p.id}
+                    className="flex flex-col items-center gap-1"
+                    data-testid="end-winner-card"
+                  >
+                    <CardFace
+                      role={reveal.cards[p.id]!.role}
+                      deck={deck}
+                      size={wide ? 'lg' : 'sm'}
+                      // Many winners (a whole village) get smaller cards, so the finale stays one or two rows.
+                      className={
+                        result.winners.length > 4
+                          ? wide
+                            ? 'w-28'
+                            : 'w-16'
+                          : result.winners.length > 2
+                            ? wide
+                              ? 'w-36'
+                              : 'w-24'
+                            : wide
+                              ? 'w-48'
+                              : 'w-36'
+                      }
+                    />
+                    <figcaption className="max-w-24 truncate text-small font-semibold text-ink lg:max-w-36">
+                      {p.name}
+                    </figcaption>
+                  </figure>
+                ))
+            }
+            // The viewer's own result lights the card; watchers get the quiet lamp.
+            tone={!meSeated ? 'neutral' : result.winners.includes(me) ? 'win' : 'loss'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost && blocker && seatedNow >= 3 && (
+                  <p className="text-sm" data-testid="play-again-blocker">
+                    {blocker} The table changed since the deal.
+                  </p>
                 )}
-              >
-                {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
-              </button>
-            ))}
+                {room.isHost && (
+                  <StickyBar className="flex flex-wrap gap-2">
+                    {blocker && seatedNow >= 3 ? (
+                      <Button
+                        size="lg"
+                        onClick={() =>
+                          void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
+                            (ok) => ok && act({ type: 'play-again' }),
+                          )
+                        }
+                      >
+                        Play again with the recommended cards for {seatedNow}
+                      </Button>
+                    ) : (
+                      <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+                        Play again
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </StickyBar>
+                )}
+                {!room.isHost && (
+                  <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
+                    {waitingForHost(room, 'play again or change the setup')}
+                  </p>
+                )}
+              </>
+            }
+          />
+        }
+      >
+        {wide ? (
+          <div className="space-y-3">
+            {resultPanel}
+            <div role="tablist" className="flex gap-1 rounded-xl bg-sunk p-1">
+              {(['cards', 'night'] as const).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={cn(
+                    'h-9 flex-1 rounded-lg text-sm font-semibold',
+                    tab === t && 'bg-card shadow',
+                  )}
+                >
+                  {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
+                </button>
+              ))}
+            </div>
+            {tab === 'cards' ? cardsPanel : nightPanel}
           </div>
-          {tab === 'cards' ? cardsPanel : nightPanel}
-        </>
-      ) : (
-        // Phones: the result, the awards, everyone's cards and the night one at a time, with Play
-        // again always below, so the end fits the screen.
-        <EndTabs
-          tabs={[
-            { id: 'result', label: '🏆 Result', content: resultPanel },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            { id: 'cards', label: '🃏 Cards', content: cardsPanel },
-            { id: 'night', label: '🌙 Night', content: nightPanel },
-          ]}
-        />
-      )}
-      {room.isHost && blocker && seatedNow >= 3 && (
-        <p className="text-sm" data-testid="play-again-blocker">
-          {blocker} The table changed since the deal.
-        </p>
-      )}
-      {room.isHost && (
-        <StickyBar className="flex flex-wrap gap-2">
-          {blocker && seatedNow >= 3 ? (
-            <Button
-              size="lg"
-              onClick={() =>
-                void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
-                  (ok) => ok && act({ type: 'play-again' }),
-                )
-              }
-            >
-              Play again with the recommended cards for {seatedNow}
-            </Button>
-          ) : (
-            <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-              Play again
-            </Button>
-          )}
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </StickyBar>
-      )}
-      {!room.isHost && (
-        <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
-          {waitingForHost(room, 'play again or change the setup')}
-        </p>
-      )}
+        ) : (
+          // Phones: the result, the awards, everyone's cards and the night one at a time, with Play
+          // again always below, so the end fits the screen.
+          <EndTabs
+            tabs={[
+              {
+                id: 'result',
+                label: '🏆 Result',
+                content: (
+                  <div className="space-y-2">
+                    {/* Everyone's final card at a glance first, in one sideways row (the Cards
+                        tab has the details); the hero already says who won. */}
+                    <ul
+                      aria-label="Everyone’s final cards"
+                      className="flex snap-x gap-2 overflow-x-auto px-1 pb-1"
+                    >
+                      {view.table!.map((p) => (
+                        <li
+                          key={p.id}
+                          className="flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1"
+                        >
+                          <CardFace
+                            role={reveal.cards[p.id]!.role}
+                            deck={deck}
+                            size="sm"
+                            className="w-full"
+                          />
+                          <span className="flex max-w-full items-center gap-1 text-xs font-semibold">
+                            <NameDot name={p.name} />
+                            <span className="truncate">{p.name}</span>
+                            {result.winners.includes(p.id) && <span aria-hidden>🏆</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {resultPanel}
+                  </div>
+                ),
+              },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              { id: 'cards', label: '🃏 Cards', content: cardsPanel },
+              { id: 'night', label: '🌙 Night', content: nightPanel },
+            ]}
+          />
+        )}
+      </EndLayout>
     </div>
   );
 }

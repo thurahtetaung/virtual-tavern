@@ -1,17 +1,22 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   Countdown,
   FitArea,
   Hint,
   NameDot,
   PlayerTag,
   RefusalSlot,
+  scrollFadeMask,
   StickyBar,
   TabBar,
   type TabBarItem,
-  cn,
   tabPanelProps,
+  TAP_BAND,
+  useFreeHeight,
+  useScrollEnds,
+  useWideScreen,
 } from '@vt/ui';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CARDS } from '../logic/cards.ts';
@@ -294,7 +299,7 @@ const PlayerRow = memo(function PlayerRow({
           data-seat-hero={p.hero}
         >
           <span className="relative">
-            <Portrait hero={p.hero} art={art} size={compact ? 36 : 40} />
+            <Portrait hero={p.hero} art={art} size={compact ? 36 : 48} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1">
@@ -311,14 +316,15 @@ const PlayerRow = memo(function PlayerRow({
               {waiting && <span aria-label="their move">⏳</span>}
               {near && (
                 <span
-                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-[0.65rem] font-semibold text-warn-ink ring-1 ring-warn-line"
+                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-xs font-semibold text-warn-ink ring-1 ring-warn-line"
                   title="Your regular attacks reach this neighbour"
                 >
                   {near === 'left' ? '⬅ in reach' : 'in reach ➡'}
                 </span>
               )}
             </span>
-            <span className="block truncate text-xs text-ink-muted">
+            {/* Wraps to a second line rather than cutting off the counts. */}
+            <span className="block text-xs text-ink-2">
               {art.hero(p.hero)} · ✋ {p.handCount} in hand · 🂠 {p.deckCount} in deck
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
@@ -379,26 +385,27 @@ const Resolution = memo(function Resolution({
     (lastPlay?.kind === 'play'
       ? { id: lastPlay.inst, card: lastPlay.card, owner: lastPlay.owner }
       : null);
+  // Wide screens: the card in play is shown large, the table's centrepiece.
+  const big = useWideScreen();
+  const cardWidth = big ? 120 : 76;
   return (
     <section
       aria-label="Table"
-      className="flex items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line"
+      // Before the first card the table is one quiet line; a narrow column (the end's last turn)
+      // puts the story under the card rather than squeezing it beside it.
+      className="flex flex-wrap items-start gap-3 rounded-xl bg-panel p-2 ring-1 ring-line lg:gap-5 lg:p-4"
     >
-      {showing ? (
+      {showing && (
         <button
           type="button"
           onClick={() => onZoom(showing)}
           aria-label={`Zoom ${art.card(showing.card)}`}
         >
-          <Card card={showing.card} art={art} width={76} />
+          <Card card={showing.card} art={art} width={cardWidth} />
         </button>
-      ) : (
-        <div className="flex aspect-[400/630] w-[76px] items-center justify-center rounded-[7%] border-2 border-dashed border-line text-xs text-ink-muted">
-          No card yet
-        </div>
       )}
-      <div className="min-w-0 flex-1">
-        <ol className="flex flex-col gap-0.5 text-sm" aria-live="polite">
+      <div className="min-w-48 flex-1">
+        <ol className="flex flex-col gap-0.5 text-sm lg:gap-1 lg:text-body" aria-live="polite">
           {lines.map((l, i) => (
             <li
               key={l.id}
@@ -408,7 +415,11 @@ const Resolution = memo(function Resolution({
               {l.text}
             </li>
           ))}
-          {lines.length === 0 && <li className="text-ink-muted">The brawl begins!</li>}
+          {lines.length === 0 && (
+            <li className="text-ink-2">
+              <span aria-hidden>🥊</span> The brawl begins! No card played yet.
+            </li>
+          )}
         </ol>
         {played.length > 0 && (
           <div
@@ -423,7 +434,7 @@ const Resolution = memo(function Resolution({
                 onClick={() => onZoom(r)}
                 aria-label={art.card(r.card)}
               >
-                <Card card={r.card} art={art} width={34} />
+                <Card card={r.card} art={art} width={big ? 52 : 34} />
               </button>
             ))}
           </div>
@@ -516,7 +527,10 @@ const HandCard = memo(function HandCard({
         type="button"
         onClick={() => onZoom(r)}
         aria-label={`Read ${art.card(r.card)}`}
-        className="absolute top-0 right-0 flex size-9 items-start justify-end p-1 text-xs"
+        className={cn(
+          TAP_BAND,
+          'absolute top-1 right-1 flex size-9 items-start justify-end p-1 text-xs',
+        )}
       >
         <span className="flex size-5 items-center justify-center rounded-full bg-black/70 font-bold text-white">
           i
@@ -545,6 +559,8 @@ function Hand({
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState(360);
+  const free = useFreeHeight(ref, room < 700);
+  const { ref: stripRef, ends: stripEnds } = useScrollEnds(view.hand.map((c) => c.id).join(','));
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -557,10 +573,29 @@ function Hand({
   // that the row scrolls sideways.
   const n = view.hand.length;
   const GAP = 6;
-  const full = room >= 700 ? 132 : 108;
+  // Cards size by the window's height too (about a fifth of it on wide screens, so the hand fills
+  // the play column and reads from across the table; a little less on phones, so a tall phone
+  // fills the band above Play).
+  const full =
+    room >= 700
+      ? Math.max(132, Math.min(200, Math.round(window.innerHeight * 0.21)))
+      : Math.max(108, Math.min(128, Math.round(window.innerHeight * 0.15)));
   const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
-  const width = Math.max(92, Math.min(full, fit));
-  const scrolls = n * width + GAP * (n - 1) > room;
+  const oneRow = Math.max(92, Math.min(full, fit));
+  // On a phone, four to eight cards go in two rows when the band above Play has the height: bigger
+  // cards, all in sight, no swipe. Card faces are 400 × 630.
+  const cols = Math.ceil(n / 2);
+  const twoRow =
+    room < 700 && n >= 4 && n <= 8 && free !== null
+      ? Math.min(
+          Math.floor((room - GAP * (cols - 1)) / cols),
+          Math.floor((((free - 16 - GAP) / 2) * 400) / 630),
+          184,
+        )
+      : 0;
+  const rows2 = twoRow >= 92 && twoRow > Math.min(oneRow, fit) + 8;
+  const width = rows2 ? twoRow : oneRow;
+  const scrolls = !rows2 && n * width + GAP * (n - 1) > room;
   const overlap = -GAP;
   const owners = new Map(g.players.map((p) => [p.id, p]));
   const onTap = useCallback(
@@ -576,10 +611,16 @@ function Hand({
         <p className="py-6 text-center text-sm text-ink-muted">No cards in hand.</p>
       ) : (
         <ul
+          ref={stripRef}
           className={cn(
             'flex pt-3 pb-1',
             scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',
+            rows2 && 'mx-auto flex-wrap gap-y-1.5',
           )}
+          style={{
+            ...scrollFadeMask(stripEnds),
+            ...(rows2 ? { maxWidth: cols * width + GAP * (cols - 1) } : null),
+          }}
         >
           {view.hand.map((r, i) => {
             const borrowed = r.owner !== view.me?.id ? owners.get(r.owner) : undefined;
@@ -589,7 +630,7 @@ function Hand({
                 r={r}
                 art={art}
                 width={width}
-                index={i}
+                index={rows2 ? i % cols : i}
                 overlap={overlap}
                 selected={selected === r.id}
                 pickable={!!pickCard?.options.has(r.id)}
@@ -1123,7 +1164,7 @@ export function Table({
 
   // Phones: the opponents take what the screen has left and scroll inside it (six seats).
   const opponents = (
-    <FitArea phone plain min={128}>
+    <FitArea phone plain min={64}>
       <ul
         className={cn(
           'grid grid-cols-1 gap-1.5',
@@ -1252,7 +1293,7 @@ export function Table({
       </div>
       <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex">
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
             <h2 className="font-bold">✦ Mighty powers</h2>
             <span className="flex -space-x-1.5 pl-1" aria-hidden>
               {heroes.map((h) => (

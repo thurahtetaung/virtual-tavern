@@ -1,14 +1,15 @@
-import { Button, Icon, Slate } from '@vt/ui';
+import { Button, Icon, Slate, TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
 const NAV_LINK =
-  'inline-flex min-h-11 items-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 /**
- * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
- * footer tagline make way so the table fits a phone screen.
+ * Page chrome. `wide` is for the room: the game gets the full width (up to 1440 px, so a desktop's
+ * play column grows to about 1,060 px beside a 320 px rail), and the header link and the footer
+ * tagline make way so the table fits a phone screen.
  */
 export function Layout({
   children,
@@ -20,8 +21,7 @@ export function Layout({
   children: ReactNode;
   wide?: boolean;
   /**
-   * A game room: on phones the site header makes way for the room's own (its 56 px go to the
-   * table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
+   * A game room: the site header makes way for the room's own (its 56 px go to the table), and the page keeps the height of the fixed sticky bar and tab bar free at its foot.
    */
   room?: boolean;
   /** The tavern keeper's pages: a wider column for the side navigation and charts. */
@@ -34,9 +34,11 @@ export function Layout({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className={`${room ? 'max-sm:hidden ' : ''}border-b border-line`}>
+      {/* In a room the room's own header carries the way home and the theme switch, so the game
+          gets these 56 px on every screen (on phones the switch is in the Players sheet). */}
+      <header className={`${room ? 'hidden ' : ''}border-b border-line`}>
         <div
-          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+          className={`mx-auto flex h-14 items-center justify-between px-4 ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
         >
           <Link
             to="/"
@@ -60,14 +62,20 @@ export function Layout({
         </div>
       </header>
       <main
-        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'} sm:pt-6` : 'py-6'} ${wide ? 'max-w-7xl' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
+        className={`mx-auto w-full flex-1 px-4 ${room ? `vt-room-main ${playtest ? 'vt-room-playtest pt-1' : 'pt-4'}` : 'py-6'} ${wide ? 'max-w-[90rem]' : admin ? 'max-w-[1104px] lg:px-6' : 'max-w-4xl'}`}
       >
         {children}
       </main>
       {!wide && (
         <footer className="py-6 text-center text-xs text-ink-muted">
           A cosy corner of the internet for game nights with friends.{' '}
-          <Link to="/faq" className="text-accent-text underline-offset-2 hover:underline">
+          <Link
+            to="/faq"
+            className={cn(
+              'inline-block py-1.5 text-accent-text underline-offset-2 hover:underline',
+              TAP_BAND,
+            )}
+          >
             Questions?
           </Link>
         </footer>
@@ -88,7 +96,16 @@ const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
  * choice can always be undone, and every tap but that last one visibly changes the page. It shows
  * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
-export function ThemeSwitch({ inSheet = false }: { inSheet?: boolean }) {
+export function ThemeSwitch({
+  inSheet = false,
+  className,
+  labelClassName,
+}: {
+  inSheet?: boolean;
+  /** A room header's button classes (an icon over a one-word label, as its other buttons). */
+  className?: string;
+  labelClassName?: string;
+}) {
   const { theme, resolved, setTheme } = useTheme();
   const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
   const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';
@@ -96,6 +113,23 @@ export function ThemeSwitch({ inSheet = false }: { inSheet?: boolean }) {
   const next: Theme = theme !== 'system' && theme === device ? 'system' : other;
   const label = next === 'system' ? "Follow your device's theme" : `Switch to ${next} theme`;
   const state = THEME_STATE[theme];
+  if (className) {
+    return (
+      <Button
+        size="sm"
+        variant="secondary"
+        className={className}
+        aria-label={`Theme: ${state.text}. ${label}`}
+        title={label}
+        onClick={() => setTheme(next)}
+      >
+        <span aria-hidden className="text-[22px] leading-6">
+          {state.icon}
+        </span>
+        <span className={labelClassName}>{state.text}</span>
+      </Button>
+    );
+  }
   return (
     <Button
       variant={inSheet ? 'secondary' : 'ghost'}

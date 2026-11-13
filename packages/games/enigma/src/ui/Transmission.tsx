@@ -1,5 +1,17 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Button, Input, Notice, Panel, Peek, PlayerTag, Row, Rows, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  Input,
+  Notice,
+  Panel,
+  Peek,
+  PlayerTag,
+  Row,
+  Rows,
+  Slate,
+  StickyBar,
+  cn,
+} from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
@@ -218,7 +230,7 @@ function CodePicker({
       {tx.clues?.map((clue, row) => (
         <div key={row}>
           <p className="text-small">
-            Clue {row + 1}: <b className="text-body">“{clue}”</b>
+            Clue {row + 1}: <b className="font-display text-sub">“{clue}”</b>
           </p>
           <div className="mt-1 grid grid-cols-4 gap-1">
             {[1, 2, 3, 4].map((digit) => {
@@ -238,7 +250,9 @@ function CodePicker({
                       : 'bg-card text-ink ring-line-strong hover:bg-panel',
                   )}
                 >
-                  <span className="block text-lg leading-none font-black">{digit}</span>
+                  <span className="block font-display text-num leading-none font-black tabular-nums">
+                    {digit}
+                  </span>
                   {hint && (
                     <span className="block truncate text-caption leading-tight uppercase">
                       {hint}
@@ -334,20 +348,44 @@ function tokensSoFar(view: EnigmaView, tx: TransmissionView, kind: 'miss' | 'int
   ).length;
 }
 
+/** A rubber-stamp word in the line's own colour: the round's verdict at a glance. */
+function Stamp({ children }: { children: string }) {
+  return (
+    <span className="mr-2 inline-block -rotate-3 rounded border-2 border-current px-1.5 align-middle text-caption font-black tracking-widest uppercase max-sm:mb-1.5 max-sm:block max-sm:w-fit">
+      {children}
+    </span>
+  );
+}
+
 function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView }) {
   const r = tx.result;
   if (!r) return null;
   const sender = TEAM_LABEL[tx.team];
-  const receiver = TEAM_LABEL[tx.team === 'red' ? 'blue' : 'red'];
+  const receiverTeam = tx.team === 'red' ? 'blue' : 'red';
+  const receiver = TEAM_LABEL[receiverTeam];
   const canIntercept = view.round >= 2;
   return (
     <div className="space-y-2">
-      <p className="text-center">
-        <span className="text-small text-ink-muted">The code was</span>
-        <span className="block font-mono text-3xl font-black tracking-widest">
-          {formatCode(tx.code)}
-        </span>
-      </p>
+      <div className="text-center">
+        <p className="text-small text-ink-muted">
+          The code was<span className="sr-only"> {formatCode(tx.code)}</span>
+        </p>
+        {/* The big moment: the three numbers as tiles in the sending team's colours. */}
+        <ol aria-hidden className="mt-1 flex justify-center gap-2">
+          {(tx.code ?? [0, 0, 0]).map((digit, i) => (
+            <li
+              key={i}
+              className={cn(
+                'flex size-14 items-center justify-center rounded-xl font-display text-display font-black tabular-nums shadow-vt-1-edge ring-1 lg:size-16',
+                TEAM_PANEL[tx.team],
+                TEAM_TEXT[tx.team],
+              )}
+            >
+              {digit || '?'}
+            </li>
+          ))}
+        </ol>
+      </div>
       {tx.expired && (
         <p className="text-center text-small font-semibold">
           {tx.timedOut
@@ -377,6 +415,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
             : 'bg-danger-soft text-danger-ink ring-danger-line',
         )}
       >
+        <Stamp>{r.decoded ? 'Decoded' : 'Missed'}</Stamp>
         {r.decoded
           ? `✓ ${sender} decoded it.`
           : `✗ ${sender} ${
@@ -394,10 +433,14 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       {canIntercept && (
         <p
           className={cn(
-            'rounded-lg px-3 py-2 font-semibold',
-            r.intercepted ? 'bg-ink text-page' : 'bg-sunk text-ink',
+            'rounded-lg px-3 py-2 font-semibold ring-1 ring-inset',
+            // An interception is the other team's moment: it wears their colours.
+            r.intercepted
+              ? cn(TEAM_PANEL[receiverTeam], TEAM_TEXT[receiverTeam], 'text-sub shadow-vt-1')
+              : 'bg-sunk text-ink ring-line',
           )}
         >
+          {r.intercepted && <Stamp>Intercepted</Stamp>}
           {r.intercepted
             ? `🕵️ ${receiver} intercepted it! ${receiver} gets 🕵️ (${tokensSoFar(view, tx, 'intercept')} of ${TOKENS_TO_END}).`
             : `${receiver} didn't intercept${
@@ -473,11 +516,17 @@ export function TransmissionCard({
       tx.role === 'encryptor' && !tx.clues ? (
         <ClueForm view={view} tx={tx} act={act} />
       ) : (
-        <p className="text-center text-ink-2">
-          {tx.clues
-            ? 'Clues sent. Waiting for the other Encryptor…'
-            : `${encryptor} is writing clues…`}
-        </p>
+        // The shared waiting slate, in one row (the dots beside the line), so the wait reads as
+        // alive without making the code panel taller.
+        <Slate
+          kind="loading"
+          className="grid-flow-col items-center justify-center gap-3 px-0 py-0"
+          title={
+            tx.clues
+              ? 'Clues sent. Waiting for the other Encryptor…'
+              : `${encryptor} is writing clues…`
+          }
+        />
       );
   } else if ((tx.role === 'decoder' || tx.role === 'interceptor') && tx.clues) {
     // The picker stays up after the side agrees: nothing is final until every side agrees at once.
@@ -488,7 +537,8 @@ export function TransmissionCard({
         <ol className="space-y-1">
           {tx.clues?.map((c, i) => (
             <li key={i}>
-              <span className="text-ink-muted">{i + 1}.</span> <b>“{c}”</b>
+              <span className="text-ink-muted">{i + 1}.</span>{' '}
+              <b className="font-display text-sub">“{c}”</b>
             </li>
           ))}
         </ol>

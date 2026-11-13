@@ -1,4 +1,4 @@
-import { Button, PlayerTag, ProtectedImage, cn } from '@vt/ui';
+import { Button, PlayerTag, ProtectedImage, cn, useWideScreen } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { GLYPHS, INDICATOR_LABELS, MORSE_ALPHABET } from '../logic/data.ts';
 import type { ButtonCond, WireCond, WireRule } from '../logic/data-types.ts';
@@ -513,6 +513,65 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
   );
   const claims = v.claims ?? {};
   const seated = v.seats.some((p) => p.id === you);
+  const wide = useWideScreen();
+  // The page list: the whole index, or on desktops the rail beside an open page.
+  const list = (rail: boolean) => (
+    <div
+      className={cn('grid gap-1.5', rail ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 sm:gap-2')}
+    >
+      {found.map((p) => {
+        // The index: each page with its module's face, as the printed manual shows it (small on
+        // phones, large on desktops).
+        const face = !rail && p !== 'appendix' ? art.module(p)?.base : null;
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPage(p)}
+            aria-current={rail && p === page ? 'page' : undefined}
+            className={cn(
+              'flex min-h-11 items-center gap-3 rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel',
+              !rail && 'sm:min-h-14 sm:py-2 lg:min-h-[5.5rem]',
+              claims[p]?.includes(you) && 'ring-2 ring-accent',
+              rail && p === page && 'bg-accent-soft',
+            )}
+            data-testid={`index-${p}`}
+          >
+            {face && (
+              <ProtectedImage
+                src={face}
+                alt=""
+                className="size-8 shrink-0 rounded-md object-contain lg:size-16 lg:rounded-lg"
+              />
+            )}
+            <span className="flex min-w-0 flex-col items-start">
+              <span className={cn('text-sm font-semibold', !rail && 'sm:text-base')}>
+                {(NEEDY as readonly string[]).includes(p) && <span aria-hidden>⚠ </span>}
+                {pageName(art, p)}
+              </span>
+              {claims[p]?.length ? (
+                <span className="max-w-full truncate text-xs text-ink-muted">
+                  {claims[p].map((id) => (id === you ? 'you' : (names.get(id) ?? '?'))).join(', ')}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        );
+      })}
+      {!found.length && <p className="col-span-full text-center text-ink-muted">Nothing found.</p>}
+    </div>
+  );
+  const search = (
+    <input
+      type="search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search the manual (a word, a symbol)…"
+      className="h-12 w-full rounded-lg border border-line-input bg-card px-3.5 text-ink placeholder:text-ink-faint focus:border-focus"
+      aria-label="Search the manual"
+      data-testid="manual-search"
+    />
+  );
   if (page) {
     const mine = claims[page]?.includes(you) ?? false;
     // A different manual's pages differ from the printed ones, so only unchanged pages keep their image.
@@ -520,12 +579,14 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
       v.manual && !SAME_IN_EVERY_MANUAL.includes(page)
         ? []
         : art.pagesOf(page).flatMap((n) => art.page(n) ?? []);
-    return (
-      <div className="space-y-3" data-testid={`page-${page}`}>
+    const body = (
+      <div className="min-w-0 space-y-3" data-testid={`page-${page}`}>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setPage(null)}>
-            ◂ Index
-          </Button>
+          {!wide && (
+            <Button size="sm" variant="secondary" onClick={() => setPage(null)}>
+              ◂ Index
+            </Button>
+          )}
           <h3 className="min-w-0 flex-1 truncate text-lg font-semibold">{pageName(art, page)}</h3>
           {pics.length > 0 && (
             <Button size="sm" variant="quiet" onClick={() => setImage(!image)}>
@@ -569,46 +630,23 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
         {act && seated && <Notes page={page} text={v.notes?.[page] ?? ''} act={act} />}
       </div>
     );
+    // Desktops: the index stays in a rail beside the open page, so moving between pages is one tap.
+    if (!wide) return body;
+    return (
+      <div className="grid grid-cols-[17rem_minmax(0,1fr)] items-start gap-4">
+        <nav aria-label="Manual pages" className="sticky top-3 space-y-2">
+          {search}
+          {list(true)}
+        </nav>
+        {body}
+      </div>
+    );
   }
   return (
     <div className="space-y-3" data-testid="manual-index">
       <ManualCover v={v} />
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search the manual (a word, a symbol)…"
-        className="h-12 w-full rounded-lg border border-line-input bg-card px-3.5 text-ink placeholder:text-ink-faint focus:border-focus"
-        aria-label="Search the manual"
-        data-testid="manual-search"
-      />
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2">
-        {found.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setPage(p)}
-            className={cn(
-              'flex min-h-11 flex-col items-start justify-center rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel sm:min-h-14 sm:py-2',
-              claims[p]?.includes(you) && 'ring-2 ring-accent',
-            )}
-            data-testid={`index-${p}`}
-          >
-            <span className="text-sm font-semibold sm:text-base">
-              {(NEEDY as readonly string[]).includes(p) && <span aria-hidden>⚠ </span>}
-              {pageName(art, p)}
-            </span>
-            {claims[p]?.length ? (
-              <span className="max-w-full truncate text-xs text-ink-muted">
-                {claims[p].map((id) => (id === you ? 'you' : (names.get(id) ?? '?'))).join(', ')}
-              </span>
-            ) : null}
-          </button>
-        ))}
-        {!found.length && (
-          <p className="col-span-full text-center text-ink-muted">Nothing found.</p>
-        )}
-      </div>
+      {search}
+      {list(false)}
     </div>
   );
 }

@@ -297,8 +297,17 @@ export function GuideView({
             open={setCard}
           />
         )}
-        {tab === 'rules' && <Rules guide={guide} ctx={ctx} inRoom={inRoom} />}
-        {tab === 'ref' && <Reference guide={guide} />}
+        {/* Prose keeps a reading width when the guide is wide. */}
+        {tab === 'rules' && (
+          <div className={cn(!compact && 'xl:mx-auto xl:max-w-3xl')}>
+            <Rules guide={guide} ctx={ctx} inRoom={inRoom} />
+          </div>
+        )}
+        {tab === 'ref' && (
+          <div className={cn(!compact && 'xl:mx-auto xl:max-w-3xl')}>
+            <Reference guide={guide} />
+          </div>
+        )}
       </div>
       {ready && !(rail && tab === 'learn') && <div className="mt-8">{ready}</div>}
 
@@ -588,6 +597,18 @@ function WhoIsWho({ guide }: { guide: GameGuide }) {
  * "How a game goes": one step at a time, with Back/Next, dots and swipe, ending on "That's the
  * whole game". Also the lobby's first-time intro (`title`, `onFinish`).
  */
+/** A step's emoji on a `sunk` tile (a step with no art, or art that didn't load). */
+function StepEmblem({ icon }: { icon?: string | undefined }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-24 items-center justify-center rounded-xl bg-sunk text-5xl ring-1 ring-line"
+    >
+      {icon ?? '🎲'}
+    </span>
+  );
+}
+
 export function Stepper({
   guide,
   ctx,
@@ -640,33 +661,26 @@ export function Stepper({
       <div className="mt-2 min-h-56" aria-live="polite" {...swipe}>
         {step ? (
           <div key={i} className="motion-safe:animate-[guide-in_.25s_ease]">
-            <div
-              className={cn(
-                'mb-3 flex items-center justify-center overflow-hidden rounded-lg',
-                // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
-                !step.art && 'bg-sunk',
-                compact ? 'h-28' : 'h-32 sm:h-40',
-              )}
-            >
-              {step.art ? (
+            {step.art ? (
+              <div
+                className={cn(
+                  // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
+                  'mb-3 flex items-center justify-center overflow-hidden rounded-lg',
+                  compact ? 'h-28' : 'h-32 sm:h-40 lg:h-52 xl:h-64',
+                )}
+              >
                 <Art
                   src={step.art}
                   className="h-full w-auto max-w-full rounded-lg object-contain shadow"
-                  fallback={
-                    <span
-                      aria-hidden
-                      className="flex size-full items-center justify-center rounded-lg bg-sunk text-6xl"
-                    >
-                      {step.icon ?? '🎲'}
-                    </span>
-                  }
+                  fallback={<StepEmblem icon={step.icon} />}
                 />
-              ) : (
-                <span aria-hidden className="text-6xl">
-                  {step.icon ?? '🎲'}
-                </span>
-              )}
-            </div>
+              </div>
+            ) : (
+              // No art: the step's emblem on a small tile, so the words sit high, not under a slab.
+              <div className="mb-3 flex justify-center">
+                <StepEmblem icon={step.icon} />
+              </div>
+            )}
             <h3 className="text-sub leading-snug font-semibold">
               <span className="font-display text-heading text-accent-text">{i + 1}.</span>{' '}
               {step.title}
@@ -678,10 +692,8 @@ export function Stepper({
           </div>
         ) : (
           <div className="motion-safe:animate-[guide-in_.25s_ease]">
-            <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-sunk">
-              <span aria-hidden className="text-6xl">
-                🎉
-              </span>
+            <div className="mb-3 flex justify-center">
+              <StepEmblem icon="🎉" />
             </div>
             <h3 className="text-sub font-semibold">That’s the whole game</h3>
             <p className="mt-1 text-ink-2">
@@ -704,8 +716,18 @@ export function Stepper({
           </div>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <Button variant="secondary" size="sm" disabled={i === 0} onClick={() => go(i - 1)}>
+      {/* On phones Back/Next stay at the window's foot while the step is on screen, so the way on
+          is never below the fold under a tall goal or step. */}
+      <div className="-mx-4 mt-1 -mb-4 flex items-center justify-between gap-2 rounded-b-xl bg-card px-4 pt-3 pb-4 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={i === 0}
+          // The first step has nothing to go back to: the button keeps its place, unseen (but
+          // still announced as disabled).
+          className={cn(i === 0 && 'opacity-0')}
+          onClick={() => go(i - 1)}
+        >
           <Icon name="arrow-left" size={16} />
           Back
         </Button>

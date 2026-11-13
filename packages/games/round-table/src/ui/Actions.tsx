@@ -32,6 +32,7 @@ export function RevealPanel({
   const ready = view.game!.ready.includes(view.me!.id);
   return (
     <div className="space-y-3">
+      <RoleReveal view={view} showGuide={showGuide} />
       {ready ? (
         <p className="text-center text-small text-ink-muted">
           ✓ Ready. The game starts once everyone has read their card.
@@ -43,7 +44,6 @@ export function RevealPanel({
           </Button>
         </StickyBar>
       )}
-      <RoleReveal view={view} showGuide={showGuide} />
     </div>
   );
 }

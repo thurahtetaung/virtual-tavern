@@ -1,4 +1,4 @@
-import { Button, PlayerTag, cn, useConfirm } from '@vt/ui';
+import { PlayerTag, cn, SeatHeading, SeatToggle } from '@vt/ui';
 import { type Names, cowCount, fillNames } from '../logic/names.ts';
 import { MAX_PLAYERS, type StampedeAction, type StampedeView } from '../logic/types.ts';
 import { CowCount, PinkMark } from './parts.tsx';
@@ -113,7 +113,6 @@ export function Table({
   const players = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const me = view.me;
-  const [confirm, confirmDialog] = useConfirm();
   const missing = new Set(round ? missingIds(round) : []);
   const mark = (id: string): { mark?: string; label?: string } => {
     if (!round || view.phase !== 'playing') return {};
@@ -123,47 +122,24 @@ export function Table({
   };
   return (
     <section aria-label="Players" className="space-y-2">
-      {confirmDialog}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-bold">
-          Players ({players.length}/{MAX_PLAYERS})
-        </h3>
-        {me &&
-          (me.playing ? (
-            <Button
-              id={SEAT_CONTROL_ID}
-              variant="ghost"
-              className="h-11"
-              onClick={() =>
-                void (async () => {
-                  if (
-                    view.phase !== 'playing' ||
-                    (await confirm({
-                      title: 'Sit out and just watch?',
-                      body: 'You keep your cows, but you can’t win while you watch.',
-                      confirmLabel: 'Watch instead',
-                    }))
-                  ) {
-                    void act({ type: 'sit', playing: false });
+      <SeatHeading title={`Players (${players.length}/${MAX_PLAYERS})`}>
+        {me && (me.playing || players.length < MAX_PLAYERS) && (
+          <SeatToggle
+            id={SEAT_CONTROL_ID}
+            playing={me.playing}
+            confirmLeave={
+              view.phase === 'playing'
+                ? {
+                    title: 'Sit out and just watch?',
+                    body: 'You keep your cows, but you can’t win while you watch.',
+                    confirmLabel: 'Watch instead',
                   }
-                })()
-              }
-            >
-              Watch instead
-            </Button>
-          ) : (
-            players.length < MAX_PLAYERS && (
-              <Button
-                id={SEAT_CONTROL_ID}
-                variant="secondary"
-                className="h-11"
-                onClick={() => void act({ type: 'sit', playing: true })}
-              >
-                Take a seat
-              </Button>
-            )
-          ))}
-      </div>
+                : null
+            }
+            onChange={(playing) => void act({ type: 'sit', playing })}
+          />
+        )}
+      </SeatHeading>
       <ul className="flex flex-wrap gap-1.5">
         {players.map((s) => {
           const m = mark(s.id);

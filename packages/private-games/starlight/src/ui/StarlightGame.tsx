@@ -1,7 +1,9 @@
-import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import { Card, cardSetChoices, useManifest } from '@vt/private-reverie/card';
 import {
   Button,
+  END_ART,
+  TAP_BAND,
   ChoicePicker,
   Countdown,
   GuideLink,
@@ -19,6 +21,8 @@ import {
   type TabBarItem,
   tabPanelProps,
   usePhone,
+  EndHero,
+  EndLayout,
   EndTabs,
   Superlatives,
   TimerSettings,
@@ -30,6 +34,11 @@ import {
   useSpectatorPrompt,
   wordListsLine,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
@@ -61,6 +70,7 @@ import {
   lanternArt,
   useManifest as useTokens,
 } from './assets.ts';
+import { guide } from '../logic/guide.ts';
 import { Tip } from './Tips.tsx';
 
 export type StarlightUiProps = GameUiProps<StarlightView, StarlightAction>;
@@ -99,6 +109,7 @@ export function StarlightGame({
   pickColor,
 }: StarlightUiProps) {
   const manifest = useManifest();
+  const lobbyTokens = useTokens();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -134,69 +145,83 @@ export function StarlightGame({
   }, [setYourMove, tabAlert]);
 
   if (view.phase === 'lobby') {
+    const scout = firstScoutArt(lobbyTokens);
     return (
-      <div className="space-y-4">
+      <LobbyLayout
+        pitch={
+          <LobbyPitch
+            title={room.gameName ?? 'Starlight'}
+            emblem="🌠"
+            art={
+              scout && (
+                <ProtectedImage
+                  src={scout}
+                  alt=""
+                  className="w-full object-contain drop-shadow-md"
+                />
+              )
+            }
+          >
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <>
+            <LobbySettings
+              editable={room.isHost}
+              summary={[
+                wordListsLine(view.settings.wordListIds, view.wordLists),
+                `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
+                timersLine(view.settings, { clue: 'marking', guess: 'Scouts' }),
+              ]}
+              className="space-y-4"
+            >
+              <WordListPicker
+                selectedIds={view.settings.wordListIds}
+                wordLists={view.wordLists}
+                editable={room.isHost}
+                onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
+                summary={(chosen, total) =>
+                  `One word a round, drawn from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
+                }
+              />
+              <ChoicePicker
+                selectedIds={view.settings.sets}
+                choices={cardSetChoices(manifest)}
+                editable={room.isHost}
+                onSave={(ids) => act({ type: 'update-settings', sets: ids })}
+                labels={{
+                  title: 'Picture cards',
+                  unit: 'cards',
+                  noun: 'set',
+                  change: 'Change card sets',
+                  summary: (chosen, total) =>
+                    `Playing with ${chosen.length === 1 ? 'this set' : 'these sets'} (${total} cards; a game uses 30).`,
+                }}
+              />
+              <TimerSettings
+                values={view.settings}
+                editable={room.isHost}
+                onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+                clueLabel="Marking timer"
+                guessLabel="Scout timer"
+                clueHelp="Time to mark your slate. The rules say take as long as you like."
+                guessHelp="Time for each Scout to show a card."
+                strictHelp="open slates lock as they are, and a slow Scout shows a random card of theirs"
+              />
+            </LobbySettings>
+          </>
+        }
+        start={
+          room.isHost && (
+            <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+          )
+        }
+      >
         {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
         <Seats view={view} room={room} online={online} act={act} pickColor={pickColor} />
         <GuideLink title={room.gameName ?? 'Starlight'} onClick={showGuide} />
-        <LobbySettings
-          editable={room.isHost}
-          summary={[
-            wordListsLine(view.settings.wordListIds, view.wordLists),
-            `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
-            timersLine(view.settings, { clue: 'marking', guess: 'Scouts' }),
-          ]}
-          className="space-y-4"
-        >
-          <WordListPicker
-            selectedIds={view.settings.wordListIds}
-            wordLists={view.wordLists}
-            editable={room.isHost}
-            onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
-            summary={(chosen, total) =>
-              `One word a round, drawn from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
-            }
-          />
-          <ChoicePicker
-            selectedIds={view.settings.sets}
-            choices={cardSetChoices(manifest)}
-            editable={room.isHost}
-            onSave={(ids) => act({ type: 'update-settings', sets: ids })}
-            labels={{
-              title: 'Picture cards',
-              unit: 'cards',
-              noun: 'set',
-              change: 'Change card sets',
-              summary: (chosen, total) =>
-                `Playing with ${chosen.length === 1 ? 'this set' : 'these sets'} (${total} cards; a game uses 30).`,
-            }}
-          />
-          <TimerSettings
-            values={view.settings}
-            editable={room.isHost}
-            onChange={(patch) => void act({ type: 'update-settings', ...patch })}
-            clueLabel="Marking timer"
-            guessLabel="Scout timer"
-            clueHelp="Time to mark your slate. The rules say take as long as you like."
-            guessHelp="Time for each Scout to show a card."
-            strictHelp="open slates lock as they are, and a slow Scout shows a random card of theirs"
-          />
-        </LobbySettings>
-        {room.isHost && (
-          <StickyBar>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-            </div>
-          </StickyBar>
-        )}
-      </div>
+      </LobbyLayout>
     );
   }
 
@@ -252,9 +277,15 @@ function Seats({
   };
   return (
     <Panel className="space-y-2">
-      <h3 className="font-bold">
-        Players ({playing.length}/{MAX_PLAYERS})
-      </h3>
+      <SeatHeading title={`Players (${playing.length}/${MAX_PLAYERS})`}>
+        {me && (
+          <SeatToggle
+            id={SEAT_CONTROL_ID}
+            playing={me.playing}
+            onChange={(playing) => void act({ type: 'sit', playing })}
+          />
+        )}
+      </SeatHeading>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
           <li key={s.id} className="inline-flex items-center">
@@ -272,16 +303,6 @@ function Seats({
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
-      {me && (
-        <Button
-          id={SEAT_CONTROL_ID}
-          size="sm"
-          variant={me.playing ? 'ghost' : 'primary'}
-          onClick={() => void act({ type: 'sit', playing: !me.playing })}
-        >
-          {me.playing ? 'Watch instead' : 'Take a seat'}
-        </Button>
-      )}
     </Panel>
   );
 }
@@ -372,9 +393,64 @@ function Play({
   const tokens = useTokens();
   const wide = useWideScreen();
   const stars = <StarBoard view={view} room={room} online={online} pickColor={pickColor} />;
-  // Phones: the board, the stars and the last round are a tab of the end, so it fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
-  const board = (
+  // First-time tips: above the cards on phones and tablets, at the top of the rail on wide screens.
+  const tips = (
+    <>
+      {canMark && (
+        <Tip id="marking">
+          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
+        </Tip>
+      )}
+      {isScout && (
+        <Tip id="scouting">
+          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
+        </Tip>
+      )}
+    </>
+  );
+  // Wide screens hold the word, the round and the latest moment at the top of the rail, so the
+  // cards get the window's full height.
+  const railTop = wide && view.phase === 'playing';
+  // At the end the finale says it all (the last word included), so there's one title.
+  const header = (
+    <header className={cn('space-y-1', view.phase === 'over' && 'hidden')}>
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+        <span className="flex items-center gap-1">
+          {view.phase === 'over' ? (
+            'Game over'
+          ) : (
+            <>
+              Round {roundName(r.no)} of {ROUNDS} ·{' '}
+              <Token
+                tokens={tokens}
+                src={firstScoutArt(tokens)}
+                emoji="🔭"
+                alt="First Scout pawn"
+              />{' '}
+              First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+            </>
+          )}
+        </span>
+        {view.phase === 'playing' && (
+          <Countdown
+            deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
+            clockOffset={room.clockOffset}
+            label={STEP_TIMER[r.stage]?.label}
+            soft={view.settings.timerMode !== 'strict'}
+            expiredHint="Just a reminder: the table waits."
+            atZero={STEP_TIMER[r.stage]?.atZero}
+          />
+        )}
+      </div>
+      <p className="text-center" data-testid="starlight-word">
+        <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
+          The word
+        </span>
+        <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
+      </p>
+    </header>
+  );
+  const moment = (
     <>
       {last && r.stage !== 'mark' && (
         <p
@@ -394,17 +470,38 @@ function Play({
       )}
 
       {r.stage !== 'done' && <DarkLine view={view} tokens={tokens} />}
+    </>
+  );
+  const board = (
+    <>
+      {!railTop && moment}
 
       <div className="gap-4 sm:grid sm:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <section
           aria-label="The cards"
-          className={cn('space-y-2', shown === 'stars' && 'hidden')}
+          className={cn(
+            'space-y-2',
+            // Phones fill five cards across their width; while the Scouts show, the board sits in
+            // the middle of the free height rather than over an empty band.
+            r.stage === 'reveal' &&
+              'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-18.5rem)] max-sm:flex-col max-sm:justify-center',
+            shown === 'stars' && 'hidden',
+          )}
           {...(shown === 'table' && tabPanelProps(PLAY_TABS_ID, 'table'))}
         >
           <ul
-            // Three lines of cards fit the screen's height on any desktop.
-            style={{ maxWidth: 'min(48rem, 68dvh)' }}
-            className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
+            // Three lines of cards fit the screen's height on any desktop. Once the round is done
+            // a wide screen puts its results in the rail, so the cards keep their size for the
+            // look back at everyone's picks; narrower screens make room for them below.
+            style={{
+              maxWidth:
+                r.stage === 'done' && !wide
+                  ? 'min(48rem, 40dvh)'
+                  : wide
+                    ? 'min(60rem, max(36rem, calc((100dvh - 15.5rem) * 1.18)))'
+                    : 'min(48rem, 62dvh)',
+            }}
+            className="mx-auto grid w-full grid-cols-5 gap-1.5 sm:gap-2"
           >
             {Array.from({ length: GRID }, (_, pos) => (
               <GridCard
@@ -424,29 +521,40 @@ function Play({
           </ul>
           {r.stage === 'mark' && playing && (
             <StickyBar fixed refusal={SLATE_ANCHOR} refusalKey={r.locked.length}>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <span className="text-sm font-semibold" data-testid="starlight-count">
-                  {marks.length} marked
-                  <span className="font-normal text-ink-muted">
-                    {' '}
-                    ({MIN_MARKS}–{MAX_MARKS})
-                  </span>
-                </span>
+              {/* The main action, full width on phones like every game's, its count under it. */}
+              <div className="flex flex-col items-center gap-1 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-2">
                 {locked ? (
                   <Button
                     variant="secondary"
+                    size="lg"
+                    className="max-sm:w-full"
                     onClick={() => void act({ type: 'unlock' }, { anchor: SLATE_ANCHOR })}
                   >
                     Unlock to change
                   </Button>
                 ) : (
                   <Button
+                    size="lg"
+                    className="max-sm:w-full"
                     disabled={marks.length < MIN_MARKS}
                     onClick={() => void act({ type: 'lock' }, { anchor: SLATE_ANCHOR })}
                   >
                     Lock my slate
                   </Button>
                 )}
+                <span
+                  className="text-sm font-semibold sm:order-first"
+                  data-testid="starlight-count"
+                >
+                  <span className="font-display text-xl font-bold tabular-nums">
+                    {marks.length}
+                  </span>{' '}
+                  marked
+                  <span className="font-normal text-ink-muted">
+                    {' '}
+                    ({MIN_MARKS}–{MAX_MARKS})
+                  </span>
+                </span>
                 {note && <p className="w-full text-center text-sm text-ink-muted">{note}</p>}
               </div>
             </StickyBar>
@@ -454,14 +562,32 @@ function Play({
           {isScout && <RefusalSlot anchor={SHOW_ANCHOR} resetKey={r.shown.length} />}
         </section>
         <aside
-          className={cn('mt-3 space-y-3 sm:mt-0', shown === 'table' && 'hidden')}
+          // A long rail (a done round's results and the full scores) scrolls on its own, so the
+          // cards keep the window's height.
+          className={cn(
+            'mt-3 space-y-3 sm:mt-0',
+            railTop && 'lg:max-h-[calc(100dvh-11rem)] lg:overflow-y-auto lg:p-1',
+            shown === 'table' && 'hidden',
+          )}
           {...(shown === 'stars' && tabPanelProps(PLAY_TABS_ID, 'stars'))}
         >
+          {railTop && (
+            <div className="space-y-3 rounded-2xl bg-card p-4 shadow-vt-1 ring-1 ring-line">
+              {header}
+              {moment}
+            </div>
+          )}
+          {wide && tips}
+          {wide && r.stage === 'done' && r.results && (
+            <RoundResults view={view} room={room} act={act} rail />
+          )}
           {stars}
         </aside>
       </div>
 
-      {r.stage === 'done' && r.results && <RoundResults view={view} room={room} act={act} />}
+      {!wide && r.stage === 'done' && r.results && (
+        <RoundResults view={view} room={room} act={act} />
+      )}
     </>
   );
 
@@ -469,52 +595,8 @@ function Play({
     <div className="space-y-3">
       {confirmDialog}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <header className="space-y-1">
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span className="flex items-center gap-1">
-            {view.phase === 'over' ? (
-              'Game over'
-            ) : (
-              <>
-                Round {roundName(r.no)} of {ROUNDS} ·{' '}
-                <Token
-                  tokens={tokens}
-                  src={firstScoutArt(tokens)}
-                  emoji="🔭"
-                  alt="First Scout pawn"
-                />{' '}
-                First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
-              </>
-            )}
-          </span>
-          {view.phase === 'playing' && (
-            <Countdown
-              deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
-              clockOffset={room.clockOffset}
-              label={STEP_TIMER[r.stage]?.label}
-              soft={view.settings.timerMode !== 'strict'}
-              expiredHint="Just a reminder: the table waits."
-              atZero={STEP_TIMER[r.stage]?.atZero}
-            />
-          )}
-        </div>
-        <p className="text-center" data-testid="starlight-word">
-          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
-            The word
-          </span>
-          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
-        </p>
-      </header>
-      {canMark && (
-        <Tip id="marking">
-          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
-        </Tip>
-      )}
-      {isScout && (
-        <Tip id="scouting">
-          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
-        </Tip>
-      )}
+      {!railTop && header}
+      {!wide && tips}
 
       {view.phase === 'over' && (
         <Final
@@ -522,11 +604,12 @@ function Play({
           room={room}
           act={act}
           confirm={confirm}
-          board={phoneEnd && <div className="space-y-3">{board}</div>}
+          // The last round's board is one of the end's parts on every screen.
+          board={<div className="space-y-3">{board}</div>}
         />
       )}
 
-      {!phoneEnd && board}
+      {view.phase !== 'over' && board}
       {tabbed && (
         <TabBar
           id={PLAY_TABS_ID}
@@ -620,22 +703,17 @@ function GridCard({
       </button>
       <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
         {posName(pos)}
+        {marked && <span aria-hidden> · ✕</span>}
       </span>
-      {marked && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-accent text-sm font-black text-accent-fg shadow"
-        >
-          ✕
-        </span>
-      )}
+
       {fresh && (
         <span className="pointer-events-none absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-stone-950/75 px-1.5 text-xs font-bold text-white">
           New
         </span>
       )}
       {outcome && shown && (
-        <span className="pointer-events-none absolute inset-x-1 top-7 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-xs font-bold text-white">
+        // Along the picture's foot, so the art's middle stays clear on small cards.
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 flex min-h-7 flex-wrap items-center gap-0.5 rounded-b-xl bg-stone-950/80 py-0.5 pr-7 pl-1 text-xs font-bold text-white">
           <span aria-hidden>{outcome.icon}</span>
           {shown.markers.map((id) => (
             <NameDot key={id} name={nameOf(view, id)} />
@@ -646,7 +724,12 @@ function GridCard({
         type="button"
         onClick={onZoom}
         aria-label={`Zoom card ${posName(pos)}`}
-        className="absolute right-0.5 bottom-0.5 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white"
+        className={cn(
+          TAP_BAND,
+          'absolute flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white',
+          // Once the round's results sit along the foot, the zoom sits at the strip's end.
+          outcome ? 'right-0.5 bottom-0.5 size-6' : 'right-2 bottom-2',
+        )}
       >
         🔍
       </button>
@@ -842,7 +925,18 @@ function ScoreSlate({ view }: { view: StarlightView }) {
   );
 }
 
-function RoundResults({ view, room, act }: { view: StarlightView; room: Room; act: Act }) {
+function RoundResults({
+  view,
+  room,
+  act,
+  rail = false,
+}: {
+  view: StarlightView;
+  room: Room;
+  act: Act;
+  /** In the wide screen's rail: one column. */
+  rail?: boolean;
+}) {
   const r = view.round!;
   const results = r.results!;
   const you = view.me?.id;
@@ -854,7 +948,7 @@ function RoundResults({ view, room, act }: { view: StarlightView; room: Room; ac
       <h3 className="font-bold">
         Round {roundName(r.no)}: {counts.spark} ✨ · {counts.super} 🌟 · {counts.fall} 🌠
       </h3>
-      <ul className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+      <ul className={cn('grid gap-x-4 gap-y-1 text-sm', !rail && 'sm:grid-cols-2')}>
         {Object.entries(results).map(([id, res]) => (
           <li key={id} className="flex justify-between gap-2">
             <span className="flex min-w-0 items-baseline gap-1.5">
@@ -908,63 +1002,100 @@ function Final({
   board?: ReactNode;
 }) {
   const you = view.me?.id;
+  const wide = useWideScreen();
+  const title = winnersTitle(view.seats, you) || 'Game over';
+  const last = view.round;
+  // The last round's favourite: the shown picture the most players had marked.
+  const top = last?.shown.reduce<(typeof last.shown)[number] | null>(
+    (best, s) => (!best || s.markers.length > best.markers.length ? s : best),
+    null,
+  );
   return (
-    <Panel className="max-lg:p-3">
-      <div className="space-y-3 text-center">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={view.seats
-                    .filter((s) => s.playing || s.score > 0)
-                    .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-                  you={you}
-                  className="text-left"
-                />
-              ),
-            },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            !!board && { id: 'board', label: '🖼️ Last round', content: board },
-          ]}
-        />
-        {room.isHost ? (
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button
-              size="lg"
-              onClick={() =>
-                void (async () => {
-                  if (
-                    await confirm({
-                      title: 'Start a new game with the same players?',
-                      body: 'Scores go back to 0.',
-                      confirmLabel: 'Play again',
-                    })
-                  )
-                    void act({ type: 'start' });
-                })()
-              }
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
+    <>
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem={top ? null : '🌟'}
+            art={
+              top && (
+                <div className={END_ART[1]}>
+                  <Card card={top.card} big />
+                </div>
+              )
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              room.isHost ? (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button
+                    size="lg"
+                    onClick={() =>
+                      void (async () => {
+                        if (
+                          await confirm({
+                            title: 'Start a new game with the same players?',
+                            body: 'Scores go back to 0.',
+                            confirmLabel: 'Play again',
+                          })
+                        )
+                          void act({ type: 'start' });
+                      })()
+                    }
+                  >
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </div>
+              ) : (
+                <p>{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
+          >
+            {last && (
+              <p>
+                The last word: <b className="font-serif">{last.word}</b>
+              </p>
+            )}
+          </EndHero>
+        }
+      >
+        <Panel className="max-lg:p-3">
+          <div className="space-y-3 text-center">
+            <EndTabs
+              tabs={[
+                {
+                  id: 'scores',
+                  label: '🏆 Scores',
+                  content: (
+                    <Standings
+                      entries={view.seats
+                        .filter((s) => s.playing || s.score > 0)
+                        .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                      you={you}
+                      className="text-left"
+                    />
+                  ),
+                },
+                !wide &&
+                  !!room.superlatives?.length && {
+                    id: 'awards',
+                    label: '✨ Awards',
+                    content: <Superlatives lines={room.superlatives} />,
+                  },
+                !!board && { id: 'board', label: '🖼️ Last round', content: board },
+              ]}
+            />
           </div>
-        ) : (
-          <p>{waitingForHost(room, 'start the next game')}</p>
-        )}
-      </div>
-    </Panel>
+        </Panel>
+      </EndLayout>
+    </>
   );
 }

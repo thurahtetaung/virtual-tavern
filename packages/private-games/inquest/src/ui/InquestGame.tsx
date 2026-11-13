@@ -38,7 +38,7 @@ import {
 import { AlliesPanel } from './Allies.tsx';
 import { FinalList } from './Final.tsx';
 import { LatestBullets, Scene } from './Scene.tsx';
-import { TableScreen } from './TableScreen.tsx';
+import { TableEndScreen, TableScreen } from './TableScreen.tsx';
 import { CardView, EventCard, SolveSheet } from './Sheets.tsx';
 import { endDiscussionLabel, nameOf, statusFor, waitingOn } from './status.ts';
 import { AllSuspects, CrimePeek, type OpenCard, Suspects } from './Suspects.tsx';
@@ -260,7 +260,8 @@ function DiscussBar({
           {canStart ? (
             <Button
               size="md"
-              className={cn(late && 'animate-pulse motion-reduce:animate-none')}
+              // Time's up: a ring, not a pulse, so the label never fades below its contrast.
+              className={cn(late && 'ring-2 ring-accent ring-offset-2 ring-offset-card')}
               onClick={() => void act({ type: 'end-discussion' }, { anchor: 'inquest-discuss' })}
             >
               {endDiscussionLabel(view)}
@@ -513,9 +514,12 @@ export function InquestGame({
         : 'me'
       : null;
 
+  // A watcher's table screen stays up at the end, with the result at poster size.
+  if (g.stage === 'done' && !inGame && tableScreen)
+    return <TableEndScreen view={view} content={content} onExit={() => setTableScreen(false)} />;
   if (g.stage === 'done') {
     return (
-      <div className="mx-auto max-w-3xl space-y-3">
+      <div className="mx-auto max-w-3xl space-y-3 lg:max-w-6xl">
         <OverScreen view={view} content={content} room={room} act={act} />
         <CardView
           open={open}
@@ -578,22 +582,39 @@ export function InquestGame({
           when a panel (the Murderer's crime choice) leaves the tab too little room. */}
       <FitArea on={!wide} resetKey={`${stepKey}-${tab}`} className="space-y-2">
         {solvePanel}
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="min-w-0 space-y-3">
-            <div className={onTab('scene')} {...(!wide && tabPanelProps(TABS_ID, 'scene'))}>
-              <Scene view={view} content={content} act={act} />
-            </div>
-            <div className={onTab('me')} {...(!wide && tabPanelProps(TABS_ID, 'me'))}>
-              <MeTab
-                view={view}
-                content={content}
-                showGuide={showGuide}
-                onSolve={() => setSolving(true)}
-              />
-            </div>
+        {/* Desktops: the suspects' cards across the full width at the top, large, then the
+            scene's tiles in one row (three across on narrower desktops) with your role beside
+            them, so what players study to solve (or to name the Witness) is on one screen. */}
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div
+            className={cn('min-w-0 lg:col-start-1 lg:row-start-2', onTab('scene'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'scene'))}
+          >
+            <Scene view={view} content={content} act={act} />
+            {/* Phones, while the Forensic Scientist lays out the first tiles: the suspects' cards
+                under the wait, to study instead of an empty tab. */}
+            {!wide && !fs && g.slots.length === 0 && g.stage === 'collect' && (
+              <div className="mt-2">
+                <Suspects {...common} />
+              </div>
+            )}
           </div>
           <div
-            className={cn('min-w-0 space-y-2', onTab('suspects'))}
+            className={cn('min-w-0 lg:col-start-2 lg:row-start-2', onTab('me'))}
+            {...(!wide && tabPanelProps(TABS_ID, 'me'))}
+          >
+            <MeTab
+              view={view}
+              content={content}
+              showGuide={showGuide}
+              onSolve={() => setSolving(true)}
+            />
+          </div>
+          <div
+            className={cn(
+              'min-w-0 space-y-2 lg:col-span-2 lg:col-start-1 lg:row-start-1',
+              onTab('suspects'),
+            )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
           >
             {!fs && g.solution && <CrimePeek onShownChange={setCrimeShown} />}

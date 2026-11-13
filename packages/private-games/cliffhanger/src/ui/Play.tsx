@@ -1,5 +1,13 @@
 import { type GameRoomInfo, storageKey } from '@vt/game-sdk';
-import { Button, ProtectedImage, RefusalSlot, StickyBar, cn, useSecondsLeft } from '@vt/ui';
+import {
+  Button,
+  ProtectedImage,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useSecondsLeft,
+  useWideScreen,
+} from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import type { Card } from '../logic/content.ts';
 import { STYLES, genreInfo, missing, nounOf } from '../logic/genres.ts';
@@ -97,6 +105,15 @@ export function CategoryCard({
   );
 }
 
+/** A tape's title in plain type under it, at the site's smallest size (the label's may be smaller). */
+function TapeCaption({ title }: { title: string }) {
+  return (
+    <p aria-hidden className="w-full truncate text-center text-caption text-ink-2">
+      {title}
+    </p>
+  );
+}
+
 /** The giant answer button: the buzzer's picture, else a big round button. */
 function SaidIt({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
   const { app } = useArt();
@@ -144,9 +161,19 @@ function FaceOff({ view, room, act }: PlayProps) {
     buzz(30);
     void act({ type: 'said' }, { anchor: 'cl-fo' });
   };
+  // On wide screens the pair's buzzer (or who must answer) stands beside the card, with the clock
+  // across under both, so Said it! is never below a laptop's fold.
+  const side = inPair;
   return (
-    <div className="space-y-3" data-testid="faceoff">
-      <div className="flex items-center justify-between gap-2 text-sm">
+    <div
+      className={cn(
+        'space-y-3',
+        side &&
+          'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-x-6 lg:gap-y-3 lg:space-y-0',
+      )}
+      data-testid="faceoff"
+    >
+      <div className="flex items-center justify-between gap-2 text-sm lg:col-span-2">
         <span className="font-black tracking-wide uppercase">
           {r.suddenDeath ? '⚡ Sudden death' : 'Face-off'}
         </span>
@@ -156,14 +183,30 @@ function FaceOff({ view, room, act }: PlayProps) {
           <span className="font-semibold">{nameOf(view, r.pair.b)}</span>
         </span>
       </div>
-      <div className="flex items-center gap-3">
-        {card && <CategoryCard text={r.category?.text ?? ''} className="h-24 sm:h-36" />}
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase">
+      {/* The category card large (most of a phone's width, about 400 px on desktops), the
+          category under it; plain words alone without the card's art. */}
+      <div
+        className={cn(
+          'flex gap-3',
+          card ? 'flex-col items-center text-center' : 'items-center',
+          side && 'lg:col-start-1 lg:row-start-2',
+        )}
+      >
+        {card && <CategoryCard text={r.category?.text ?? ''} className="h-48 sm:h-56 lg:h-72" />}
+        <div className={cn('min-w-0 space-y-1', card ? 'w-full' : 'flex-1')}>
+          <p
+            className={cn(
+              'flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase',
+              card && 'justify-center',
+            )}
+          >
             Name a {nounOf(view.settings.deck)}
             {view.settings.noSequels && <RuleNote testId="rule-no-sequels">No sequels</RuleNote>}
           </p>
-          <p className="text-xl font-black leading-tight sm:text-2xl" data-testid="category">
+          <p
+            className="font-display text-xl leading-tight font-black sm:text-2xl"
+            data-testid="category"
+          >
             {r.category?.text}
           </p>
           <p className="text-sm text-ink-muted" aria-live="polite">
@@ -171,26 +214,32 @@ function FaceOff({ view, room, act }: PlayProps) {
           </p>
         </div>
       </div>
-      <ClockBar
-        deadline={fo.deadline}
-        paused={fo.deadline === null ? total : null}
-        total={total}
-        clockOffset={room.clockOffset}
-        big
-        label={
-          fo.on
-            ? fo.on === me
-              ? 'You’re on the clock'
-              : `${nameOf(view, fo.on)} is on the clock`
-            : 'First to answer'
-        }
-      />
+      <div className={cn(side && 'lg:col-span-2 lg:row-start-3')}>
+        <ClockBar
+          deadline={fo.deadline}
+          paused={fo.deadline === null ? total : null}
+          total={total}
+          clockOffset={room.clockOffset}
+          big
+          label={
+            fo.on
+              ? fo.on === me
+                ? 'You’re on the clock'
+                : `${nameOf(view, fo.on)} is on the clock`
+              : 'First to answer'
+          }
+        />
+      </div>
       {onMe ? (
-        <SaidIt onPress={press} />
+        <div className="lg:col-start-2 lg:row-start-2 lg:self-center">
+          <SaidIt onPress={press} />
+        </div>
       ) : inPair ? (
-        <p className="py-6 text-center text-lg font-semibold">{nameOf(view, fo.on)} must answer.</p>
+        <p className="py-6 text-center text-lg font-semibold lg:col-start-2 lg:row-start-2 lg:self-center">
+          {nameOf(view, fo.on)} must answer.
+        </p>
       ) : null}
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-2 lg:col-span-2">
         {inPair && fo.answers === 0 && (
           <Button
             variant="quiet"
@@ -201,7 +250,9 @@ function FaceOff({ view, room, act }: PlayProps) {
           </Button>
         )}
       </div>
-      <RefusalSlot anchor="cl-fo" />
+      <div className="lg:col-span-2">
+        <RefusalSlot anchor="cl-fo" />
+      </div>
     </div>
   );
 }
@@ -287,7 +338,13 @@ function KeepSheet({ view, room, act }: PlayProps) {
               >
                 <StyleName style={squares[i]?.plays ?? style} className="truncate text-xs" />
                 {card ? (
-                  <Tape card={card} deck={deck} className="w-full" />
+                  <>
+                    <Tape card={card} deck={deck} className="w-full" />
+                    {/* The title in full type too: the square's tape is small on a phone. */}
+                    <span className="w-full truncate text-center text-xs font-semibold text-ink">
+                      {card.title}
+                    </span>
+                  </>
                 ) : (
                   <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted">
                     empty
@@ -304,7 +361,11 @@ function KeepSheet({ view, room, act }: PlayProps) {
           : 'Tap a card to put it on the next square.'}{' '}
         Tap a square to clear it.
       </p>
-      <ul className="flex flex-wrap justify-center gap-2" aria-label="Your cards">
+      {/* Two a row on phones, three wider: tapes large enough to read their titles. */}
+      <ul
+        className="mx-auto grid max-w-[18rem] grid-cols-2 gap-2 sm:max-w-lg sm:grid-cols-3"
+        aria-label="Your cards"
+      >
         {hand.offered.map((c) => {
           const at = slots.indexOf(c.id);
           return (
@@ -315,11 +376,11 @@ function KeepSheet({ view, room, act }: PlayProps) {
                 aria-pressed={at >= 0}
                 onClick={() => tapCard(c)}
                 className={cn(
-                  'relative rounded-md transition',
+                  'relative block w-full rounded-md transition',
                   at >= 0 ? 'opacity-40' : 'hover:-translate-y-0.5',
                 )}
               >
-                <Tape card={c} deck={deck} className="h-[4.5rem]" />
+                <Tape card={c} deck={deck} className="w-full" />
                 {c.tier === 'easy' && (
                   <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                     easy
@@ -394,7 +455,7 @@ export function Bays({
             {tappable ? (
               <button
                 type="button"
-                className="flex flex-col items-center gap-1"
+                className="flex w-full flex-col items-center gap-1"
                 onClick={() => onTap(s.card!)}
               >
                 {inner}
@@ -530,7 +591,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
           </span>
           <button
             type="button"
-            className="font-semibold underline"
+            className="-my-2 min-h-11 min-w-11 px-2 font-semibold underline"
             aria-label="Dismiss tip"
             onClick={dismissTip}
           >
@@ -540,7 +601,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
       )}
       {cards.length > 2 && (
         <details className="group" data-testid="pick-card">
-          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 text-xs font-semibold text-ink-muted [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-xs font-semibold text-ink-muted [&::-webkit-details-marker]:hidden">
             <span className="transition group-open:rotate-90" aria-hidden>
               ▸
             </span>
@@ -674,16 +735,19 @@ function Recap({ view }: PlayProps) {
       <p className="text-center text-lg font-black">
         {nameOf(view, result.describer)} got {result.got.length}
       </p>
-      <ul className="flex flex-wrap justify-center gap-2">
+      {/* Two across on phones, four on wide screens, each title also in plain type under it. */}
+      <ul className="mx-auto grid max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
-            <Tape card={g.card} deck={deck} className="h-20" got={result.team} />
+            <Tape card={g.card} deck={deck} className="w-full" got={result.team} />
+            <TapeCaption title={g.card.title} />
             {g.steal && <span className="text-xs font-bold text-danger-ink">stolen</span>}
           </li>
         ))}
         {result.missed.map((c) => (
           <li key={c.id} className="flex flex-col items-center gap-1 opacity-60">
-            <Tape card={c} deck={deck} className="h-20" />
+            <Tape card={c} deck={deck} className="w-full" />
+            <TapeCaption title={c.title} />
             <span className="text-xs text-ink-muted">missed</span>
           </li>
         ))}
@@ -746,18 +810,21 @@ function Steal({ view, room, act }: PlayProps) {
             ))}
           </div>
           <p className="text-sm font-semibold">2. Take one of theirs:</p>
-          <ul className="flex flex-wrap gap-2">
+          {/* Phones: one row that scrolls sideways, so the tapes stay big enough to read and
+              No trade stays in view; wide screens: a grid. */}
+          <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pt-2 pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible">
             {theirs.map((c) => (
-              <li key={c.id}>
+              <li key={c.id} className="w-40 shrink-0 snap-start lg:w-auto">
                 <button
                   type="button"
                   disabled={!genre}
-                  className="relative disabled:opacity-50"
+                  className="group relative w-full"
                   onClick={() =>
                     genre && void act({ type: 'steal', genre, card: c.id }, { anchor: 'cl-steal' })
                   }
                 >
-                  <Tape card={c} deck={deck} className="h-20" />
+                  {/* Only the tape dims until a genre is picked: its "needed" tag stays legible. */}
+                  <Tape card={c} deck={deck} className="w-full group-disabled:opacity-50" />
                   {need.includes(c.genre) && (
                     <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-xs font-bold text-success-ink ring-1 ring-success-line">
                       needed
@@ -815,7 +882,7 @@ function CountdownNote({ view }: PlayProps) {
           {nameOf(view, r.pair[next])} describes to {teamName(next)}
         </p>
       )}
-      {next && <Bays view={view} team={next} size="w-3/4" />}
+      {next && <Bays view={view} team={next} />}
     </div>
   );
 }
@@ -823,8 +890,25 @@ function CountdownNote({ view }: PlayProps) {
 /** The round's step for this viewer. */
 export function Stage(props: PlayProps) {
   const r = props.view.round;
+  const wide = useWideScreen();
   if (!r) return null;
   if (r.myHand) return <KeepSheet {...props} />;
+  // Phones: while the table waits, or listens to someone else describe, both teams' tapes fill
+  // the free height (wide screens keep them in the rail).
+  const listening =
+    r.stage === 'turn' && !!r.turn && r.turn.describer !== props.view.me?.id && !r.turn.stealOpen;
+  if (!wide && (r.stage === 'countdown' || r.stage === 'keep' || listening))
+    return (
+      <div className="space-y-4">
+        <StageStep {...props} />
+        <Shelves view={props.view} />
+      </div>
+    );
+  return <StageStep {...props} />;
+}
+
+function StageStep(props: PlayProps) {
+  const r = props.view.round!;
   switch (r.stage) {
     case 'pick-category':
       return <PickCategory {...props} />;
@@ -863,6 +947,30 @@ function KeepWaiting({ view }: PlayProps) {
         {r.placing.map((id) => nameOf(view, id)).join(' and ')}{' '}
         {r.placing.length === 1 ? 'is' : 'are'} choosing their {nounOf(view.settings.deck, true)}…
       </p>
+    </div>
+  );
+}
+
+/** Both teams' races, each with the tapes it has won in one row that scrolls sideways. */
+function Shelves({ view }: { view: CliffhangerView }) {
+  const deck = view.settings.deck;
+  return (
+    <div className="space-y-3 border-t border-line pt-3" data-testid="shelves">
+      {(['a', 'b'] as const).map((t) => (
+        <section key={t} className="space-y-1.5">
+          <GenreRace view={view} team={t} />
+          {view.collections[t].length > 0 && (
+            <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {view.collections[t].map((c) => (
+                <li key={c.id} className="w-32 shrink-0">
+                  <Tape card={c} deck={deck} className="w-full" />
+                  <TapeCaption title={c.title} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
     </div>
   );
 }

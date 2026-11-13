@@ -1,10 +1,18 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { ProtectedImage, usePlayerColor } from '@vt/ui';
+import {
+  type IconName,
+  ProtectedImage,
+  cn,
+  usePlayerColor,
+  useSecondsLeft as useSecondsTo,
+} from '@vt/ui';
 import {
   Label,
   Layer,
   type LoadedRig,
   Poster,
+  PosterClock,
+  PosterSlate,
   RigArt,
   Scene,
   ShowTargetsProvider,
@@ -339,6 +347,7 @@ function Plain({
   const lot = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
   const line = g ? <HostStrip view={view} art={art} name={name} clockOffset={host} tv /> : null;
+  const recent = g?.stage === 'auction' ? [...(g.auction?.recent ?? [])].reverse().slice(0, 4) : [];
   if (!g)
     return (
       <Poster
@@ -361,6 +370,41 @@ function Plain({
             {g.winners.map(name).join(' & ')} {g.winners.length === 1 ? 'wins' : 'share the win'}!
           </span>
         }
+        line="Final count: cash plus art, less any loans."
+        // The final standings at poster size, best first.
+        // The final standings at poster size, best first, each with the priciest lot they bought.
+        choices={[...g.final]
+          .sort((a, b) => b.score - a.score)
+          .map((f, i) => {
+            const best = g.results
+              .filter((r) => r.buyer === f.id)
+              .sort((a, b) => b.price - a.price)[0];
+            return (
+              <PosterSlate
+                key={f.id}
+                state={g.winners.includes(f.id) ? 'won' : 'open'}
+                className="min-w-[300px] content-start gap-2 px-8 py-6"
+              >
+                {best && (best.drawing || best.house) && (
+                  <div className="mx-auto mb-2 w-[220px]">
+                    <Picture
+                      drawing={best.drawing ?? null}
+                      house={best.house}
+                      art={art}
+                      label={best.title}
+                      tv
+                    />
+                  </div>
+                )}
+                <span className="text-[28px] text-ink-muted">{i + 1}.</span>
+                <span className="block text-[40px]">{name(f.id)}</span>
+                <span className="block font-display text-[64px] leading-none tabular-nums">
+                  {money(f.score)}
+                </span>
+              </PosterSlate>
+            );
+          })}
+        footer={{ icon: 'hand', text: 'Every lot and award is on your phone.' }}
       />
     );
   if (lot)
@@ -379,28 +423,104 @@ function Plain({
             <span data-testid="go-stage-bid">{money(lot.bid?.amount ?? OPENING_BID)}</span>
           )
         }
-        line={sold ? undefined : 'Current bid'}
+        line={sold ? undefined : lot.bid ? `Current bid · ${name(lot.bid.by)}` : 'Opening bid'}
         footer={{ icon: 'hand', text: 'Bid on your phone.' }}
       >
-        <div className="flex w-full items-center justify-center gap-12">
-          <div className="w-[440px]">
+        {/* The lot, and beside it the auctioneer's line over the last few bids (newest first),
+            so the room sees who is in the running. */}
+        <div className="flex w-full items-center justify-center gap-16">
+          <div className="w-[440px] shrink-0">
             <Picture
               drawing={lot.picture.drawing}
               house={lot.picture.house}
               art={art}
               label="The lot"
+              tv
             />
           </div>
-          {line && <div className="max-w-[640px] text-left [&_p]:text-[28px]">{line}</div>}
+          {/* Hidden while it holds nothing (no line said, no bids yet), so the lot centres. */}
+          {(line || !!recent.length) && (
+            <div className="w-[640px] space-y-6 text-left empty:hidden [&_p]:text-[28px]">
+              {line}
+              {!!recent.length && (
+                <ol aria-label="Last bids" className="space-y-2" data-testid="go-stage-bids">
+                  {recent.map((b, i) => (
+                    <li
+                      key={`${recent.length - i}-${b.by}-${b.amount}`}
+                      className={cn(
+                        'flex items-baseline justify-between gap-6 rounded-2xl px-6 py-3 text-[32px]',
+                        i === 0 ? 'bg-accent-soft font-semibold text-ink' : 'text-ink-2',
+                      )}
+                    >
+                      <span className="truncate">
+                        {b.forced && '🔩 '}
+                        {name(b.by)}
+                      </span>
+                      <span className="font-display tabular-nums">{money(b.amount)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
         </div>
       </Poster>
     );
+  const more = STAGE_MORE[g.stage];
   return (
-    <Poster testId="go-stage-plain" headline={STAGE_WORDS[g.stage]}>
+    <Poster
+      testId="go-stage-plain"
+      eyebrow={more?.eyebrow}
+      headline={STAGE_WORDS[g.stage]}
+      line={more?.line}
+      clock={more?.clock && <StageClock view={view} offset={host} label={more.clock} />}
+      footer={more?.footer}
+    >
       {line && <div className="max-w-[1200px] [&_p]:text-[28px]">{line}</div>}
     </Poster>
   );
 }
+
+/** The stage's own clock, once it runs (drawing's starts after the instructions, as on phones). */
+function StageClock({
+  view,
+  offset,
+  label,
+}: {
+  view: GoingOnceView;
+  offset: number;
+  label: string;
+}) {
+  const g = view.game!;
+  const startsIn = useSecondsTo(g.stage === 'draw' ? g.drawFrom : null, offset);
+  if ((startsIn ?? 0) > 0 || !g.until) return null;
+  return <PosterClock deadline={g.until} clockOffset={offset} label={label} />;
+}
+
+/** What the poster adds per stage: the moment, one sentence, its clock and what phones do. */
+const STAGE_MORE: Record<
+  string,
+  { eyebrow: string; line: string; clock?: string; footer: { icon: IconName; text: string } }
+> = {
+  draw: {
+    eyebrow: 'Drawing time',
+    line: 'Everyone draws two pictures from secret titles. They go up for auction next.',
+    clock: 'to draw',
+    footer: { icon: 'hand', text: 'Draw on your phone.' },
+  },
+  halftime: {
+    eyebrow: 'Half-time',
+    line: 'Everyone has one screw for the rest of the game: force a player to bid $100 more.',
+    clock: 'until the next lot',
+    footer: { icon: 'hand', text: 'Press Screw on your phone during a lot.' },
+  },
+  bank: {
+    eyebrow: 'Loans',
+    line: 'Someone is low on cash, so the bank offers everyone a loan.',
+    clock: 'until it closes',
+    footer: { icon: 'hand', text: 'Answer the bank on your phone.' },
+  },
+};
 
 const STAGE_WORDS: Record<string, string> = {
   intro: 'How the auction works',
@@ -542,6 +662,24 @@ function Room({
       )}
       {g.stage === 'draw' && <DrawingProps view={view} rig={rig} />}
       {g.stage === 'bank' && <BankSign rig={rig} />}
+      {/* Half-time has no moment of its own in the show: its words go up on the wall. */}
+      {g.stage === 'halftime' && (
+        <div
+          className="absolute left-0 space-y-3 text-center"
+          style={{ top: 170, width: 1280, color: INK }}
+          data-testid="go-stage-halftime"
+        >
+          <p className="text-[30px] font-bold tracking-[0.12em] text-[#8a5a1c] uppercase">
+            {STAGE_MORE.halftime!.eyebrow}
+          </p>
+          <p className="font-display text-[96px] leading-none font-semibold">
+            Screws are unlocked!
+          </p>
+          <p className="mx-auto max-w-[56rem] text-[34px] leading-snug text-stone-700">
+            {STAGE_MORE.halftime!.line}
+          </p>
+        </div>
+      )}
       {sold && !sold.buyer && (
         <p
           className="absolute left-0 text-center text-4xl font-black drop-shadow"

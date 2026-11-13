@@ -130,7 +130,7 @@ export function Seats({
                 <span className="mt-0.5 flex items-center gap-1" data-testid="shown">
                   {p.marked && (
                     <span
-                      className="flex items-center gap-1 text-[0.65rem] text-ink-muted"
+                      className="flex items-center gap-1 text-xs text-ink-muted"
                       title={`${c.name('mark')}: everyone sees this card`}
                       data-testid="marked"
                     >
@@ -177,7 +177,8 @@ export function Seats({
                       : p.ghost
                         ? 'bg-special-soft ring-special-line'
                         : 'bg-card ring-line',
-                    out && 'opacity-55',
+                    // Out: a sunk seat, its text kept at full contrast (no fading).
+                    out && 'bg-sunk ring-line',
                     targets && !pickable && 'opacity-40',
                     waiting.has(p.id) && !turn && 'ring-2 ring-info-line',
                   )}
@@ -191,7 +192,7 @@ export function Seats({
           );
         })}
       </ol>
-      <p className="mt-0.5 text-[0.7rem] text-ink-muted">
+      <p className="mt-0.5 text-xs text-ink-muted">
         Play goes {g.turn.dir === 1 ? 'left to right →' : '← right to left'}
       </p>
     </section>

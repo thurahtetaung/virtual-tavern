@@ -1,4 +1,4 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { ProtectedImage, cn, useScrollEnds, scrollFadeMask } from '@vt/ui';
 import { type CSSProperties, memo } from 'react';
 import { type HandCard, downOf, segments } from '../logic/rules.ts';
 import type { Art } from './assets.ts';
@@ -27,7 +27,7 @@ export type CardSize = 'hand' | 'table' | 'float' | 'mini';
 
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
-  table: 'aspect-[5/7] w-12 sm:w-16',
+  table: 'aspect-[5/7] w-12 sm:w-16 lg:w-20',
   float: 'aspect-[5/7] w-16 sm:w-20',
   mini: 'aspect-[5/7] w-7',
 };
@@ -153,6 +153,10 @@ export interface HandProps {
   onGap?: (at: number) => void;
   /** The card count per row (wraps beyond). */
   columns?: number;
+  /** The widest a card gets (default 6rem). */
+  cardMax?: string;
+  /** The narrowest a card gets before the lane scrolls (default 3.6rem). */
+  cardMin?: string;
   /** Each card plays its half-turn in place (the hand was just turned round). */
   turning?: boolean;
   label?: string;
@@ -173,20 +177,34 @@ export function Hand({
   onCard,
   onGap,
   columns,
+  cardMax = '6rem',
+  cardMin = '3.6rem',
   turning,
   label = 'Your hand',
   className,
 }: HandProps) {
+  const { ref: stripRef, ends: stripEnds } = useScrollEnds(cards.map((c) => c.id).join(','));
   const segs = segments(cards);
   const segOf = (i: number) => segs.find((s) => s.from <= i && i <= s.to);
-  // One row up to 15 cards (a phone fits them all), then two even rows.
+  // Preserve card order and readable faces; long rows scroll instead of shrinking tap targets.
   const cols =
     columns ?? (cards.length <= 15 ? Math.max(4, cards.length) : Math.ceil(cards.length / 2));
   return (
     <ol
       aria-label={label}
-      className={cn('grid gap-x-1 gap-y-2.5', className)}
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 3.6rem))` }}
+      ref={stripRef}
+      className={cn(
+        'grid gap-x-1 gap-y-2.5 overflow-x-auto pt-3 pb-2',
+        onGap && 'pr-11',
+        className,
+      )}
+      style={{
+        ...scrollFadeMask(stripEnds),
+        // Cards take the width there is, up to `cardMax` (6rem unless the screen asks for more),
+        // and never below `cardMin`: past that the lane scrolls (the order can't change, so it
+        // never wraps).
+        gridTemplateColumns: `repeat(${cols}, ${onGap ? '6.35rem' : `minmax(${cardMin}, ${cardMax})`})`,
+      }}
     >
       {cards.map((c, i) => {
         const seg = segOf(i);
@@ -206,7 +224,11 @@ export function Hand({
         return (
           <li
             key={`${c.id}`}
-            className={cn('relative flex flex-col items-stretch gap-1', turning && 'en-turn')}
+            className={cn(
+              'relative flex flex-col items-stretch gap-1',
+              onGap && 'pl-11',
+              turning && 'en-turn',
+            )}
             style={turning ? { animationDelay: `${Math.min(i * 20, 240)}ms` } : undefined}
           >
             {onCard ? (
@@ -244,7 +266,11 @@ export function Hand({
                 type="button"
                 onClick={() => onGap(i)}
                 aria-label={`Put it before card ${i + 1}`}
-                className="en-gap absolute top-0 -left-[0.45rem] z-10 h-[calc(100%-0.5rem)] w-3.5 rounded-full"
+                aria-pressed={preview === i}
+                className={cn(
+                  'en-gap absolute top-0 left-0 z-10 h-11 w-11 rounded-lg',
+                  preview === i && 'ring-2 ring-accent',
+                )}
                 data-gap={i}
               />
             )}
@@ -253,7 +279,7 @@ export function Hand({
                 type="button"
                 onClick={() => onGap(i + 1)}
                 aria-label="Put it after the last card"
-                className="en-gap absolute top-0 -right-[0.45rem] z-10 h-[calc(100%-0.5rem)] w-3.5 rounded-full"
+                className="en-gap absolute top-0 -right-11 z-10 h-11 w-11 rounded-lg"
                 data-gap={i + 1}
               />
             )}
@@ -265,7 +291,7 @@ export function Hand({
           <button
             type="button"
             onClick={() => onGap(0)}
-            className="en-gap h-16 w-8 rounded-md"
+            className="en-gap h-16 w-11 rounded-md"
             aria-label="Put it in your hand"
             data-gap={0}
           />

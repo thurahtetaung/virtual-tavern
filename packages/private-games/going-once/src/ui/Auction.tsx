@@ -12,7 +12,7 @@ import {
   useSecondsLeft,
 } from '@vt/ui';
 import { LowEffectsNotice } from '@vt/ui/show';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
@@ -373,10 +373,10 @@ function Hints({ view, name, art }: { view: GoingOnceView; name: NameOf; art: Ar
           >
             <SenderIcon from={m.from} art={art} />
             <span className={cn('min-w-0', tip ? 'font-semibold' : 'italic opacity-70')}>
-              {!tip && <span className="mr-1 text-[11px] uppercase not-italic">Gossip ·</span>}
+              {!tip && <span className="mr-1 text-xs uppercase not-italic">Gossip ·</span>}
               {m.text}
               {why && <span className="mt-0.5 block text-xs font-normal opacity-80">{why}</span>}
-              <span className="mt-0.5 block text-[11px] opacity-60">Before lot {m.lot + 1}</span>
+              <span className="mt-0.5 block text-xs">Before lot {m.lot + 1}</span>
             </span>
           </li>
         );
@@ -391,7 +391,7 @@ export function resultLine(r: LotResult, name: NameOf, you: string): string {
   return `${who} paid ${money(r.price)} · worth ${money(r.value)}`;
 }
 
-function LotLog({
+export function LotLog({
   view,
   room,
   art,
@@ -572,6 +572,7 @@ export function Auction({
   seen,
   quiet = false,
   tab = null,
+  sold,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
@@ -584,6 +585,8 @@ export function Auction({
   quiet?: boolean;
   /** Phones: the section the tab bar shows (null on wider screens, which show them all). */
   tab?: GoTab | null;
+  /** Wide screens: the Sold card, at the top of the bidding column (phones show it above). */
+  sold?: ReactNode;
 }) {
   const g = view.game!;
   const a = g.auction!;
@@ -685,11 +688,12 @@ export function Auction({
           <ProtectedImage
             src={art.ui('easel')!}
             alt=""
-            className="pointer-events-none relative -z-[1] mx-auto -mt-[45%] hidden w-1/2 lg:block"
+            className="pointer-events-none relative -z-[1] mx-auto -mt-[55%] hidden w-1/2 lg:block"
           />
         )}
       </section>
       <section aria-label="Bidding" className={cn('flex flex-col gap-3', away && 'hidden')}>
+        {sold}
         <Panel className="flex flex-col gap-3 p-3">
           <Money view={view} art={art} />
           <BidPanel

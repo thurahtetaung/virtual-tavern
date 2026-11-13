@@ -2,12 +2,15 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndHero,
+  EndLayout,
   EndTabs,
   FitArea,
   Hint,
   Notice,
   Panel,
   StickyBar,
+  TAP_BAND,
   Superlatives,
   TabBar,
   type TabBarItem,
@@ -20,31 +23,60 @@ import {
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { tokenWords } from '../logic/outcome.ts';
-import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
+import { type EnigmaAction, type EnigmaView, TOKENS_TO_END, type Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
 import { ShowdownPanel } from './Showdown.tsx';
-import { endOfRoundWarnings, endReason, revealOutcome, startBlocker, statusFor } from './status.ts';
-import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
+import {
+  endOfRoundWarnings,
+  endReason,
+  endVerdict,
+  revealOutcome,
+  startBlocker,
+  statusFor,
+} from './status.ts';
+import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
 export type EnigmaUiProps = GameUiProps<EnigmaView, EnigmaAction>;
 
 const other = (t: Team): Team => (t === 'red' ? 'blue' : 'red');
 
-/** One token type as "icon n/2": the count reads in any colour scheme, and the image role names it. */
-function Tokens({ count, icon, label }: { count: number; icon: string; label: string }) {
+/**
+ * One token type as a pill in the team's soft surface: icon and "n/2" (and the word on wide
+ * screens); the count reads in any colour scheme, and the image role names it.
+ */
+function Tokens({
+  count,
+  icon,
+  word,
+  label,
+  team,
+}: {
+  count: number;
+  icon: string;
+  word: string;
+  label: string;
+  team: Team;
+}) {
   return (
     <span
       role="img"
       aria-label={`${count} of 2 ${label}`}
       title={label}
-      className="inline-flex items-center gap-0.5 text-small sm:text-body"
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-small ring-1 sm:gap-1 sm:px-2 sm:text-body',
+        TEAM_PANEL[team],
+        count > 0 && 'shadow-vt-1',
+      )}
     >
       <span aria-hidden>{icon}</span>
       <span aria-hidden className="font-bold tabular-nums">
         {count}/2
+      </span>
+      <span aria-hidden className="hidden text-small font-semibold lg:inline">
+        {word}
       </span>
     </span>
   );
@@ -59,8 +91,20 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
   const side = (team: Team) => (
     <div className={cn('flex items-center gap-1 sm:gap-2', TEAM_TEXT[team])}>
       <span className="text-small font-bold sm:text-body">{TEAM_LABEL[team]}</span>
-      <Tokens count={view.teams[team].intercepts} icon="🕵️" label="intercepts (2 win)" />
-      <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 lose)" />
+      <Tokens
+        count={view.teams[team].intercepts}
+        icon="🕵️"
+        word="intercepts"
+        label="intercepts (2 win)"
+        team={team}
+      />
+      <Tokens
+        count={view.teams[team].misses}
+        icon="💥"
+        word="misses"
+        label="miscommunications (2 lose)"
+        team={team}
+      />
     </div>
   );
   const strict = view.settings.timerMode === 'strict';
@@ -74,7 +118,10 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
             aria-expanded={legend}
             aria-controls="enigma-legend"
             onClick={() => setToggled(!legend)}
-            className="rounded px-1 underline decoration-dotted underline-offset-2"
+            className={cn(
+              'rounded px-1 underline decoration-dotted underline-offset-2 lg:inline-flex lg:min-h-11 lg:items-center',
+              TAP_BAND,
+            )}
           >
             Round {view.round} of {view.maxRounds} <span aria-hidden>ⓘ</span>
             <span className="sr-only"> (what do the scores mean?)</span>
@@ -106,28 +153,6 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         🕵️ 2 intercepts win · 💥 2 miscommunications lose
       </p>
     </div>
-  );
-}
-
-/** Your team's four keywords in one compact line, for decoders waiting on the clues. */
-function KeywordStrip({ keywords }: { keywords: string[] }) {
-  return (
-    <section aria-label="Your keywords" className="space-y-1 text-center">
-      <p className="text-small text-ink-muted">
-        Your keywords. You’ll match each clue to one of these.
-      </p>
-      <ol className="flex flex-wrap justify-center gap-1.5">
-        {keywords.map((word, i) => (
-          <li
-            key={i}
-            className="rounded-lg bg-card px-2 py-1 text-small font-bold uppercase ring-1 ring-line"
-          >
-            <span className="mr-1 text-ink-muted tabular-nums">{i + 1}</span>
-            {word}
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }
 
@@ -225,7 +250,8 @@ export function EnigmaGame({
     .filter((t) => t.active || t.revealed)
     .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam));
   const sheetTeams: Team[] = myTeam ? [myTeam, other(myTeam)] : ['red', 'blue'];
-  // Decoders waiting for clues see their keywords right on the Play tab, not only under Clues.
+  // Decoders waiting for clues on a phone see their keywords and past clues right on the Play tab
+  // (wide screens show them beside it, under Clues).
   const keywords = myTeam ? view.teams[myTeam].keywords : null;
   const waitingKeywords =
     view.stage === 'clue' &&
@@ -238,22 +264,41 @@ export function EnigmaGame({
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
   const outcome = revealOutcome(view);
   const reason = endReason(view);
+  // A paragraph of a reason (the score or the showdown decided it) gives the finale a one-line
+  // verdict; the whole explanation moves to the Score tab.
+  const verdict = endVerdict(view);
   const lastReveal = view.transmissions.filter((t) => t.revealed);
   const endWarnings = endOfRoundWarnings(view);
-  const winnerLine = (
-    <p
-      className={cn(
-        'font-display text-title font-bold',
-        view.winner !== 'draw' && view.winner && TEAM_TEXT[view.winner],
-      )}
-    >
-      {view.winner === 'draw'
-        ? view.showdown
-          ? '🤝 A shared win!'
-          : '🤝 A draw!'
-        : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
-    </p>
-  );
+  const winnerTitle =
+    view.winner === 'draw' ? (
+      view.showdown ? (
+        'A shared win!'
+      ) : (
+        'A draw!'
+      )
+    ) : view.winner ? (
+      <span className={TEAM_TEXT[view.winner]}>{TEAM_LABEL[view.winner]} team wins!</span>
+    ) : (
+      'Game over'
+    );
+  // Ember when the viewer's team won, danger when it lost, quiet for a draw or a watcher.
+  const endTone =
+    !myTeam || !view.winner || view.winner === 'draw'
+      ? 'neutral'
+      : myTeam === view.winner
+        ? 'win'
+        : 'loss';
+  // The emblem says how the game was won: an interception, the other side's miscommunications,
+  // the showdown, or the score at the last round (the title carries the team's colour).
+  const endEmblem = (() => {
+    const w = view.winner;
+    if (!w) return null;
+    if (w === 'draw') return '🤝';
+    if (view.showdown) return '🔐';
+    if (view.teams[w].intercepts >= TOKENS_TO_END) return '🕵️';
+    if (view.teams[w === 'red' ? 'blue' : 'red'].misses >= TOKENS_TO_END) return '💥';
+    return '🏆';
+  })();
   const tokenLines = (
     <ul className="space-y-0.5 text-small">
       {(['red', 'blue'] as const).map((team) => (
@@ -281,28 +326,33 @@ export function EnigmaGame({
       {waitingForHost(room, 'start the next game')}
     </p>
   );
-  const overPanel = (
-    <Panel className="space-y-3 text-center">
-      {winnerLine}
+  const hero = (
+    <EndHero
+      title={winnerTitle}
+      emblem={endEmblem}
+      tone={endTone}
+      superlatives={wide ? room.superlatives : undefined}
+      actions={endButtons}
+    >
       {/* Why, said once here: the hint above is hidden once the game is over. */}
-      {reason && <p className="font-semibold">{reason}</p>}
-      <ShowdownPanel view={view} act={act} />
-      {tokenLines}
-      <p className="text-small text-ink-muted">Everyone's keywords are revealed under Clues.</p>
-      <Superlatives lines={room.superlatives} />
-      {endButtons}
-    </Panel>
+      {(verdict ?? reason) && <p>{verdict ?? reason}</p>}
+    </EndHero>
   );
-  // Phones: who won and Play again, then the tokens, the awards and each team's last code one at
-  // a time, so the end fits the screen.
-  const phoneEnd = (
-    <>
-      <Panel className="space-y-1 text-center max-lg:p-3">
-        {winnerLine}
-        {reason && <p className="text-small font-semibold">{reason}</p>}
-      </Panel>
+  // The end: who won and Play again as the finale; the tokens, the awards (phones), each team's
+  // last code and, on wide screens, every clue sheet and the teams as its parts, fitted beside it.
+  const endView = (
+    <EndLayout hero={hero}>
       <EndTabs
         tabs={[
+          // Phones open on the last round's codes (the scoreboard above already has the tokens),
+          // unless a showdown decided it: then its result opens first.
+          ...(wide || view.showdown
+            ? []
+            : lastReveal.map((tx) => ({
+                id: tx.team,
+                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+                content: <TransmissionCard view={view} tx={tx} act={act} />,
+              }))),
           {
             id: 'score',
             label: '🏆 Score',
@@ -310,27 +360,92 @@ export function EnigmaGame({
               <Panel className="space-y-3 text-center">
                 <ShowdownPanel view={view} act={act} />
                 {tokenLines}
+                {verdict && reason && <p className="text-small text-ink-2">{reason}</p>}
                 <p className="text-small text-ink-muted">
                   Everyone's keywords are revealed under Clues.
                 </p>
               </Panel>
             ),
           },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
+          ...(!wide && view.showdown
+            ? lastReveal.map((tx) => ({
+                id: tx.team,
+                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+                content: <TransmissionCard view={view} tx={tx} act={act} />,
+              }))
+            : []),
+          !wide &&
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+          ...(wide
+            ? lastReveal.length > 0
+              ? [
+                  {
+                    id: 'last',
+                    label: '📡 Last round',
+                    content: (
+                      <section aria-label="The last round" className="space-y-2">
+                        <h3 className="text-center text-small font-semibold text-ink-muted">
+                          Round {view.round}, the last round
+                        </h3>
+                        <div
+                          className={cn('grid gap-4', lastReveal.length > 1 && 'xl:grid-cols-2')}
+                        >
+                          {lastReveal.map((tx) => (
+                            <TransmissionCard
+                              key={`last-${tx.team}`}
+                              view={view}
+                              tx={tx}
+                              act={act}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ),
+                  },
+                ]
+              : []
+            : []),
+          wide && {
+            id: 'clues',
+            label: '🗝️ Clues',
+            content: (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {sheetTeams.map((team) =>
+                  view.teams[team].keywords ? (
+                    <OwnSheet key={team} view={view} team={team} />
+                  ) : (
+                    <OpponentSheet key={team} view={view} team={team} act={act} />
+                  ),
+                )}
+              </div>
+            ),
           },
-          ...lastReveal.map((tx) => ({
-            id: tx.team,
-            label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
-            content: <TransmissionCard view={view} tx={tx} act={act} />,
-          })),
+          wide && {
+            id: 'teams',
+            label: '👥 Teams',
+            content: (
+              <Panel>
+                <h3 className="mb-2 font-bold">Teams</h3>
+                <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
+              </Panel>
+            ),
+          },
         ]}
       />
-      {endButtons}
-    </>
+    </EndLayout>
   );
+
+  if (wide && view.phase === 'over')
+    return (
+      <div className="space-y-4">
+        <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {endView}
+      </div>
+    );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
@@ -354,27 +469,28 @@ export function EnigmaGame({
               {status.text}
             </Hint>
           )}
-          {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
-          {view.phase === 'over' && wide && lastReveal.length > 0 && (
-            <section aria-label="The last round" className="space-y-2">
-              <h3 className="text-center text-small font-semibold text-ink-muted">
-                Round {view.round}, the last round
-              </h3>
-              <div className={cn('grid gap-4', lastReveal.length > 1 && 'md:grid-cols-2')}>
-                {lastReveal.map((tx) => (
-                  <TransmissionCard key={`last-${tx.team}`} view={view} tx={tx} act={act} />
-                ))}
-              </div>
-            </section>
-          )}
-          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-4">
+          {view.phase === 'over' && endView}
+          {/* On wide screens the play panel keeps its height (it holds the move); the clue sheets
+              below it take what is left and scroll. */}
+          <FitArea
+            on={view.phase === 'playing' && !wide && fit && tab === 'play'}
+            resetKey={stepKey}
+            className="space-y-4"
+          >
             {view.stage === 'showdown' && view.phase === 'playing' && (
               <ShowdownPanel view={view} act={act} />
             )}
             {view.phase !== 'over' && view.stage !== 'showdown' && (
               <>
-                {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
-                <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
+                {/* While one team waits on the other, its panel holds a status line: it takes
+                    its own height rather than standing as a tall empty slab. */}
+                <div
+                  className={cn(
+                    'grid gap-4',
+                    shown.length > 1 && 'md:grid-cols-2',
+                    view.stage !== 'reveal' && 'md:items-start',
+                  )}
+                >
                   {shown.map((tx) => (
                     <TransmissionCard
                       key={`${view.round}-${tx.team}`}
@@ -386,6 +502,7 @@ export function EnigmaGame({
                     />
                   ))}
                 </div>
+                {waitingKeywords && myTeam && !wide && <OwnSheet view={view} team={myTeam} />}
               </>
             )}
             {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
@@ -407,7 +524,11 @@ export function EnigmaGame({
         </div>
 
         <div {...panel('clues')} className={cn('space-y-4', panel('clues').className)}>
-          <FitArea on={fit && tab === 'clues'} resetKey={stepKey} className="space-y-4">
+          <FitArea
+            on={view.phase === 'playing' && (wide || (fit && tab === 'clues'))}
+            resetKey={stepKey}
+            className="space-y-4"
+          >
             {sheetTeams.map((team) =>
               view.teams[team].keywords && (team === myTeam || view.phase === 'over') ? (
                 <OwnSheet key={team} view={view} team={team} />
@@ -420,7 +541,11 @@ export function EnigmaGame({
       </div>
 
       <aside {...panel('chat')} className={cn('space-y-4', panel('chat').className)}>
-        <FitArea on={fit && tab === 'chat'} resetKey={stepKey} className="space-y-4">
+        <FitArea
+          on={view.phase === 'playing' && (wide || (fit && tab === 'chat'))}
+          resetKey={stepKey}
+          className="space-y-4"
+        >
           <TeamChat view={view} act={act} />
           <Panel>
             <h3 className="mb-2 font-bold">Teams</h3>

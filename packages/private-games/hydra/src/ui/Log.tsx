@@ -1,4 +1,4 @@
-import { NameDot, cn } from '@vt/ui';
+import { NameDot, TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import { type Flag, type FlagKind, claimFlags } from '../logic/claims.ts';
 import type { HydraView, Round } from '../logic/types.ts';
@@ -120,6 +120,7 @@ export function Timeline({
                 onClick={() => setFilter(f)}
                 className={cn(
                   'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
+                  TAP_BAND,
                   filter === f ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
                 )}
               >
@@ -154,12 +155,12 @@ export function Timeline({
                 <span className="text-xs font-bold text-ink-muted">#{r.n}</span>
                 <b>{nameOf(view, r.president)}</b>
                 {r.special && (
-                  <span className="rounded bg-special px-1 text-[0.6rem] font-bold text-white">
+                  <span className="rounded bg-special px-1 text-xs font-bold text-white">
                     SPECIAL
                   </span>
                 )}
                 {r.skipped ? (
-                  <span className="rounded bg-stone-700 px-1.5 text-[0.65rem] font-black tracking-wide text-white">
+                  <span className="rounded bg-stone-700 px-1.5 text-xs font-black tracking-wide text-white">
                     PASSED OVER
                   </span>
                 ) : (
@@ -171,7 +172,7 @@ export function Timeline({
                 {r.elected !== null && (
                   <span
                     className={cn(
-                      'rounded px-1.5 text-[0.65rem] font-black tracking-wide',
+                      'rounded px-1.5 text-xs font-black tracking-wide',
                       r.elected ? 'bg-success text-white' : 'bg-stone-700 text-white',
                     )}
                   >
@@ -179,7 +180,7 @@ export function Timeline({
                   </span>
                 )}
                 {r.cleared && (
-                  <span className="rounded bg-success-soft px-1 text-[0.65rem] font-bold text-success-ink">
+                  <span className="rounded bg-success-soft px-1 text-xs font-bold text-success-ink">
                     {c.copy('moment.cleared.stamp')}
                   </span>
                 )}

@@ -1,4 +1,5 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { PlayerDot, ProtectedImage, cn } from '@vt/ui';
+import type { GameRoomInfo } from '@vt/game-sdk';
 import { Poster, PosterClock, PosterSide, PosterSlate } from '@vt/ui/show';
 import { FULL_VOLUMES } from '@vt/ui/sound';
 import { useEffect, useRef, useState } from 'react';
@@ -7,7 +8,7 @@ import { STYLES, genreInfo, goalLine, nounOf, progress } from '../logic/genres.t
 import { type CliffhangerView, TEAMS, type TeamId } from '../logic/types.ts';
 import { ArtContext, useArt, useLoadedArt } from './assets.ts';
 import type { CliffhangerUiProps } from './CliffhangerGame.tsx';
-import { MomentOverlay } from './MomentOverlay.tsx';
+import { MomentOverlay, useMoment } from './MomentOverlay.tsx';
 import { atMatchPoint } from './moments.ts';
 import { CliffhangerStyles, RuleNote, TEAM_EMOJI, Tape, nameOf, teamName } from './parts.tsx';
 import { CategoryCard } from './Play.tsx';
@@ -69,7 +70,17 @@ function useNews(view: CliffhangerView): News | null {
 }
 
 /** A team's column: its name and how far it is, the goal's genres, its tapes and its people. */
-function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on: string | null }) {
+function TeamSide({
+  view,
+  room,
+  team,
+  on,
+}: {
+  view: CliffhangerView;
+  room: GameRoomInfo;
+  team: TeamId;
+  on: string | null;
+}) {
   const { names } = useArt();
   const deck = view.settings.deck;
   const goal = view.target;
@@ -85,7 +96,8 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
       tone={team}
       testId={`race-${team}`}
     >
-      <ul className="flex flex-wrap gap-2">
+      {/* Big genre tiles, read from the sofa: four across the side. */}
+      <ul className="grid grid-cols-4 gap-2">
         {goal.genres.map((g) => {
           const info = genreInfo(g, deck);
           const n = Math.min(goal.each, count(g));
@@ -96,7 +108,7 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
               key={g}
               aria-label={`${name}: ${n} of ${goal.each}`}
               className={cn(
-                'flex items-center gap-1 rounded-xl border-2 px-2 py-0.5 text-[28px]',
+                'flex items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2 text-[44px] leading-none',
                 done ? 'border-transparent text-white' : 'border-line bg-sunk text-ink-muted',
               )}
               style={done ? { backgroundColor: info.colour } : undefined}
@@ -117,17 +129,24 @@ function TeamSide({ view, team, on }: { view: CliffhangerView; team: TeamId; on:
           </li>
         ))}
       </ul>
-      <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[32px] font-medium">
-        {people.map((s) => (
-          <li
-            key={s.id}
-            className={cn('rounded-xl px-2', s.id === on && 'bg-accent-soft ring-4 ring-accent')}
-            data-testid={s.id === on ? `stage-seat-${team}` : undefined}
-          >
-            {s.name}
-            {s.id === on && <span className="cl-pop ml-2 text-[28px] font-bold">on the clock</span>}
-          </li>
-        ))}
+      <ul className="flex flex-wrap gap-3 text-[32px] font-medium">
+        {people.map((s) => {
+          const color = room.players.find((p) => p.id === s.id)?.color;
+          return (
+            <li
+              key={s.id}
+              className={cn(
+                'flex items-center gap-3 rounded-full bg-sunk px-5 py-1.5 ring-2 ring-line',
+                s.id === on && 'bg-accent-soft ring-4 ring-accent',
+              )}
+              data-testid={s.id === on ? `stage-seat-${team}` : undefined}
+            >
+              {color && <PlayerDot color={color} label={false} className="size-5" />}
+              {s.name}
+              {s.id === on && <span className="cl-pop text-[28px] font-bold">on the clock</span>}
+            </li>
+          );
+        })}
       </ul>
     </PosterSide>
   );
@@ -351,6 +370,8 @@ function NewsBanner({ news, view }: { news: News; view: CliffhangerView }) {
 function StageScreen({ view, room }: CliffhangerUiProps) {
   const art = useArt();
   const news = useNews(view);
+  const activeMoment = useMoment(view, room.clockOffset);
+  const counting = activeMoment?.kind === 'count';
   useSound({
     view,
     manifest: art.manifest,
@@ -382,8 +403,48 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
       testId="cl-stage"
       meta={view.round && view.phase === 'playing' ? `Round ${view.round.number}` : undefined}
       {...moment}
-      left={<TeamSide view={view} team="a" on={on} />}
-      right={<TeamSide view={view} team="b" on={on} />}
+      clock={
+        counting ? (
+          <MomentOverlay view={view} clockOffset={room.clockOffset} big inline />
+        ) : (
+          moment.clock
+        )
+      }
+      body={
+        view.phase === 'over' ? (
+          <div className="flex h-full min-h-0 flex-col items-center gap-6 text-center">
+            <h1
+              className="shrink-0 font-display text-[96px] leading-tight font-semibold"
+              data-testid="poster-headline"
+            >
+              {moment.headline}
+            </h1>
+            {view.winner && (
+              <ul
+                className="grid min-h-0 w-full flex-1 gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(3, Math.ceil(Math.sqrt((view.collections[view.winner].length * 1760) / (600 * 1.375))))}, minmax(0, 1fr))`,
+                  gridAutoRows: 'minmax(0, 1fr)',
+                }}
+                data-testid="stage-finale"
+              >
+                {view.collections[view.winner].map((card) => (
+                  <li key={card.id} className="flex min-h-0 items-center justify-center">
+                    <Tape
+                      card={card}
+                      deck={view.settings.deck}
+                      className="max-h-full max-w-full w-full"
+                      full
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : undefined
+      }
+      left={<TeamSide view={view} room={room} team="a" on={on} />}
+      right={<TeamSide view={view} room={room} team="b" on={on} />}
       footer={footer}
       footerEnd={
         point.length > 0 ? (
@@ -407,7 +468,7 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
       overlay={
         <>
           {news && <NewsBanner news={news} view={view} />}
-          <MomentOverlay view={view} clockOffset={room.clockOffset} big />
+          {!counting && <MomentOverlay view={view} clockOffset={room.clockOffset} big />}
         </>
       }
     />

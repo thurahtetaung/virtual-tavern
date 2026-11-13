@@ -103,9 +103,12 @@ export function statusFor(
       const asking = underway
         ? 'Whoever answers asks the next question.'
         : `${starter} first: one question about the location, out loud.`;
-      // The same words for the spy and the locals: the card itself is behind its peek.
+      // The same words for the spy and the locals: the card itself is behind its peek. The full
+      // brief is for the first round; later rounds only remind.
       const lead =
-        'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out.';
+        round.number === 1
+          ? 'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out.'
+          : 'Peek at your new card.';
       return {
         text: round.meReady
           ? 'You’re ready to vote. Keep talking until everyone is.'

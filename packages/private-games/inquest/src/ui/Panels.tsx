@@ -8,6 +8,8 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  EndHero,
+  EndLayout,
   EndTabs,
   Superlatives,
   cn,
@@ -581,7 +583,7 @@ export function ReversalPanel({
                 .map((t) => nameOf(view, t.id))
                 .join(', ')}.`}
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
             {candidates.map((p) => {
               const theirs = tappedBy(p.id);
               return (
@@ -652,8 +654,8 @@ export function OverScreen({
   const wide = useWideScreen();
   const whoWasWho = (
     <Panel className="space-y-1">
-      <h3 className="text-sm font-bold">Who was who</h3>
-      <ul className="grid grid-cols-2 gap-1 text-sm">
+      <h3 className="text-sm font-bold lg:text-sub">Who was who</h3>
+      <ul className="grid grid-cols-2 gap-1 text-sm lg:gap-x-4 lg:gap-y-2 lg:text-body">
         {ranked.map((p) => (
           <li key={p.id} className={cn('min-w-0', r.winners.includes(p.id) && 'font-semibold')}>
             {/* Truncated in its column: a long name never pushes the page sideways. */}
@@ -673,7 +675,7 @@ export function OverScreen({
       <AlliesReveal view={view} content={content} />
       {g.final && (
         <Panel className="space-y-1">
-          <h3 className="text-sm font-bold">Final accusations</h3>
+          <h3 className="text-sm font-bold lg:text-sub">Final accusations</h3>
           <FinalList view={view} content={content} />
         </Panel>
       )}
@@ -681,86 +683,94 @@ export function OverScreen({
   );
   const bullets = (
     <Panel className="space-y-1">
-      <h3 className="text-sm font-bold">How the bullets fell</h3>
+      <h3 className="text-sm font-bold lg:text-sub">How the bullets fell</h3>
       <Timeline g={g} content={content} full />
     </Panel>
   );
+  const againBar = room.isHost ? (
+    <StickyBar refusal="inquest-again">
+      <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
+        <Button
+          size="lg"
+          className="flex-1"
+          onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
+        >
+          Play again
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+          Change setup
+        </Button>
+      </div>
+    </StickyBar>
+  ) : (
+    <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
+  );
   return (
     <div className="space-y-3">
-      <Panel
-        className={cn(
-          'space-y-2 text-center',
-          r.winner === 'investigators' ? 'ring-2 ring-success' : 'ring-2 ring-danger',
-        )}
+      <EndLayout
+        hero={
+          <EndHero
+            tone={r.winner === 'investigators' ? 'success' : 'loss'}
+            emblem={r.winner === 'investigators' ? '🕵️' : '🩸'}
+            title={
+              r.winner === 'investigators' ? 'The Investigators win' : 'The Murderer’s side wins'
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            // Wide screens: Play again at the foot of the finale.
+            actions={wide && againBar}
+            art={
+              s && (
+                <>
+                  {/* Large on wide screens; smaller on phones, so the end and Play again fit. */}
+                  <div className="w-20 sm:w-28 lg:w-[min(46%,15rem,calc(45vh*0.72))]">
+                    <ArtCard deck="clue" n={s.clue} content={content} key_ />
+                  </div>
+                  <div className="w-20 sm:w-28 lg:w-[min(46%,15rem,calc(45vh*0.72))]">
+                    <ArtCard deck="means" n={s.means} content={content} key_ />
+                  </div>
+                </>
+              )
+            }
+          >
+            <p>{resultLine(view)}</p>
+            {s && (
+              <p className="mt-1">
+                The Murderer was <b className="text-ink">{nameOf(view, s.murderer)}</b>.
+              </p>
+            )}
+          </EndHero>
+        }
       >
-        <p className="text-3xl">{r.winner === 'investigators' ? '🕵️' : '🩸'}</p>
-        <p className="font-semibold">{resultLine(view)}</p>
-        {s && (
-          <div className="mx-auto flex max-w-xs items-center justify-center gap-3">
-            {/* Smaller on phones, so the end and Play again fit the screen. */}
-            <div className="w-28 max-lg:w-20">
-              <ArtCard deck="clue" n={s.clue} content={content} key_ />
-            </div>
-            <div className="w-28 max-lg:w-20">
-              <ArtCard deck="means" n={s.means} content={content} key_ />
-            </div>
+        {wide ? (
+          // Wide screens: the roles, the attempts and the bullet timeline beside the finale, at
+          // body size.
+          <div className="space-y-3 lg:text-body">
+            {whoWasWho}
+            {attempts}
+            {bullets}
           </div>
+        ) : (
+          // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
+          // and Play again fit the screen.
+          <EndTabs
+            tabs={[
+              { id: 'roles', label: '🎭 Roles', content: whoWasWho },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              {
+                id: 'attempts',
+                label: '⚖️ Attempts',
+                content: <div className="space-y-3">{attempts}</div>,
+              },
+              { id: 'bullets', label: '🩸 Bullets', content: bullets },
+            ]}
+          />
         )}
-        {s && (
-          <p className="text-sm">
-            The Murderer was <b>{nameOf(view, s.murderer)}</b>.
-          </p>
-        )}
-      </Panel>
-      {wide ? (
-        <>
-          <Superlatives lines={room.superlatives} />
-          {whoWasWho}
-          {attempts}
-          {bullets}
-        </>
-      ) : (
-        // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
-        // and Play again fit the screen.
-        <EndTabs
-          tabs={[
-            { id: 'roles', label: '🎭 Roles', content: whoWasWho },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            {
-              id: 'attempts',
-              label: '⚖️ Attempts',
-              content: <div className="space-y-3">{attempts}</div>,
-            },
-            { id: 'bullets', label: '🩸 Bullets', content: bullets },
-          ]}
-        />
-      )}
-      {room.isHost ? (
-        <StickyBar refusal="inquest-again">
-          <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
-      )}
+        {!wide && againBar}
+      </EndLayout>
     </div>
   );
 }

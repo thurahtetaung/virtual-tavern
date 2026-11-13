@@ -15,7 +15,7 @@ import {
   goalFor,
   modeStyles,
 } from './genres.ts';
-import { type Manifest, type Names, footerOf, namesOf } from './manifest.ts';
+import { type Manifest, type Names, type Picture, footerOf, namesOf } from './manifest.ts';
 import type { CliffhangerView } from './types.ts';
 
 export { type Manifest, footerOf, namesOf } from './manifest.ts';
@@ -320,8 +320,22 @@ function base(names: Names): GameGuide {
   });
 }
 
+/** Pictures for the guide's steps, from the manifest. */
+export interface GuideArt {
+  faceoff?: string;
+  board?: string;
+  box?: string;
+}
+
+/** Which step shows which picture: the face-off, the squares, and the goal. */
+const STEP_ART: Record<number, keyof GuideArt> = { 1: 'faceoff', 3: 'board', 5: 'box' };
+
 /** The guide in the given names, with the credits when there are some. */
-export function makeGuide(names: Names = namesOf(null), footer?: GuideFooter): GameGuide {
+export function makeGuide(
+  names: Names = namesOf(null),
+  footer?: GuideFooter,
+  art: GuideArt = {},
+): GameGuide {
   const room = (raw: unknown): GuideContext | undefined => {
     const v = raw as CliffhangerView;
     if (!v?.settings) return undefined;
@@ -359,7 +373,19 @@ export function makeGuide(names: Names = namesOf(null), footer?: GuideFooter): G
       inGame,
     };
   };
-  return { ...base(names), ...(footer && { footer }), room };
+  const named = base(names);
+  const steps = named.steps?.map((step, i) => {
+    const pic = STEP_ART[i] && art[STEP_ART[i]];
+    return pic ? { ...step, art: pic } : step;
+  });
+  return { ...named, ...(steps && { steps }), ...(footer && { footer }), room };
+}
+
+/** A manifest picture's address, only for a plain path inside the game's folder. */
+function pictureUrl(p: Picture | undefined): string | undefined {
+  const path = typeof p === 'string' ? p : p?.art;
+  if (typeof path !== 'string' || !/^[\w-][\w./-]*$/.test(path) || path.includes('..')) return;
+  return `/api/backroom/assets/cliffhanger/${path}`;
 }
 
 /** The guide with our own names, before (or without) the manifest. */
@@ -368,5 +394,12 @@ export const guide: GameGuide = makeGuide();
 /** The guide in the manifest's names, with the credits. */
 export function nameGuide(manifest: unknown): GameGuide {
   const m = (manifest && typeof manifest === 'object' ? manifest : null) as Manifest | null;
-  return makeGuide(namesOf(m), footerOf(m));
+  const art: GuideArt = {};
+  const faceoff = pictureUrl(m?.faceoff?.card);
+  const board = pictureUrl(m?.board);
+  const box = pictureUrl(m?.box);
+  if (faceoff) art.faceoff = faceoff;
+  if (board) art.board = board;
+  if (box) art.box = box;
+  return makeGuide(namesOf(m), footerOf(m), art);
 }

@@ -1,4 +1,4 @@
-import { cn } from '@vt/ui';
+import { TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, createContext, useContext } from 'react';
 import { EDITIONS, type Edition, type Role } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
@@ -41,12 +41,13 @@ export function CardChip({ role, className }: { role: Role; className?: string }
         reader.read(role);
       }}
       className={cn(
-        // The visible chip stays inline-sized; the ::before pad makes a 44 px tall tap target.
-        'relative inline-flex items-baseline gap-0.5 rounded px-0.5 font-semibold whitespace-nowrap text-danger-ink underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition before:absolute before:inset-x-0 before:-inset-y-3 hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+        // The visible chip stays inline-sized; the shared tap band makes it a 44 px target.
+        'inline-flex items-baseline gap-0.5 rounded px-0.5 py-0.5 font-semibold whitespace-nowrap text-danger-ink underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+        TAP_BAND,
         className,
       )}
     >
-      <span aria-hidden className="text-[0.85em] tabular-nums opacity-70">
+      <span aria-hidden className="text-[max(12px,0.85em)] text-ink-muted tabular-nums">
         {rank}
       </span>
       {name}

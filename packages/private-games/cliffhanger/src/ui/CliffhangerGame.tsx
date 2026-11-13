@@ -87,7 +87,7 @@ function Tips({ view }: { view: CliffhangerView }) {
         data-testid="tips-line"
         className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden"
       >
-        <span className="min-w-0 flex-1 truncate">New here? The app never judges: you do.</span>
+        <span className="min-w-0 flex-1">New here? The app never judges: you do.</span>
         <Button variant="quiet" size="sm" onClick={() => setOpen(true)}>
           Tips
         </Button>
@@ -140,7 +140,10 @@ function Board({
           {TEAMS.map((t) => (
             <div key={t} className="space-y-2">
               <GenreRace view={view} team={t} />
-              {r?.board[t] && r.stage !== 'keep' && <Bays view={view} team={t} size="h-16" />}
+              {/* The steal step lists the tapes on offer itself, so the rail drops the squares. */}
+              {r?.board[t] && r.stage !== 'keep' && r.stage !== 'steal' && (
+                <Bays view={view} team={t} />
+              )}
             </div>
           ))}
         </Panel>
@@ -151,7 +154,7 @@ function Board({
       {!over && view.log.length > 0 && (
         <Panel>
           <h3 className="mb-1 text-sm font-semibold">What happened</h3>
-          <ol className="max-h-64 space-y-1 overflow-y-auto text-sm" data-testid="log">
+          <ol className="max-h-64 space-y-1 overflow-y-auto text-sm lg:max-h-40" data-testid="log">
             {[...view.log].reverse().map((e, i) => (
               <li key={i}>
                 <span className="mr-2 text-xs text-ink-muted tabular-nums">R{e.round}</span>
@@ -237,7 +240,7 @@ function Game(props: CliffhangerUiProps) {
   return (
     <div className="space-y-3">
       {profile !== 'stage' && <MomentOverlay view={view} clockOffset={room.clockOffset} />}
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+      <div className={cn('grid gap-4', view.phase !== 'over' && 'lg:grid-cols-[1fr_22rem]')}>
         <div
           className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}
           {...(!wide && tab === 'play' && tabPanelProps(TABS_ID, 'play'))}
@@ -261,9 +264,13 @@ function Game(props: CliffhangerUiProps) {
           {/* Never between a player on the clock and their buttons. */}
           {view.phase === 'playing' && !status.yourMove && <Tips view={view} />}
           {view.phase === 'over' ? (
-            <Panel>
-              <End view={view} room={room} act={act} />
-            </Panel>
+            <End
+              view={view}
+              room={room}
+              act={act}
+              // Wide screens: the board is one of the end's parts, so the end fills the page.
+              board={wide && <Board view={view} room={room} act={act} online={online} />}
+            />
           ) : (
             <>
               <Panel>
@@ -273,7 +280,11 @@ function Game(props: CliffhangerUiProps) {
           )}
         </div>
         <aside
-          className={cn('min-w-0', tab !== 'board' && 'hidden lg:block')}
+          className={cn(
+            'min-w-0',
+            tab !== 'board' && 'hidden lg:block',
+            view.phase === 'over' && 'lg:hidden',
+          )}
           {...(!wide && tab === 'board' && tabPanelProps(TABS_ID, 'board'))}
         >
           <Board view={view} room={room} act={act} online={online} />

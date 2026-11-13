@@ -1,6 +1,7 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   Countdown,
   Modal,
   PlayerTag,
@@ -9,8 +10,9 @@ import {
   TabBar,
   cn,
   tabPanelProps,
+  FoldSummary,
 } from '@vt/ui';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { closeTo, countOf } from '../logic/rules.ts';
 import { SPECIAL_CHIP, SPECIAL_SHORT, SPECIAL_TEXT } from '../logic/specials.ts';
 import { COLOUR_NAME, SYMBOL } from '../logic/tiles.ts';
@@ -41,6 +43,7 @@ export interface TableProps {
   art: Art;
   name: NameOf;
   showGuide: (id?: string) => void;
+  tips?: ReactNode;
 }
 
 type Tab = 'play' | 'boards' | 'scores';
@@ -194,7 +197,7 @@ function Factory({
   if (special?.holder)
     return (
       <div
-        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-[10px] leading-tight text-ink-muted ring-1 ring-line ring-dashed"
+        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-xs leading-tight text-ink-muted ring-1 ring-line ring-dashed"
         role="group"
         aria-label={`Factory ${index + 1}: ${name(special.holder)}’s floor shield this round`}
         data-factory={index}
@@ -204,6 +207,7 @@ function Factory({
       </div>
     );
   const big = tiles.length > 4;
+  const sorted = [...tiles].sort((a, b) => TILES.indexOf(a) - TILES.indexOf(b));
   return (
     <div
       className={cn(
@@ -238,15 +242,23 @@ function Factory({
         <button
           type="button"
           onClick={() => onInfo(special)}
-          className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-special px-2 text-[11px] leading-[18px] font-bold whitespace-nowrap text-white shadow-sm ring-1 ring-white/70 sm:text-xs sm:leading-5 dark:ring-black/50"
+          className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-special px-2 text-xs leading-[18px] font-bold whitespace-nowrap text-white shadow-sm ring-1 ring-white/70 sm:leading-5 dark:ring-black/50"
           aria-label={`Special factory ${index + 1}: ${specialName(special)}. What does it do?`}
           data-testid="mo-special"
         >
           ✦ {SPECIAL_CHIP[special.kind]}
         </button>
       )}
-      <div className={cn('relative grid gap-0.5', big ? 'grid-cols-3' : 'grid-cols-2')}>
-        {tiles.map((t, i) => {
+      <div
+        className={cn(
+          // On touch screens the tiles touch and each one's padding fills its share of the disc,
+          // so a thumb never lands in a gap; same colours sit together, so a near miss still picks
+          // the colour meant (a pick takes every tile of its colour anyway).
+          'relative grid gap-0.5 pointer-coarse:gap-0',
+          big ? 'grid-cols-3' : 'grid-cols-2',
+        )}
+      >
+        {sorted.map((t, i) => {
           const lit = hover?.source === index && hover.colour === t;
           const n = tiles.filter((x) => x === t).length;
           return onPick ? (
@@ -258,6 +270,7 @@ function Factory({
               onPointerLeave={() => setHover(null)}
               className={cn(
                 'rounded-[18%] focus-visible:outline-2 focus-visible:outline-accent',
+                big ? 'pointer-coarse:p-px' : 'pointer-coarse:p-[3px]',
                 lit && 'outline-2 outline-offset-1 outline-accent',
               )}
               aria-label={`${n} ${COLOUR_NAME[t]} from factory ${index + 1}`}
@@ -428,7 +441,7 @@ function PlayerBoard({
         <PlayerTag name={p.name} you={p.id === room.you} className="font-semibold" />
         <span className="flex items-center gap-1.5">
           {(p.left || p.removed) && (
-            <span className="rounded-full bg-warn-soft px-1.5 text-[11px] text-warn-ink">
+            <span className="rounded-full bg-warn-soft px-1.5 text-xs text-warn-ink">
               {p.removed ? 'removed' : 'away'}
             </span>
           )}
@@ -517,8 +530,11 @@ function Log({ view, name, open }: { view: MosaicView; name: NameOf; open: boole
     .slice(-14)
     .reverse();
   return (
-    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
-      <summary className="cursor-pointer font-semibold">What happened</summary>
+    <details
+      className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+      open={open}
+    >
+      <FoldSummary className="-my-1 px-0 font-semibold">What happened</FoldSummary>
       <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>
@@ -528,7 +544,7 @@ function Log({ view, name, open }: { view: MosaicView; name: NameOf; open: boole
   );
 }
 
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, tips }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you && !p.removed);
   const playing = view.phase === 'playing';
@@ -541,6 +557,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const away = g.players.filter((p) => p.left && !p.removed && p.id !== room.you);
   useFlights(view, art);
   const wide = useWide();
+  const tall = useMatch('(min-height: 800px)');
   // A pick that no longer stands (the turn moved on) closes.
   const open =
     pick &&
@@ -708,7 +725,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       <BoardView
         board={me}
         art={art}
-        size={wide ? 'lg' : 'md'}
+        size={wide ? (tall ? 'xl' : 'lg') : 'md'}
         owner={me.id}
         grey={!!view.settings.grey}
       />
@@ -717,17 +734,12 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
-        <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
-          {others
-            .filter((_, i) => i % 2 === 0)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
-        </aside>
-
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start lg:gap-3">
         <div
-          className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}
+          className={cn(
+            'flex min-w-0 flex-col gap-2 lg:max-w-[min(66.5rem,calc((100dvh-30rem)*2.5))]',
+            tab !== 'play' && 'hidden lg:flex',
+          )}
           {...(!wide && tabPanelProps(TABS_ID, 'play'))}
         >
           {/* The wall-tiling shows every board itself; on phones it stands in for these. */}
@@ -747,26 +759,59 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           {clockLine}
           <Ouch view={view} name={name} you={room.you} />
           {centrePiece}
-          {!(tiling && !wide) && myBoard}
+          {!(tiling && !wide) &&
+            (wide && others.length > 0 && !tiling ? (
+              // Wide screens: the rivals' boards beside yours (one at 60 %, two or three smaller in
+              // a grid), where they can be read while you plan; the rail keeps the scores.
+              <div className="flex items-start justify-center gap-3">
+                {myBoard}
+                <div
+                  className={cn('grid gap-2', others.length > 1 && 'grid-cols-2')}
+                  aria-label="Other boards"
+                >
+                  {others.map((p) => (
+                    <PlayerBoard
+                      key={p.id}
+                      p={p}
+                      view={view}
+                      room={room}
+                      art={art}
+                      size={others.length === 1 ? 'md' : 'sm'}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              myBoard
+            ))}
           {hostTools}
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} ·{' '}
-            <button type="button" className="underline" onClick={() => showGuide()}>
+            <button
+              type="button"
+              className="min-h-11 min-w-11 px-2 underline"
+              onClick={() => showGuide()}
+            >
               rules
             </button>
           </p>
         </div>
 
         <aside className="hidden flex-col gap-2 lg:flex" aria-label="More players and scores">
-          {others
-            .filter((_, i) => i % 2 === 1)
-            .map((p) => (
-              <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-            ))}
-          <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
-            <Scores view={view} room={room} art={art} />
-          </div>
-          <Log view={view} name={name} open />
+          <FitArea on={wide} plain min={128}>
+            <div className="space-y-2">
+              {tips}
+              {/* In the wall-tiling the boards are the stage; otherwise they sit beside yours. */}
+              {tiling &&
+                others.map((p) => (
+                  <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
+                ))}
+              <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
+                <Scores view={view} room={room} art={art} />
+              </div>
+              <Log view={view} name={name} open />
+            </div>
+          </FitArea>
         </aside>
 
         {tab === 'boards' && (

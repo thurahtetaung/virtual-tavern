@@ -86,6 +86,7 @@ export function TableDrawing({
   caption = true,
   least = '6rem',
   side = false,
+  pinned = false,
 }: {
   view: SketchyView;
   turn: TurnView;
@@ -95,6 +96,11 @@ export function TableDrawing({
   least?: string;
   /** Phones: the caption beside the drawing instead of under it, for a crowded board. */
   side?: boolean;
+  /**
+   * Phones: the drawing stays large and pinned at the top of the stage while the list under it
+   * (the titles to pick from) scrolls beneath it.
+   */
+  pinned?: boolean;
 }) {
   const artist = turn.artist ? nameOf(view, turn.artist) : null;
   const room = PHONE_CHROME + reserve + (caption && !side ? 44 : 0);
@@ -104,10 +110,14 @@ export function TableDrawing({
         'space-y-1',
         side &&
           'max-sm:flex max-sm:items-center max-sm:justify-center max-sm:gap-3 max-sm:space-y-0',
+        pinned &&
+          'max-sm:sticky max-sm:-top-3 max-sm:z-10 max-sm:-mx-3 max-sm:bg-panel max-sm:px-3 max-sm:pt-3 max-sm:pb-2',
       )}
       style={
         {
-          '--fit': `min(16rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
+          '--fit': pinned
+            ? 'min(18rem, calc(36svh * 0.8))'
+            : `min(18rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
         } as CSSProperties
       }
     >
@@ -119,8 +129,11 @@ export function TableDrawing({
         className={cn(
           'mx-auto w-full max-w-(--fit) shadow-vt-1 ring-1 ring-line',
           side && 'max-sm:mx-0 max-sm:w-(--fit) max-sm:shrink-0',
-          // Big while titles are written; smaller once the board needs the room.
-          view.game?.stage === 'write' ? 'sm:max-w-md' : 'sm:max-w-sm',
+          // Big while titles are written; smaller once the board needs the room. Wider screens
+          // also keep it within the window's height, so the title form or the board below fits.
+          view.game?.stage === 'write'
+            ? 'sm:max-w-[min(28rem,max(16rem,calc((100svh-420px)*0.8)))]'
+            : 'sm:max-w-[min(24rem,max(16rem,calc((100svh-480px)*0.8)))]',
         )}
       />
       <figcaption
@@ -610,7 +623,8 @@ export function TurnStage({
   if (g.stage === 'write') {
     return (
       <div className="space-y-4">
-        {drawing(230)}
+        {/* The artist has no title to write: the drawing takes the room the form would. */}
+        {drawing(turn.writing ? 230 : 90)}
         {turn.mine && turn.prompt && (
           <p className="text-center text-sm">
             You drew <span className="font-semibold">“{turn.prompt}”</span>. Shh!
@@ -624,10 +638,8 @@ export function TurnStage({
   if (g.stage === 'vote') {
     return (
       <div className="space-y-3 max-sm:space-y-2 lg:space-y-4">
-        {/* More than six titles: the board takes the room, so the drawing may get smaller. */}
-        {turn.options.length > 6
-          ? drawing(80 + turn.options.length * 64, true, '4rem', true)
-          : drawing(80 + turn.options.length * 64)}
+        {/* Phones: the drawing stays large and pinned while the titles scroll under it. */}
+        <TableDrawing view={view} turn={turn} pinned />
         {/* On a phone the status line just above says so already. */}
         {turn.mine && (
           <p className="text-center text-sm max-lg:hidden">
@@ -641,20 +653,31 @@ export function TurnStage({
   }
   if (reveal.progress) {
     return (
-      <div className="space-y-3">
+      // Wide screens: the drawing on the left, the titles turning over beside it, so the whole
+      // reveal and Next drawing are in view.
+      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:space-y-0">
         {/* Mounted for the whole reveal (each step's moments find its parts), shown while it runs. */}
-        <PhoneCard shown />
+        <div className="lg:col-start-2 lg:row-start-1">
+          <PhoneCard shown />
+        </div>
         {/* A phone with the balloon card has no room for the drawing too (the card is the show). */}
-        <div className={cn(cardShown && 'max-lg:hidden')}>
+        <div
+          className={cn(
+            'lg:col-start-1 lg:row-span-2 lg:row-start-1',
+            cardShown && 'max-lg:hidden',
+          )}
+        >
           {drawing(36 * reveal.progress.step + 212, false)}
         </div>
-        <RevealSequence
-          view={view}
-          turn={turn}
-          reveal={reveal}
-          isHost={isHost}
-          onSkip={() => void act({ type: 'skip-reveal' })}
-        />
+        <div className="lg:col-start-2 lg:row-start-2 lg:mt-3">
+          <RevealSequence
+            view={view}
+            turn={turn}
+            reveal={reveal}
+            isHost={isHost}
+            onSkip={() => void act({ type: 'skip-reveal' })}
+          />
+        </div>
       </div>
     );
   }

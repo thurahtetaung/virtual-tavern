@@ -175,10 +175,10 @@ export function ClaimForm({
                   )}
                 >
                   <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                  <span className="text-[0.7rem] leading-tight font-semibold text-ink">
+                  <span className="text-xs leading-tight font-semibold text-ink">
                     {cardsText(c, bluesCards(b, n))}
                   </span>
-                  <span className="flex items-center gap-1 text-[0.65rem] text-ink-muted">
+                  <span className="flex items-center gap-1 text-xs text-ink-muted">
                     discarded <Pips cards={[d]} c={c} />
                     <span className={TEAM_TEXT[d]}>{c.policyName(d)}</span>
                   </span>
@@ -210,7 +210,7 @@ export function ClaimForm({
                 )}
               >
                 <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                <span className="text-[0.7rem] leading-tight font-semibold text-ink">
+                <span className="text-xs leading-tight font-semibold text-ink">
                   {cardsText(c, bluesCards(b, n))}
                 </span>
               </button>

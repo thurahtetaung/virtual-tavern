@@ -48,7 +48,8 @@ export type CardSize = 'hand' | 'tray' | 'mini' | 'big';
 
 const SIZES: Record<CardSize, string> = {
   big: 'w-40 sm:w-48',
-  hand: 'w-[4.6rem] sm:w-24',
+  // Tall phones have the height for a bigger hand (the strip scrolls sideways either way).
+  hand: 'w-[6.5rem] max-sm:[@media(min-height:800px)]:w-[7.75rem] sm:w-24 lg:w-28',
   tray: 'w-12 sm:w-14',
   mini: 'w-8',
 };
@@ -97,7 +98,7 @@ export const CardFace = memo(function CardFace({
           <span aria-hidden className={size === 'mini' ? 'text-xs' : 'text-lg'}>
             🥡
           </span>
-          <span className="text-[0.6rem] font-bold">2</span>
+          <span className="text-xs font-bold">2</span>
           <span className="sr-only">{name}, face down</span>
         </span>
       ) : (
@@ -111,16 +112,16 @@ export const CardFace = memo(function CardFace({
               {TYPES[typeOf(k)].emoji}
             </span>
             {size !== 'mini' && (
-              <span className="text-[0.6rem] leading-tight font-semibold sm:text-[0.7rem]">
+              <span className="text-xs leading-tight font-semibold [overflow-wrap:anywhere]">
                 {name}
               </span>
             )}
             {size !== 'mini' && detail(k) && (
-              <span className="text-[0.6rem] font-bold text-ink-muted">{detail(k)}</span>
+              <span className="text-xs font-bold text-ink-muted">{detail(k)}</span>
             )}
           </span>
           {no !== undefined && size !== 'mini' && (
-            <span className="absolute right-1 bottom-1 rounded-full bg-stone-900/70 px-1 text-[0.55rem] font-bold text-white">
+            <span className="absolute right-1 bottom-1 rounded-full bg-stone-900/70 px-1 text-xs font-bold text-white">
               {no}
             </span>
           )}

@@ -231,13 +231,14 @@ export function RoundTableGame({
       }
     />
   );
-  // Phones: the quest track is one of the end's tabs, so the end fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
+  // The end shows the quest track in its finale, and on wide screens takes the whole page.
+  const over = view.phase === 'over';
 
   return (
     <div className="space-y-3">
       <TopBar view={view} room={room} onRole={() => setRoleOpen(true)} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      {/* Wide screens: the history in the 320 px rail, the table taking the rest. */}
+      <div className={cn('grid gap-4', !over && 'lg:grid-cols-[minmax(0,1fr)_20rem]')}>
         <div {...panel('table')} className={cn('min-w-0 space-y-3', panel('table').className)}>
           {tabbed && view.phase === 'playing' && stage !== 'reveal' ? (
             // Phones in play: the quests and the rejected teams share one 44 px strip.
@@ -247,7 +248,8 @@ export function RoundTableGame({
             </div>
           ) : (
             <>
-              {stage !== 'reveal' && !phoneEnd && quests}
+              {/* Wide screens show the quests from the start, above the role card. */}
+              {(stage !== 'reveal' || wide) && !over && quests}
               {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
             </>
           )}
@@ -261,13 +263,24 @@ export function RoundTableGame({
           >
             {tip && <Tip onDismiss={() => dismiss(tip[0])}>{tip[1]}</Tip>}
             {view.phase === 'over' && (
-              <End view={view} room={room} act={act} quests={phoneEnd ? quests : null} />
+              <End
+                view={view}
+                room={room}
+                act={act}
+                quests={quests}
+                history={wide && <History view={view} shown />}
+              />
             )}
             {view.phase === 'playing' && (
               <>
                 <LatestNews view={view} />
                 <LadyResult view={view} shown={known} />
-                {stage === 'reveal' && <RevealPanel view={view} act={act} showGuide={showGuide} />}
+                {stage === 'reveal' && (
+                  // Wide screens: the card sits in the middle of the free height, at a size to read.
+                  <div className="lg:mx-auto lg:flex lg:min-h-[calc(100dvh-25rem)] lg:max-w-xl lg:flex-col lg:justify-center">
+                    <RevealPanel view={view} act={act} showGuide={showGuide} />
+                  </div>
+                )}
                 {stage === 'vote' && <VotePanel view={view} act={act} />}
                 {stage === 'quest' && <QuestPanel view={view} act={act} />}
                 <WaitingChips view={view} room={room} act={act} />
@@ -286,11 +299,17 @@ export function RoundTableGame({
             )}
           </FitArea>
         </div>
-        <div {...panel('history')} className={cn('min-w-0', panel('history').className)}>
-          <FitArea on={tabbed && view.phase === 'playing' && tab === 'history'} resetKey={stageKey}>
-            <History view={view} shown={known || view.phase === 'over'} />
-          </FitArea>
-        </div>
+        {/* Wide screens at the end show the history as one of the end's parts. */}
+        {!(over && wide) && (
+          <div {...panel('history')} className={cn('min-w-0', panel('history').className)}>
+            <FitArea
+              on={tabbed && view.phase === 'playing' && tab === 'history'}
+              resetKey={stageKey}
+            >
+              <History view={view} shown={known || view.phase === 'over'} />
+            </FitArea>
+          </div>
+        )}
       </div>
       {tabbed && (
         <TabBar

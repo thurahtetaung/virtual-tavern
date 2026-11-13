@@ -8,6 +8,7 @@ import {
   NameDot,
   RefusalSlot,
   StickyBar,
+  TAP_BAND,
   TabBar as BottomTabs,
   type TabBarItem,
   cn,
@@ -29,7 +30,7 @@ import {
   type ShortFuseView,
 } from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
-import { CardFace } from './Card.tsx';
+import { CardFace, WIDTH } from './Card.tsx';
 import { End } from './End.tsx';
 import { playSfx, useBuzz } from './fx.ts';
 import { Hand } from './Hand.tsx';
@@ -219,7 +220,10 @@ function WaitingChips({
               <button
                 type="button"
                 disabled={recently}
-                className="rounded-full px-1 disabled:opacity-40"
+                className={cn(
+                  'inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1 disabled:opacity-40',
+                  TAP_BAND,
+                )}
                 aria-label={`Nudge ${who(view, id)}`}
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
@@ -617,11 +621,28 @@ export function ShortFuseGame({
   const pileShown = pileCard && g.discard.some((x) => x.id === pileCard.id) ? pileCard : null;
   const top = g.discard.at(-1);
 
+  const nopePanel = view.stage === 'window' && g.window && g.pending && (
+    <NopePanel
+      view={view}
+      c={c}
+      clockOffset={room.clockOffset}
+      act={act}
+      bar={!myTurn && !(nowOnly && selCards.length > 0)}
+    />
+  );
   const table = (
     <div className="space-y-2">
-      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3">
-        <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} onInspect={openVoidTop} />
-        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted">
+      {/* Desktop: the two piles at 128 px, centred in the table with the turn between them. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3 lg:grid-cols-[auto_minmax(0,24rem)_auto] lg:items-center lg:justify-center lg:gap-8 lg:p-5">
+        <Pile
+          pile={g.pile}
+          c={c}
+          art={g.art}
+          shuffling={shuffling}
+          onInspect={openVoidTop}
+          size="table"
+        />
+        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted lg:order-3">
           {top ? (
             <button
               type="button"
@@ -630,14 +651,22 @@ export function ShortFuseGame({
               aria-label={`Top of the discard pile: ${c.name(top.t)}. Details`}
               data-testid="discard-top"
             >
-              <CardFace card={top} art={g.art} c={c} size="md" />
+              <CardFace card={top} art={g.art} c={c} size="table" />
             </button>
           ) : (
-            <span className="block aspect-[5/7] w-16 rounded-[0.55rem] border-2 border-dashed border-line sm:w-24" />
+            <span
+              className={cn(
+                'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line',
+                WIDTH.table,
+              )}
+            />
           )}
           <button
             type="button"
-            className="rounded-md px-1.5 py-0.5 underline decoration-dotted underline-offset-2 hover:text-ink"
+            className={cn(
+              'inline-flex min-h-7 items-center rounded-md px-1.5 underline decoration-dotted underline-offset-2 hover:text-ink',
+              TAP_BAND,
+            )}
             onClick={() => setDiscardOpen(true)}
             aria-label={`Discard pile (${g.discard.length} cards): browse`}
             data-testid="discard"
@@ -645,7 +674,7 @@ export function ShortFuseGame({
             Discard ({g.discard.length})
           </button>
         </div>
-        <div className="flex w-full min-w-0 flex-col items-start gap-2">
+        <div className="flex w-full min-w-0 flex-col items-start gap-2 lg:order-2 lg:items-center lg:text-center">
           <LastAction view={view} c={c} />
           {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
             <Countdown
@@ -661,17 +690,11 @@ export function ShortFuseGame({
                   })}
             />
           )}
+          {/* Desktop: the countdown fills the room beside the piles, so the hand stays in view. */}
+          {wide && nopePanel && <div className="w-full">{nopePanel}</div>}
         </div>
       </div>
-      {view.stage === 'window' && g.window && g.pending && (
-        <NopePanel
-          view={view}
-          c={c}
-          clockOffset={room.clockOffset}
-          act={act}
-          bar={!myTurn && !(nowOnly && selCards.length > 0)}
-        />
-      )}
+      {!wide && nopePanel}
     </div>
   );
 
@@ -964,11 +987,12 @@ export function ShortFuseGame({
               />
             )}
           </div>
-          <aside className="hidden space-y-4 lg:block">
-            <div className="rounded-2xl bg-panel p-3 ring-1 ring-line">
+          {/* The rail fits the window: what only you know, then the log, which scrolls inside. */}
+          <aside className="hidden max-h-[calc(100dvh-14rem)] min-h-0 flex-col gap-4 lg:flex">
+            <div className="min-h-0 overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
               <MeTab view={view} c={c} />
             </div>
-            <div className="max-h-[32rem] overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
+            <div className="min-h-40 flex-1 overflow-y-auto rounded-2xl bg-panel p-3 ring-1 ring-line">
               <Log view={view} c={c} />
             </div>
           </aside>

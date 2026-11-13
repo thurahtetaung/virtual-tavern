@@ -5,10 +5,13 @@ import {
   NameDot,
   Panel,
   RefusalSlot,
+  EndHero,
+  EndLayout,
   EndTabs,
   Superlatives,
   useAbandonGame,
   useSpectatorPrompt,
+  cn,
   useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo } from 'react';
@@ -47,7 +50,6 @@ export function TavernBrawlGame({
     };
   }, [setYourMove, tabAlert]);
 
-  const wide = useWideScreen();
   const seatedInGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !seatedInGame);
   useSpectatorPrompt(
@@ -65,8 +67,6 @@ export function TavernBrawlGame({
 
   if (view.phase === 'lobby' || !view.game)
     return <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />;
-  // Phones: the table is one of the end's tabs, so the end fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
   const table = <Table view={view} room={room} act={act} art={art} name={name} status={status} />;
   return (
     <div className="flex flex-col gap-3">
@@ -78,10 +78,12 @@ export function TavernBrawlGame({
           art={art}
           name={name}
           status={status}
-          table={phoneEnd ? table : null}
+          // The finished table (its log, hand and powers) is one of the end's tabs on every
+          // width, so the finale isn't followed by a long log.
+          table={table}
         />
       )}
-      {!phoneEnd && table}
+      {view.phase !== 'over' && table}
     </div>
   );
 }
@@ -101,102 +103,159 @@ function End({
   art: Art;
   name: NameOf;
   status: Status;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The table, as one of the end's tabs. */
   table: ReactNode;
 }) {
+  const wide = useWideScreen();
   const g = view.game!;
   const winner = g.winners[0];
   const hero = winner ? g.players.find((p) => p.id === winner)?.hero : null;
   const kos = g.knockouts;
   const card = (id: string | null) => (id ? art.card(id) : null);
   return (
-    <Panel className="mx-auto flex w-full max-w-3xl flex-col gap-3" style={heroVars(hero)}>
-      <div className="flex items-center gap-3">
-        {hero && <Portrait hero={hero} art={art} size={64} />}
-        <div className="min-w-0">
-          <h2 className="text-xl font-black">{status.text}</h2>
-          {hero && (
-            <p className="text-sm text-ink-muted">
-              {art.hero(hero)} is the last one standing after {g.turn.number} turns.
-            </p>
-          )}
-        </div>
-      </div>
-      <EndTabs
-        tabs={[
-          kos.length > 0 && {
-            id: 'knockouts',
-            label: '💥 KOs',
-            content: (
-              <section aria-label="Knockouts">
-                <h3 className="text-sm font-semibold">Knockouts</h3>
-                <ol className="text-sm">
-                  {kos.map((k) => (
-                    <li key={`${k.player}-${k.turn}`}>
-                      💥 {name(k.player)}, turn {k.turn}
-                      {k.removed
-                        ? ' (removed)'
-                        : k.by === k.player
-                          ? `: ${card(k.card) ?? 'their own card'} (their own)`
-                          : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ),
-          },
-          {
-            id: 'players',
-            label: '❤️ Players',
-            content: (
-              <ul className="flex flex-wrap gap-2" aria-label="Final hit points">
-                {g.players.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:ring-0"
-                  >
-                    <HpDial hp={p.hp} size={30} out={p.out} />
-                    <span className="inline-flex items-center gap-1 text-sm">
-                      <span>
-                        <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
-                        {!p.out && ` · ${p.hp} hit points left`}
-                      </span>
-                      <NameDot name={p.name} className="order-first" />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🍺 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'tb-end' })}
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl"
+      style={heroVars(hero)}
+    >
+      {/* The finale: the winner's hero large in their own colour, the line under it. */}
+      <EndLayout
+        hero={
+          <EndHero
+            // The portrait is the emblem, so the status line's trophy stays out of the title.
+            title={status.text.replace(/^🏆\s*/u, '')}
+            emblem={
+              hero ? (
+                <Portrait
+                  hero={hero}
+                  art={art}
+                  size={wide ? 192 : 88}
+                  className="mx-auto shadow-vt-2 ring-4"
+                />
+              ) : (
+                '🤝'
+              )
+            }
+            tone={winner ? 'win' : 'neutral'}
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'tb-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'tb-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next brawl')}</Hint>
+                )}
+                <RefusalSlot anchor="tb-end" />
+              </>
+            }
           >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'tb-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next brawl')}</Hint>
-      )}
-      <RefusalSlot anchor="tb-end" />
-    </Panel>
+            {hero && (
+              <p>
+                {art.hero(hero)} is the last one standing after {g.turn.number} turns.
+              </p>
+            )}
+          </EndHero>
+        }
+      >
+        <Panel className="flex flex-col gap-3">
+          <EndTabs
+            columns
+            tabs={[
+              {
+                id: 'players',
+                label: '❤️ Players',
+                content: (
+                  // Standings: who is still up first, each with their hero's portrait.
+                  <ul className="grid gap-2 sm:grid-cols-2" aria-label="Final hit points">
+                    {[...g.players]
+                      .sort((a, b) => Number(a.out) - Number(b.out) || b.hp - a.hp)
+                      .map((p) => (
+                        <li
+                          key={p.id}
+                          className={cn(
+                            'flex items-center gap-2.5 rounded-xl bg-panel px-2.5 py-2 ring-1 ring-line dark:ring-0',
+                          )}
+                          style={heroVars(p.hero)}
+                        >
+                          <span className={cn('shrink-0', p.out && 'opacity-60 grayscale')}>
+                            <Portrait hero={p.hero} art={art} size={44} />
+                          </span>
+                          <span className="min-w-0 flex-1 text-sm">
+                            {/* Knocked out: muted ink (still ≥ 4.5:1) and the KO mark, not a faded row. */}
+                            <span
+                              className={cn(
+                                'flex items-center gap-1 font-semibold',
+                                p.out && 'text-ink-muted',
+                              )}
+                            >
+                              <NameDot name={p.name} />
+                              {name(p.id)}
+                              {g.winners.includes(p.id) && <span aria-label="winner">🏆</span>}
+                              {p.out && (
+                                <span
+                                  className="text-caption font-semibold"
+                                  aria-label="knocked out"
+                                >
+                                  💥 KO
+                                </span>
+                              )}
+                            </span>
+                            <span className="block text-ink-muted">
+                              {art.hero(p.hero)}
+                              {!p.out && ` · ${p.hp} hit points left`}
+                            </span>
+                          </span>
+                          <HpDial hp={p.hp} size={34} out={p.out} />
+                        </li>
+                      ))}
+                  </ul>
+                ),
+              },
+              kos.length > 0 && {
+                id: 'knockouts',
+                label: '💥 KOs',
+                content: (
+                  <section aria-label="Knockouts">
+                    <h3 className="text-sm font-semibold">Knockouts</h3>
+                    <ol className="text-sm">
+                      {kos.map((k) => (
+                        <li key={`${k.player}-${k.turn}`}>
+                          💥 {name(k.player)}, turn {k.turn}
+                          {k.removed
+                            ? ' (removed)'
+                            : k.by === k.player
+                              ? `: ${card(k.card) ?? 'their own card'} (their own)`
+                              : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !!table && { id: 'table', label: '🍺 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

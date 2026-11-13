@@ -109,11 +109,11 @@ export function PlaceSheet({
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
         <div className="flex w-24 flex-col items-center gap-1">
           <CardFace card={prompt.card} art={art} c={c} size="sm" className="sf-slide" />
-          <span className="text-[0.65rem] text-ink-muted">top</span>
+          <span className="text-xs text-ink-muted">top</span>
           <span className="w-20" key={pos}>
             <StackSide edges={edges} voidEdge={null} gap={gapEdge} />
           </span>
-          <span className="text-[0.65rem] text-ink-muted">bottom</span>
+          <span className="text-xs text-ink-muted">bottom</span>
         </div>
         <div className="space-y-3">
           <p className="text-sm text-ink">
@@ -140,7 +140,7 @@ export function PlaceSheet({
                 onClick={() => go(p)}
                 data-testid={`place-${label.toLowerCase()}`}
                 className={cn(
-                  'min-h-9 rounded-lg px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  'min-h-11 rounded-lg px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                   pos === p
                     ? 'bg-accent text-accent-fg ring-accent'
                     : 'bg-card text-ink ring-line-strong [@media(hover:hover)]:hover:bg-panel',
@@ -173,7 +173,7 @@ export function PlaceSheet({
               value={pos}
               onChange={(e) => go(Number(e.target.value))}
               aria-label="Position in the pile"
-              className="min-w-0 flex-1 accent-[var(--color-accent)]"
+              className="vt-range min-w-0 flex-1"
             />
             <Button
               variant="secondary"
@@ -498,7 +498,8 @@ export function BombStrip({
       aria-live="assertive"
       data-testid="bomb-strip"
     >
-      <CardFace card={prompt.card} art={art} c={c} size="md" />
+      {/* Smaller on desktops, so the hand under it stays above the fold. */}
+      <CardFace card={prompt.card} art={art} c={c} size="md" className="lg:w-16" />
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-bold text-danger-ink">
           {prompt.twin

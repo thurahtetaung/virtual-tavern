@@ -1,6 +1,7 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import {
   Button,
+  FitArea,
   Countdown,
   Modal,
   PlayerTag,
@@ -11,8 +12,9 @@ import {
   cn,
   tabPanelProps,
   useWideScreen,
+  FoldSummary,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
 import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
@@ -84,6 +86,7 @@ export interface TableProps {
   art: Art;
   name: NameOf;
   showGuide: (id?: string) => void;
+  tips?: ReactNode;
 }
 
 type Sheet =
@@ -165,7 +168,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         >
           <span
             className={cn(
-              'flex h-4 min-w-6 items-center justify-center rounded-sm text-[11px] font-black tabular-nums ring-1',
+              'flex h-4 min-w-6 items-center justify-center rounded-sm text-xs font-black tabular-nums ring-1',
               p.bonuses[g] ? 'bg-card text-ink ring-line' : 'text-ink-muted ring-transparent',
             )}
             title="Cards (lasting discount)"
@@ -186,7 +189,7 @@ function Holdings({ p, art, compact }: { p: PlayerView; art: Art; compact?: bool
         role="group"
         aria-label={`Gold: ${p.tokens.gold}`}
       >
-        <span className="h-4 text-[11px] text-ink-muted">wild</span>
+        <span className="h-4 text-xs text-ink-muted">wild</span>
         <TokenChip
           token="gold"
           art={art}
@@ -498,9 +501,9 @@ function Bank({
             aria-pressed={picked > 0}
             data-pile={gem}
           >
-            <TokenChip token={gem} art={art} count={n - picked} size={38} dim={n - picked === 0} />
+            <TokenChip token={gem} art={art} count={n - picked} size={40} dim={n - picked === 0} />
             {picked > 0 && (
-              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-[11px] font-black text-accent-fg">
+              <span className="absolute -top-1 -right-1 rounded-full bg-accent px-1 text-xs font-black text-accent-fg">
                 +{picked}
               </span>
             )}
@@ -512,7 +515,7 @@ function Bank({
         aria-label={`Gold: ${g.bank.gold} left (only by reserving)`}
         role="img"
       >
-        <TokenChip token="gold" art={art} count={g.bank.gold} size={38} dim={!g.bank.gold} />
+        <TokenChip token="gold" art={art} count={g.bank.gold} size={40} dim={!g.bank.gold} />
       </span>
     </div>
   );
@@ -927,7 +930,7 @@ const PLAY_TABS: readonly TabBarItem<PlayTab>[] = [
 ];
 
 /** The whole table: opponents, nobles, the market, the gem piles, the viewer's own area. */
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, tips }: TableProps) {
   const g = view.game!;
   const me = g.players.find((p) => p.id === room.you);
   const playing = view.phase === 'playing';
@@ -984,8 +987,11 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   });
 
   const log = (open: boolean) => (
-    <details className="rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line" open={open}>
-      <summary className="cursor-pointer font-semibold">Table talk</summary>
+    <details
+      className="group rounded-2xl bg-card/85 px-3 py-2 text-sm ring-1 ring-line"
+      open={open}
+    >
+      <FoldSummary className="-my-1 px-0 font-semibold">Table talk</FoldSummary>
       <ol className="mt-1 flex flex-col gap-0.5 text-ink-muted" aria-label="Log">
         {lines.map((l) => (
           <li key={l.id}>{l.text}</li>
@@ -1034,7 +1040,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   );
 
   return (
-    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[17rem_minmax(0,34rem)_minmax(0,1fr)] lg:items-start lg:gap-3">
+    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-3">
       {/* Opponents: chips on phones (Table talk), panels on desktop. */}
       <div
         className={cn(
@@ -1054,14 +1060,23 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           />
         ))}
       </div>
-      <aside className="hidden flex-col gap-2 lg:flex" aria-label="Players">
-        {mePanel}
-        {others.map((p) => (
-          <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
-        ))}
+      <aside
+        className="hidden min-w-0 flex-col gap-2 lg:col-start-2 lg:row-start-1 lg:flex"
+        aria-label="Players"
+      >
+        <FitArea on={wide} plain min={128}>
+          <div className="space-y-2">
+            {tips}
+            {mePanel}
+            {others.map((p) => (
+              <PlayerPanel key={p.id} p={p} view={view} room={room} art={art} />
+            ))}
+            {log(true)}
+          </div>
+        </FitArea>
       </aside>
 
-      <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2 lg:col-start-1 lg:row-start-1 lg:max-w-[min(66rem,max(42rem,calc((100dvh-27.5rem)*2.05)))]">
         <div {...panel('table')}>
           {playing && (clock?.deadline || g.finalBy) && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -1104,12 +1119,20 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
               ))}
             </section>
           ) : (
-            <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
+            // The nobles share their row evenly (up to 80 px each), centred over the market.
+            <section
+              aria-label="Nobles"
+              className="grid justify-center gap-2"
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(1, g.nobles.length)}, minmax(0, 5rem))`,
+              }}
+            >
               {g.nobles.map((n) => (
                 <NobleTile
                   key={n}
                   id={n}
                   art={art}
+                  className="aspect-square !h-auto !w-full"
                   {...(me && { bonuses: me.bonuses })}
                   onClick={() => setSheet({ kind: 'noble', id: n })}
                 />
@@ -1124,7 +1147,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             {([3, 2, 1] as const).map((l) => (
               <div
                 key={l}
-                className="grid grid-cols-[2.25rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
+                className="grid grid-cols-[2.75rem_repeat(4,minmax(0,1fr))] gap-1.5 sm:grid-cols-[3.5rem_repeat(4,minmax(0,1fr))]"
               >
                 <CardBack
                   level={l}
@@ -1173,7 +1196,11 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
             {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
-            <button type="button" className="min-h-11 underline" onClick={() => showGuide()}>
+            <button
+              type="button"
+              className="min-h-11 min-w-11 px-2 underline"
+              onClick={() => showGuide()}
+            >
               rules
             </button>
           </p>
@@ -1333,8 +1360,6 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           <div className="lg:hidden">{log(shown === 'talk')}</div>
         </div>
       </div>
-
-      <aside className="hidden lg:block">{log(true)}</aside>
 
       {sheet?.kind === 'card' && (
         <CardSheet

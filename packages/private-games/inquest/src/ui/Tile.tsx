@@ -19,10 +19,10 @@ export function BulletIcon({ className }: { className?: string }) {
 
 const accent = (tile: number) =>
   tile === CAUSE_TILE
-    ? 'text-fuchsia-300'
+    ? 'text-special-ink dark:text-fuchsia-200'
     : LOCATION_TILES.includes(tile) || tile === UNKNOWN_LOCATION_TILE
-      ? 'text-emerald-300'
-      : 'text-amber-300';
+      ? 'text-success-ink dark:text-emerald-300'
+      : 'text-accent-text dark:text-amber-300';
 
 interface Props {
   tile: number;
@@ -76,7 +76,7 @@ export function Tile({
     <>
       <h4
         className={cn(
-          'px-1 text-center text-[11px] font-black tracking-wide uppercase',
+          'px-1 text-center text-xs font-black tracking-wide uppercase',
           wrapTitle ? 'leading-tight text-balance' : 'truncate',
           accent(tile),
         )}
@@ -90,7 +90,8 @@ export function Tile({
           const text = content.tileItem(tile, i);
           const row = (
             <>
-              <span className="min-w-0 flex-1 truncate">{text}</span>
+              {/* Whole names, wrapping if they must (never cut). */}
+              <span className="min-w-0 flex-1 break-words">{text}</span>
               {marked && (
                 <span
                   className={cn(
@@ -99,12 +100,14 @@ export function Tile({
                   )}
                 >
                   {isNew && (
-                    <span className="rounded bg-accent-line px-0.5 text-[0.7em] font-black text-accent-text uppercase">
+                    <span className="rounded bg-accent px-0.5 text-xs font-black text-accent-fg uppercase">
                       new
                     </span>
                   )}
                   {order ? (
-                    <span className="text-[0.75em] font-bold text-amber-200">{order}</span>
+                    <span className="text-xs font-bold text-accent-text dark:text-amber-200">
+                      {order}
+                    </span>
                   ) : null}
                   <BulletIcon />
                 </span>
@@ -112,10 +115,10 @@ export function Tile({
             </>
           );
           const cls = cn(
-            'flex w-full items-center gap-1 rounded px-1.5 py-px text-left text-[12px] leading-tight',
+            'flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left text-sm leading-tight',
             marked
-              ? 'bg-accent/25 font-bold text-amber-50 ring-1 ring-accent/70'
-              : 'text-stone-200',
+              ? 'bg-accent-soft font-bold text-ink ring-1 ring-accent-line dark:bg-accent/25 dark:text-amber-50 dark:ring-accent/70'
+              : 'text-ink-2 dark:text-stone-200',
             isPending && 'bg-info/30 ring-2 ring-info-line',
           );
           return (
@@ -123,7 +126,10 @@ export function Tile({
               {onItem ? (
                 <button
                   type="button"
-                  className={cn(cls, 'min-h-6 hover:bg-white/10 pointer-coarse:min-h-8')}
+                  className={cn(
+                    cls,
+                    'min-h-6 hover:bg-line/40 pointer-coarse:min-h-8 dark:hover:bg-white/10',
+                  )}
                   aria-pressed={isPending}
                   data-item={i}
                   data-marked={marked}
@@ -145,8 +151,13 @@ export function Tile({
   );
   // One ring at a time: utilities of the same kind don't override each other by class order.
   const cls = cn(
-    'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow dark:bg-page',
-    selected ? 'ring-4 ring-info' : fresh || isNew ? 'ring-2 ring-accent' : 'ring-1 ring-stone-700',
+    // Light: a `sunk` tile with ink text; dark keeps the night-black tile.
+    'block w-full rounded-xl bg-sunk p-1.5 text-left shadow dark:bg-page',
+    selected
+      ? 'ring-4 ring-info'
+      : fresh || isNew
+        ? 'ring-2 ring-accent'
+        : 'ring-1 ring-line-strong dark:ring-stone-700',
     dim && 'opacity-50',
     className,
   );

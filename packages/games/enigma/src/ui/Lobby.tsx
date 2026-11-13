@@ -5,14 +5,18 @@ import {
   Hint,
   Icon,
   PlayerTag,
-  StickyBar,
   TimerSettings,
   WordListPicker,
   cn,
   LobbySettings,
   wordListsLine,
   timersLine,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  SeatToggle,
 } from '@vt/ui';
+import { guide } from '../logic/guide.ts';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { TEAM_BUTTON, TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
@@ -125,13 +129,8 @@ export function TeamsPicker({
         ))}
         {spectators.length === 0 && <span className="italic">nobody</span>}
         {myTeam !== null && !playing && (
-          <Button
-            size="sm"
-            variant="quiet"
-            onClick={() => void act({ type: 'join-team', team: null })}
-          >
-            Watch instead
-          </Button>
+          // Teams take a seat with Join; watching is the shared seat control.
+          <SeatToggle playing onChange={() => void act({ type: 'join-team', team: null })} />
         )}
       </div>
     </div>
@@ -157,99 +156,105 @@ export function Lobby({
 }) {
   const editable = room.isHost;
   return (
-    <div className="space-y-4">
-      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
-      <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
-      <GuideLink title={room.gameName ?? 'Enigma'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={[
-          FLOWS.find((f) => f.flow === view.settings.flow)!.summary,
-          listLine(wordListsLine(view.settings.wordListIds, room.wordLists)),
-          timersLine(view.settings),
-        ]}
-        className="space-y-4"
-      >
-        <WordListPicker
-          selectedIds={view.settings.wordListIds}
-          wordLists={room.wordLists}
-          editable={editable}
-          onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
-          summary={(chosen, total) =>
-            `Each team gets 4 secret keywords from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
-          }
-        />
-        <fieldset>
-          <legend className="text-small font-semibold">Turn order</legend>
-          {editable ? (
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              {FLOWS.map((f) => (
-                <button
-                  key={f.flow}
-                  type="button"
-                  aria-pressed={view.settings.flow === f.flow}
-                  onClick={() => void act({ type: 'update-settings', flow: f.flow })}
-                  className={cn(
-                    'min-h-11 rounded-lg px-3 py-2 text-left ring-1 transition',
-                    view.settings.flow === f.flow
-                      ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
-                      : 'bg-card ring-line-strong hover:bg-panel',
-                  )}
-                >
-                  <span className="block font-semibold">{f.title}</span>
-                  {/* On phones only the chosen option explains itself, to save space. */}
-                  <span
-                    className={cn(
-                      'text-caption text-ink-muted',
-                      view.settings.flow === f.flow ? 'block' : 'hidden sm:block',
-                    )}
-                  >
-                    {f.help}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-small">{FLOWS.find((f) => f.flow === view.settings.flow)!.title}</p>
-          )}
-        </fieldset>
-        <TimerSettings
-          values={view.settings}
-          editable={editable}
-          onChange={(patch) => void act({ type: 'update-settings', ...patch })}
-          clueHelp="Time for each Encryptor to write 3 clues."
-          guessHelp="Time for teams to agree on their guesses."
-          strictHelp="missing clues or guesses count as failed"
-        />
-        <p className="-mt-2 text-caption text-ink-muted">
-          Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
-          tight, especially with Strict timers.
-        </p>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch title={room.gameName ?? 'Enigma'} emblem="🔐">
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={[
+              FLOWS.find((f) => f.flow === view.settings.flow)!.summary,
+              listLine(wordListsLine(view.settings.wordListIds, room.wordLists)),
+              timersLine(view.settings),
+            ]}
+            className="space-y-4"
+          >
+            <WordListPicker
+              selectedIds={view.settings.wordListIds}
+              wordLists={room.wordLists}
+              editable={editable}
+              onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
+              summary={(chosen, total) =>
+                `Each team gets 4 secret keywords from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
+              }
+            />
+            <fieldset>
+              <legend className="text-small font-semibold">Turn order</legend>
+              {editable ? (
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {FLOWS.map((f) => (
+                    <button
+                      key={f.flow}
+                      type="button"
+                      aria-pressed={view.settings.flow === f.flow}
+                      onClick={() => void act({ type: 'update-settings', flow: f.flow })}
+                      className={cn(
+                        'min-h-11 rounded-lg px-3 py-2 text-left ring-1 transition',
+                        view.settings.flow === f.flow
+                          ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+                          : 'bg-card ring-line-strong hover:bg-panel',
+                      )}
+                    >
+                      <span className="block font-semibold">{f.title}</span>
+                      {/* On phones only the chosen option explains itself, to save space. */}
+                      <span
+                        className={cn(
+                          'text-caption text-ink-muted',
+                          view.settings.flow === f.flow ? 'block' : 'hidden sm:block',
+                        )}
+                      >
+                        {f.help}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-small">
+                  {FLOWS.find((f) => f.flow === view.settings.flow)!.title}
+                </p>
+              )}
+            </fieldset>
+            <TimerSettings
+              values={view.settings}
+              editable={editable}
+              onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+              clueHelp="Time for each Encryptor to write 3 clues."
+              guessHelp="Time for teams to agree on their guesses."
+              strictHelp="missing clues or guesses count as failed"
+            />
+            <p className="-mt-2 text-caption text-ink-muted">
+              Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is
+              very tight, especially with Strict timers.
+            </p>
+          </LobbySettings>
+        </>
+      }
+      start={
+        editable && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' })}
+            secondary={
               <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
+                variant="ghost"
+                size="sm"
                 onClick={() => void act({ type: 'randomize-teams' })}
               >
                 <Icon name="shuffle" />
                 Shuffle teams
               </Button>
-            </div>
-            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+            }
+          />
+        )
+      }
+    >
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
+      <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
+      <GuideLink title={room.gameName ?? 'Enigma'} onClick={showGuide} />
+    </LobbyLayout>
   );
 }

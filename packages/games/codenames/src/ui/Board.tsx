@@ -12,11 +12,16 @@ interface Props {
   lastGuessed: number | null;
   /** Null when the viewer cannot interact with the board right now. */
   onPick: ((index: number) => void) | null;
+  /**
+   * Phones: `fill` grows the cells into the height a waiting screen leaves free (no clue form or
+   * guess bar under the board); `short` keeps the whole key above the end's tab bar (a rem height, so larger text still fits).
+   */
+  size?: 'fill' | 'short';
 }
 
 const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
 
-export function Board({ view, selected, lastGuessed, onPick }: Props) {
+export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
     view.me?.role === 'spymaster' && view.me.team !== null && view.phase === 'playing';
@@ -53,14 +58,24 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
               disabled={!interactive}
               onClick={() => onPick?.(i)}
               className={cn(
-                // Wide cells from lg up, so five rows, the clue form and its refusal fit a 900px desktop window.
+                // From lg up the cells take the window's height left for five rows (the clue form and
+                // its refusal still fit a 900 px desktop window), up to 7.5rem on tall screens.
                 // The caption's and the corner mark's sizes are shared with the word (`CardWord`),
                 // which keeps clear of them.
                 // Phones show no caption (the legend under the board says what each colour is). The
                 // caption and the mark are capped by the card's width, so larger browser text can't
                 // push them into the word, and are never under 12 px.
-                '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:max(12px,min(0.75rem,7cqw))] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
-                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-[5/2] motion-reduce:transition-none',
+                '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:clamp(12px,9cqw,16px)] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
+                '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-30rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
+                // Nothing to type or press under the board: the cells take that room too, on
+                // phones and on wide screens (about a quarter taller at 1440×900).
+                size === 'fill' &&
+                  'max-sm:aspect-auto max-sm:h-[clamp(3.3rem,calc((100dvh-22rem)/5-0.4rem),5.5rem)] lg:h-[clamp(4.5rem,calc((100dvh-23rem)/5-0.5rem),9rem)]',
+                // A face-down card has a printed frame inside its edge, like the cards on a table.
+                face === FACE_DOWN &&
+                  'sm:before:pointer-events-none sm:before:absolute sm:before:inset-1 sm:before:rounded-md sm:before:border sm:before:border-line',
+                // In rem, so a larger text size grows the cards with their words.
+                size === 'short' && 'max-sm:aspect-auto max-sm:h-[2.8rem]',
                 face,
                 interactive &&
                   'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',
@@ -69,7 +84,8 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                 lastGuessed === i &&
                   'z-10 scale-105 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
                 card.revealed && lastGuessed !== i && 'opacity-90',
-                view.phase === 'over' && !card.revealed && 'opacity-70',
+                // At the end the cards nobody guessed keep their words at full strength: their soft
+                // key tint and the missing check mark already tell them from the guessed ones.
               )}
             >
               <CardWord
@@ -101,7 +117,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                   data-card-mark
                   className="absolute top-0.5 left-0.5 leading-none sm:left-1"
                 >
-                  <Icon name="skull" className="size-[var(--mark-size)]" />
+                  <Icon name="skull" className="size-[calc(var(--mark-size)*1.4)]" />
                 </span>
               )}
               {card.suggestedBy.length > 0 && (
@@ -316,10 +332,10 @@ function CardWord({
           // Each size tier is capped at the size that fits the card's width (`--fit`), so long
           // words shrink instead of breaking; the measured fit above shrinks further when needed.
           word.length >= 9
-            ? 'text-[length:min(0.75rem,var(--fit))] tracking-tight sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
+            ? 'text-[length:min(0.75rem,var(--fit))] tracking-tight sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))] lg:text-[length:min(1.125rem,var(--fit))]'
             : word.length >= 8
-              ? 'text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
-              : 'text-[length:min(0.75rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
+              ? 'text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))] lg:text-[length:min(1.125rem,var(--fit))]'
+              : 'text-[length:min(0.75rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))] lg:text-[length:min(1.25rem,var(--fit))]',
         )}
       >
         {shown?.text ?? softBreaks(word)}

@@ -1,6 +1,7 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
 import {
   Button,
+  Fold,
   Countdown,
   Hint,
   Panel,
@@ -8,11 +9,13 @@ import {
   clock,
   cn,
   useSecondsLeft,
+  TAP_BAND,
   TabBar,
   type TabBarItem,
   tabPanelProps,
   useSpectatorPrompt,
   useWideScreen,
+  FitArea,
   useConfirm,
   useAbandonGame,
   NameDot,
@@ -40,6 +43,7 @@ import {
   isEmpty,
   myPsychic,
   nameOf,
+  resultLine,
   roman,
   statusFor,
   stepOf,
@@ -259,14 +263,23 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         </div>
       )}
-      {latest && current && latest.id > seen && g.stage !== 'done' && !lockNotice && (
-        <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
-          <span className="flex-1">📣 {latest.text}</span>
-          <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
-            OK
-          </button>
-        </p>
-      )}
+      {/* An hour's notices (the verdicts are in…) are done with once the final starts. */}
+      {latest &&
+        current &&
+        latest.id > seen &&
+        (g.stage === 'visions' || g.stage === 'reveal') &&
+        !lockNotice && (
+          <p className="flex items-center gap-2 rounded-xl bg-sunk px-3 py-1 text-sm">
+            <span className="flex-1">📣 {latest.text}</span>
+            <button
+              type="button"
+              className={cn('min-h-7 rounded-lg px-2 text-xs font-bold', TAP_BAND)}
+              onClick={() => setSeen(latest.id)}
+            >
+              OK
+            </button>
+          </p>
+        )}
     </div>
   );
 }
@@ -287,8 +300,9 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   const step = stepOf(g);
   const final = step.id === 'lineup' || step.id === 'vote';
   const steps = final ? FINAL_STEPS : STEPS;
-  // From hour II everyone knows the steps: their explanation folds to one line, "?" opens it.
-  const brief = !final && g.hour > 1;
+  // From hour II everyone knows the steps, and the final's own card says what to do: the
+  // explanation folds to one line, "?" opens it.
+  const brief = final || g.hour > 1;
   const [more, setMore] = useState(false);
   // The ghost's status line already says what to do; after hour I the paragraph only repeats it.
   const silent = brief && g.myRole === 'ghost';
@@ -298,7 +312,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       className="rounded-xl bg-card/70 px-3 py-2 ring-1 ring-line"
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-xs font-semibold text-ink-muted">
+        <span className="shrink-0 text-xs font-semibold text-ink-2">
           {final ? 'The final' : `Hour ${roman(g.hour)}`}
         </span>
         <ol className="flex flex-1 flex-wrap items-center gap-1 text-xs font-semibold">
@@ -326,7 +340,10 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
             aria-expanded={more}
             aria-label={more ? 'Show less' : 'What happens in this step?'}
             onClick={() => setMore(!more)}
-            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel"
+            className={cn(
+              '-my-1 inline-flex min-h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-2 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel',
+              TAP_BAND,
+            )}
           >
             {more ? '▴' : '?'}
           </button>
@@ -371,9 +388,13 @@ function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo
     );
   } else if (g.canReveal && ghost) {
     body = (
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="flex-1">Everyone’s ready. Reveal the verdicts when you are.</p>
-        <Button size="sm" onClick={() => void act({ type: 'reveal' }, { anchor: 'seance-reveal' })}>
+      // The sentence on its line and the ghost's one action under it, the full width.
+      <div className="flex flex-col gap-2">
+        <p>Everyone’s ready. Reveal the verdicts when you are.</p>
+        <Button
+          className="w-full"
+          onClick={() => void act({ type: 'reveal' }, { anchor: 'seance-reveal' })}
+        >
           👻 Reveal the verdicts
         </Button>
       </div>
@@ -437,7 +458,7 @@ function RevealPanel({
       aria-label="The ghost answers"
     >
       {g.lockedHow && <p className="text-sm font-semibold">{LOCKED_BY[g.lockedHow]}</p>}
-      <Verdicts view={view} content={content} />
+      <Verdicts view={view} content={content} cards />
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-xs text-ink-muted">
           {allDone
@@ -565,6 +586,9 @@ function SeanceTable({
     />
   );
 
+  // A watcher's table screen stays up at the end, with the result at poster size.
+  if (g.stage === 'done' && !inGame && tableScreen && g.result)
+    return <SeanceTableEnd view={view} content={content} onExit={() => setTableScreen(false)} />;
   if (g.stage === 'done')
     return (
       <>
@@ -577,6 +601,7 @@ function SeanceTable({
 
   // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
   const ghostFinal = ghost && finalStage;
+  const psychicFinal = !ghost && finalStage;
   const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = ghost
     ? [
         {
@@ -605,6 +630,11 @@ function SeanceTable({
   // The "needs you" dot: on the tab holding your move, while another tab is open.
   const alert: Tab | null = status.yourMove ? 'main' : null;
 
+  const sideShared =
+    finalStage &&
+    !(ghost && g.stage === 'shared') &&
+    !!g.final?.sharedCount &&
+    g.final.groups.length > 3;
   const finalPanel = finalStage && (
     <div className="space-y-2">
       <VoteBar view={view} room={room} act={act} />
@@ -615,16 +645,27 @@ function SeanceTable({
           ghost && g.stage === 'shared' && 'lg:grid-cols-2 lg:items-start',
         )}
       >
-        <Panel className="space-y-3 p-3">
-          <SharedRow g={g} content={content} tags={ghost} />
-          <Lineup
-            view={view}
-            act={act}
-            content={content}
-            draft={ghost ? draft : undefined}
-            setDraft={ghost ? setDraft : undefined}
-          />
-        </Panel>
+        {/* Desktops with four groups or more: the shared vision is a narrow column beside them,
+            so the line-up and the vote fit the window. Phones: the line-up takes the height left
+            and scrolls inside (More below), except while the ghost picks under it. */}
+        <FitArea phone on={!(ghost && g.stage === 'shared')} plain surface="page" min={260}>
+          <Panel
+            className={cn(
+              'space-y-3 p-3',
+              sideShared &&
+                'lg:grid lg:grid-cols-[7rem_minmax(0,1fr)] lg:items-start lg:gap-3 lg:space-y-0',
+            )}
+          >
+            <SharedRow g={g} content={content} tags={ghost} side={sideShared} />
+            <Lineup
+              view={view}
+              act={act}
+              content={content}
+              draft={ghost ? draft : undefined}
+              setDraft={ghost ? setDraft : undefined}
+            />
+          </Panel>
+        </FitArea>
         {ghost && g.stage === 'shared' && (
           <SharedPicker
             view={view}
@@ -683,7 +724,9 @@ function SeanceTable({
         </Button>
       )}
       <Banners view={view} room={room} act={act} />
-      <RevealPanel view={view} room={room} act={act} content={content} />
+      {/* Phones: the verdicts above the tabs. Desktops: at the top of the main column, so the
+          hand and the table beside it stay in view. */}
+      {!wide && <RevealPanel view={view} room={room} act={act} content={content} />}
       {room.isHost && g.stage === 'visions' && g.sent.length > 0 && !waitingForVision(g).length && (
         <div className="flex justify-end">
           <Button
@@ -710,22 +753,25 @@ function SeanceTable({
       <div
         className={cn(
           'grid gap-3',
-          ghostFinal
-            ? 'lg:grid-cols-[minmax(0,12fr)_minmax(0,4fr)]'
+          // Desktops: the current task takes the width; the table is a 20 rem rail at the right
+          // that fits the window and scrolls inside.
+          ghostFinal || psychicFinal
+            ? 'lg:grid-cols-[minmax(0,1fr)_20rem]'
             : ghost
-              ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)_minmax(0,4fr)]'
-              : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
+              ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)_20rem]'
+              : 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)_20rem]',
         )}
       >
-        {main && (
+        {(main || (wide && g.stage === 'reveal')) && (
           <div
             className={cn('min-w-0 space-y-2', onTab('main'))}
             {...(!wide && tabPanelProps(TABS_ID, 'main'))}
           >
+            {wide && <RevealPanel view={view} room={room} act={act} content={content} />}
             {main}
           </div>
         )}
-        {second && (
+        {second && !(wide && psychicFinal) && (
           <div
             className={cn('min-w-0', onTab('others'))}
             {...(!wide && tabPanelProps(TABS_ID, 'others'))}
@@ -734,10 +780,19 @@ function SeanceTable({
           </div>
         )}
         <div
-          className={cn('min-w-0 space-y-2', onTab('table'))}
+          className={cn('min-w-0', onTab('table'))}
           {...(!wide && tabPanelProps(TABS_ID, 'table'))}
         >
-          <TableTab view={view} content={content} />
+          <FitArea on={wide} plain surface="page" min={240} className="space-y-2">
+            <TableTab view={view} content={content} />
+            {/* In the final the line-up gets the width; the psychics' past guesses fold into the
+                rail, one tap away. */}
+            {second && wide && psychicFinal && (
+              <Fold summary={<span className="font-semibold">The psychics’ past guesses</span>}>
+                {second}
+              </Fold>
+            )}
+          </FitArea>
         </div>
       </div>
       {!wide && (
@@ -962,6 +1017,56 @@ function SeanceTableScreen({
           } · ${g.deckCount} in the pile`,
         }}
         footerEnd={{ icon: 'tv', text: 'The visions stay on the phones.' }}
+      />
+    </PosterOverlay>
+  );
+}
+
+/** The table screen once the game ends: the result at poster size and each psychic's finds. */
+function SeanceTableEnd({
+  view,
+  content,
+  onExit,
+}: {
+  view: SeanceView;
+  content: Content;
+  onExit: () => void;
+}) {
+  const g = view.game!;
+  const r = g.result!;
+  return (
+    <PosterOverlay>
+      <Poster
+        label="Table screen"
+        meta={`Hour ${roman(g.hour)} of VII`}
+        corner={
+          <Button variant="secondary" size="lg" className="text-[24px]" onClick={onExit}>
+            Leave table screen
+          </Button>
+        }
+        eyebrow="Game over"
+        headline={
+          <span data-testid="seance-tv-result">
+            {r.win ? 'The ghost is at peace' : 'The ghost wanders on'}
+          </span>
+        }
+        line={resultLine(g)}
+        choices={g.psychics.map((p) => (
+          <PosterSlate
+            key={p.color}
+            state={p.finishedHour !== null ? 'won' : 'open'}
+            className="w-[240px] content-start gap-3"
+          >
+            <Avatar color={p.color} content={content} name={p.name} size="lg" />
+            <span className="block truncate text-[32px]">{p.name}</span>
+            <span className="block text-[24px] font-medium">
+              {p.finishedHour !== null
+                ? `All three by hour ${roman(p.finishedHour)}`
+                : `${p.found.length} of 3 found`}
+            </span>
+          </PosterSlate>
+        ))}
+        footerEnd={{ icon: 'tv', text: 'What the ghost meant is on the phones.' }}
       />
     </PosterOverlay>
   );

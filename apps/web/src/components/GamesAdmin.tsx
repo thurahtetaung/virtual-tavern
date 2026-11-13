@@ -157,11 +157,10 @@ function GameSettingsCard({
         />
       )}
 
-      <div>
-        <p className="text-small font-semibold">Categories</p>
-        {categories.length === 0 ? (
-          <p className="text-small text-ink-muted">Add a category above to tag games.</p>
-        ) : (
+      {/* Without categories the editor above says so once; the rows leave the section out. */}
+      {categories.length > 0 && (
+        <div>
+          <p className="text-small font-semibold">Categories</p>
           <Chips label={shown} className="mt-1">
             {categories.map((c) => (
               <Chip
@@ -177,8 +176,8 @@ function GameSettingsCard({
               </Chip>
             ))}
           </Chips>
-        )}
-      </div>
+        </div>
+      )}
 
       {game.musicPhases && (
         <Fold

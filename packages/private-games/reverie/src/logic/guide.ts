@@ -105,7 +105,17 @@ const text: GameGuide = {
   ],
 };
 
-export const guide: GameGuide = shapeGuide(text, {
+/**
+ * Pictures for the first steps: two of the picture cards and the card back, at their fixed paths
+ * in the game's asset folder (a stepper without asset storage shows the emoji instead).
+ */
+const STEP_ART: Record<number, string> = {
+  0: '/api/backroom/assets/reverie/cards/001.jpg',
+  1: '/api/backroom/assets/reverie/cards/002.jpg',
+  2: '/api/backroom/assets/reverie/back.jpg',
+};
+
+const shaped: GameGuide = shapeGuide(text, {
   steps: [
     ['The storyteller gives a clue', '📖'],
     ['Everyone matches it', '🃏'],
@@ -143,3 +153,10 @@ export const guide: GameGuide = shapeGuide(text, {
     },
   ],
 });
+
+export const guide: GameGuide = {
+  ...shaped,
+  ...(shaped.steps && {
+    steps: shaped.steps.map((step, i) => (STEP_ART[i] ? { ...step, art: STEP_ART[i] } : step)),
+  }),
+};

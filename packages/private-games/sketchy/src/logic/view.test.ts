@@ -233,4 +233,36 @@ describe('view at the end', () => {
     expect(v.game!.history).toHaveLength(6);
     expect(NOW).toBeGreaterThan(0);
   });
+
+  it('shows the last round’s favourite drawing: the one whose titles got the most likes', () => {
+    const h = started(3);
+    for (let r = 0; r < 2; r++) {
+      drawAll(h);
+      while (h.state.phase === 'playing' && game(h).stage !== 'draw') {
+        lieAll(h);
+        for (const id of turn(h).voters) h.act(id, { type: 'vote', option: truthIndex(h) });
+        h.act(HOST, { type: 'next' });
+      }
+    }
+    // Nobody liked anything: no favourite.
+    expect(sketchy.view(h.state, 'p1').game!.favourite).toBeNull();
+    const s = structuredClone(h.state);
+    const g = s.game!;
+    const last = g.history.at(-1)!;
+    last.likes = { p2: 2 };
+    // A first-round drawing is gone by the end, however liked: it is never the pick.
+    g.history[0]!.likes = { p2: 9 };
+    const fav = sketchy.view(s, 'p1').game!.favourite!;
+    expect(fav.artist).toBe(last.artist);
+    expect(fav.prompt).toBe(last.prompt);
+    expect(fav.drawing).toEqual(g.sketches[last.artist]!.drawing);
+    // The same for every viewer, and nothing before the end.
+    expect(sketchy.view(s, null).game!.favourite).toEqual(fav);
+  });
+
+  it('sends no favourite while the game is on', () => {
+    const h = started(3);
+    drawAll(h);
+    expect(sketchy.view(h.state, 'p1').game!.favourite).toBeNull();
+  });
 });

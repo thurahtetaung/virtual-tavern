@@ -36,6 +36,10 @@ describe('status', () => {
     expect(statusFor(v, false, undefined, v.settings.roundSeconds - 60).text).toBe(
       'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out. Whoever answers asks the next question. Need ideas? See Question ideas.',
     );
+    // Later rounds drop the first round's brief: only a reminder to peek.
+    expect(statusFor({ ...v, round: { ...v.round!, number: 2 } }, false).text).toBe(
+      'Peek at your new card. ANA asks first: one question about the location, out loud. Need ideas? See Question ideas.',
+    );
     // The spy and a local read exactly the same line: nothing on screen gives the role away.
     expect(statusFor(masquerade.view(h.state, 'ben'), false)).toEqual(
       statusFor(masquerade.view(h.state, 'cy'), false),

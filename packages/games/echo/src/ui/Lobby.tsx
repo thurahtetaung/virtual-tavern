@@ -1,17 +1,19 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   Fold,
   GuideLink,
   Hint,
   Panel,
-  StickyBar,
   TimerSettings,
   WordListPicker,
   cn,
   LobbySettings,
   wordListsLine,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
+import { guide } from '../logic/guide.ts';
 import { DECK_SIZES, type DeckSize, type EchoAction, type EchoView } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { Table } from './Table.tsx';
@@ -65,85 +67,84 @@ export function Lobby({
 }) {
   const editable = room.isHost;
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch title={room.gameName ?? 'Echo'} emblem="🔔">
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={settingsSummary(view, room)}
+            className="space-y-4"
+          >
+            {editable && <h3 className="text-lg font-bold">Game settings</h3>}
+            <WordListPicker
+              selectedIds={view.settings.wordListIds}
+              wordLists={room.wordLists}
+              editable={editable}
+              summary={cardsSummary}
+              onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
+            />
+            <fieldset>
+              <legend className="text-sm font-semibold">Deck length</legend>
+              {editable ? (
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {DECK_SIZES.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      aria-pressed={view.settings.deckSize === size}
+                      onClick={() => void act({ type: 'update-settings', deckSize: size })}
+                      className={cn(
+                        'flex min-h-11 flex-col items-center justify-center rounded-lg py-1 font-semibold ring-1 transition',
+                        view.settings.deckSize === size
+                          ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+                          : 'bg-card ring-line-strong hover:bg-panel',
+                      )}
+                    >
+                      {size} cards
+                      <span className="text-xs font-normal text-ink-muted">{DECK_PACE[size]}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm">{view.settings.deckSize} cards</p>
+              )}
+            </fieldset>
+            {/* Folded away so the Start button stays on a phone's first screen. */}
+            <Fold
+              className="bg-card"
+              summary={
+                <span>
+                  <span className="font-semibold">Timers</span>
+                  <span className="text-ink-muted"> · {timerSummary(view.settings)}</span>
+                </span>
+              }
+            >
+              <TimerSettings
+                values={view.settings}
+                editable={editable}
+                onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+                clueHelp="Time for everyone to write their clues."
+                guessHelp="Time to pick a word and to guess."
+                strictHelp="the guesser gets a random word, late clues are skipped, and an unanswered guess passes"
+              />
+            </Fold>
+          </LobbySettings>
+        </>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
       <GuideLink title={room.gameName ?? 'Echo'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={settingsSummary(view, room)}
-        className="space-y-4"
-      >
-        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
-        <WordListPicker
-          selectedIds={view.settings.wordListIds}
-          wordLists={room.wordLists}
-          editable={editable}
-          summary={cardsSummary}
-          onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
-        />
-        <fieldset>
-          <legend className="text-sm font-semibold">Deck length</legend>
-          {editable ? (
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {DECK_SIZES.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  aria-pressed={view.settings.deckSize === size}
-                  onClick={() => void act({ type: 'update-settings', deckSize: size })}
-                  className={cn(
-                    'flex min-h-11 flex-col items-center justify-center rounded-lg py-1 font-semibold ring-1 transition',
-                    view.settings.deckSize === size
-                      ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
-                      : 'bg-card ring-line-strong hover:bg-panel',
-                  )}
-                >
-                  {size} cards
-                  <span className="text-xs font-normal text-ink-muted">{DECK_PACE[size]}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm">{view.settings.deckSize} cards</p>
-          )}
-        </fieldset>
-        {/* Folded away so the Start button stays on a phone's first screen. */}
-        <Fold
-          className="bg-card"
-          summary={
-            <span>
-              <span className="font-semibold">Timers</span>
-              <span className="text-ink-muted"> · {timerSummary(view.settings)}</span>
-            </span>
-          }
-        >
-          <TimerSettings
-            values={view.settings}
-            editable={editable}
-            onChange={(patch) => void act({ type: 'update-settings', ...patch })}
-            clueHelp="Time for everyone to write their clues."
-            guessHelp="Time to pick a word and to guess."
-            strictHelp="the guesser gets a random word, late clues are skipped, and an unanswered guess passes"
-          />
-        </Fold>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="space-y-1.5">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

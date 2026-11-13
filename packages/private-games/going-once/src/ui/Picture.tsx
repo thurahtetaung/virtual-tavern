@@ -11,6 +11,7 @@ export function Picture({
   drawing,
   house,
   compact = false,
+  tv = false,
   art,
   label,
   className,
@@ -20,6 +21,8 @@ export function Picture({
   house: string | null;
   /** A thumbnail: icons only, no captions. */
   compact?: boolean;
+  /** On the table screen: the placeholder's words at the TV caption size. */
+  tv?: boolean;
   art: Art;
   label: string;
   className?: string;
@@ -48,10 +51,14 @@ export function Picture({
           role="img"
           aria-label={`${label}: house picture`}
         >
-          <span aria-hidden className={compact ? 'text-base' : 'text-4xl'}>
+          <span aria-hidden className={compact ? 'text-base' : tv ? 'text-7xl' : 'text-4xl'}>
             🏛️
           </span>
-          {!compact && <span className="text-sm font-semibold">House picture</span>}
+          {!compact && (
+            <span className={cn('font-semibold', tv ? 'text-[28px]' : 'text-sm')}>
+              House picture
+            </span>
+          )}
         </div>
       )}
       {children}

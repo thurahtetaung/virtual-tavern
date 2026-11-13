@@ -52,7 +52,8 @@ function useCover(gameId: string) {
     let live = true;
     const load = () =>
       void loadManifest(gameId).then((m) => {
-        if (live) setCover(coverOf(gameId, m));
+        if (!live) return;
+        setCover(coverOf(gameId, m));
       });
     if (typeof IntersectionObserver === 'undefined') {
       load();
@@ -77,7 +78,10 @@ function useCover(gameId: string) {
   return { box, cover };
 }
 
-/** One game in the lobby: its cover in the art strip (its emblem until, or without, one). */
+/**
+ * One game in the lobby: its cover in the art strip, or its emblem on a tile in the same slot, so
+ * every card in a row is the same height on wide screens (phones drop an emblem-only strip).
+ */
 function BackroomGameCard({
   game,
   creating,
@@ -165,10 +169,12 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
           ))}
         </Chips>
       )}
-      {/* The registry's order keeps the mostly white covers out of one desktop row. */}
+      {/* The registry's order keeps the mostly white covers out of one desktop row. Wide screens:
+          the list steps out of the page's column (up to 76rem, four across), so 26 games are a
+          few rows rather than a long scroll. */}
       <section
         aria-label="Back room games"
-        className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
+        className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:mx-[calc(50%_-_min(50vw_-_2rem,38rem))] xl:grid-cols-4"
       >
         {games?.map((game) => (
           <BackroomGameCard

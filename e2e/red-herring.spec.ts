@@ -113,7 +113,7 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
   const winners = top.filter((i) => tokens[i] === most).map((i) => NAMES[i]!);
   // A loser's page names the winner (a winner's own says "You win!").
   const loser = pages[[0, 1, 2, 3].find((i) => !winners.includes(NAMES[i]!))!]!;
-  await expect(loser.getByText(/ wins!$| share the win!$/)).toContainText(
+  await expect(loser.getByRole('heading', { name: / wins!$| share the win!$/ })).toContainText(
     winners.length === 1 ? `${winners[0]} wins` : 'share the win',
   );
   const rows = pages[1].getByRole('region', { name: 'Final standings' }).getByRole('listitem');

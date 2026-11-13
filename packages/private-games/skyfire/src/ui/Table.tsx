@@ -6,13 +6,20 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  TAP_BAND,
   TabBar,
   tabPanelProps,
   useWideScreen,
   cn,
   useConfirm,
 } from '@vt/ui';
-import { type ReactNode, type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from 'react';
 import {
   RANKS,
   type Rank,
@@ -74,6 +81,8 @@ export interface TableProps {
   /** "You" for the viewer. */
   name: NameOf;
   showGuide: (id?: string) => void;
+  /** Wide screens: shown at the top of the rail (the first-time tips). */
+  aside?: ReactNode;
 }
 
 type Tab = 'table' | 'discards' | 'log';
@@ -101,7 +110,7 @@ function latestClue(view: SkyfireView) {
   return last?.kind === 'clue' ? last : null;
 }
 
-export function Table({ view, room, act, art, name, showGuide }: TableProps) {
+export function Table({ view, room, act, art, name, showGuide, aside }: TableProps) {
   const g = view.game!;
   const [tab, setTab] = useState<Tab>('table');
   const playing = view.phase === 'playing';
@@ -114,10 +123,16 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const wide = useWideScreen();
   const shown: Tab | null = wide || !playing ? null : tab;
   return (
-    <div className="flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
+    <div
+      className={cn(
+        'flex flex-col gap-1.5 lg:gap-3',
+        // The end's table part is one column: its rail would squeeze the piles.
+        playing && 'lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start',
+      )}
+    >
       <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">
         <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
-        <Fireworks g={g} art={art} onDetail={setDetail} />
+        <Fireworks g={g} art={art} onDetail={setDetail} small={!playing} />
         <div
           className={cn(
             'flex flex-col gap-1.5 lg:gap-2',
@@ -160,6 +175,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', shown === 'table' && 'hidden')}>
+        {wide && playing && aside}
         <div
           className={cn(shown === 'log' && 'hidden')}
           {...(shown === 'discards' && tabPanelProps(PLAY_TABS_ID, 'discards'))}
@@ -245,7 +261,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'clues' })}
-        className="flex items-center gap-0.5"
+        className={cn(TAP_BAND, 'flex min-h-6 items-center gap-0.5')}
         aria-label={`${g.clues} of ${CLUE_TOKENS} clue tokens`}
         data-testid="sf-clues"
         data-clues={g.clues}
@@ -271,7 +287,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'fuses' })}
-        className="flex items-center gap-0.5"
+        className={cn(TAP_BAND, 'flex min-h-6 items-center gap-0.5')}
         aria-label={`${g.fuses} of ${FUSES} fuses burned`}
         data-testid="sf-fuses"
         data-fuses={g.fuses}
@@ -291,7 +307,7 @@ function TopStrip({
       <button
         type="button"
         onClick={() => onDetail({ kind: 'deck' })}
-        className="tabular-nums"
+        className={cn(TAP_BAND, 'flex min-h-6 items-center tabular-nums')}
         aria-label={`${g.deck} cards in the deck`}
         data-testid="sf-deck"
       >
@@ -339,7 +355,18 @@ function Clock({ view, room, name }: { view: SkyfireView; room: GameRoomInfo; na
 
 // ---- Fireworks ----
 
-function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: Detail) => void }) {
+function Fireworks({
+  g,
+  art,
+  onDetail,
+  small = false,
+}: {
+  g: GameView;
+  art: Art;
+  onDetail: (d: Detail) => void;
+  /** The end's narrower table part: the piles keep their smaller size on wide screens. */
+  small?: boolean;
+}) {
   return (
     <ul aria-label="Fireworks" className="flex justify-between gap-1 sm:justify-start sm:gap-2">
       {g.suits.map((suit) => {
@@ -351,7 +378,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
             <button
               type="button"
               onClick={() => onDetail({ kind: 'firework', suit })}
-              className="relative flex flex-col items-center gap-0.5"
+              className={cn(TAP_BAND, 'flex flex-col items-center gap-0.5')}
               aria-label={`${SUIT_NAME[suit]} firework: ${h} of 5${h === 5 ? ', finished' : ''}`}
               data-testid={`sf-firework-${suit}`}
               data-height={h}
@@ -361,16 +388,26 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                   card={{ suit, rank: top }}
                   art={art}
                   size="stack"
-                  className={cn(h === 5 && 'ring-2 ring-warn-line')}
+                  className={cn(small && 'lg:w-16', h === 5 && 'ring-2 ring-warn-line')}
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-8 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
+                  className={cn(
+                    'relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14',
+                    small ? 'lg:w-16' : 'lg:w-24 lg:text-3xl',
+                  )}
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
                   }}
                 >
+                  {/* An empty pile is still its colour: a soft wash of it, the symbol in it, so
+                      the table reads as five colours from the first turn. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 opacity-25"
+                    style={{ background: SUIT_STYLE[suit].bg }}
+                  />
                   {bg && (
                     <ProtectedImage
                       src={bg}
@@ -378,7 +415,27 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                       className="absolute inset-0 size-full object-cover opacity-40"
                     />
                   )}
-                  <span aria-hidden className="relative opacity-70">
+                  {/* The pale colours (white, yellow) take their dark ink in light mode, so the
+                      symbol clears 3:1 on the pale wash; dark mode keeps the colour itself. */}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'relative drop-shadow-sm',
+                      (suit === 'black' || suit === 'multi') && 'text-ink',
+                      (suit === 'white' || suit === 'yellow') &&
+                        'text-[var(--sf-sym-ink)] dark:text-[var(--sf-sym)]',
+                    )}
+                    style={
+                      suit === 'black' || suit === 'multi'
+                        ? undefined
+                        : suit === 'white' || suit === 'yellow'
+                          ? ({
+                              '--sf-sym': SUIT_STYLE[suit].bg,
+                              '--sf-sym-ink': SUIT_STYLE[suit].fg,
+                            } as CSSProperties)
+                          : { color: SUIT_STYLE[suit].bg }
+                    }
+                  >
                     {SUIT_SYMBOL[suit]}
                   </span>
                 </span>
@@ -434,10 +491,14 @@ function Teammates({
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const others = othersOf(g, room.you);
   const width = Math.max(...others.map((id) => g.hands[id]!.length), 4);
+  const wide = useWideScreen();
+  // Phones with one or two teammates have the height to spare: each name sits over its hand, so
+  // the cards take the row's whole width (about 66 × 92 px instead of 55 × 77).
+  const roomy = !wide && others.length <= 2;
   return (
     <ul
       aria-label="The other hands"
-      className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-2"
+      className="flex flex-col gap-0.5 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(min(100%,26rem),1fr))] lg:gap-2"
     >
       {others.map((id) => {
         const p = g.players.find((x) => x.id === id)!;
@@ -448,6 +509,7 @@ function Teammates({
             key={id}
             className={cn(
               'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-0.5 ring-1 sm:py-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)]',
+              roomy && 'max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-1.5',
               current && 'ring-2 ring-accent',
             )}
             data-testid={`sf-hand-${id}`}
@@ -455,7 +517,13 @@ function Teammates({
             <button
               type="button"
               onClick={() => onClue(id)}
-              className="flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm"
+              className={cn(
+                'flex min-w-0 flex-col self-stretch rounded-lg text-left text-xs hover:bg-panel sm:text-sm',
+                // On roomy phones the name sits over the hand as one row: 44 px tall, taking the
+                // card's top padding, so it is a full thumb target without pushing the hands down.
+                roomy &&
+                  'max-sm:-mt-1.5 max-sm:-mb-1 max-sm:min-h-11 max-sm:flex-row max-sm:items-center max-sm:justify-between',
+              )}
               aria-label={`${p.name}${current ? ', on turn' : ''}. ${mine && g.clues > 0 ? 'Give them a clue.' : 'See what they know.'}`}
               data-testid="sf-clue-open"
             >
@@ -468,14 +536,17 @@ function Teammates({
                   className="min-w-0"
                 />
               </span>
-              <span className="text-[10px] text-ink-muted">
+              <span className="text-xs text-ink-muted">
                 {mine && g.clues > 0 ? '💡 clue' : 'what they know'}
               </span>
             </button>
             <span
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.2rem, 9.5vw, 4rem)))`,
+                // Each card takes its share of the row, capped by the screen's height: larger with
+                // two or three hands, smaller with four so they fit (the tap band keeps 44 px).
+                // Wide screens with two or three hands give them a little more (the width is there).
+                gridTemplateColumns: `repeat(${width}, minmax(0, ${others.length >= 4 ? 'min(5rem, 4.4dvh)' : wide ? 'min(6rem, 8dvh)' : roomy ? 'min(5rem, 9dvh)' : 'min(5rem, 6.5dvh)'}))`,
               }}
             >
               {hand.map((s) => {
@@ -487,7 +558,10 @@ function Teammates({
                     onClick={() =>
                       s.card && onDetail({ kind: 'card', card: s.card, holder: id, id: s.id })
                     }
-                    className="flex min-w-0 flex-col items-center gap-0.5 rounded-md"
+                    className={cn(
+                      TAP_BAND,
+                      'flex min-w-0 flex-col items-center gap-0.5 rounded-md',
+                    )}
                     aria-label={`${p.name}’s ${s.card ? cardLabel(s.card) : 'card'}${s.know && marksText(s.know) ? `, told: ${marksText(s.know)}` : ''}`}
                     data-card={s.id}
                   >
@@ -635,7 +709,7 @@ function ClueSheet({
                       data-testid={`sf-clue-${c.colour}`}
                     >
                       <span>{suitLabel(c.colour!)}</span>
-                      <span className="text-[10px] font-semibold">
+                      <span className="text-xs font-semibold">
                         {n ? plural(n, 'card') : 'none'}
                       </span>
                     </button>
@@ -663,7 +737,7 @@ function ClueSheet({
                       data-testid={`sf-clue-${c.rank}`}
                     >
                       <span className="text-lg">{c.rank}</span>
-                      <span className="text-[10px] font-semibold">
+                      <span className="text-xs font-semibold">
                         {n ? plural(n, 'card') : 'none'}
                       </span>
                     </button>
@@ -830,7 +904,7 @@ function MyHand({
         {reactions}
       </div>
       <div
-        className="grid gap-1.5 [--sf-hand-card:3.75rem] sm:[--sf-hand-card:4.75rem]"
+        className="grid gap-1.5 [--sf-hand-card:3.75rem] sm:[--sf-hand-card:4.75rem] lg:gap-2 lg:[--sf-hand-card:min(6.5rem,10.5dvh)]"
         style={{
           gridTemplateColumns: `repeat(${Math.max(hand.length, 4)}, minmax(0, var(--sf-hand-card)))`,
           touchAction: 'pan-y',
@@ -1095,7 +1169,8 @@ function Since({
     <button
       type="button"
       onClick={onMore}
-      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:pointer-events-none"
+      // Wide screens read the same lines in the rail's log, so the board keeps the height.
+      className="flex flex-col gap-0.5 rounded-xl bg-card px-3 py-1.5 text-left text-xs ring-1 ring-line lg:hidden"
       aria-label="Since your last turn (open the log)"
       data-testid="sf-since"
     >
@@ -1140,6 +1215,7 @@ function Reactions({
             onClick={() => void act({ type: 'react', emoji }, { anchor: 'sf-react' })}
             className={cn(
               'shrink-0 rounded-full bg-card px-1.5 py-0.5 text-base leading-tight ring-1 ring-line transition hover:scale-110',
+              TAP_BAND,
               mineNow === emoji && 'ring-2 ring-accent',
             )}
           >
@@ -1290,7 +1366,7 @@ export function Discards({
                         'flex h-7 w-full items-center justify-center gap-0.5 rounded tabular-nums',
                         lost && 'bg-danger-soft font-bold text-danger-ink',
                         last && 'bg-warn-soft font-bold text-warn-ink ring-1 ring-warn-line',
-                        !lost && !last && onFirework && 'text-ink-muted opacity-60',
+                        !lost && !last && onFirework && 'text-ink-2',
                       )}
                       title={`${SUIT_NAME[suit]} ${rank}: ${gone} of ${total} discarded`}
                     >

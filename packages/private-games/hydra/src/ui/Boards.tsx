@@ -109,7 +109,7 @@ export function Board({
 
 function VetoRibbon({ c }: { c: Content }) {
   return (
-    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-accent-line px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-ink uppercase shadow sm:text-xs">
+    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-accent-line px-2 py-0.5 text-xs font-black tracking-widest text-ink uppercase shadow">
       {c.copy('ribbon.veto')}
     </span>
   );
@@ -144,7 +144,7 @@ function DrawnBoard({
         team === 'red' && g.enacted.red >= LEADER_ZONE && 'hy-glow',
       )}
     >
-      <figcaption className="mb-1 flex items-center justify-between px-1 text-[0.65rem] font-black tracking-widest text-white/90 uppercase">
+      <figcaption className="mb-1 flex items-center justify-between px-1 text-xs font-black tracking-wider text-white/90 uppercase">
         <span>{c.teamName(team)}</span>
         {team === 'blue' && <TrackerLamps tracker={g.tracker} />}
       </figcaption>
@@ -285,7 +285,7 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
 /** A tiny mark before each group on the header strip, so it reads at a glance. */
 function Glyph({ children }: { children: string }) {
   return (
-    <span aria-hidden className="mr-px text-[0.65rem] leading-none">
+    <span aria-hidden className="mr-px text-xs leading-none">
       {children}
     </span>
   );

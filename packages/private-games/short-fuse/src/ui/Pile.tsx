@@ -2,7 +2,7 @@ import { cn } from '@vt/ui';
 import { memo } from 'react';
 import type { Art, CardView, PileView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { CardBack, CardFace, type CardSize } from './Card.tsx';
+import { CardBack, CardFace, type CardSize, WIDTH } from './Card.tsx';
 
 /** Pixels per card edge in the side view. */
 const EDGE_PX = 3;
@@ -85,7 +85,7 @@ export const Pile = memo(function Pile({
           <span
             className={cn(
               'block aspect-[5/7] rounded-[0.55rem] border-2 border-dashed border-line-strong',
-              size === 'sm' ? 'w-14' : 'w-16 sm:w-24',
+              WIDTH[size],
             )}
           />
         ) : voidOnTop && !shuffling && onInspect ? (
@@ -104,7 +104,7 @@ export const Pile = memo(function Pile({
           <CardBack c={c} size={size} />
         )}
         {pile.count > 1 && (
-          <span className={cn('-mt-1 block', size === 'sm' ? 'w-14' : 'w-16 sm:w-24')}>
+          <span className={cn('-mt-1 block', WIDTH[size])}>
             <StackSide edges={sideEdges} voidEdge={stripe} shuffling={shuffling} />
           </span>
         )}

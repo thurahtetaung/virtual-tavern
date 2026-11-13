@@ -1,6 +1,8 @@
-import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, waitingForHost, winnersTitle } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
   EndTabs,
   Input,
   NameDot,
@@ -9,6 +11,7 @@ import {
   StickyBar,
   Superlatives,
   cn,
+  useWideScreen,
 } from '@vt/ui';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
@@ -47,7 +50,8 @@ const ANSWER_SIZE = {
   sentence: 'a whole sentence',
 } as const;
 
-const PROMPT = 'text-center text-xl leading-snug font-bold text-balance break-words sm:text-2xl';
+const PROMPT =
+  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:py-4 lg:text-4xl';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
@@ -237,7 +241,8 @@ function OptionCard({
       aria-pressed={chosen}
       onClick={onPick}
       className={cn(
-        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 transition',
+        // A game-show answer board: tall tiles in the display face (64 px on phones, 112 px wide).
+        'flex min-h-16 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left font-display text-xl font-semibold ring-1 shadow-vt-1 transition lg:min-h-28 lg:px-8 lg:text-2xl',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
           ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
@@ -270,7 +275,7 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
     setBusy(false);
   };
   return (
-    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2">
+    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2 lg:gap-3">
       {round.options.map((o) => (
         <li key={o.index}>
           <OptionCard
@@ -324,7 +329,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 text-lg font-bold break-words">{o.text}</span>
+            <span className="min-w-0 font-display text-xl font-bold break-words">{o.text}</span>
             <span
               className={cn(
                 'shrink-0 text-xs font-semibold',
@@ -407,8 +412,11 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
   switch (round.stage) {
     case 'write':
       return (
-        <div className="space-y-4">
-          <Prompt prompt={round.prompt} />
+        <div className="space-y-4 lg:space-y-6">
+          {/* The fact as the round's question card. */}
+          <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:px-10 lg:py-12">
+            <Prompt prompt={round.prompt} />
+          </div>
           {round.answerSize && round.players.includes(me) && (
             <p className="text-center text-sm text-ink-muted">
               💡 The real answer is {ANSWER_SIZE[round.answerSize]}: make your lie match.
@@ -482,75 +490,99 @@ export function GameOver({
   /** Phones: the players, as a tab beside the scores and awards. */
   players?: ReactNode;
 }) {
+  const wide = useWideScreen();
   const ranked = view.scores;
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;
   const times = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const title = winnersTitle(ranked, view.me?.id) || 'Game over';
+  // Wide screens show the night's superlatives in the finale, so the awards tab gives way.
+  const heroAwards = wide && !!room.superlatives?.length;
   return (
-    <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
-      {view.endReason === 'too-few' && (
-        <p className="font-semibold">Too few players left: final scores so far.</p>
-      )}
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={ranked.map((s) => ({
-                  id: s.id,
-                  name: s.left ? `${s.name} (left)` : s.name,
-                  score: s.score,
-                }))}
-                you={view.me?.id}
-                scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
-                className="text-left"
-              />
-            ),
-          },
-          {
-            id: 'awards',
-            label: '✨ Awards',
-            content: room.superlatives?.length ? (
-              <Superlatives lines={room.superlatives} />
-            ) : (
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                <div className="rounded-xl bg-danger-soft px-3 py-2">
-                  <dt className="font-semibold">🎭 Best liar</dt>
-                  <dd>
-                    {bestLiar.length > 0
-                      ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
-                      : 'Nobody fooled anyone!'}
-                  </dd>
-                </div>
-                <div className="rounded-xl bg-success-soft px-3 py-2">
-                  <dt className="font-semibold">🔎 Truth seeker</dt>
-                  <dd>
-                    {truthSeeker.length > 0
-                      ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
-                      : 'Nobody found the truth!'}
-                  </dd>
-                </div>
-              </dl>
-            ),
-          },
-          !!players && { id: 'players', label: '👥 Players', content: players },
-        ]}
-      />
-      {isHost ? (
-        <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </StickyBar>
-      ) : (
-        <p>{waitingForHost(room, 'start the next game')}</p>
-      )}
-    </Panel>
+    <>
+      <EndLayout
+        hero={
+          <EndHero
+            title={title}
+            eyebrow={title === 'Game over' ? null : undefined}
+            emblem="🎭"
+            superlatives={heroAwards ? room.superlatives : undefined}
+            actions={
+              isHost ? (
+                <StickyBar className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
+                  <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </StickyBar>
+              ) : (
+                <p>{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
+          >
+            {view.endReason === 'too-few' && (
+              <p className="font-semibold">Too few players left: final scores so far.</p>
+            )}
+          </EndHero>
+        }
+      >
+        <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={ranked.map((s) => ({
+                      id: s.id,
+                      name: s.left ? `${s.name} (left)` : s.name,
+                      score: s.score,
+                    }))}
+                    you={view.me?.id}
+                    scoreLabel={(n) => `${points(n)} ${n === 1 ? 'point' : 'points'}`}
+                    className="text-left"
+                  />
+                ),
+              },
+              !heroAwards && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: room.superlatives?.length ? (
+                  <Superlatives lines={room.superlatives} />
+                ) : (
+                  <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="rounded-xl bg-danger-soft px-3 py-2">
+                      <dt className="font-semibold">🎭 Best liar</dt>
+                      <dd>
+                        {bestLiar.length > 0
+                          ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
+                          : 'Nobody fooled anyone!'}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl bg-success-soft px-3 py-2">
+                      <dt className="font-semibold">🔎 Truth seeker</dt>
+                      <dd>
+                        {truthSeeker.length > 0
+                          ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
+                          : 'Nobody found the truth!'}
+                      </dd>
+                    </div>
+                  </dl>
+                ),
+              },
+              !!players && { id: 'players', label: '👥 Players', content: players },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </>
   );
 }

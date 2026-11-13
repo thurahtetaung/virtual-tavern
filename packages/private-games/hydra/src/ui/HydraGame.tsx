@@ -6,6 +6,7 @@ import {
   Fold,
   Hint,
   NameDot,
+  TAP_BAND,
   TabBar,
   type TabBarItem,
   cn,
@@ -13,11 +14,23 @@ import {
   useAbandonGame,
   useConfirm,
   useFitToScreen,
+  useMarkMore,
+  MoreBelow,
+  scrollFadeMask,
   useRefusalWording,
+  useScrollEnds,
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
 import {
   LEADER_ZONE,
@@ -93,7 +106,10 @@ function HeaderStrip({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-gradient-to-r from-sky-950 via-stone-900 to-red-950 px-2.5 py-1.5 text-white shadow-md">
       <button
         type="button"
-        className="-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10"
+        className={cn(
+          '-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10',
+          TAP_BAND,
+        )}
         aria-expanded={legend}
         aria-label={c.copy('legend.button')}
         onClick={onLegend}
@@ -103,7 +119,7 @@ function HeaderStrip({
       </button>
       <div className="ml-auto flex min-w-0 grow items-center justify-end gap-2">
         <span
-          className="max-w-40 min-w-0 truncate text-right text-[0.7rem] leading-tight whitespace-nowrap text-white/80"
+          className="max-w-40 min-w-0 truncate text-right text-xs leading-tight whitespace-nowrap text-white/80"
           data-testid="next-president"
         >
           {view.phase === 'playing' && (
@@ -133,7 +149,11 @@ function HeaderStrip({
           <button
             type="button"
             onClick={onRole}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
+            className={cn(
+              'flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm',
+              TAP_BAND,
+              TAP_BAND,
+            )}
             aria-label="My role"
           >
             🎭
@@ -157,14 +177,18 @@ function WaitingChips({
   now: number;
 }) {
   const [confirm, confirmDialog] = useConfirm();
+  const { ref: row, ends } = useScrollEnds();
   const ids = waitingOn(view);
   const g = view.game!;
   if (!ids.length || view.phase !== 'playing' || view.stage === 'reveal') return null;
   const claimDue = view.stage === 'claim' && g.claimDeadline !== null && now >= g.claimDeadline;
-  // One line that scrolls sideways, so a big table's vote never pushes the seats under the dock.
+  // One line that scrolls sideways, so a big table's vote never pushes the seats under the dock;
+  // it fades out at an end with more names past it.
   return (
     <div
-      className="flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      ref={row}
+      style={scrollFadeMask(ends)}
+      className="flex items-center gap-1.5 overflow-x-auto py-1 text-xs whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       data-testid="waiting-on"
     >
       {confirmDialog}
@@ -186,7 +210,10 @@ function WaitingChips({
               <button
                 type="button"
                 disabled={recently}
-                className="rounded-full px-1 disabled:opacity-40"
+                className={cn(
+                  'inline-flex size-6 items-center justify-center rounded-full disabled:opacity-40',
+                  TAP_BAND,
+                )}
                 aria-label={`Nudge ${nameOf(view, id)}`}
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
@@ -271,8 +298,48 @@ function tipFor(
   return tip ? [tip[0], c.copy(`tip.${tip[0]}`)] : null;
 }
 
-/** Phones show one board at a time (swipe), jumping to the one that just changed. */
+const TALL = '(min-height: 800px)';
+const tallNow = () => typeof window !== 'undefined' && !!window.matchMedia?.(TALL).matches;
+const onTall = (change: () => void) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(TALL);
+  mq.addEventListener('change', change);
+  return () => mq.removeEventListener('change', change);
+};
+
+/**
+ * Phones: both boards stacked when the screen is tall enough for them and the seats (up to six
+ * players) and the page still fits the window; otherwise one board at a time (swipe), jumping to
+ * the one that just changed. Each new step tries the stack again.
+ */
 function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
+  const g = view.game!;
+  const tall = useSyncExternalStore(onTall, tallNow, () => false);
+  const step = `${view.stage}:${g.players.length}`;
+  const [tooTall, setTooTall] = useState<string | null>(null);
+  const stack = tall && g.players.length <= 6 && tooTall !== step;
+  useLayoutEffect(() => {
+    if (!stack || typeof ResizeObserver === 'undefined') return;
+    const page = document.scrollingElement ?? document.documentElement;
+    // Runs once laid out (before paint) and whenever the page's size changes.
+    const check = () => {
+      if (page.scrollHeight > window.innerHeight + 1) setTooTall(step);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, [stack, step]);
+  if (stack)
+    return (
+      <div className="space-y-1" aria-label="Boards">
+        <Board team="red" g={g} c={c} compact />
+        <Board team="blue" g={g} c={c} compact />
+      </div>
+    );
+  return <BoardSwipe view={view} c={c} />;
+}
+
+function BoardSwipe({ view, c }: { view: HydraView; c: Content }) {
   const g = view.game!;
   const ref = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(0);
@@ -335,13 +402,21 @@ function TableRing({
   return (
     <div className="space-y-3">
       {seats(top, half)}
-      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner">
-        <Pile label="Deck" count={g.deckCount} c={c} />
-        <div className="space-y-2">
+      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner xl:grid-cols-1">
+        <div className="xl:hidden">
+          <Pile label="Deck" count={g.deckCount} c={c} />
+        </div>
+        {/* The boards' width follows the window's height, so both seat rows and the dock (with
+            its ballots) fit a laptop screen (the art is about three times as wide as it is tall).
+            Wide desktops lay them side by side across the whole felt, larger and shorter (the
+            deck and discard counts are in the chip under the table). */}
+        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2 xl:grid xl:max-w-none xl:grid-cols-2 xl:gap-3 xl:space-y-0">
           <Board team="red" g={g} c={c} />
           <Board team="blue" g={g} c={c} />
         </div>
-        <Pile label="Discard" count={g.discardCount} c={c} />
+        <div className="xl:hidden">
+          <Pile label="Discard" count={g.discardCount} c={c} />
+        </div>
       </div>
       {seats(bottom, Math.max(1, ids.length - half))}
     </div>
@@ -357,33 +432,43 @@ function SeatsPanel({
   picking,
   panelRef,
   className,
+  outerClassName,
   children,
 }: {
   c: Content;
   picking: boolean;
-  panelRef: React.Ref<HTMLElement>;
+  panelRef: React.RefObject<HTMLElement | null>;
   className?: string;
+  /** Classes for the wrapper (which holds the More below cue): showing or hiding the panel. */
+  outerClassName?: string;
   children: React.ReactNode;
 }) {
+  // Fitted to a phone's screen, the seats show "More below" while some are under the fold.
+  useMarkMore(panelRef, []);
   return (
-    <section
-      ref={panelRef}
-      aria-label={c.copy('seats.heading')}
-      className={cn(
-        'scroll-mt-20 rounded-2xl bg-sunk p-2 shadow-inner ring-1 ring-line-strong lg:p-3',
-        picking && 'ring-2 ring-accent',
-        className,
-      )}
-      data-testid="seats-panel"
-    >
-      <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
-        <span>👥 {c.copy('seats.heading')}</span>
-        {picking && (
-          <span className="hy-breathe text-accent-text normal-case">{c.copy('seats.pick')} 👇</span>
+    <div className={cn('relative min-w-0', outerClassName)}>
+      <section
+        ref={panelRef}
+        aria-label={c.copy('seats.heading')}
+        className={cn(
+          'peer scroll-mt-20 rounded-2xl bg-sunk p-2 shadow-inner ring-1 ring-line-strong lg:p-3',
+          picking && 'ring-2 ring-accent',
+          className,
         )}
-      </h3>
-      {children}
-    </section>
+        data-testid="seats-panel"
+      >
+        <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-ink-muted uppercase lg:mb-2 lg:text-sm">
+          <span>👥 {c.copy('seats.heading')}</span>
+          {picking && (
+            <span className="hy-breathe text-accent-text normal-case">
+              {c.copy('seats.pick')} 👇
+            </span>
+          )}
+        </h3>
+        {children}
+      </section>
+      <MoreBelow column={panelRef} surface="sunk" compact />
+    </div>
   );
 }
 
@@ -429,6 +514,9 @@ export function HydraGame({
   const seatsRef = useRef<HTMLElement>(null);
   // Phones: a big table's seats scroll inside their panel rather than the page.
   useFitToScreen(seatsRef, { phone: true, min: 160 });
+  const railRef = useRef<HTMLElement>(null);
+  useFitToScreen(railRef, { on: wide, min: 320 });
+  useMarkMore(railRef, [wide]);
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
@@ -624,16 +712,21 @@ export function HydraGame({
     return (
       <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <End
-            view={view}
-            room={room}
-            c={c}
-            act={act}
-            timeline={!wide && <Timeline view={view} c={c} />}
-          />
-          {wide && <Timeline view={view} c={c} truth={<TruthLog view={view} c={c} />} />}
-        </div>
+        {/* The end takes the full width: its right column holds the roles, large, then the
+            timeline (with the truth on wide screens). */}
+        <End
+          view={view}
+          room={room}
+          c={c}
+          act={act}
+          timeline={
+            wide ? (
+              <Timeline view={view} c={c} truth={<TruthLog view={view} c={c} />} />
+            ) : (
+              <Timeline view={view} c={c} />
+            )
+          }
+        />
         <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
       </ThemeRoot>
     );
@@ -713,7 +806,8 @@ export function HydraGame({
                   c={c}
                   picking={!!pick}
                   panelRef={seatsRef}
-                  className="max-sm:overflow-y-auto max-sm:overscroll-contain lg:hidden"
+                  className="max-sm:overflow-y-auto max-sm:overscroll-contain"
+                  outerClassName="lg:hidden"
                 >
                   {seatGrid()}
                 </SeatsPanel>
@@ -781,26 +875,34 @@ export function HydraGame({
             onShowSeats={showSeats}
           />
         </div>
-        <aside
-          className={cn('min-w-0 space-y-3', onTab('log'))}
-          {...(!wide && tabPanelProps(TABS_ID, 'log'))}
-        >
-          {view.stage !== 'reveal' && (
-            <div className="hidden lg:block">
-              <MeTab
-                view={view}
-                c={c}
-                reveal={reveal}
-                showGuide={showGuide}
-                moments={momentsOn}
-                setMoments={setMomentsOn}
-                plain={plain}
-                setPlain={setPlain}
-              />
-            </div>
-          )}
-          <Timeline view={view} c={c} />
-        </aside>
+        <div className={cn('relative min-w-0', onTab('log'))}>
+          <aside
+            ref={railRef}
+            className="peer min-w-0 space-y-3"
+            {...(!wide && tabPanelProps(TABS_ID, 'log'))}
+          >
+            {/* Desktops: the timeline first, then your role and the quick reference, the rail
+              scrolling on its own so the page fits the window. */}
+            {wide && <Timeline view={view} c={c} />}
+            {view.stage !== 'reveal' && (
+              <div className="hidden lg:block">
+                <MeTab
+                  view={view}
+                  c={c}
+                  reveal={reveal}
+                  showGuide={showGuide}
+                  moments={momentsOn}
+                  setMoments={setMomentsOn}
+                  plain={plain}
+                  setPlain={setPlain}
+                />
+              </div>
+            )}
+            {!wide && <Timeline view={view} c={c} />}
+          </aside>
+          {/* Desktops: the rail scrolls inside; More below while there is more under it. */}
+          <MoreBelow column={railRef} surface="page" compact />
+        </div>
       </div>
       {!wide && (
         <TabBar

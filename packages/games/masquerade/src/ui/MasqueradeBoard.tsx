@@ -23,7 +23,10 @@ import {
   tabPanelProps,
   Peek,
   ProtectedImage,
+  EndHero,
+  EndLayout,
   EndTabs,
+  FoldSummary,
   Standings,
   Superlatives,
   TimeoutNote,
@@ -62,11 +65,9 @@ type Tab = 'play' | 'locations' | 'ideas';
 /** Where a refused location guess shows: with the Guess button (in the sticky bar on phones). */
 const GUESS_ANCHOR = 'masquerade-guess';
 
-/**
- * A face-down card: the same dark back in both themes, so a glance can't read what's under it.
- */
-// vt-palette: the face-down card back
-const CARD_BACK = 'rounded-xl bg-[#2A2420] text-[#F1E9DC] shadow-vt-2';
+/** Something held face down: the theme's card surface, marked by the accent edge. */
+const CARD_BACK =
+  'rounded-xl border-l-4 border-accent bg-card text-ink shadow-vt-1 ring-1 ring-line';
 
 // ---- Locations ----
 
@@ -97,8 +98,17 @@ function LocationPicture({
     );
   }
   return (
-    <span aria-hidden className={cn('flex items-center justify-center bg-sunk', className)}>
-      {display.emoji(id) ?? '📍'}
+    <span
+      aria-hidden
+      className={cn(
+        'flex items-center justify-center bg-sunk ring-1 ring-line ring-inset',
+        className,
+      )}
+    >
+      {/* In light mode a thin dark outline keeps pale emoji (a tooth, a lift) off the pale well. */}
+      <span className="drop-shadow-[0_0_1px_rgb(42_36_32/0.6)] dark:drop-shadow-none">
+        {display.emoji(id) ?? '📍'}
+      </span>
     </span>
   );
 }
@@ -177,21 +187,60 @@ function StatusHint({ view, room }: { view: MasqueradeView; room: GameRoomInfo }
  */
 function MyCard({ round, display }: { round: RoundView; display: LocationDisplay }) {
   if (round.role === 'watching') return null;
+  // While everyone talks the card is the moment; in the vote and the guess it steps aside for them
+  // (a row at every size).
+  const big = round.stage === 'talk';
   return (
     <section aria-label="Your card">
       <Peek
         what="your card"
         cover={
+          // Covered, your card is a card. Phones: its back at full size (as big as the place's
+          // picture at the reveal), with the hold gesture across its foot. Wide screens, where the
+          // column also holds the vote and the scores: a row with a 160 px back beside the words.
           <span
             data-testid="card-cover"
-            className={cn('flex min-h-24 items-center gap-3 p-3', CARD_BACK)}
+            className={cn(
+              'relative mx-auto flex w-full overflow-hidden rounded-xl border-t-4 border-accent bg-card text-ink shadow-vt-2 ring-1 ring-line',
+              big
+                ? 'aspect-[20/13] max-w-xs flex-col justify-end lg:aspect-auto lg:max-w-none lg:flex-row lg:items-center lg:gap-4 lg:p-3'
+                : 'flex-row items-center gap-3 p-3 lg:gap-4',
+            )}
           >
-            <span aria-hidden className="text-4xl">
-              🎴
-            </span>
-            <span className="min-w-0">
+            {display.back ? (
+              <ProtectedImage
+                src={display.back}
+                alt=""
+                className={cn(
+                  'object-cover',
+                  big
+                    ? 'absolute inset-0 size-full lg:static lg:aspect-[20/13] lg:size-auto lg:w-40 lg:shrink-0 lg:rounded-lg lg:shadow-vt-1 lg:ring-1 lg:ring-line'
+                    : 'aspect-[20/13] w-24 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line lg:w-40',
+                )}
+              />
+            ) : (
+              <span
+                aria-hidden
+                className={cn(
+                  'flex items-center justify-center bg-sunk',
+                  big
+                    ? 'absolute inset-0 pb-12 text-7xl lg:static lg:aspect-[20/13] lg:w-40 lg:shrink-0 lg:rounded-lg lg:pb-0 lg:text-6xl'
+                    : 'aspect-[20/13] w-24 shrink-0 rounded-lg text-4xl lg:w-40 lg:text-6xl',
+                )}
+              >
+                🎴
+              </span>
+            )}
+            <span
+              className={cn(
+                'relative min-w-0',
+                big
+                  ? 'bg-card/90 px-3 py-2 text-center backdrop-blur-sm lg:bg-transparent lg:px-0 lg:text-left lg:backdrop-blur-none'
+                  : 'text-left',
+              )}
+            >
               <span className="block font-bold">Hold to see your card</span>
-              <span className="block text-caption opacity-85">
+              <span className="block text-caption text-ink-2">
                 Or tap Show. Keep it hidden from your neighbours.
               </span>
             </span>
@@ -231,7 +280,7 @@ function CardFace({ round, display }: { round: RoundView; display: LocationDispl
             <LocationPicture
               id={location}
               display={display}
-              className="size-20 shrink-0 rounded-xl text-5xl"
+              className="size-28 shrink-0 rounded-2xl bg-[radial-gradient(80%_80%_at_50%_0%,var(--vt-lamp),transparent_80%)] text-7xl shadow-vt-1-edge lg:size-36 lg:text-8xl"
               artClassName="aspect-[5/3] w-full basis-full rounded-lg shadow-vt-1 ring-1 ring-line"
             />
           )
@@ -240,7 +289,10 @@ function CardFace({ round, display }: { round: RoundView; display: LocationDispl
           <p className="text-caption font-semibold tracking-wide text-ink-muted uppercase">
             {spy ? 'Your card' : 'The location'}
           </p>
-          <p className="text-heading leading-tight font-bold" data-testid="card-title">
+          <p
+            className="font-display text-heading leading-tight font-bold lg:text-title"
+            data-testid="card-title"
+          >
             {spy ? 'You’re the spy' : location ? display.name(location) : ''}
           </p>
           <p className="text-caption text-ink-2">
@@ -439,14 +491,15 @@ function VotesList({
   return (
     <div className="space-y-1">
       {tally.length > 0 && (
-        <p className="text-small" data-testid="vote-tally">
+        <p className="text-small lg:text-body" data-testid="vote-tally">
           <b>Votes: </b>
           {tally.map((t) => `${label(t.id)} ${t.votes}`).join(' · ')}
         </p>
       )}
       <ul
         aria-label="Votes"
-        className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-small sm:grid-cols-2"
+        // Wide screens: one vote to a line in body text (the column is narrow beside the board).
+        className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-small sm:grid-cols-2 lg:grid-cols-1 lg:gap-y-1.5 lg:text-body"
       >
         {round.players.map((p) => (
           <li key={p.id} className="flex justify-between gap-2">
@@ -516,16 +569,24 @@ function Reveal({
   const noName = noNameReason(result);
   return (
     <Card aria-label="Round result" role="region" className="space-y-3">
-      <div className="flex items-center gap-3">
-        <LocationPicture
-          id={result.location}
-          display={display}
-          className="size-16 shrink-0 rounded-xl text-4xl"
-          artClassName="aspect-[5/3] w-28 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line"
-        />
+      {/* The location, large: the round's answer is the moment everyone waited for. */}
+      {/* Wide screens: the place's picture leads the column at its full width. */}
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left lg:flex-col lg:items-start">
+        {/* At the end the finale already shows the location's picture: once is enough. */}
+        {view.phase !== 'over' && (
+          <LocationPicture
+            id={result.location}
+            display={display}
+            className="size-24 shrink-0 rounded-2xl text-7xl shadow-vt-1 ring-1 ring-line"
+            artClassName="aspect-[5/3] w-full max-w-xs shrink-0 rounded-xl shadow-vt-2 ring-1 ring-line sm:w-56 lg:w-full lg:max-w-none"
+          />
+        )}
         <div className="min-w-0">
           <p className="text-caption font-semibold text-ink-muted uppercase">The location was</p>
-          <p className="text-sub font-bold" data-testid="revealed-location">
+          <p
+            className="font-display text-title leading-tight font-bold"
+            data-testid="revealed-location"
+          >
             {display.name(result.location)}
           </p>
           <p className="text-small">🎭 {spyLine}</p>
@@ -609,63 +670,136 @@ function Scores({ view }: { view: MasqueradeView }) {
   );
 }
 
-/** The end screen: the shared podium and full standings (the winner line is the status above). */
+/**
+ * The end screen: the last round's verdict on the spy as the finale, then the shared podium and
+ * full standings (the points winner is also the status above).
+ */
 function Podium({
   view,
   act,
   room,
+  display,
   details,
 }: {
   view: MasqueradeView;
   act: Act;
   room: GameRoomInfo;
-  /** Phones: the last round and the players, as tabs beside the scores. */
-  details?: { round: ReactNode; players: ReactNode };
+  display: LocationDisplay;
+  /** The last round's reveal and the players (and on wide screens the round scores and the
+   * locations), as the end's parts beside the scores. */
+  details?: { round: ReactNode; players: ReactNode; scores?: ReactNode; locations?: ReactNode };
 }) {
+  const wide = useWideScreen();
   const entries = view.seats
     .filter((s) => s.playing || s.score > 0)
     .map((s) => ({ id: s.id, name: s.name, score: s.score }));
+  const top = Math.max(0, ...entries.map((e) => e.score));
+  const leaders = entries.filter((e) => e.score === top && top > 0);
+  const result = view.round?.result;
+  // Caught means the vote caught the spy and they missed the location.
+  const got = result?.spyResults.filter((s) => s.outcome !== 'caught').length ?? 0;
+  const spies = result?.spies.length ?? 0;
+  const title = !result
+    ? 'Game over'
+    : got === 0
+      ? spies > 1
+        ? 'The spies were caught'
+        : 'The spy was caught'
+      : got < spies
+        ? 'One spy got away'
+        : spies > 1
+          ? 'The spies got away'
+          : 'The spy got away';
+  // The viewer's role in the last round lights the card: the spy's side won if a spy got away.
+  const meSpy = !!view.me && !!result?.spies.includes(view.me.id);
+  const meIn = !!view.me && !!view.round?.players.some((p) => p.id === view.me?.id);
+  const spyWon = got > 0;
+  const tone = !result || !meIn ? 'neutral' : meSpy === spyWon ? 'win' : 'loss';
   return (
-    <>
+    <EndLayout
+      hero={
+        <EndHero
+          title={title}
+          eyebrow={result ? undefined : null}
+          // Phones: the location's picture stands in for the emblem, so the end fits the screen.
+          emblem={result ? (wide ? (spyWon ? '🎭' : '🔍') : null) : '🏆'}
+          tone={tone}
+          superlatives={wide ? room.superlatives : undefined}
+          art={
+            result && (
+              <LocationPicture
+                id={result.location}
+                display={display}
+                className="size-20 rounded-xl text-5xl shadow-vt-1 lg:size-28 lg:text-6xl"
+                artClassName="aspect-[5/3] w-52 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-96 lg:max-w-full"
+              />
+            )
+          }
+          actions={
+            room.isHost ? (
+              <StickyBar>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' })}
+                  >
+                    Change setup
+                  </Button>
+                </div>
+              </StickyBar>
+            ) : (
+              <p className="text-center text-small text-ink-2">
+                {waitingForHost(room, 'start the next game')}
+              </p>
+            )
+          }
+        >
+          {result && (
+            <p>
+              The location was <b>{display.name(result.location)}</b>.
+            </p>
+          )}
+          {leaders.length > 0 && (
+            <p>
+              {listNames(leaders.map((l) => (l.id === view.me?.id ? 'You' : l.name)))}{' '}
+              {leaders.length > 1 || leaders[0]!.id === view.me?.id ? 'win' : 'wins'} with {top}{' '}
+              {top === 1 ? 'point' : 'points'}.
+            </p>
+          )}
+        </EndHero>
+      }
+    >
       <Panel aria-label="Final scores" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         <EndTabs
           tabs={[
             {
               id: 'scores',
               label: '🏆 Scores',
-              content: <Standings entries={entries} you={view.me?.id} />,
+              // Phones: the table alone (the podium would push its rows under the tab's edge).
+              content: <Standings entries={entries} you={view.me?.id} phoneTable />,
             },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
             !!details?.round && { id: 'round', label: '🎭 Reveal', content: details.round },
+            !!details?.scores && { id: 'rounds', label: '📊 Rounds', content: details.scores },
             !!details && { id: 'players', label: '👥 Players', content: details.players },
+            !!details?.locations && {
+              id: 'locations',
+              label: '📍 Locations',
+              content: details.locations,
+            },
           ]}
         />
       </Panel>
-      {room.isHost ? (
-        <StickyBar>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={() => void act({ type: 'start' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <p className="text-center text-small text-ink-2">
-          {waitingForHost(room, 'start the next game')}
-        </p>
-      )}
-    </>
+    </EndLayout>
   );
 }
 
@@ -777,7 +911,7 @@ function LocationsBoard({
           )}
           <ul
             aria-label={groups.length > 1 ? g.label : undefined}
-            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]"
           >
             {g.ids.map((id) => {
               const mark = marks[id];
@@ -808,12 +942,21 @@ function LocationsBoard({
                       className={cn(
                         'line-clamp-2 text-caption leading-tight font-semibold',
                         mark === 'crossed' && 'line-through',
+                        // The pictures carry the place's name already: the caption is for screen
+                        // readers only.
+                        display.art(id) && 'sr-only',
                       )}
                     >
                       {name}
                     </span>
                     {view.played.includes(id) && (
-                      <span className="absolute top-1 left-1 rounded-full bg-ink px-1.5 py-0.5 text-caption leading-none font-bold text-page shadow-vt-1">
+                      // Over a picture, at its foot: the art prints the place's name along its top.
+                      <span
+                        className={cn(
+                          'absolute rounded-full bg-ink px-1.5 py-0.5 text-caption leading-none font-bold text-page shadow-vt-1',
+                          display.art(id) ? 'bottom-3 left-3' : 'top-1 left-1',
+                        )}
+                      >
                         Played
                       </span>
                     )}
@@ -977,7 +1120,9 @@ export function MasqueradeBoard({
   );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wide = useWideScreen();
-  const phoneEnd = view.phase === 'over' && !wide;
+  // Wide screens at the end: the finale on the left; the standings, the round's reveal, the
+  // players and the folded locations (the game no longer needs them) on the right.
+  const wideEnd = view.phase === 'over' && wide;
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {
@@ -1019,41 +1164,57 @@ export function MasqueradeBoard({
     { id: 'ideas', label: 'Ideas', icon: 'lightbulb', badge: dot('ideas') },
   ];
 
+  const endDetails = {
+    round: round?.stage === 'reveal' && (
+      <Reveal view={view} display={display} act={act} room={room} />
+    ),
+    players: (
+      <Panel>
+        <Players view={view} online={online} hostId={room.hostId} />
+      </Panel>
+    ),
+    scores: wide && <Scores view={view} />,
+    locations: wide && (
+      <details className="group rounded-xl bg-panel ring-1 ring-line">
+        <FoldSummary className="font-semibold">📍 Every location</FoldSummary>
+        <div className="px-3 pb-3">
+          <LocationsBoard view={view} display={display} act={act} />
+        </div>
+      </details>
+    ),
+  };
+  if (wideEnd)
+    return (
+      <div className="space-y-3">
+        <TopBar view={view} room={room} />
+        <Nudge view={view} room={room} />
+        <StatusHint view={view} room={room} />
+        <Podium view={view} act={act} room={room} display={display} details={endDetails} />
+      </div>
+    );
+
   return (
     <div className="space-y-3">
       <TopBar view={view} room={room} />
       <Nudge view={view} room={room} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div {...panel('play')} className={cn('min-w-0 space-y-3', panel('play').className)}>
           <StatusHint view={view} room={room} />
-          <FitArea on={fit && tab === 'play'} resetKey={stepKey} className="space-y-3">
+          <FitArea
+            // On a wide screen each column fits the screen and scrolls on its own.
+            on={view.phase === 'playing' && (wide || (fit && tab === 'play'))}
+            resetKey={stepKey}
+            className="space-y-3"
+          >
             {round?.redealtAfter && round.stage === 'talk' && (
               <p className="text-center text-small text-ink-muted">
                 {round.redealtAfter} left while a spy, so the round was dealt again.
               </p>
             )}
             {view.phase === 'over' && (
-              <Podium
-                view={view}
-                act={act}
-                room={room}
-                details={
-                  phoneEnd
-                    ? {
-                        round: round?.stage === 'reveal' && (
-                          <Reveal view={view} display={display} act={act} room={room} />
-                        ),
-                        players: (
-                          <Panel>
-                            <Players view={view} online={online} hostId={room.hostId} />
-                          </Panel>
-                        ),
-                      }
-                    : undefined
-                }
-              />
+              <Podium view={view} act={act} room={room} display={display} details={endDetails} />
             )}
-            {round && round.stage === 'reveal' && !phoneEnd && (
+            {round && round.stage === 'reveal' && view.phase === 'playing' && (
               <Reveal view={view} display={display} act={act} room={room} />
             )}
             {round && round.stage !== 'reveal' && view.phase === 'playing' && (
@@ -1072,7 +1233,7 @@ export function MasqueradeBoard({
                 )}
               </>
             )}
-            {!phoneEnd && (
+            {view.phase === 'playing' && (
               <>
                 <Scores view={view} />
                 <Panel>
@@ -1082,18 +1243,29 @@ export function MasqueradeBoard({
             )}
           </FitArea>
         </div>
-        <div className="min-w-0 space-y-4">
+        {/* Wide screens: the board and the ideas below it share one scroller that fits the screen. */}
+        <FitArea
+          on={view.phase === 'playing' && wide}
+          resetKey={stepKey}
+          className="min-w-0 space-y-4"
+        >
           <div {...panel('locations')}>
-            <FitArea on={fit && tab === 'locations'} resetKey={stepKey}>
+            <FitArea
+              on={view.phase === 'playing' && !wide && fit && tab === 'locations'}
+              resetKey={stepKey}
+            >
               <LocationsBoard view={view} display={display} act={act} />
             </FitArea>
           </div>
           <div {...panel('ideas')}>
-            <FitArea on={fit && tab === 'ideas'} resetKey={stepKey}>
+            <FitArea
+              on={view.phase === 'playing' && !wide && fit && tab === 'ideas'}
+              resetKey={stepKey}
+            >
               <IdeasBoard view={view} display={display} />
             </FitArea>
           </div>
-        </div>
+        </FitArea>
       </div>
       {tabbed && (
         <TabBar

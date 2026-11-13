@@ -358,9 +358,9 @@ async function crewRoom(
 }
 
 /**
- * The header on a phone with Night showing: one row, nothing spilling, four buttons at 44 px with
- * their names unchanged and no label shown, and how the name fits (each line break at a space, or
- * cut with an ellipsis on one line).
+ * The header on a phone with Night showing: one row, nothing spilling, four buttons at least 44 px
+ * wide, each with its names unchanged and its one-word label showing, and how the name fits (each
+ * line break at a space, or cut with an ellipsis at the end of its second line).
  */
 async function fullPhoneHeader(p: Page, title: string) {
   await p.setViewportSize(PHONE);
@@ -373,13 +373,12 @@ async function fullPhoneHeader(p: Page, title: string) {
   await expect(header.getByRole('button', { name: 'Rules' })).toBeVisible();
   for (const b of await buttons.all()) {
     const { width, height } = await box(b);
-    expect(Math.round(width)).toBe(44);
-    expect(Math.round(height)).toBe(44);
-    // The label stays for screen readers only (a 1 px box): no visible text beside the icon.
-    const labels = await b
-      .locator('span')
-      .evaluateAll((spans) => spans.map((el) => el.getBoundingClientRect().width));
-    expect(labels.every((w) => w <= 1)).toBe(true);
+    expect(Math.round(width)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(height)).toBe(52);
+    // The one-word label shows under the icon, whole.
+    const label = b.locator('span').last();
+    expect((await box(label)).width).toBeGreaterThan(10);
+    expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   }
   await expect(header.getByRole('heading', { level: 1 })).toHaveAccessibleName(title);
 
@@ -401,7 +400,7 @@ async function fullPhoneHeader(p: Page, title: string) {
       return {
         breaks,
         midWord: breaks.filter((i) => text.textContent![i - 1] !== ' '),
-        cut: style.whiteSpace === 'nowrap' && style.textOverflow === 'ellipsis',
+        cut: el.getAttribute('data-fit') === 'cut',
         title: el.getAttribute('title'),
         size: style.fontSize,
         overflow: el.scrollWidth > el.clientWidth,
@@ -413,17 +412,20 @@ async function fullPhoneHeader(p: Page, title: string) {
 
   const row = await header.evaluate((el) => ({
     spill: el.scrollWidth > el.clientWidth || document.scrollingElement!.scrollWidth > 390,
-    middles: [...el.children].map((c) => {
-      const r = c.getBoundingClientRect();
-      return Math.round(r.top + r.height / 2);
-    }),
+    // Children shown on this screen (the way-home mug is wide screens only).
+    middles: [...el.children]
+      .filter((c) => c.getClientRects().length > 0)
+      .map((c) => {
+        const r = c.getBoundingClientRect();
+        return Math.round(r.top + r.height / 2);
+      }),
   }));
   expect(row.spill).toBe(false);
   expect(Math.max(...row.middles) - Math.min(...row.middles)).toBeLessThanOrEqual(1);
   return name;
 }
 
-test('with Night showing, a phone header has four icon buttons and room for the whole name', async ({
+test('with Night showing, a phone header has four labelled buttons and room for the whole name', async ({
   browser,
 }) => {
   test.setTimeout(120_000);

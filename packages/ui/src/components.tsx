@@ -75,6 +75,14 @@ const SIZES: Record<ButtonSize, string> = {
   icon: 'size-11 shrink-0 text-lg',
 };
 
+/**
+ * For a small control that has to keep its look (a chip, a 👋 nudge, a mini scoreboard): an
+ * invisible band centred on it makes it a 44 × 44 px target on touch screens, never smaller than
+ * the control itself. Its own box must not clip (`overflow-hidden` hides the band).
+ */
+export const TAP_BAND =
+  "relative pointer-coarse:after:absolute pointer-coarse:after:top-1/2 pointer-coarse:after:left-1/2 pointer-coarse:after:h-[max(100%,2.75rem)] pointer-coarse:after:w-[max(100%,2.75rem)] pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2 pointer-coarse:after:content-['']";
+
 /** The classes of a `Button`, for a link or a label that should look like one. */
 export function buttonClass({
   variant = 'primary',
@@ -543,10 +551,11 @@ export function Chip({
         'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3.5 text-small font-semibold whitespace-nowrap',
         'transition-colors duration-[120ms] motion-safe:active:scale-[0.98]',
         FOCUS_RING,
+        // A guest sees the host's choice as it is (still filled); the rest go quiet, at ≥ 4.5:1.
         pressed
           ? 'border-ink bg-ink text-page'
-          : 'border-line-strong bg-card text-ink hover:bg-panel',
-        'disabled:cursor-not-allowed disabled:border-line disabled:bg-sunk disabled:text-ink-muted',
+          : 'border-line-strong bg-card text-ink hover:bg-panel disabled:border-line disabled:bg-sunk disabled:text-ink-2',
+        'disabled:cursor-not-allowed',
         className,
       )}
       {...props}

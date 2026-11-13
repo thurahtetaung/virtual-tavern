@@ -41,9 +41,7 @@ export function PastGuesses({
   return (
     <div className="space-y-0.5">
       {viewer}
-      <p className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
-        Past guesses
-      </p>
+      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Past guesses</p>
       <ul
         tabIndex={0}
         aria-label={`${p.name}’s past guesses`}
@@ -56,7 +54,8 @@ export function PastGuesses({
               key={`${x.hour}-${i}`}
               className={cn(
                 'shrink-0 space-y-0.5 text-center',
-                compact ? 'w-14 sm:w-16' : 'w-24 sm:w-28',
+                // Desktops have the room: the others' guesses large enough to read.
+                compact ? 'w-14 sm:w-16 lg:w-24' : 'w-24 sm:w-28',
                 i > 0 && list[i - 1]!.pillar !== x.pillar && 'ml-2',
               )}
             >
@@ -81,7 +80,7 @@ export function PastGuesses({
                   <span
                     aria-hidden
                     className={cn(
-                      'absolute top-0.5 right-0.5 rounded px-0.5 text-[10px] leading-tight font-black text-white',
+                      'absolute top-0.5 right-0.5 rounded px-0.5 text-xs leading-tight font-black text-white',
                       x.correct ? 'bg-success' : 'bg-danger',
                     )}
                   >
@@ -89,7 +88,7 @@ export function PastGuesses({
                   </span>
                 </Card>
               )}
-              <p className="text-[10px] leading-none text-ink-muted">hour {roman(x.hour)}</p>
+              <p className="text-xs leading-none text-ink-2">hour {roman(x.hour)}</p>
             </li>
           );
         })}

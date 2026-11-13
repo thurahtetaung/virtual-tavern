@@ -8,7 +8,10 @@ import {
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
+  EndLayout,
   EndTabs,
+  FoldSummary,
   GuideLink,
   Hint,
   LobbySettings,
@@ -17,7 +20,6 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
-  StickyBar,
   Superlatives,
   Switch,
   TimerSettings,
@@ -27,9 +29,21 @@ import {
   useSecondsLeft,
   useSpectatorPrompt,
   useWideScreen,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
+  SeatHeading,
+  SeatToggle,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { type MultiMode, RATING_LINE, maxScore, ratingOf } from '../logic/cards.ts';
+import {
+  type MultiMode,
+  RATING_LINE,
+  type Rank,
+  SUIT_SYMBOL,
+  maxScore,
+  ratingOf,
+} from '../logic/cards.ts';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -78,11 +92,19 @@ export function SkyfireGame({
   const timeUp = left === 0 && view.settings.timerMode !== 'strict';
 
   const inGame = !!view.game?.hands[room.you];
-  const wide = useWideScreen();
+  const wideScreen = useWideScreen();
   // Phones: the end says how it went, and the table is one of its tabs, so it fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
   const table = (
-    <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={name}
+      showGuide={showGuide}
+      // Wide screens keep the first-time tips in the rail, beside the play.
+      aside={view.phase === 'playing' && inGame ? <Tips /> : null}
+    />
   );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -116,7 +138,7 @@ export function SkyfireGame({
               </span>
             )}
           </Hint>
-          {view.phase === 'playing' && inGame && <Tips />}
+          {view.phase === 'playing' && inGame && !wideScreen && <Tips />}
           {view.phase === 'over' && (
             <End
               view={view}
@@ -124,10 +146,11 @@ export function SkyfireGame({
               act={act}
               art={art}
               name={name}
-              table={phoneEnd ? table : null}
+              // The finished table is one of the end's parts on every width (the end fills the window).
+              table={table}
             />
           )}
-          {!phoneEnd && table}
+          {view.phase !== 'over' && table}
         </>
       )}
     </div>
@@ -169,7 +192,7 @@ function Tips() {
     >
       <button
         type="button"
-        className="min-w-0 flex-1 truncate text-left font-semibold underline-offset-2 hover:underline"
+        className="min-h-11 min-w-0 flex-1 truncate text-left font-semibold underline-offset-2 hover:underline"
         onClick={() => setOpen(true)}
       >
         💡 New here? Three things to know
@@ -262,7 +285,7 @@ function Choice<T extends string>({
               if (editable) onChange(o);
             }}
             className={cn(
-              'rounded-lg px-3 py-1.5 text-sm font-semibold ring-1',
+              'min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1',
               value === o ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
               !editable && 'cursor-default',
             )}
@@ -313,21 +336,126 @@ function Lobby({
       ? { text: 'You’re watching. Take a seat to play.', me: false }
       : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={room.gameName ?? 'Skyfire'}
+          art={
+            art.lobby ? (
+              <ProtectedImage src={art.lobby} alt="" className="w-full rounded-lg object-cover" />
+            ) : (
+              <span className="grid grid-cols-3 gap-1" aria-hidden>
+                <CardFace card={{ suit: 'red', rank: 1 }} art={art} size="row" />
+                <CardFace card={{ suit: 'blue', rank: 2 }} art={art} size="row" />
+                <CardFace card={{ suit: 'yellow', rank: 3 }} art={art} size="row" />
+              </span>
+            )
+          }
+        >
+          A cooperative show for 2 to 5, best at 3 or 4: you see everyone’s cards but your own, and
+          build five fireworks from 1 to 5 with careful clues.
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={room.isHost}
+            summary={[
+              `top score ${top}`,
+              ...(st.multi !== 'off'
+                ? [`multicolour: ${MULTI_LABEL[st.multi].toLowerCase()}`]
+                : []),
+              ...(st.black ? ['black powder'] : []),
+              ...(st.expert ? ['expert ending'] : []),
+              MEMORY_LABEL[st.memory].toLowerCase(),
+              ...(st.zeroClues ? [] : ['no empty clues']),
+              timersLine(timers, { clue: 'turns', guess: null }),
+            ]}
+            className="space-y-4"
+          >
+            <Choice
+              title="Clue memory"
+              value={st.memory}
+              options={['marks', 'full', 'memory'] as const}
+              labels={MEMORY_LABEL}
+              help={MEMORY_HELP}
+              editable={room.isHost}
+              onChange={(memory) => set({ memory })}
+              testId="sf-memory"
+            />
+            <Choice
+              title="Multicolour"
+              value={st.multi}
+              options={['off', '6th', 'one-each', 'wild'] as const}
+              labels={MULTI_LABEL}
+              help={MULTI_HELP}
+              editable={room.isHost}
+              onChange={(multi) => set({ multi })}
+              testId="sf-multi"
+            />
+            <Switch
+              on={st.black}
+              editable={room.isHost}
+              title="Black powder"
+              help="A black firework built 5 down to 1. No colour clue touches it; each black card missing costs a point."
+              onChange={(black) => set({ black })}
+              testId="sf-black"
+            />
+            <Switch
+              on={st.expert}
+              editable={room.isHost}
+              title="Expert ending"
+              help="A perfect show or nothing: no last round, and losing the last copy of a needed card loses the show."
+              onChange={(expert) => set({ expert })}
+              testId="sf-expert"
+            />
+            <Switch
+              on={st.zeroClues}
+              editable={room.isHost}
+              title="Empty clues"
+              help="A clue may touch no card (“you have no blue”). Off: every clue must touch at least one card."
+              onChange={(zeroClues) => set({ zeroClues })}
+              testId="sf-zero"
+            />
+            <TimerSettings
+              values={timers}
+              editable={room.isHost}
+              clueLabel="Turn timer"
+              clueHelp="Time for each turn."
+              strictHelp="the app makes a safe move for them (a discard or a clue, never a play)"
+              onChange={(patch) =>
+                set({
+                  ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
+                  ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                })
+              }
+            />
+            <RefusalSlot anchor="sf-lobby" />
+          </LobbySettings>
+        </>
+      }
+      start={
+        room.isHost && (
+          <LobbyStart
+            label="Start the show"
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'sf-start' })}
+            refusal="sf-start"
+          />
+        )
+      }
+    >
       {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
       <Panel className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({n}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        {art.lobby && (
-          <ProtectedImage
-            src={art.lobby}
-            alt=""
-            className="max-h-28 w-full rounded-xl object-cover"
-          />
-        )}
+        <SeatHeading as="h2" title={`Players (${n}/${MAX_PLAYERS})`}>
+          {me && (
+            <SeatToggle
+              playing={me.playing}
+              full={n >= MAX_PLAYERS}
+              onChange={(playing) => void act({ type: 'sit', playing })}
+            />
+          )}
+        </SeatHeading>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
@@ -338,15 +466,6 @@ function Lobby({
                 offline={offline(s.id)}
                 className="flex-1"
               />
-              {s.id === room.you && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void act({ type: 'sit', playing: false })}
-                >
-                  Watch instead
-                </Button>
-              )}
             </li>
           ))}
         </ul>
@@ -358,111 +477,9 @@ function Lobby({
             ))}
           </p>
         )}
-        {me && !me.playing && n < MAX_PLAYERS && (
-          <Button variant="soft" onClick={() => void act({ type: 'sit', playing: true })}>
-            Take a seat
-          </Button>
-        )}
-        <div className="flex items-center gap-3 text-sm text-ink-muted">
-          <span className="grid w-28 shrink-0 grid-cols-3 gap-1" aria-hidden>
-            <CardFace card={{ suit: 'red', rank: 1 }} art={art} size="row" />
-            <CardFace card={{ suit: 'blue', rank: 2 }} art={art} size="row" />
-            <CardFace card={{ suit: 'yellow', rank: 3 }} art={art} size="row" />
-          </span>
-          <p>
-            A cooperative show for 2 to 5, best at 3 or 4: you see everyone’s cards but your own,
-            and build five fireworks from 1 to 5 with careful clues.
-          </p>
-        </div>
       </Panel>
       <GuideLink title={room.gameName ?? 'Skyfire'} onClick={showGuide} />
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          `top score ${top}`,
-          ...(st.multi !== 'off' ? [`multicolour: ${MULTI_LABEL[st.multi].toLowerCase()}`] : []),
-          ...(st.black ? ['black powder'] : []),
-          ...(st.expert ? ['expert ending'] : []),
-          MEMORY_LABEL[st.memory].toLowerCase(),
-          ...(st.zeroClues ? [] : ['no empty clues']),
-          timersLine(timers, { clue: 'turns', guess: null }),
-        ]}
-        className="space-y-4"
-      >
-        <Choice
-          title="Clue memory"
-          value={st.memory}
-          options={['marks', 'full', 'memory'] as const}
-          labels={MEMORY_LABEL}
-          help={MEMORY_HELP}
-          editable={room.isHost}
-          onChange={(memory) => set({ memory })}
-          testId="sf-memory"
-        />
-        <Choice
-          title="Multicolour"
-          value={st.multi}
-          options={['off', '6th', 'one-each', 'wild'] as const}
-          labels={MULTI_LABEL}
-          help={MULTI_HELP}
-          editable={room.isHost}
-          onChange={(multi) => set({ multi })}
-          testId="sf-multi"
-        />
-        <Switch
-          on={st.black}
-          editable={room.isHost}
-          title="Black powder"
-          help="A black firework built 5 down to 1. No colour clue touches it; each black card missing costs a point."
-          onChange={(black) => set({ black })}
-          testId="sf-black"
-        />
-        <Switch
-          on={st.expert}
-          editable={room.isHost}
-          title="Expert ending"
-          help="A perfect show or nothing: no last round, and losing the last copy of a needed card loses the show."
-          onChange={(expert) => set({ expert })}
-          testId="sf-expert"
-        />
-        <Switch
-          on={st.zeroClues}
-          editable={room.isHost}
-          title="Empty clues"
-          help="A clue may touch no card (“you have no blue”). Off: every clue must touch at least one card."
-          onChange={(zeroClues) => set({ zeroClues })}
-          testId="sf-zero"
-        />
-        <TimerSettings
-          values={timers}
-          editable={room.isHost}
-          clueLabel="Turn timer"
-          clueHelp="Time for each turn."
-          strictHelp="the app makes a safe move for them (a discard or a clue, never a play)"
-          onChange={(patch) =>
-            set({
-              ...(patch.clueSeconds !== undefined && { seconds: patch.clueSeconds }),
-              ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-            })
-          }
-        />
-        <RefusalSlot anchor="sf-lobby" />
-      </LobbySettings>
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'sf-start' })}
-          >
-            Start the show
-          </Button>
-          {blocker && <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>}
-          <RefusalSlot anchor="sf-start" />
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }
 
@@ -479,9 +496,10 @@ function End({
   act: Act;
   art: Art;
   name: NameOf;
-  /** Phones: the table, as one of the end's tabs. */
+  /** The finished table, as one of the end's parts. */
   table: ReactNode;
 }) {
+  const wide = useWideScreen();
   const g = view.game!;
   const r = g.result;
   if (!r) return null;
@@ -494,85 +512,134 @@ function End({
       ? 'Lost'
       : ratingOf(r.score, r.max);
   return (
-    <Panel className="flex flex-col gap-3" data-testid="sf-end">
-      <EndTabs
-        tabs={[
-          {
-            id: 'score',
-            label: '🎆 Score',
-            content: (
-              <div className="flex flex-col items-center gap-1 text-center">
-                <p className="text-4xl font-black tabular-nums" data-testid="sf-final-score">
-                  {r.score} <span className="text-lg font-semibold text-ink-muted">/ {r.max}</span>
-                </p>
-                <p className="text-lg font-bold">
-                  {r.win ? '🎆 ' : ''}
-                  {rating}
-                </p>
-                <p className="text-sm text-ink-muted">
-                  {lost || r.how === 'ended' || view.settings.expert
-                    ? endHowText(r.how)
-                    : (RATING_LINE[rating] ?? '')}
-                </p>
-                {(r.score !== r.reached || lost) && (
-                  <p className="text-sm" data-testid="sf-reached">
-                    The fireworks reached {r.reached}.
-                  </p>
+    <div className="flex flex-col gap-3" data-testid="sf-end">
+      <EndLayout
+        hero={
+          <EndHero
+            title={
+              <>
+                {r.win ? '🎆 ' : ''}
+                {rating}
+              </>
+            }
+            // The score is the emblem: the whole table played as one.
+            emblem={
+              <span className="font-black tabular-nums" data-testid="sf-final-score">
+                {r.score}{' '}
+                <span className="text-heading font-semibold text-ink-muted">/ {r.max}</span>
+              </span>
+            }
+            tone={lost || rating === 'Lost' ? 'loss' : 'success'}
+            // The show itself: each firework's top card as it ended.
+            art={
+              <ul
+                aria-label="The fireworks"
+                className="flex flex-wrap justify-center gap-2 lg:gap-3"
+              >
+                {g.suits.map((suit) => {
+                  const h = g.fireworks[suit] ?? 0;
+                  const top = h ? ((suit === 'black' ? 6 - h : h) as Rank) : null;
+                  return (
+                    <li
+                      key={suit}
+                      className="flex w-12 flex-col items-center gap-1 sm:w-16 lg:w-24"
+                    >
+                      {top ? (
+                        <CardFace
+                          card={{ suit, rank: top }}
+                          art={art}
+                          size="row"
+                          className={cn('shadow-vt-2', h === 5 && 'ring-2 ring-warn-line')}
+                        />
+                      ) : (
+                        <span className="flex aspect-[5/7] w-full items-center justify-center rounded-md text-lg text-ink-muted ring-2 ring-line ring-dashed">
+                          {SUIT_SYMBOL[suit]}
+                        </span>
+                      )}
+                      <span className="text-caption tabular-nums text-ink-muted">{h}/5</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            actions={
+              <>
+                {room.isHost ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button
+                      size="lg"
+                      onClick={() => void act({ type: 'play-again' }, { anchor: 'sf-end' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'sf-end' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                ) : (
+                  <Hint>{waitingForHost(room, 'start the next show')}</Hint>
                 )}
-                {r.how === 'lost-card' && r.card && (
-                  <p className="flex items-center gap-2 text-sm">
-                    Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
-                  </p>
-                )}
-                {r.how === 'no-cards' && r.player && (
-                  <p className="text-sm">{name(r.player)} had no cards left.</p>
-                )}
-              </div>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          {
-            id: 'replay',
-            label: '⏪ Replay',
-            content: (
-              <details className="rounded-xl bg-card p-2 ring-1 ring-line" open>
-                <summary className="cursor-pointer text-sm font-semibold">
-                  Replay: every turn, every hand face up
-                </summary>
-                <div className="mt-2">
-                  <Replay view={view} you={room.you} art={art} name={name} />
-                </div>
-              </details>
-            ),
-          },
-          !!table && { id: 'table', label: '🎇 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'sf-end' })}
+                <RefusalSlot anchor="sf-end" />
+              </>
+            }
           >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'sf-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next show')}</Hint>
-      )}
-      <RefusalSlot anchor="sf-end" />
-    </Panel>
+            <p className="sr-only">
+              Score: {r.score} of {r.max}.
+            </p>
+            <p className="text-sm text-ink-muted">
+              {lost || r.how === 'ended' || view.settings.expert
+                ? endHowText(r.how)
+                : (RATING_LINE[rating] ?? '')}
+            </p>
+            {(r.score !== r.reached || lost) && (
+              <p className="text-sm" data-testid="sf-reached">
+                The fireworks reached {r.reached}.
+              </p>
+            )}
+            {r.how === 'lost-card' && r.card && (
+              <p className="flex items-center justify-center gap-2 text-sm">
+                Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
+              </p>
+            )}
+            {r.how === 'no-cards' && r.player && (
+              <p className="text-sm">{name(r.player)} had no cards left.</p>
+            )}
+          </EndHero>
+        }
+      >
+        <Panel className="flex flex-col gap-3">
+          <EndTabs
+            tabs={[
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              {
+                id: 'replay',
+                label: '⏪ Replay',
+                content: (
+                  <details className="group rounded-xl bg-card p-2 ring-1 ring-line" open>
+                    <FoldSummary className="px-2 font-semibold">
+                      Replay: every turn, every hand face up
+                    </FoldSummary>
+                    <div className="mt-2">
+                      <Replay view={view} you={room.you} art={art} name={name} />
+                    </div>
+                  </details>
+                ),
+              },
+              !!table && { id: 'table', label: '🎇 Table', content: table },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

@@ -1,7 +1,9 @@
 import { type GameGuide, type GuideContext, type GuideFooter, shapeGuide } from '@vt/game-sdk';
 import {
+  type ArtRef,
   type Names,
   PLACEHOLDER_NAMES,
+  artOf,
   asManifest,
   fillNames,
   footerOf,
@@ -299,8 +301,22 @@ function fill<T>(value: T, names: Names): T {
   return value;
 }
 
+/** Pictures for the guide's steps, from the manifest. */
+export interface GuideArt {
+  box?: string;
+  task?: string;
+  card?: string;
+}
+
+/** Which step shows which picture: the briefing, the tasks and the tricks. */
+const STEP_ART: Record<number, keyof GuideArt> = { 0: 'box', 1: 'task', 2: 'card' };
+
 /** The guide with the theme's names (and the credit, when there is one). */
-export function makeGuide(names: Names = PLACEHOLDER_NAMES, footer?: GuideFooter): GameGuide {
+export function makeGuide(
+  names: Names = PLACEHOLDER_NAMES,
+  footer?: GuideFooter,
+  art: GuideArt = {},
+): GameGuide {
   const room = (raw: unknown): GuideContext | undefined => {
     const v = raw as MissionControlView;
     if (!v?.settings) return undefined;
@@ -319,7 +335,19 @@ export function makeGuide(names: Names = PLACEHOLDER_NAMES, footer?: GuideFooter
       options: [...(two ? ['dummy'] : []), ...(v.voyage?.taskSet === 'cards' ? ['cards'] : [])],
     };
   };
-  return { ...fill(shaped(footer), names), room };
+  const named = fill(shaped(footer), names);
+  const steps = named.steps?.map((step, i) => {
+    const pic = STEP_ART[i] && art[STEP_ART[i]];
+    return pic ? { ...step, art: pic } : step;
+  });
+  return { ...named, ...(steps && { steps }), room };
+}
+
+/** A manifest picture's address, only for a plain path inside the game's folder. */
+function pictureUrl(ref: ArtRef | undefined): string | undefined {
+  const path = artOf(ref);
+  if (typeof path !== 'string' || !/^[\w-][\w./-]*$/.test(path) || path.includes('..')) return;
+  return `/api/backroom/assets/mission-control/${path}`;
 }
 
 /** The guide without the manifest. */
@@ -328,5 +356,14 @@ export const guide: GameGuide = makeGuide();
 /** The guide with the manifest's names and credit. */
 export function nameGuide(manifest: unknown): GameGuide {
   const m = asManifest(manifest);
-  return makeGuide(namesOf(m), footerOf(m));
+  const first = (refs: Record<string, ArtRef> | undefined) =>
+    refs && typeof refs === 'object' ? Object.values(refs)[0] : undefined;
+  const art: GuideArt = {};
+  const box = pictureUrl(m.box);
+  const task = pictureUrl(first(m.tasks));
+  const card = pictureUrl(first(m.cards));
+  if (box) art.box = box;
+  if (task) art.task = task;
+  if (card) art.card = card;
+  return makeGuide(namesOf(m), footerOf(m), art);
 }

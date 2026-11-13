@@ -8,13 +8,16 @@ import { useArt } from './assets.tsx';
  * Each suit has its own shape as well as its own colour (a colour-blind-safe set), so a card
  * never relies on colour alone.
  */
-export const SUIT_LOOK: Record<Suit, { symbol: string; color: string; name: string }> = {
-  p: { symbol: '◆', color: '#c4558f', name: 'pink' },
-  b: { symbol: '●', color: '#1f6fb2', name: 'blue' },
-  g: { symbol: '▲', color: '#0f8a68', name: 'green' },
-  y: { symbol: '★', color: '#c47f00', name: 'yellow' },
-  t: { symbol: '⬢', color: '#4a4a55', name: 'trump' },
-};
+export const SUIT_LOOK: Record<Suit, { symbol: string; color: string; ink: string; name: string }> =
+  {
+    // `color` prints on the white card face (at least 4.5:1 there); `ink` is the same suit on the
+    // page's own card surface, a step lighter in dark mode so every suit reads in both themes.
+    p: { symbol: '◆', color: '#b54a82', ink: 'text-[#b54a82] dark:text-[#e584b8]', name: 'pink' },
+    b: { symbol: '●', color: '#1f6fb2', ink: 'text-[#1f6fb2] dark:text-[#6aaee6]', name: 'blue' },
+    g: { symbol: '▲', color: '#0b7a5c', ink: 'text-[#0b7a5c] dark:text-[#4cc59d]', name: 'green' },
+    y: { symbol: '★', color: '#9e6600', ink: 'text-[#9e6600] dark:text-[#e8aa3c]', name: 'yellow' },
+    t: { symbol: '⬢', color: '#4a4a55', ink: 'text-[#4a4a55] dark:text-[#bdbdca]', name: 'trump' },
+  };
 
 /** "pink 3", "trump 4" (with the theme's word for trumps). */
 export function cardName(c: CardId, trump: string): string {
@@ -32,9 +35,9 @@ export function CardChip({ card, className }: { card: CardId; className?: string
       aria-label={cardName(card, names.trump)}
       className={cn(
         'inline-flex items-baseline gap-0.5 rounded-md bg-card px-1 font-bold tabular-nums ring-1 ring-line',
+        look.ink,
         className,
       )}
-      style={{ color: look.color }}
     >
       <span aria-hidden>{look.symbol}</span>
       <span aria-hidden>{valueOf(card)}</span>
@@ -51,6 +54,11 @@ const SIZE = {
   lg: 'h-28 w-20 text-2xl',
   /** The hand: phone size, bigger on wide screens. */
   hand: 'h-16 w-11 text-base sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
+  /** Your own hand: on phones a cell of a six-across grid (about 52 × 76 px), else as `hand`. */
+  handFill:
+    'aspect-[11/16] w-full text-lg sm:aspect-auto sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
+  /** A phone hand seven across: the row's width at the hand's usual 64 px height. */
+  handFillLow: 'h-16 w-full text-base sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
 } as const;
 
 /** A playing card's face: art from the manifest when there is some, else its symbol and value. */
@@ -102,7 +110,7 @@ export function CardFace({
         style={{ color: look.color }}
       >
         <span>{valueOf(card)}</span>
-        <span className="text-[0.7em]">{look.symbol}</span>
+        <span className="text-[max(0.75em,12px)]">{look.symbol}</span>
       </span>
       {/* Bottom left on phones, where an overlapped card in the hand still shows. */}
       {badge && (
@@ -197,7 +205,7 @@ function SuitName({ suit }: { suit: Suit }) {
   const look = SUIT_LOOK[suit] ?? SUIT_LOOK.t;
   return (
     <span>
-      <span aria-hidden style={{ color: look.color }}>
+      <span aria-hidden className={look.ink}>
         {look.symbol}
       </span>{' '}
       {suit === 't' ? names.trump : look.name}

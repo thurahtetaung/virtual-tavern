@@ -1,17 +1,19 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
-  Button,
   type Choice,
   ChoicePicker,
   GuideLink,
   Hint,
   LobbySettings,
   Panel,
-  StickyBar,
   Switch,
   TimerSettings,
   cn,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
 } from '@vt/ui';
+import { makeGuide } from '../logic/guide.ts';
 import { type Names, cowCount, fillNames } from '../logic/names.ts';
 import { type StampedeAction, type StampedeView, TARGETS } from '../logic/types.ts';
 import type { Status } from './status.ts';
@@ -74,131 +76,134 @@ export function Lobby({
   const s = view.settings;
   const f = (t: string) => fillNames(t, names);
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <LobbyLayout
+      pitch={
+        <LobbyPitch title={title} emblem="🐄" coverFor="stampede">
+          {makeGuide(names).tagline}
+        </LobbyPitch>
+      }
+      rail={
+        <>
+          <LobbySettings
+            editable={editable}
+            summary={settingsSummary(view, names)}
+            className="space-y-4"
+          >
+            <ChoicePicker
+              selectedIds={s.deckIds}
+              editable={editable}
+              onSave={(ids) => act({ type: 'update-settings', deckIds: ids })}
+              choices={view.decks.map((d) => ({
+                id: d.id,
+                name: d.adult ? `${d.name} (18+)` : d.name,
+                description: d.description,
+                count: d.questionCount,
+              }))}
+              labels={{
+                title: 'Question decks',
+                unit: 'questions',
+                noun: 'deck',
+                change: 'Change decks',
+                summary: decksSummary,
+              }}
+            />
+            <fieldset>
+              <legend className="text-sm font-semibold">{f('{Cows} to win')}</legend>
+              {editable ? (
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {TARGETS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={s.target === n}
+                      onClick={() => void act({ type: 'update-settings', target: n })}
+                      className={cn(
+                        'h-11 rounded-lg font-semibold ring-1 transition',
+                        s.target === n
+                          ? 'bg-accent-soft ring-2 ring-accent'
+                          : 'ring-line hover:bg-card',
+                      )}
+                    >
+                      🐄 {n}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm">First to {cowCount(names, s.target)}</p>
+              )}
+            </fieldset>
+            {/* Folded away so the Start button stays on a phone's first screen. */}
+            <details className="group">
+              <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="font-semibold">Timer and house rules</span>
+                  <span className="text-ink-muted"> · {timerSummary(s)}</span>
+                </span>
+                <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
+                  ▸
+                </span>
+              </summary>
+              <div className="space-y-3 pt-2">
+                <TimerSettings
+                  values={{
+                    clueSeconds: s.answerSeconds,
+                    guessSeconds: null,
+                    timerMode: s.timerMode,
+                  }}
+                  editable={editable}
+                  onChange={(patch) =>
+                    void act({
+                      type: 'update-settings',
+                      ...(patch.clueSeconds !== undefined && { answerSeconds: patch.clueSeconds }),
+                      ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+                    })
+                  }
+                  clueLabel="Answer timer"
+                  clueHelp="Time for everyone to write an answer."
+                  strictHelp="the answers lock and anyone still writing has no answer that round"
+                />
+                <Switch
+                  on={s.skip}
+                  editable={editable}
+                  title="Skip a question"
+                  help="The host may swap the question once a round."
+                  onChange={(v) => void act({ type: 'update-settings', skip: v })}
+                  testId="setting-skip"
+                />
+                <Switch
+                  on={s.holderPicks}
+                  editable={editable}
+                  title="Holder picks"
+                  help={f('With several answers alone, the {pink}’s holder picks who takes it.')}
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => void act({ type: 'update-settings', holderPicks: v })}
+                  testId="setting-holder-picks"
+                />
+                <Switch
+                  on={s.sharedWin}
+                  editable={editable}
+                  title="Shared win"
+                  help="Players tied on top at the target share the win, instead of raising it."
+                  tag="house rule"
+                  tagTone="special"
+                  onChange={(v) => void act({ type: 'update-settings', sharedWin: v })}
+                  testId="setting-shared-win"
+                />
+              </div>
+            </details>
+          </LobbySettings>
+        </>
+      }
+      start={
+        editable && <LobbyStart blocker={blocker} onStart={() => void act({ type: 'start' })} />
+      }
+    >
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} names={names} />
       </Panel>
       <GuideLink title={title} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={settingsSummary(view, names)}
-        className="space-y-4"
-      >
-        <ChoicePicker
-          selectedIds={s.deckIds}
-          editable={editable}
-          onSave={(ids) => act({ type: 'update-settings', deckIds: ids })}
-          choices={view.decks.map((d) => ({
-            id: d.id,
-            name: d.adult ? `${d.name} (18+)` : d.name,
-            description: d.description,
-            count: d.questionCount,
-          }))}
-          labels={{
-            title: 'Question decks',
-            unit: 'questions',
-            noun: 'deck',
-            change: 'Change decks',
-            summary: decksSummary,
-          }}
-        />
-        <fieldset>
-          <legend className="text-sm font-semibold">{f('{Cows} to win')}</legend>
-          {editable ? (
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {TARGETS.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  aria-pressed={s.target === n}
-                  onClick={() => void act({ type: 'update-settings', target: n })}
-                  className={cn(
-                    'h-11 rounded-lg font-semibold ring-1 transition',
-                    s.target === n
-                      ? 'bg-accent-soft ring-2 ring-accent'
-                      : 'ring-line hover:bg-card',
-                  )}
-                >
-                  🐄 {n}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm">First to {cowCount(names, s.target)}</p>
-          )}
-        </fieldset>
-        {/* Folded away so the Start button stays on a phone's first screen. */}
-        <details className="group">
-          <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="font-semibold">Timer and house rules</span>
-              <span className="text-ink-muted"> · {timerSummary(s)}</span>
-            </span>
-            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
-              ▸
-            </span>
-          </summary>
-          <div className="space-y-3 pt-2">
-            <TimerSettings
-              values={{ clueSeconds: s.answerSeconds, guessSeconds: null, timerMode: s.timerMode }}
-              editable={editable}
-              onChange={(patch) =>
-                void act({
-                  type: 'update-settings',
-                  ...(patch.clueSeconds !== undefined && { answerSeconds: patch.clueSeconds }),
-                  ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-                })
-              }
-              clueLabel="Answer timer"
-              clueHelp="Time for everyone to write an answer."
-              strictHelp="the answers lock and anyone still writing has no answer that round"
-            />
-            <Switch
-              on={s.skip}
-              editable={editable}
-              title="Skip a question"
-              help="The host may swap the question once a round."
-              onChange={(v) => void act({ type: 'update-settings', skip: v })}
-              testId="setting-skip"
-            />
-            <Switch
-              on={s.holderPicks}
-              editable={editable}
-              title="Holder picks"
-              help={f('With several answers alone, the {pink}’s holder picks who takes it.')}
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => void act({ type: 'update-settings', holderPicks: v })}
-              testId="setting-holder-picks"
-            />
-            <Switch
-              on={s.sharedWin}
-              editable={editable}
-              title="Shared win"
-              help="Players tied on top at the target share the win, instead of raising it."
-              tag="house rule"
-              tagTone="special"
-              onChange={(v) => void act({ type: 'update-settings', sharedWin: v })}
-              testId="setting-shared-win"
-            />
-          </div>
-        </details>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-        </StickyBar>
-      )}
-    </div>
+    </LobbyLayout>
   );
 }

@@ -238,7 +238,21 @@ export function HoodwinkGame({
           view.round && (
             <>
               {!shown && <ContinueWithout view={view} room={room} act={act} online={online} />}
-              <Panel>
+              <Panel
+                // While lies are written (and, on wide screens, while votes are cast) the question
+                // card sits in the middle of the free height rather than a strip at the top; on
+                // phones the lie form waits in the bar below.
+                className={cn(
+                  // The question is the show's spotlight: a pool of lamp light at the top.
+                  'bg-[radial-gradient(70%_50%_at_50%_0%,var(--vt-lamp),transparent_75%)]',
+                  // Wide screens: every stage (the reveal too) sits in the middle of the free height.
+                  'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
+                  // Phones too: the question and its answers sit in the middle of the free height
+                  // in every stage.
+                  // The bars' own heights come off, so offered lies in the bar shrink the space.
+                  'max-sm:flex max-sm:min-h-[calc(100dvh-var(--vt-sticky-h,0px)-var(--vt-tabbar-h,0px)-13.5rem)] max-sm:flex-col max-sm:justify-center',
+                )}
+              >
                 <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
               </Panel>
             </>
@@ -253,7 +267,10 @@ export function HoodwinkGame({
           <ContinueWithout view={view} room={room} act={act} online={online} />
         )}
         <Panel className="space-y-3">
-          {shown !== 'players' && <Scores view={view} revealing={revealing} />}
+          {/* At the end the standings replace the rail's scores. */}
+          {shown !== 'players' && view.phase !== 'over' && (
+            <Scores view={view} revealing={revealing} />
+          )}
           {shown !== 'scores' && (
             <Table view={view} online={online} act={act} hostId={room.hostId} />
           )}

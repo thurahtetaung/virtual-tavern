@@ -119,18 +119,21 @@ export function ArtCard({
         <span
           className={cn(
             'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-1 pt-3 pb-1 text-center leading-tight font-semibold text-white',
-            size === 'big' ? 'text-lg' : 'text-[11px]',
+            size === 'big' ? 'text-lg' : 'text-xs',
           )}
         >
           {/* The crime's tag sits with the caption: at the top it would cover the printed name. */}
           {key_ && (
             <span className="mb-0.5 block">
-              <span className="rounded-full bg-danger px-1.5 text-[10px] font-bold tracking-wide shadow">
+              <span className="rounded-full bg-danger px-1.5 text-xs font-bold tracking-wide shadow">
                 {deck === 'clue' ? 'KEY' : 'MEANS'}
               </span>
             </span>
           )}
-          <span className={cn('block', size !== 'big' && 'line-clamp-2')}>{name}</span>
+          {/* A long word breaks with a hyphen rather than running off the card. */}
+          <span className={cn('block break-words hyphens-auto', size !== 'big' && 'line-clamp-2')}>
+            {name}
+          </span>
         </span>
       )}
       {ruledOut && (

@@ -2,6 +2,7 @@ import { type GameRoomInfo, type PlayerId, storageKey, waitingFor } from '@vt/ga
 import {
   Button,
   CardViewer,
+  cn,
   FitArea,
   Input,
   Panel,
@@ -10,11 +11,13 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
-  type ViewerItem,
-  cn,
+  TAP_BAND,
   useConfirm,
+  useFreeHeight,
+  useWideScreen,
+  type ViewerItem,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MAX_WORD,
   POINTS,
@@ -78,11 +81,18 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
       <span className="text-sm font-semibold">{picker ? 'Your word' : 'Your notebook'}</span>
     </span>
   );
+  // The paper art is cream in both themes, so on it the page prints in fixed dark ink
+  // (vt-palette: card art's own colours, which never follow the theme).
+  const paper = !!art.notebookPage;
+  const muted = paper ? 'text-[#5c5248]' : 'text-ink-muted';
   return (
     <div data-testid="rh-notebook">
       <Peek what={picker ? 'your word' : 'your notebook'} cover={cover} inline>
         <div
-          className="relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center text-ink shadow-inner ring-1 ring-line"
+          className={cn(
+            'relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center shadow-inner ring-1 ring-line',
+            paper ? 'text-[#2a2420]' : 'text-ink',
+          )}
           data-testid="rh-notebook-page"
         >
           {art.notebookPage && (
@@ -92,7 +102,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
               className="absolute inset-0 size-full object-cover"
             />
           )}
-          {topic && <span className="relative text-xs text-ink-muted">Topic: {topic}</span>}
+          {topic && <span className={cn('relative text-xs', muted)}>Topic: {topic}</span>}
           {word !== null ? (
             <span
               className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
@@ -109,7 +119,7 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
             </span>
           )}
           {!picker && (
-            <span className="relative text-[11px] text-ink-muted">
+            <span className={cn('relative text-xs', muted)}>
               {word !== null
                 ? 'You’re a Detective: find who doesn’t know this word.'
                 : 'You don’t know the word. Blend in with your cards and your explanation.'}
@@ -248,6 +258,8 @@ export function Table({
   const color = (id: string) => room.players.find((p) => p.id === id)?.color;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const active = focus ?? r.turn;
+  // Desktops: while cards are being laid the table has the height to spare, so they grow with it.
+  const laying = r.stage === 'card' || r.stage === 'play';
   return (
     <section aria-label="The table" data-testid="rh-table">
       {/* Phones: the laps take what the screen has left and scroll inside it. */}
@@ -256,6 +268,10 @@ export function Table({
           className={cn(
             'grid gap-1.5 sm:gap-2',
             many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
+            // Four at a desktop table: one row of four while cards are laid (your hand runs across
+            // the width under them, as large as the height left allows), two by two otherwise, the
+            // cards sized to the window's height so the vote or the reveal fits under them.
+            r.order.length === 4 && (laying ? 'lg:grid-cols-4' : 'lg:grid-cols-2'),
           )}
         >
           {r.order.map((id) => {
@@ -287,14 +303,17 @@ export function Table({
                     offline={offline(id)}
                     className="min-w-0 flex-1"
                   />
-                  {left.has(id) && <span className="text-[11px] text-ink-muted">away</span>}
+                  {left.has(id) && <span className="text-xs text-ink-muted">away</span>}
                   {id !== you && id !== r.picker && (
                     <button
                       type="button"
                       onClick={() => {
                         cycle(id);
                       }}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel"
+                      className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-full text-sm ring-1 ring-line hover:bg-panel',
+                        TAP_BAND,
+                      )}
                       aria-label={`Your private mark on ${name(id)}: ${mark ?? 'none'}`}
                       title="Your private mark (only you see it)"
                     >
@@ -306,7 +325,13 @@ export function Table({
                   className={cn(
                     'grid grid-cols-2 gap-1',
                     many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
-                    'lg:max-w-[12rem]',
+                    laying
+                      ? r.order.length === 4
+                        ? 'lg:max-w-none'
+                        : 'lg:max-w-[clamp(12rem,30vh,18rem)]'
+                      : r.order.length === 4
+                        ? 'lg:max-w-[clamp(12rem,calc((100vh-36rem)/1.4),22rem)]'
+                        : 'lg:max-w-[12rem]',
                   )}
                 >
                   {([1, 2] as const).map((lap) => {
@@ -372,8 +397,19 @@ export function HandStrip({
   const canPlay = (r.stage === 'card' || r.stage === 'play') && r.turn === you;
   const hand = g.hand;
   const items = useMemo(() => hand.map((c) => viewerItem(c)), [hand]);
+  // Desktops while cards are laid: six across, as large as the height left under the table allows
+  // (the hand's caption and padding take about 2.5 rem), between 36 and 72 rem across.
+  const box = useRef<HTMLElement>(null);
+  const wide = useWideScreen();
+  const laying = r.stage === 'card' || r.stage === 'play';
+  const free = useFreeHeight(box, wide && laying);
+  const across =
+    free === null
+      ? undefined
+      : Math.round(Math.min(1152, Math.max(576, (free - 40) * CARD_ASPECT * 6 + 30)));
   return (
     <section
+      ref={box}
       aria-label="Your hand"
       data-testid="rh-hand"
       className={cn(
@@ -384,7 +420,18 @@ export function HandStrip({
       <p className="mb-1 px-1 text-xs font-semibold">
         {canPlay ? 'Your hand: tap a card to look, then play it' : 'Your hand (only you see it)'}
       </p>
-      <ul className="grid grid-cols-6 gap-1 lg:max-w-xl">
+      <ul
+        className={cn(
+          // Phones: your pick gets two rows of large cards (the table above scrolls in what is left).
+          'grid gap-1 sm:grid-cols-6',
+          canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
+          // Desktops: as large as the window's height allows across the page (6 across).
+          laying
+            ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
+            : 'lg:max-w-xl',
+        )}
+        style={across ? { maxWidth: across } : undefined}
+      >
         {hand.map((c, i) => (
           <li key={c}>
             <Card

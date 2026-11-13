@@ -1,4 +1,4 @@
-import { Button, PlayerTag, cn } from '@vt/ui';
+import { Button, PlayerTag, cn, SeatToggle } from '@vt/ui';
 import type { CodenamesAction, CodenamesView, Team } from '../logic/types.ts';
 import { canTakeSpymaster as canTakeSeat } from './status.ts';
 import { TEAM_BUTTON, TEAM_LABEL, TEAM_LINE, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
@@ -149,13 +149,11 @@ export function Teams(props: Props) {
           ))}
           {spectators.length === 0 && <span className="italic">nobody</span>}
           {canSpectate && (
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => void props.act({ type: 'join-team', team: null, role: 'operative' })}
-            >
-              Watch instead
-            </Button>
+            // Teams take a seat with Join; watching is the shared seat control.
+            <SeatToggle
+              playing
+              onChange={() => void props.act({ type: 'join-team', team: null, role: 'operative' })}
+            />
           )}
         </div>
       )}

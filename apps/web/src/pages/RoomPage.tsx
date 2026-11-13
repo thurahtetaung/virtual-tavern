@@ -17,6 +17,7 @@ import {
   BotNames,
   PlayerColors,
   PlayerDot,
+  Refusal,
   RefusalProvider,
   SuperlativesNote,
   clock,
@@ -395,7 +396,7 @@ function Room({
     return () => window.removeEventListener('focus', reload);
   }, [game.id, wordListsVersion]);
 
-  const roomHeader = useToastsBelow();
+  const roomHeader = useToastsOverHeader();
 
   // The game reports when it's the viewer's move; the tab title says so, and phones buzz once.
   const [yourMove, setYourMove] = useState(false);
@@ -699,8 +700,9 @@ function Room({
   return (
     <Layout wide room playtest={playtest}>
       {/* One row on every screen: the emblem and the game's name, then the header buttons (an
-          icon over a one-word label; on a phone with four, the icon alone). A long name takes a
-          smaller size and up to two lines, breaking only between words (`RoomTitle`). */}
+          icon over a one-word label; on a phone with four, narrower). A long name takes a smaller
+          size to stay on one line, and only a name still too long wraps to a second, breaking only
+          between words (`RoomTitle`); on a phone the emblem gets smaller to give it room. */}
       <div
         ref={roomHeader}
         data-ui="room-header"
@@ -709,17 +711,27 @@ function Room({
           playtest ? 'mb-1.5' : 'mb-3',
         )}
       >
+        {/* From `sm` up the site's own bar makes way (its 56 px go to the table): the mug leads
+            home, as the wordmark did, and the theme switch joins the header buttons. */}
+        <Link
+          to="/"
+          aria-label="Virtual Tavern home"
+          title="Virtual Tavern home"
+          className="-mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-accent-text hover:bg-sunk focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus max-sm:hidden"
+        >
+          <Icon name="beer" size={24} />
+        </Link>
         <h1
           className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
-            game.name.length > 12 || headerButtons > 3
-              ? 'text-sub sm:text-heading'
-              : 'text-heading',
+            'group/title flex min-w-0 flex-1 items-center gap-2 leading-tight font-semibold sm:gap-3',
+            headerButtons > 3 ? 'text-sub sm:text-heading' : 'text-heading',
           )}
         >
+          {/* Light mode puts the emblem on a raised card with an edge, so pale emoji (✉️, 🐇) keep
+              their outline; dark mode keeps the sunk tile they read well on. */}
           <span
             aria-hidden
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunk text-2xl leading-none sm:size-11"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-card text-2xl leading-none shadow-vt-1 ring-1 ring-line-strong max-sm:group-has-[[data-long]]/title:size-9 max-sm:group-has-[[data-long]]/title:text-xl sm:size-11 dark:bg-sunk dark:shadow-none dark:ring-0"
           >
             {game.icon}
           </span>
@@ -727,7 +739,7 @@ function Room({
         </h1>
         <div
           data-four={headerButtons > 3 || undefined}
-          className="group/header flex shrink-0 gap-1.5 sm:gap-2"
+          className="group/header flex shrink-0 gap-1.5 max-sm:data-four:gap-1 sm:gap-2"
         >
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
           {!playtest && <InviteButton />}
@@ -756,6 +768,9 @@ function Room({
           ) : (
             <HeaderButton icon="book-open" label="Rules" onClick={() => showGuide()} />
           )}
+          <span className="contents max-sm:hidden">
+            <ThemeSwitch className={HEADER_BUTTON} labelClassName={HEADER_LABEL} />
+          </span>
         </div>
       </div>
 
@@ -879,7 +894,7 @@ function Room({
         <Link
           to={`/rules/${game.id}`}
           target="_blank"
-          className="mt-6 block text-sm text-accent-text underline"
+          className="mt-4 flex min-h-11 items-center text-sm text-accent-text underline underline-offset-2"
         >
           Open the rules in a new tab
         </Link>
@@ -924,6 +939,7 @@ function Room({
                 title: 'Leave this room?',
                 body: 'You can come back with the same link.',
                 confirmLabel: 'Leave',
+                danger: true,
               });
               if (!yes) return;
               await leave();
@@ -945,21 +961,22 @@ function Room({
 }
 
 /**
- * On phones the site header (where toasts sit) is hidden in a room, so toasts sit just under the
- * room's own header instead, clear of its buttons: the header tells the toast layer where its foot
- * is, while the room is open.
+ * In a room the site header (where toasts sit on other pages) is hidden, so on phones toasts sit
+ * just under the room's own header, centred, over the top of the game's status line for the few
+ * seconds they show: never over the game's name or the header buttons. The header tells the toast
+ * layer where it is while the room is open.
  */
-function useToastsBelow() {
+function useToastsOverHeader() {
   // A callback ref: the header only appears once the room has loaded.
   return useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
     const root = document.documentElement.style;
     const place = () => {
-      root.setProperty(
-        '--vt-toast-top',
-        `${el.getBoundingClientRect().bottom + window.scrollY + 6}px`,
-      );
+      const header = el.getBoundingClientRect();
+      root.setProperty('--vt-toast-top', `${Math.max(header.bottom + window.scrollY + 4, 6)}px`);
       root.setProperty('--vt-toast-side', '1rem');
+      root.setProperty('--vt-toast-end', '1rem');
+      root.setProperty('--vt-toast-align', 'center');
     };
     place();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
@@ -968,8 +985,7 @@ function useToastsBelow() {
     return () => {
       observer?.disconnect();
       window.removeEventListener('resize', place);
-      root.removeProperty('--vt-toast-top');
-      root.removeProperty('--vt-toast-side');
+      for (const k of ['top', 'side', 'end', 'align']) root.removeProperty(`--vt-toast-${k}`);
     };
   }, []);
 }
@@ -982,16 +998,28 @@ const backToTheDoor = (roomId: string, reason: LockReason) =>
   `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&locked=${reason}`;
 
 /**
- * Font sizes a room title steps down through when one of its words doesn't fit the header (the
- * first is the size the header gave it); past the last, the title ends in an ellipsis on one line.
+ * The steps a room title takes until it fits: first on one line, from the size the header gave it
+ * down to 16 px, so a name like "Tavern Brawl" stays one line on a phone; only a name still too long
+ * then wraps to two lines (breaking between words) and steps down to 13 px; past the last step it is
+ * cut with an ellipsis at the end of its second line.
  */
-const TITLE_SIZES = [undefined, 17, 16, 15] as const;
+const TITLE_STEPS = [
+  { size: undefined, lines: 1 },
+  { size: 20, lines: 1 },
+  { size: 18, lines: 1 },
+  { size: 17, lines: 1 },
+  { size: 16, lines: 1 },
+  { size: 16, lines: 2 },
+  { size: 15, lines: 2 },
+  { size: 14, lines: 2 },
+  { size: 13, lines: 2 },
+] as const;
 
 /**
- * The game's name in the room header: up to two lines, breaking only between words. A word too
- * wide for the space shrinks the name step by step to 15 px, then the name is cut with an
- * ellipsis (the full name stays in the text, so the heading's accessible name, and in `title`).
- * Keyed by the name, so a new name fits from the start.
+ * The game's name in the room header: up to two lines, breaking only between words. A name that
+ * needs a third line, or has a word too wide for the space, shrinks step by step to 13 px; only
+ * then is it cut with an ellipsis (the full name stays in the text, so the heading's accessible
+ * name, and in `title`). Keyed by the name, so a new name fits from the start.
  */
 function RoomTitle({ name }: { name: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -999,7 +1027,11 @@ function RoomTitle({ name }: { name: string }) {
   const [{ step, width }, setFit] = useState({ step: 0, width: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el && step < TITLE_SIZES.length && el.scrollWidth > el.clientWidth)
+    if (
+      el &&
+      step < TITLE_STEPS.length &&
+      (el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight + 1)
+    )
       setFit((f) => ({ ...f, step: f.step + 1 }));
   }, [step, width]);
   // Fit again when the header's width changes (a turned phone, a header button coming or going).
@@ -1014,14 +1046,20 @@ function RoomTitle({ name }: { name: string }) {
       observer.disconnect();
     };
   }, []);
-  const cut = step >= TITLE_SIZES.length;
+  const cut = step >= TITLE_STEPS.length;
+  const { size, lines } = TITLE_STEPS[Math.min(step, TITLE_STEPS.length - 1)]!;
   return (
     <span
       ref={ref}
       title={cut ? name : undefined}
       data-fit={cut ? 'cut' : step}
-      className={cn('min-w-0', cut ? 'truncate' : 'line-clamp-2')}
-      style={{ fontSize: cut ? '15px' : TITLE_SIZES[step] && `${TITLE_SIZES[step]}px` }}
+      data-long={step > 0 || undefined}
+      className={cn(
+        'min-w-0',
+        lines === 1 ? 'line-clamp-1 break-normal' : 'line-clamp-2',
+        cut && 'break-words',
+      )}
+      style={{ fontSize: size && `${size}px` }}
     >
       {name}
     </span>
@@ -1030,12 +1068,12 @@ function RoomTitle({ name }: { name: string }) {
 
 /**
  * Room header buttons: 52 px, a 24 px icon over a one-word label, on every screen, so nobody has to
- * guess what an icon does. On a phone with four of them (Night showing) the labels go (still read
- * out, as the buttons' names are unchanged) and the buttons are 44 px, to leave the name room.
+ * guess what an icon does. On a phone with four of them (Night showing) they are 44 px wide, with
+ * a 20 px icon, to leave the name room.
  */
 const HEADER_BUTTON =
-  'min-h-13 min-w-13 flex-col gap-0.5 px-2 py-1 leading-none max-sm:group-data-four/header:min-h-11 max-sm:group-data-four/header:min-w-11';
-const HEADER_LABEL = 'text-caption font-semibold max-sm:group-data-four/header:sr-only';
+  'min-h-13 min-w-13 flex-col gap-0.5 px-2 py-1 leading-none max-sm:group-data-four/header:min-w-11 max-sm:group-data-four/header:px-1 max-sm:group-data-four/header:[&>svg]:size-5';
+const HEADER_LABEL = 'text-caption font-semibold';
 
 function HeaderButton({
   icon,
@@ -1108,7 +1146,10 @@ function HostAway({ snapshot, clockOffset }: { snapshot: RoomSnapshot; clockOffs
       <b>{host.name}</b> (host) is away.{' '}
       {left > 0 ? (
         <>
-          Someone else takes over in <span className="font-mono tabular-nums">{clock(left)}</span>.
+          Someone else takes over{' '}
+          <span className="whitespace-nowrap">
+            in <span className="font-mono tabular-nums">{clock(left)}</span>.
+          </span>
         </>
       ) : (
         'Handing the host role to someone who is here…'
@@ -1246,6 +1287,60 @@ function People({
   return (
     <div className="space-y-6">
       {confirmDialog}
+      {/* Your own name and colour come first: changing them is one of the first things a player
+          does on joining. */}
+      <div className="space-y-2">
+        {renaming ? (
+          <>
+            {!playtest && (
+              // One Done for the sheet: it saves a changed name and closes; colour taps apply
+              // at once.
+              <NameForm
+                id="rename-form"
+                initial={me?.name}
+                onSubmit={(n) =>
+                  n === me?.name
+                    ? setRenaming(false)
+                    : void call('room:rename', n).then((res) => {
+                        if (res.ok) {
+                          onRename(n);
+                          setRenaming(false);
+                          setRenameError(null);
+                        } else setRenameError(res.error.message);
+                      })
+                }
+              />
+            )}
+            {renameError && <Refusal>{renameError}</Refusal>}
+            <ColorChoice snapshot={snapshot} recolor={recolor} />
+            {playtest ? (
+              <Button variant="secondary" className="min-h-11" onClick={() => setRenaming(false)}>
+                Done
+              </Button>
+            ) : (
+              <Button type="submit" form="rename-form" className="min-h-11">
+                Done
+              </Button>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRenameError(null);
+                setRenaming(true);
+              }}
+            >
+              {playtest ? 'Change my colour' : 'Change name or colour'}
+            </Button>
+            {/* Phones hide the site header (and its theme switch) in a room, so it lives here. */}
+            <span className="contents sm:hidden">
+              <ThemeSwitch inSheet />
+            </span>
+          </div>
+        )}
+      </div>
       {!playtest && <RoomCode roomId={roomId} />}
       <ul className="divide-y divide-line">
         {snapshot.players.map((p) => (
@@ -1310,63 +1405,9 @@ function People({
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.
       </p>
-      <div className="space-y-2">
-        {renaming ? (
-          <>
-            {!playtest && (
-              <NameForm
-                initial={me?.name}
-                submitLabel="Save"
-                onSubmit={(n) =>
-                  void call('room:rename', n).then((res) => {
-                    if (res.ok) {
-                      onRename(n);
-                      setRenaming(false);
-                      setRenameError(null);
-                    } else setRenameError(res.error.message);
-                  })
-                }
-              />
-            )}
-            {renameError && (
-              <p role="alert" className="text-sm font-medium text-danger-ink">
-                {renameError}
-              </p>
-            )}
-            <ColorChoice snapshot={snapshot} recolor={recolor} />
-            {/* Sticky, so Done stays reachable under a refusal on a small phone. */}
-            <div className="sticky bottom-0 -mx-4 border-t border-line bg-panel px-4 py-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-11"
-                onClick={() => setRenaming(false)}
-              >
-                Done
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setRenameError(null);
-                setRenaming(true);
-              }}
-            >
-              {playtest ? 'Change my colour' : 'Change name or colour'}
-            </Button>
-            {/* Phones hide the site header (and its theme switch) in a room, so it lives here. */}
-            <span className="contents sm:hidden">
-              <ThemeSwitch inSheet />
-            </span>
-            <Button variant="danger" onClick={() => void onLeave()}>
-              Leave room
-            </Button>
-          </div>
-        )}
-      </div>
+      <Button variant="danger" onClick={() => void onLeave()}>
+        Leave room
+      </Button>
     </div>
   );
 }

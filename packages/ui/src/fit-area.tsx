@@ -1,5 +1,6 @@
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
 import { cn } from './cn.ts';
+import { MoreBelow, useMarkMore } from './more-below.tsx';
 import { usePhone } from './phone.ts';
 
 /** The least a part keeps when the page is short: it then scrolls inside. */
@@ -111,9 +112,12 @@ export function FitArea({
   min,
   resetKey = '',
   plain = false,
+  surface = 'panel',
   className,
   children,
 }: {
+  /** What the area sits on, which its More below fade runs into (a panel, the page, a sunk well). */
+  surface?: 'page' | 'panel' | 'sunk';
   on?: boolean;
   phone?: boolean;
   min?: number;
@@ -126,17 +130,22 @@ export function FitArea({
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   useFitToScreen(box, { on, phone, min, resetKey, content: plain ? undefined : inner });
-  if (plain)
-    return (
-      <div ref={box} className={className}>
-        {children}
-      </div>
-    );
+  // Capped, the area shows a small "More below" at its foot until it is read to the end.
+  useMarkMore(box, [plain]);
   return (
-    <div ref={box} className={cn('min-w-0', on && 'overflow-y-auto overscroll-contain')}>
-      <div ref={inner} className={cn(on && 'p-px', className)}>
-        {children}
-      </div>
+    <div className="relative min-w-0">
+      {plain ? (
+        <div ref={box} className={cn('peer', className)}>
+          {children}
+        </div>
+      ) : (
+        <div ref={box} className={cn('peer min-w-0', on && 'overflow-y-auto overscroll-contain')}>
+          <div ref={inner} className={cn(on && 'p-px', className)}>
+            {children}
+          </div>
+        </div>
+      )}
+      <MoreBelow column={box} surface={surface} compact />
     </div>
   );
 }

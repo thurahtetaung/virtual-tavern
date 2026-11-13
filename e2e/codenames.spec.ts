@@ -97,7 +97,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(op).toHaveTitle(/^● Your turn · Codenames/);
   await expect(spy).toHaveTitle('Codenames · Virtual Tavern');
   await expect(otherOp.getByText('team is guessing')).toBeVisible();
-  await expect(op.locator('text=TAVERN').first()).toBeVisible();
+  await expect(op.locator('p', { hasText: 'Clue:' }).getByText(/^tavern$/i)).toBeVisible();
   await expect(skipRefusal).toBeHidden({ timeout: 3000 });
   // Refused again mid-guess, then gone as soon as an Operative's guess changes the turn.
   await refuseSkip();

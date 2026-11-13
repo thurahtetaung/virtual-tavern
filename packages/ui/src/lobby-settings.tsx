@@ -55,7 +55,9 @@ export function LobbySettings({
         </span>
         <Summary parts={summary.filter((p): p is string => !!p)} />
       </FoldSummary>
-      <div className={cn('px-4 pb-4', className)}>
+      {/* A guest's copy is read-only, not dimmed: `data-readonly` lifts the games' disabled fade
+          (index.css), so every option stays at full contrast and the host's choice keeps its fill. */}
+      <div data-readonly={editable ? undefined : ''} className={cn('px-4 pb-4', className)}>
         {!editable && <HostOnlyNote />}
         {children}
       </div>

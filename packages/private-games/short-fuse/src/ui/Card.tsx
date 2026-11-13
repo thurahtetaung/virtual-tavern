@@ -4,13 +4,16 @@ import type { CardType } from '../logic/cards.ts';
 import type { Art, Card } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 
-export type CardSize = 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type CardSize = 'xxs' | 'xs' | 'sm' | 'md' | 'table' | 'lg' | 'xl';
 
-const WIDTH: Record<CardSize, string> = {
+export const WIDTH: Record<CardSize, string> = {
   xxs: 'w-6',
   xs: 'w-9',
   sm: 'w-14',
   md: 'w-16 sm:w-24',
+  // The draw and discard piles: a little bigger on phones, 128 px on a desktop's table (as big as
+  // the hand under it still allows on a 900 px window).
+  table: 'w-[4.5rem] sm:w-24 lg:w-32',
   lg: 'w-28 sm:w-32',
   xl: 'w-44 sm:w-56',
 };
@@ -93,10 +96,8 @@ export const CardFace = memo(function CardFace({
       )}
       {label && !tiny && (
         <span
-          className={cn(
-            'absolute inset-x-0.5 bottom-0.5 line-clamp-2 rounded-md break-words bg-card/90 px-1 text-center leading-tight font-bold text-ink shadow-sm ring-1 ring-line',
-            size === 'sm' ? 'text-[0.55rem]' : 'text-[0.65rem] sm:text-xs',
-          )}
+          // A name too long for one line takes two, never cut; a long word breaks with a hyphen.
+          className="absolute inset-x-0.5 bottom-0.5 line-clamp-2 rounded-md bg-card/90 px-1 text-center text-xs leading-tight font-bold break-words hyphens-auto text-ink shadow-sm ring-1 ring-line"
         >
           {name}
         </span>

@@ -1,4 +1,11 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from './cn.ts';
 import { usePhone } from './phone.ts';
 import { RefusalSlot } from './refusal.tsx';
@@ -15,7 +22,17 @@ const BAR =
   'fixed inset-x-0 bottom-[var(--vt-tabbar-h,0px)] z-40 m-0 border-t border-line bg-panel px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-vt-2';
 
 /**
- * Keeps a screen's one main action reachable on phones.
+ * The same bar on wider screens, while the control's spot is below the window: a tray at the foot
+ * of the window over the control's own column (its left and width are set from the spot).
+ */
+const TRAY =
+  'fixed bottom-0 z-40 m-0 rounded-t-2xl border border-b-0 border-line bg-panel px-3 pt-3 pb-3 shadow-vt-2';
+
+/** How far the tray reaches past the control's column on each side, for its padding. */
+const TRAY_EDGE = 12;
+
+/**
+ * Keeps a screen's one main action reachable, on every width.
  *
  * By default (a lobby's Start / Deal) it renders in place, and only while its spot is below the
  * bottom of a phone screen does the same control float in the bar instead (it is only ever rendered
@@ -23,7 +40,12 @@ const BAR =
  *
  * `fixed` (a game's move, such as a clue and Give clue) keeps it in the bar on phones all the time
  * and the room keeps the bar's height free at the foot of the page, so the bar never covers
- * anything; wider screens show it in place.
+ * anything.
+ *
+ * On wider screens both kinds render in place, and while the spot is not wholly in the window
+ * (below its foot) the same element lifts into a tray at the foot of the window, over its own
+ * column, until the page is scrolled down to it. Nothing is re-mounted, so a half-typed clue keeps
+ * its text and focus. `off` keeps it in place.
  *
  * `refusal` names the `RefusalSlot` anchor of the action: the server's refusal then shows with the
  * control, in the bar on phones, so the bar grows rather than covering the field above it.
@@ -64,13 +86,92 @@ export function StickyBar({
       {children}
     </FixedBar>
   ) : (
-    <FloatingBar whole={whole} off={off}>
-      <div className={className}>
-        {children}
-        {slot('place')}
-      </div>
+    <FloatingBar whole={whole} off={off} className={className}>
+      {children}
+      {slot('place')}
     </FloatingBar>
   );
+}
+
+/** Where a lifted tray sits: over the spot's column, at the foot of the window. */
+type Lift = { left: number; width: number; height: number };
+
+/**
+ * Wider screens: lifts `el` into the tray while it is not wholly in the window and below its foot.
+ * While lifted, a holder of the same size keeps its spot (the lifted element leaves the flow), and
+ * the holder is what is watched until it is wholly back in view. Resizing the window drops the
+ * lift, and the watch decides again from the new layout. A control taller than a third of the
+ * window stays in place.
+ */
+function useLift(
+  el: RefObject<HTMLElement | null>,
+  holder: RefObject<HTMLElement | null>,
+  active: boolean,
+) {
+  const [lift, setLift] = useState<Lift | null>(null);
+  // Turning off drops the lift, so turning on again starts from the page, not an old place.
+  const [wasActive, setWasActive] = useState(active);
+  if (wasActive !== active) {
+    setWasActive(active);
+    if (!active) setLift(null);
+  }
+  const lifted = active && lift !== null;
+
+  useEffect(() => {
+    if (!active) return;
+    const target = lifted ? holder.current : el.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const below =
+          entry.intersectionRatio < 0.99 &&
+          entry.boundingClientRect.bottom > window.innerHeight - 1;
+        if (lifted && !below) setLift(null);
+        if (!lifted && below && el.current) {
+          const r = el.current.getBoundingClientRect();
+          // A control taller than a third of the window would cover too much of the page above.
+          if (r.height === 0 || r.height > window.innerHeight / 3) return;
+          setLift({ left: r.left, width: r.width, height: r.height });
+        }
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 0.99, 1] },
+    );
+    observer.observe(target);
+    const drop = () => {
+      setLift(null);
+    };
+    window.addEventListener('resize', drop);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', drop);
+    };
+  }, [active, lifted, el, holder]);
+
+  if (!lifted) return null;
+  const left = Math.max(0, lift.left - TRAY_EDGE);
+  const right = Math.min(window.innerWidth, lift.left + lift.width + TRAY_EDGE);
+  const style: CSSProperties = { left, width: right - left };
+  return { style, height: lift.height, width: lift.width };
+}
+
+/** Holds a lifted element's spot in the page (it is out of the flow while it is in the tray). */
+function Holder({
+  holder,
+  lift,
+}: {
+  holder: RefObject<HTMLDivElement | null>;
+  lift: { height: number; width: number } | null;
+}) {
+  return lift ? (
+    <div
+      ref={holder}
+      aria-hidden="true"
+      data-ui="sticky-holder"
+      className="max-w-full shrink-0"
+      style={{ height: lift.height, width: lift.width }}
+    />
+  ) : null;
 }
 
 function FixedBar({
@@ -86,15 +187,26 @@ function FixedBar({
 }) {
   const phone = usePhone();
   const bar = useRef<HTMLDivElement>(null);
+  const holder = useRef<HTMLDivElement>(null);
   const on = phone && !off;
   useReservedHeight('--vt-sticky-h', bar, on);
+  const lift = useLift(bar, holder, !phone && !off);
   // In the bar the refusal sits above the control; in place, under it (under the field).
   return (
-    <div ref={bar} data-ui="sticky-bar" className={cn(on && BAR, className)}>
-      {on && refusal('bar')}
-      {children}
-      {!on && refusal('place')}
-    </div>
+    <>
+      <Holder holder={holder} lift={lift} />
+      <div
+        ref={bar}
+        data-ui="sticky-bar"
+        data-lifted={lift ? '' : undefined}
+        className={cn(on && BAR, lift && TRAY, className)}
+        style={lift?.style}
+      >
+        {on && refusal('bar')}
+        {children}
+        {!on && refusal('place')}
+      </div>
+    </>
   );
 }
 
@@ -102,14 +214,20 @@ function FloatingBar({
   children,
   whole,
   off,
+  className,
 }: {
   children: ReactNode;
   whole: boolean;
   off: boolean;
+  className?: string;
 }) {
+  const phone = usePhone();
   const spot = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const holder = useRef<HTMLDivElement>(null);
   const [floating, setFloating] = useState(false);
   const [height, setHeight] = useState(0);
+  const lift = useLift(inner, holder, !phone && !off);
 
   useEffect(() => {
     const el = spot.current;
@@ -134,20 +252,36 @@ function FloatingBar({
     };
   }, [whole]);
 
-  const float = floating && !off;
+  const float = phone && floating && !off;
   // Keep the spot's height while the control floats, so the page doesn't jump.
   useEffect(() => {
     if (!float && spot.current) setHeight(spot.current.offsetHeight);
   }, [float, children]);
 
+  const content = <div className={className}>{children}</div>;
   return (
     <>
       <div ref={spot} style={float ? { minHeight: height } : undefined}>
-        {!float && children}
+        {!float && !phone ? (
+          <>
+            <Holder holder={holder} lift={lift} />
+            <div
+              ref={inner}
+              data-ui={lift ? 'sticky-bar' : undefined}
+              data-lifted={lift ? '' : undefined}
+              className={cn(lift && TRAY)}
+              style={lift?.style}
+            >
+              {content}
+            </div>
+          </>
+        ) : (
+          !float && content
+        )}
       </div>
       {float && (
         <div data-ui="sticky-bar" className={BAR}>
-          {children}
+          {content}
         </div>
       )}
     </>

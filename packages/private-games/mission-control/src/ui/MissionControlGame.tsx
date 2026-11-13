@@ -23,7 +23,7 @@ import {
 } from '../logic/types.ts';
 import { ArtContext, artFor, useArt, useManifest } from './assets.tsx';
 import { Briefing, RuleBox } from './Briefing.tsx';
-import { CardChip, Rich } from './Card.tsx';
+import { CardChip, CardFace, Rich } from './Card.tsx';
 import { AnnouncePanel, HandOverPanel, PickPanel, TokensPanel } from './Steps.tsx';
 import { Debrief } from './Debrief.tsx';
 import { Draft } from './Draft.tsx';
@@ -93,7 +93,11 @@ function Tip({ id, children }: { id: string; children: string }) {
   return (
     <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
       <span className="flex-1">💡 {children}</span>
-      <button type="button" className="shrink-0 underline" onClick={dismiss}>
+      <button
+        type="button"
+        className="-my-2 min-h-11 min-w-11 shrink-0 px-2 font-semibold underline"
+        onClick={dismiss}
+      >
         Got it
       </button>
     </p>
@@ -206,7 +210,7 @@ function Game({
         {/* Phones: the mission's rules fold away above the hand; the Mission tab and wide
             screens show them in full. */}
         <details className="group rounded-xl bg-panel ring-1 ring-line lg:hidden">
-          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             📜 Mission rules
             <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
               ▸
@@ -309,7 +313,7 @@ function HandPreview({ view }: { view: MissionControlView }) {
       <p className="text-xs font-semibold">Your hand</p>
       <div className="flex flex-wrap gap-1">
         {a.hand.map((c) => (
-          <CardChip key={c} card={c} className="text-base" />
+          <CardFace key={c} card={c} size="sm" />
         ))}
       </div>
     </Panel>

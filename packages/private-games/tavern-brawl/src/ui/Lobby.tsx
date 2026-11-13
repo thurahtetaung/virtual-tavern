@@ -1,22 +1,26 @@
 import { type GameRoomInfo, lobbyStatus, playersNeeded } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   GuideLink,
   Hint,
+  LobbyLayout,
+  LobbyPitch,
+  LobbySettings,
+  LobbyStart,
   Panel,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
-  StickyBar,
+  SeatHeading,
+  SeatToggle,
   TimerSettings,
-  cn,
-  LobbySettings,
-  usePhone,
   timersLine,
+  usePhone,
 } from '@vt/ui';
 import { memo, useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
-import { FACE_ZOOM, powersOf } from '../logic/guide.ts';
+import { FACE_ZOOM, guide, powersOf } from '../logic/guide.ts';
 import {
   type HeroId,
   MAX_PLAYERS,
@@ -102,12 +106,8 @@ function SetFilter({
     if (next.length > 0) void act({ type: 'update-settings', sets: next }, { anchor: 'tb-heroes' });
   };
   return (
-    <div
-      className="flex flex-wrap items-center gap-1.5"
-      role="group"
-      aria-label="Random picks from"
-    >
-      <span className="text-xs text-ink-muted">🎲 picks from:</span>
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Random picks from">
+      <span className="text-sm text-ink-muted">🎲 picks from:</span>
       {SET_IDS.map((id) => (
         <button
           key={id}
@@ -116,10 +116,11 @@ function SetFilter({
           aria-pressed={on.includes(id)}
           onClick={() => toggle(id)}
           className={cn(
-            'min-h-8 rounded-full px-3 text-xs font-semibold ring-1',
+            // The lobbies' 44 px choice, the picked ones ringed in the accent.
+            'min-h-11 rounded-lg px-3.5 text-sm font-semibold ring-1 disabled:cursor-default',
             on.includes(id)
-              ? 'bg-accent-soft text-accent-text ring-accent-line'
-              : 'bg-card text-ink-muted ring-line',
+              ? 'bg-accent-soft text-accent-text ring-2 ring-accent'
+              : 'bg-card text-ink-2 ring-line enabled:hover:bg-sunk',
           )}
         >
           {on.includes(id) ? '✓ ' : ''}
@@ -160,6 +161,8 @@ export function Lobby({
   showGuide: () => void;
 }) {
   const me = view.me;
+  // The first set in play with box art is the pitch's picture.
+  const box = (view.settings.sets ?? [...SET_IDS]).map((id) => art.box(id)).find(Boolean) ?? null;
   const seated = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const takenBy = new Map(seated.flatMap((s) => (s.hero ? [[s.hero, s] as const] : [])));
@@ -184,202 +187,270 @@ export function Lobby({
         ? { text: 'Pick your hero below, or 🎲 for a random one.', me: true }
         : lobbyStatus(room, blocker);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-3">
-      {lobbyLine && <Hint tone={lobbyLine.me ? 'action' : 'neutral'}>{lobbyLine.text}</Hint>}
-
-      <Panel className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-bold">
-            Players ({seated.length}/{MAX_PLAYERS})
-          </h2>
-        </div>
-        <ul className="flex flex-col gap-1.5" aria-label="Seats">
-          {seated.map((s) => (
-            <li key={s.id} className="flex items-center gap-2" data-seat={s.id}>
-              <Portrait hero={s.hero} art={art} size={phone ? 28 : 36} />
-              <div className="min-w-0 flex-1">
-                <PlayerTag
-                  name={s.name}
-                  host={s.id === room.hostId}
-                  you={s.id === room.you}
-                  offline={offline(s.id)}
-                />
-                <div className="truncate text-xs text-ink-muted">
-                  {s.hero ? art.hero(s.hero) : 'Picking a hero…'}
-                </div>
-              </div>
-              {s.id === room.you && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => pick('random')}
-                    aria-label="Random hero"
-                  >
-                    🎲
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void act({ type: 'sit', playing: false })}
-                  >
-                    Watch instead
-                  </Button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {watching.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-            <span>Watching:</span>
-            {watching.map((s) => (
-              <PlayerTag key={s.id} name={s.name} />
-            ))}
-          </p>
-        )}
-        {me && !me.playing && seated.length < MAX_PLAYERS && (
-          <Button
-            id="tb-sit"
-            variant="soft"
-            onClick={() => void act({ type: 'sit', playing: true })}
+    <>
+      <LobbyLayout
+        className="max-sm:gap-3"
+        pitch={
+          // Phones skip the pitch: the heroes and Start must fit the first screen.
+          <LobbyPitch
+            className="max-sm:hidden"
+            title={room.gameName ?? 'Tavern Brawl'}
+            emblem="🥊"
+            art={
+              box && <ProtectedImage src={box} alt="" className="w-full rounded-lg object-cover" />
+            }
           >
-            Take a seat
-          </Button>
-        )}
-      </Panel>
-      {/* Phones have the room bar's Rules button, and this lobby must fit the screen. */}
-      <GuideLink
-        title={room.gameName ?? 'Tavern Brawl'}
-        onClick={showGuide}
-        className="max-sm:hidden"
-      />
-
-      <Panel className="flex flex-col gap-2" id="tb-heroes">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">Heroes</h2>
-          {room.isHost && (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={seated.length === 0}
-              onClick={() => void act({ type: 'random-heroes' }, { anchor: 'tb-heroes' })}
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <>
+            <LobbySettings
+              editable={room.isHost}
+              summary={[
+                setsLine(view, art),
+                timersLine(
+                  {
+                    clueSeconds: view.settings.seconds,
+                    guessSeconds: null,
+                    timerMode: view.settings.timerMode,
+                  },
+                  { clue: 'decisions', guess: null },
+                ),
+              ]}
             >
-              🎲 Random for everyone
-            </Button>
+              <SetFilter view={view} room={room} act={act} art={art} />
+              {room.isHost && <h3 className="mt-3 mb-2 font-bold">Timer</h3>}
+              <div className={room.isHost ? undefined : 'mt-3'}>
+                <TimerSettings
+                  values={{
+                    clueSeconds: view.settings.seconds,
+                    guessSeconds: null,
+                    timerMode: view.settings.timerMode,
+                  }}
+                  editable={room.isHost}
+                  clueLabel="Decision timer"
+                  clueHelp="Time for each card to play and each choice to make."
+                  strictHelp="a random card is played (or a random choice made) for whoever is slow"
+                  onChange={(p) =>
+                    void act({
+                      type: 'update-settings',
+                      ...(p.clueSeconds !== undefined && { seconds: p.clueSeconds }),
+                      ...(p.timerMode !== undefined && { timerMode: p.timerMode }),
+                    })
+                  }
+                />
+              </div>
+            </LobbySettings>
+          </>
+        }
+        start={
+          room.isHost && (
+            <LobbyStart
+              label="Start the brawl"
+              // A player still picking reads why in the status line above, so the phone lobby fits.
+              blocker={
+                blocker && me?.playing && !me.hero ? (
+                  <span className="sr-only">{blocker}</span>
+                ) : (
+                  blocker
+                )
+              }
+              onStart={() => void act({ type: 'start' }, { anchor: 'tb-start' })}
+              refusal="tb-start"
+            />
+          )
+        }
+      >
+        {/* One group, spaced as before on phones, so the lobby fits the first screen. */}
+        <div className="space-y-3 sm:space-y-4">
+          {lobbyLine && (
+            <Hint dense tone={lobbyLine.me ? 'action' : 'neutral'}>
+              {lobbyLine.text}
+            </Hint>
           )}
-        </div>
-        <RefusalSlot anchor="tb-heroes" />
-        {seated.length >= ZONE_PLAYERS && (
-          <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
-            Five or more players: regular attacks only reach your neighbours, and knocked-out
-            players come back as ghosts who attack once a turn.
-          </p>
-        )}
-        <ul
-          className={cn(
-            'grid gap-2 sm:grid-cols-3 lg:grid-cols-4',
-            phone ? 'grid-cols-4 gap-1' : 'grid-cols-2',
-          )}
-          aria-label="Heroes"
-        >
-          {ENABLED_HEROES.map((h) => {
-            const taker = takenBy.get(h);
-            const mine = taker?.id === room.you;
-            const free = !taker;
-            const box = art.heroClass(h);
-            if (phone)
-              return (
-                <li key={h} style={heroVars(h)}>
-                  <button
-                    type="button"
-                    onClick={() => setDetails(h)}
-                    aria-pressed={mine}
-                    data-hero={h}
-                    aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}: mighty powers and deck`}
+          <Panel className="flex flex-col gap-2">
+            <SeatHeading as="h2" title={`Players (${seated.length}/${MAX_PLAYERS})`}>
+              {me && (me.playing || seated.length < MAX_PLAYERS) && (
+                <SeatToggle
+                  id="tb-sit"
+                  playing={me.playing}
+                  onChange={(playing) => void act({ type: 'sit', playing })}
+                />
+              )}
+            </SeatHeading>
+            <ul className="flex flex-col gap-1.5" aria-label="Seats">
+              {seated.map((s) => (
+                <li key={s.id} className="flex items-center gap-2" data-seat={s.id}>
+                  <Portrait hero={s.hero} art={art} size={phone ? 28 : 36} />
+                  <div className="min-w-0 flex-1">
+                    <PlayerTag
+                      name={s.name}
+                      host={s.id === room.hostId}
+                      you={s.id === room.you}
+                      offline={offline(s.id)}
+                    />
+                    <div className="truncate text-xs text-ink-muted">
+                      {s.hero ? art.hero(s.hero) : 'Picking a hero…'}
+                    </div>
+                  </div>
+                  {s.id === room.you && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => pick('random')}
+                      aria-label="Random hero"
+                    >
+                      🎲
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {watching.length > 0 && (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+                <span>Watching:</span>
+                {watching.map((s) => (
+                  <PlayerTag key={s.id} name={s.name} />
+                ))}
+              </p>
+            )}
+          </Panel>
+          {/* Phones have the room bar's Rules button, and this lobby must fit the screen. */}
+          <GuideLink
+            title={room.gameName ?? 'Tavern Brawl'}
+            onClick={showGuide}
+            className="max-sm:hidden"
+          />
+          <Panel className="flex flex-col gap-2" id="tb-heroes">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-bold">Heroes</h2>
+              {room.isHost && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={seated.length === 0}
+                  onClick={() => void act({ type: 'random-heroes' }, { anchor: 'tb-heroes' })}
+                >
+                  🎲 Random for everyone
+                </Button>
+              )}
+            </div>
+            <RefusalSlot anchor="tb-heroes" />
+            {seated.length >= ZONE_PLAYERS && (
+              <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
+                Five or more players: regular attacks only reach your neighbours, and knocked-out
+                players come back as ghosts who attack once a turn.
+              </p>
+            )}
+            <ul
+              className={cn(
+                'grid gap-2 sm:grid-cols-3 lg:grid-cols-4',
+                phone ? 'grid-cols-4 gap-1' : 'grid-cols-2',
+              )}
+              aria-label="Heroes"
+            >
+              {ENABLED_HEROES.map((h) => {
+                const taker = takenBy.get(h);
+                const mine = taker?.id === room.you;
+                const free = !taker;
+                const box = art.heroClass(h);
+                if (phone)
+                  return (
+                    <li key={h} style={heroVars(h)}>
+                      <button
+                        type="button"
+                        onClick={() => setDetails(h)}
+                        aria-pressed={mine}
+                        data-hero={h}
+                        aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}: mighty powers and deck`}
+                        className={cn(
+                          'flex w-full flex-col items-center gap-0.5 rounded-xl bg-card px-1 pt-1 pb-0.5 ring-1 ring-line',
+                          mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
+                          !free && !mine && 'opacity-55',
+                        )}
+                      >
+                        <Portrait hero={h} art={art} size={36} />
+                        <span className="line-clamp-2 w-full text-center text-xs leading-tight font-semibold">
+                          {art.hero(h)}
+                        </span>
+                        <span className="w-full truncate text-center text-xs leading-tight text-ink-muted">
+                          {mine ? '✓ You' : taker ? taker.name : '✦ Powers'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                return (
+                  <li
+                    key={h}
+                    style={heroVars(h)}
                     className={cn(
-                      'flex w-full flex-col items-center gap-0.5 rounded-xl bg-card px-1 pt-1 pb-0.5 ring-1 ring-line',
+                      'flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-line',
                       mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
-                      !free && !mine && 'opacity-55',
                     )}
                   >
-                    <Portrait hero={h} art={art} size={36} />
-                    <span className="line-clamp-2 w-full text-center text-xs leading-tight font-semibold">
-                      {art.hero(h)}
-                    </span>
-                    <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted">
-                      {mine ? '✓ You' : taker ? taker.name : '✦ Powers'}
-                    </span>
-                  </button>
-                </li>
-              );
-            return (
-              <li
-                key={h}
-                style={heroVars(h)}
-                className={cn(
-                  'flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-line',
-                  mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
-                )}
-              >
-                <button
-                  type="button"
-                  disabled={!canPick || (!free && !mine)}
-                  onClick={() => pick(mine ? null : h)}
-                  aria-pressed={mine}
-                  data-hero={h}
-                  aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}`}
-                  className={cn(
-                    'flex w-full flex-1 flex-col gap-1.5 p-2 text-left transition',
-                    !free && !mine && 'opacity-55',
-                    canPick && (free || mine) && 'hover:bg-panel',
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <Portrait hero={h} art={art} size={40} />
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 block text-sm leading-tight font-semibold">
-                        {art.hero(h)}
+                    <button
+                      type="button"
+                      disabled={!canPick || (!free && !mine)}
+                      onClick={() => pick(mine ? null : h)}
+                      aria-pressed={mine}
+                      data-hero={h}
+                      aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}`}
+                      className={cn(
+                        'flex w-full flex-1 flex-col gap-1.5 p-2 text-left transition',
+                        !free && !mine && 'opacity-55',
+                        canPick && (free || mine) && 'hover:bg-panel',
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Portrait hero={h} art={art} size={40} />
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 block text-sm leading-tight font-semibold">
+                            {art.hero(h)}
+                          </span>
+                          <span className="block truncate text-xs text-ink-muted">
+                            {box ?? HEROES[h].label}
+                          </span>
+                        </span>
                       </span>
-                      <span className="block truncate text-xs text-ink-muted">
-                        {box ?? HEROES[h].label}
+                      {taker ? (
+                        <span className="block truncate text-xs font-medium">
+                          {mine ? '✓ Your hero' : `Taken by ${taker.name}`}
+                        </span>
+                      ) : (
+                        <span className="line-clamp-2 hidden text-xs sm:block">
+                          {HEROES[h].style}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetails(h)}
+                      aria-label={`Mighty powers and deck: ${art.hero(h)}`}
+                      className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel"
+                      data-powers={h}
+                    >
+                      {/* Every power named in full: wrapped, never cut mid-word. */}
+                      <span className="min-w-0 flex-1">
+                        <span aria-hidden className="text-accent-text">
+                          ✦{' '}
+                        </span>
+                        {powersOf(h)
+                          .map((c) => art.card(c.id))
+                          .join(' · ')}
                       </span>
-                    </span>
-                  </span>
-                  {taker ? (
-                    <span className="block truncate text-xs font-medium">
-                      {mine ? '✓ Your hero' : `Taken by ${taker.name}`}
-                    </span>
-                  ) : (
-                    <span className="line-clamp-2 hidden text-xs sm:block">{HEROES[h].style}</span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDetails(h)}
-                  aria-label={`Mighty powers and deck: ${art.hero(h)}`}
-                  className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel"
-                  data-powers={h}
-                >
-                  {/* Every power named in full: wrapped, never cut mid-word. */}
-                  <span className="min-w-0 flex-1">
-                    <span aria-hidden className="text-accent-text">
-                      ✦{' '}
-                    </span>
-                    {powersOf(h)
-                      .map((c) => art.card(c.id))
-                      .join(' · ')}
-                  </span>
-                  <span aria-hidden className="shrink-0 text-ink-muted">
-                    ›
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
-
+                      <span aria-hidden className="shrink-0 text-ink-muted">
+                        ›
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        </div>
+      </LobbyLayout>
+      {/* Outside the lobby's column, so a closed sheet adds no gap on phones. */}
       <HeroSheet
         hero={details}
         art={art}
@@ -400,61 +471,6 @@ export function Lobby({
           ) : undefined
         }
       />
-
-      <LobbySettings
-        editable={room.isHost}
-        summary={[
-          setsLine(view, art),
-          timersLine(
-            {
-              clueSeconds: view.settings.seconds,
-              guessSeconds: null,
-              timerMode: view.settings.timerMode,
-            },
-            { clue: 'decisions', guess: null },
-          ),
-        ]}
-      >
-        <SetFilter view={view} room={room} act={act} art={art} />
-        {room.isHost && <h3 className="mt-3 mb-2 font-bold">Timer</h3>}
-        <div className={room.isHost ? undefined : 'mt-3'}>
-          <TimerSettings
-            values={{
-              clueSeconds: view.settings.seconds,
-              guessSeconds: null,
-              timerMode: view.settings.timerMode,
-            }}
-            editable={room.isHost}
-            clueLabel="Decision timer"
-            clueHelp="Time for each card to play and each choice to make."
-            strictHelp="a random card is played (or a random choice made) for whoever is slow"
-            onChange={(p) =>
-              void act({
-                type: 'update-settings',
-                ...(p.clueSeconds !== undefined && { seconds: p.clueSeconds }),
-                ...(p.timerMode !== undefined && { timerMode: p.timerMode }),
-              })
-            }
-          />
-        </div>
-      </LobbySettings>
-
-      {room.isHost && (
-        <StickyBar>
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={!!blocker}
-            onClick={() => void act({ type: 'start' }, { anchor: 'tb-start' })}
-          >
-            Start the brawl
-          </Button>
-          {blocker && !(me?.playing && !me.hero) && (
-            <p className="mt-1.5 text-caption text-ink-muted">{blocker}</p>
-          )}
-          <RefusalSlot anchor="tb-start" />
-        </StickyBar>
-      )}
-    </div>
+    </>
   );
 }

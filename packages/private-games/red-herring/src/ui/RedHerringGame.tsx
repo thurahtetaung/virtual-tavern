@@ -1,9 +1,14 @@
 import { type GameUiProps, type PlayerId, waitingFor, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   Countdown,
+  END_ART,
+  EndHero,
+  EndLayout,
   EndTabs,
   Hint,
+  MoreBelow,
   Panel,
   RefusalSlot,
   Standings,
@@ -12,15 +17,16 @@ import {
   TabBar,
   type TabBarItem,
   tabPanelProps,
-  cn,
   useAbandonGame,
+  useFreeHeight,
+  useMarkMore,
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { RedHerringAction, RedHerringView } from '../logic/types.ts';
 import { type Art, useArt } from './assets.ts';
-import { DrawPile } from './Card.tsx';
+import { Card, DrawPile } from './Card.tsx';
 import { Lobby } from './Lobby.tsx';
 import { useTurnBuzz } from './buzz.ts';
 import { Tips } from './Tips.tsx';
@@ -71,12 +77,13 @@ export function RedHerringGame({
 
   if (view.phase === 'lobby' || !view.game)
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 lg:max-w-6xl">
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
       </div>
     );
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 sm:gap-3">
+    // Wide desktops use the window's width, so the laps and your hand grow into it.
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 sm:gap-3 xl:max-w-[88rem]">
       <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
         {status.text}
       </Hint>
@@ -115,11 +122,14 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   const you = room.you;
   const inGame = r.order.includes(you);
   const handStage = r.stage === 'card' || r.stage === 'word' || r.stage === 'play';
-  // Phones and tablets: the table, your notebook and hand (Me), and the scores, from the tab bar.
-  // On your card or play turn the hand is the table's workspace instead (never shown twice).
+  // Phones and tablets: the table, your notebook (Me), and the scores, from the tab bar. While cards
+  // are chosen the hand sits under the table: large on your turn, a small row while others choose,
+  // so the band under the table shows what you hold rather than empty space.
   const shown: PlayTab | null = wide ? null : tab;
-  const yourCardTurn = (r.stage === 'card' || r.stage === 'play') && r.turn === you;
-  const handOnTable = shown === null ? handStage : yourCardTurn;
+  const rail = useRef<HTMLElement>(null);
+  useMarkMore(rail, [wide]);
+  const railRoom = useFreeHeight(rail, wide);
+  const handOnTable = handStage;
   const timerLabel =
     r.stage === 'discuss'
       ? 'to talk'
@@ -172,7 +182,8 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         </span>
       </div>
       {shown === null && <HostTools view={view} room={room} act={act} art={art} name={name} />}
-      {inGame && <Tips />}
+      {/* Desktops keep the tips in the rail (under the vote), so the table starts at the top. */}
+      {inGame && !wide && <Tips />}
       {inGame && shown === null && <Notebook view={view} you={you} art={art} />}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
         <div
@@ -184,18 +195,38 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         >
           {!wide && panel}
           <Table view={view} room={room} art={art} name={name} />
-          {inGame && handOnTable && <HandStrip view={view} act={act} art={art} you={you} />}
+          {inGame && handOnTable && !wide && (
+            <HandStrip view={view} act={act} art={art} you={you} />
+          )}
         </div>
-        {wide && <aside className="flex flex-col gap-3">{side}</aside>}
+        {wide && (
+          // The rail never runs past the window: when the vote, the scores and the tips are taller
+          // than the room left, it scrolls inside.
+          <div className="relative min-w-0 lg:row-span-2">
+            <aside
+              ref={rail}
+              className="peer flex flex-col gap-3 overflow-y-auto overscroll-contain p-px"
+              style={railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
+            >
+              {/* The vote and the scores first; the first-time tips under them. */}
+              {side}
+              {inGame && <Tips />}
+            </aside>
+            {/* More below while the rail has more under its fold. */}
+            <MoreBelow column={rail} surface="page" compact />
+          </div>
+        )}
+        {/* Desktops: the hand under the table, as large as the height left allows; the rail
+            beside both. */}
+        {wide && inGame && handOnTable && (
+          <div className="min-w-0 lg:col-start-1">
+            <HandStrip view={view} act={act} art={art} you={you} />
+          </div>
+        )}
         {shown === 'me' && (
           <div className="flex min-w-0 flex-col gap-2" {...tabPanelProps(PLAY_TABS_ID, 'me')}>
             {inGame ? (
-              <>
-                <Notebook view={view} you={you} art={art} />
-                {handStage && !handOnTable && (
-                  <HandStrip view={view} act={act} art={art} you={you} />
-                )}
-              </>
+              <Notebook view={view} you={you} art={art} />
             ) : (
               <ScoreList view={view} you={you} art={art} />
             )}
@@ -369,9 +400,33 @@ export function ScoreList({ view, you, art }: { view: RedHerringView; you: strin
   );
 }
 
-function End({ view, room, act, name }: PartProps) {
+function End({ view, room, act, art, name }: PartProps) {
   const g = view.game!;
   const fun = view.settings.scoring === 'fun';
+  const wide = useWideScreen();
+  const best = Math.max(...g.players.map((p) => p.score));
+  const champs = g.players.filter((p) => p.score === best);
+  const caught = g.history.filter((h) => h.caught).length;
+  const buttons = room.isHost ? (
+    <div className="flex flex-wrap justify-center gap-2">
+      <Button
+        size="lg"
+        className="max-sm:flex-1"
+        onClick={() => void act({ type: 'play-again' }, { anchor: 'rh-end' })}
+      >
+        Play again
+      </Button>
+      <Button
+        variant="secondary"
+        size="lg"
+        onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'rh-end' })}
+      >
+        Change setup
+      </Button>
+    </div>
+  ) : (
+    <p className="text-small text-ink-muted">{waitingForHost(room, 'start the next game')}</p>
+  );
   const rounds = (
     <section
       aria-label="Every round"
@@ -394,54 +449,89 @@ function End({ view, room, act, name }: PartProps) {
       </ol>
     </section>
   );
+  // The last round's two key cards: the word-picker's, and the Conspirator's first card.
+  const last = g.round;
+  const firstOf = (id: PlayerId | undefined) =>
+    id === undefined ? undefined : last.plays.find((p) => p.by === id && p.lap === 1);
+  const pickerCard = firstOf(last.picker);
+  const conspiratorCard = firstOf(last.result?.conspirator);
+  const finale = [
+    pickerCard && {
+      key: 'word',
+      card: pickerCard.card,
+      caption: last.word
+        ? `“${last.word}”, ${name(last.picker)}’s word`
+        : `${name(last.picker)}’s card`,
+    },
+    conspiratorCard && {
+      key: 'herring',
+      card: conspiratorCard.card,
+      caption: `🐟 ${name(conspiratorCard.by)} ${last.result?.caught ? 'caught' : 'got away'}`,
+    },
+  ].filter((x): x is { key: string; card: number; caption: string } => !!x);
   return (
-    <Panel className="flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          !fun && {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  score: p.score,
-                  note: `scored in ${p.tokens} ${p.tokens === 1 ? 'round' : 'rounds'}`,
-                }))}
-                you={room.you}
-              />
-            ),
-          },
-          { id: 'rounds', label: '🐟 Rounds', content: rounds },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'rh-end' })}
+    <div className="flex flex-col gap-3">
+      <EndLayout
+        hero={
+          <EndHero
+            emblem="🐟"
+            eyebrow={fun ? null : undefined}
+            title={
+              fun
+                ? 'Game over'
+                : `${champs.map((p) => (p.id === room.you ? 'You' : p.name)).join(' and ')} ${champs.length > 1 || champs[0]?.id === room.you ? 'win' : 'wins'}!`
+            }
+            superlatives={wide ? room.superlatives : undefined}
+            art={finale.map((f) => (
+              <figure key={f.key} className={cn('space-y-1', END_ART[2])}>
+                <Card card={f.card} art={art} className="w-full shadow-vt-2" />
+                <figcaption className="text-caption text-ink-2 lg:text-small">
+                  {f.caption}
+                </figcaption>
+              </figure>
+            ))}
+            actions={
+              <>
+                {buttons}
+                <RefusalSlot anchor="rh-end" />
+              </>
+            }
           >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'rh-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="rh-end" />
-    </Panel>
+            {caught} of {g.history.length} Conspirators caught
+            {!fun && ` · ${best} ${best === 1 ? 'point' : 'points'} on top`}.
+          </EndHero>
+        }
+      >
+        <Panel className="flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            columns
+            tabs={[
+              !fun && {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={g.players.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      score: p.score,
+                      note: `scored in ${p.tokens} ${p.tokens === 1 ? 'round' : 'rounds'}`,
+                    }))}
+                    you={room.you}
+                  />
+                ),
+              },
+              { id: 'rounds', label: '🐟 Rounds', content: rounds },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+            ]}
+          />
+        </Panel>
+      </EndLayout>
+    </div>
   );
 }

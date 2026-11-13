@@ -2,6 +2,8 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndHero,
+  EndLayout,
   EndTabs,
   GuideLink,
   Fold,
@@ -21,12 +23,16 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  LobbyLayout,
+  LobbyPitch,
   LobbySettings,
+  LobbyStart,
   wordListsLine,
   timersLine,
   useWideScreen,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
+import { guide } from '../logic/guide.ts';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
@@ -99,59 +105,60 @@ export function CodenamesGame({
 
   if (view.phase === 'lobby') {
     return (
-      <div className="space-y-4">
-        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
-        <Teams view={view} online={online} act={act} hostId={room.hostId} />
-        <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />
-        <p className="text-center text-small">
-          <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
-          this game and has 9 agents to find; the other team has 8.
-        </p>
-        <LobbySettings
-          editable={room.isHost}
-          summary={[
-            wordListsLine(view.settings.wordListIds, room.wordLists),
-            timersLine(view.settings),
-          ]}
-          className="space-y-4"
-        >
-          <Settings
-            settings={view.settings}
-            wordLists={room.wordLists}
+      <LobbyLayout
+        pitch={
+          // Phones skip the pitch: the teams and Start must fit the first screen.
+          <LobbyPitch className="max-sm:hidden" title={room.gameName ?? 'Codenames'} emblem="🕵️">
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <LobbySettings
             editable={room.isHost}
-            act={act}
-          />
-        </LobbySettings>
-        {room.isHost && (
-          <StickyBar>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
+            summary={[
+              wordListsLine(view.settings.wordListIds, room.wordLists),
+              timersLine(view.settings),
+            ]}
+            className="space-y-4"
+          >
+            <Settings
+              settings={view.settings}
+              wordLists={room.wordLists}
+              editable={room.isHost}
+              act={act}
+            />
+          </LobbySettings>
+        }
+        start={
+          room.isHost && (
+            <LobbyStart
+              blocker={blocker}
+              onStart={() => void act({ type: 'start' })}
+              // Shuffle sits beside Start, so the lobby fits a phone with the playtest bar too.
+              inline
+              secondary={
                 <Button
-                  size="lg"
-                  disabled={blocker !== null}
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Start game
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
+                  variant="ghost"
+                  size="sm"
                   title="Shuffling keeps anyone who chose to be a Spymaster."
                   onClick={() => void act({ type: 'randomize-teams' })}
                 >
                   <Icon name="shuffle" />
                   Shuffle teams
                 </Button>
-              </div>
-              {blocker && <p className="text-caption text-ink-muted">{blocker}</p>}
-              {/* Phones keep it as the button's tooltip, so the lobby fits the screen. */}
-              <p className="hidden text-caption text-ink-muted sm:block">
-                Shuffling keeps anyone who chose to be a Spymaster.
-              </p>
-            </div>
-          </StickyBar>
-        )}
-      </div>
+              }
+            />
+          )
+        }
+      >
+        {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
+        <Teams view={view} online={online} act={act} hostId={room.hostId} />
+        <p className="text-center text-small">
+          <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
+          this game and has 9 agents to find; the other team has 8.
+        </p>
+        <GuideLink title={room.gameName ?? 'Codenames'} onClick={showGuide} />
+      </LobbyLayout>
     );
   }
 
@@ -235,44 +242,77 @@ function InGame({
       {waitingForHost(room, 'start the next game')}
     </p>
   );
-  const winner = view.winner && (
-    <p className={cn('font-display text-title font-bold', TEAM_TEXT[view.winner])}>
-      🏆 {TEAM_LABEL[view.winner]} team wins!
-    </p>
-  );
-  const yourTeam = me?.team && (
-    <p className="font-semibold">
-      {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
-    </p>
-  );
-  const overPanel = (
-    <Panel className="space-y-3 text-center">
-      {winner}
-      <p>{winHow(view)}.</p>
-      {yourTeam}
-      <p className="text-small text-ink-muted">The full key is shown on the board below.</p>
-      <Superlatives lines={room.superlatives} />
-      {endButtons}
-    </Panel>
+  // The viewer's side lights the card: ember when their team won, danger when it lost, quiet
+  // for watchers (the title carries the winning team's colour).
+  const tone = !me?.team || !view.winner ? 'neutral' : me.team === view.winner ? 'win' : 'loss';
+  // The finale wears the winning team's colours: its soft light from the top and a 4 px band. A team
+  // that found all its agents shows the count as the emblem; a win by the other team's assassin
+  // keeps the trophy (the count would read as nothing found).
+  const won = view.winner;
+  const found = won ? view.board.filter((c) => c.kind === won && c.revealed).length : 0;
+  const agents = won ? view.board.filter((c) => c.kind === won).length : 0;
+  const hero = (
+    <EndHero
+      className={
+        won
+          ? cn(
+              // isolate + -z-10: the light sits on the card's surface, under every word and button.
+              'isolate border-t-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-b before:to-transparent before:to-70%',
+              won === 'red'
+                ? 'border-t-team-a before:from-team-a-soft'
+                : 'border-t-team-b before:from-team-b-soft',
+            )
+          : undefined
+      }
+      emblem={
+        won && found === agents ? (
+          <span className={cn('block font-display font-black tabular-nums', TEAM_TEXT[won])}>
+            <span className="text-[3.5rem] leading-none lg:text-[4.5rem]">{found}</span>
+            <span className="text-heading text-ink-muted"> / {agents}</span>
+            <span className="mt-1 block text-small font-semibold tracking-wide text-ink-2 uppercase">
+              agents found
+            </span>
+          </span>
+        ) : undefined
+      }
+      title={
+        view.winner ? (
+          <span className={TEAM_TEXT[view.winner]}>{TEAM_LABEL[view.winner]} team wins!</span>
+        ) : (
+          'Game over'
+        )
+      }
+      eyebrow={view.winner ? undefined : null}
+      tone={tone}
+      superlatives={wide ? room.superlatives : undefined}
+      actions={endButtons}
+    >
+      {/* Wide screens fold the last guess's banner ("It's the assassin!") into the finale. */}
+      {wide && result && <p className="font-semibold text-ink">{result.headline}</p>}
+      {winHow(view)}.{' '}
+      {me?.team && (
+        <b>{me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}</b>
+      )}
+    </EndHero>
   );
   // Phones: the result and Play again, then the board, awards, log and teams one at a time, so
   // the end fits the screen.
   const phoneEnd = (
     <>
-      <Panel className="space-y-1 text-center max-lg:p-3">
-        {winner}
-        <p className="text-small">
-          {winHow(view)}.{' '}
-          {me?.team && (me.team === view.winner ? 'Your team won!' : 'Your team lost this time.')}
-        </p>
-      </Panel>
+      {hero}
       <EndTabs
         tabs={[
           {
             id: 'board',
             label: '🗝️ Key',
             content: (
-              <Board view={view} selected={null} lastGuessed={result?.card ?? null} onPick={null} />
+              <Board
+                view={view}
+                selected={null}
+                lastGuessed={result?.card ?? null}
+                onPick={null}
+                size="short"
+              />
             ),
           },
           !!room.superlatives?.length && {
@@ -300,19 +340,69 @@ function InGame({
           },
         ]}
       />
-      {endButtons}
     </>
   );
+
+  // Wide screens: the finale and awards beside the revealed key, then the log and the teams, all
+  // fitted to the window.
+  if (wide && view.phase === 'over')
+    return (
+      <div className="space-y-3">
+        {confirmDialog}
+        <EndLayout
+          className="grid-cols-[minmax(0,22rem)_minmax(0,1fr)]"
+          hero={hero}
+          // The revealed key stays beside the finale (a banner would drop it under, at half size).
+          banner={false}
+        >
+          <ScoreBar view={view} clockOffset={room.clockOffset} />
+          <EndTabs
+            tabs={[
+              {
+                id: 'board',
+                label: '🗝️ Key',
+                content: (
+                  <Board
+                    view={view}
+                    selected={null}
+                    lastGuessed={result?.card ?? null}
+                    onPick={null}
+                  />
+                ),
+              },
+              {
+                id: 'log',
+                label: '📜 Log',
+                content: (
+                  <Panel>
+                    <h3 className="mb-1 font-bold">Game log</h3>
+                    <GameLog view={view} />
+                  </Panel>
+                ),
+              },
+              {
+                id: 'teams',
+                label: '👥 Teams',
+                content: (
+                  <TeamsSection view={view} online={online} act={act} hostId={room.hostId} />
+                ),
+              },
+            ]}
+          />
+        </EndLayout>
+      </div>
+    );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-6">
       {confirmDialog}
       <div
-        className={cn('min-w-0 space-y-3', shown && shown !== 'board' && 'hidden')}
+        className={cn('min-w-0 space-y-3 lg:max-w-[60rem]', shown && shown !== 'board' && 'hidden')}
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
-        {result && (
+        {/* Wide screens at the end: the finale's line says how it ended, so the board stays whole. */}
+        {result && !(wide && view.phase === 'over') && (
           <ResultBanner
             key={view.log.length}
             result={result}
@@ -390,14 +480,16 @@ function InGame({
           </p>
         )}
 
-        {/* Above the board, so the result and Play again need no scroll past the key. */}
-        {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
+        {/* Phones: above the board, so the result and Play again need no scroll past the key.
+            Wide screens put the finale beside the board, so the whole revealed key fits. */}
+        {view.phase === 'over' && !wide && phoneEnd}
         {(wide || view.phase !== 'over') && (
           <Board
             view={view}
             selected={selected}
             lastGuessed={result?.card ?? null}
             onPick={canGuess ? pick : null}
+            size={canGuess || canClue ? undefined : 'fill'}
           />
         )}
 

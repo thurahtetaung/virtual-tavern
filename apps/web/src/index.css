@@ -431,6 +431,61 @@
   }
 }
 
+/* The finale (@vt/ui EndHero): a card lit from above by the lamp, ember for a win, danger for a
+   shared loss. The light fades into `card` well before the title, so every text sits on a measured
+   surface (accent-soft / danger-soft at the top, card below). */
+/* A lobby's pitch card sits under a corner of lamplight, as the finale does under its own. */
+.vt-lobby-pitch {
+  background-image: radial-gradient(80% 130% at 0% 0%, var(--vt-lamp), transparent 70%);
+}
+.vt-end-hero {
+  background-color: var(--vt-card);
+  background-image:
+    radial-gradient(90% 75% at 50% 0%, var(--vt-accent-soft), transparent 75%),
+    radial-gradient(60% 50% at 50% 0%, var(--vt-lamp), transparent 70%);
+}
+.vt-end-hero[data-tone='loss'] {
+  background-image:
+    radial-gradient(90% 75% at 50% 0%, var(--vt-danger-soft), transparent 75%),
+    radial-gradient(60% 50% at 50% 0%, var(--vt-lamp), transparent 70%);
+}
+.vt-end-hero[data-tone='success'] {
+  background-image:
+    radial-gradient(90% 75% at 50% 0%, var(--vt-success-soft), transparent 75%),
+    radial-gradient(60% 50% at 50% 0%, var(--vt-lamp), transparent 70%);
+}
+.vt-end-hero[data-tone='neutral'] {
+  background-image: radial-gradient(90% 75% at 50% 0%, var(--vt-lamp), transparent 75%);
+}
+/* It lands once: the emblem pops, the words rise. Nothing loops. */
+@keyframes vt-end-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes vt-end-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vt-end-pop {
+    animation: vt-end-pop 400ms ease-out both;
+  }
+  .vt-end-in {
+    animation: vt-end-rise 400ms ease-out both;
+  }
+}
+
 /* A phone sheet (@vt/ui Modal) slides up from the bottom edge. */
 @keyframes vt-sheet-in {
   from {
@@ -498,6 +553,13 @@
 
 /* Inside a room, the page keeps room at its foot for the fixed sticky bar and tab bar (their
    heights are set while they are on screen), so they never cover the last of the content. */
+/* A guest's view of the host's lobby settings (LobbySettings) is read-only, not disabled: the
+   options keep their full contrast, the host's choice its selected fill. Unlayered, so it beats a
+   game's own `opacity-*` / `disabled:opacity-*` utilities. */
+[data-readonly] :is(button, label):is(:disabled, [aria-disabled='true'], .opacity-50, .opacity-60) {
+  opacity: 1;
+  cursor: default;
+}
 .vt-room-main {
   padding-bottom: calc(1.5rem + var(--vt-sticky-h, 0px) + var(--vt-tabbar-h, 0px));
 }

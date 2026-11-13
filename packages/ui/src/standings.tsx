@@ -13,7 +13,7 @@ export interface StandingEntry {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 /** Podium step heights, by place. */
-const STEP = ['h-20', 'h-14', 'h-10'];
+const STEP = ['h-20 lg:h-28', 'h-14 lg:h-20', 'h-10 lg:h-14'];
 
 /**
  * The shared end screen: a podium for the top three places, and the full final standings below
@@ -47,7 +47,10 @@ export function Standings({
   // A big table on a phone: tighter rows and no podium (the table repeats it), so it fits.
   const dense = entries.length > 6;
   // A big table always shows on phones (no podium there); otherwise only someone off the podium needs it.
-  const table = entries.length < 2 || dense || ranked.some((r) => r.place > 3);
+  // A tie on the podium shows the table too: the step keeps only the names, side by side, and each
+  // player's note goes to their row, so a shared step never stacks long lines.
+  const tiedStep = ranked.some((r) => r.place <= 3 && r.tied);
+  const table = entries.length < 2 || dense || tiedStep || ranked.some((r) => r.place > 3);
   const label = (r: Placed<StandingEntry>) =>
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
@@ -60,17 +63,24 @@ export function Standings({
           aria-label="Podium"
           className={cn(
             'flex items-end justify-center gap-2',
-            (dense || phoneTable) && 'max-lg:hidden',
+            // Phones show only the table whenever it shows (it repeats the podium's places), so
+            // the whole ranking fits the end's tab instead of being cut under a tall podium.
+            (dense || phoneTable || table) && 'max-lg:hidden',
           )}
         >
           {order.map((place) => {
             const step = places.indexOf(place);
             return (
-              <li key={place} className="flex w-28 min-w-0 flex-col items-center gap-1">
-                <span aria-hidden className="text-2xl">
+              <li key={place} className="flex w-28 min-w-0 flex-col items-center gap-1 lg:w-40">
+                <span aria-hidden className="text-2xl lg:text-4xl">
                   {MEDALS[step]}
                 </span>
-                <ul className="w-full text-center text-sm leading-tight">
+                <ul
+                  className={cn(
+                    'w-full text-center text-sm leading-tight lg:text-body',
+                    onPlace(place).length > 1 && 'flex flex-wrap justify-center gap-x-2',
+                  )}
+                >
                   {onPlace(place).map((r) => (
                     <li
                       key={r.entry.id}
@@ -94,11 +104,11 @@ export function Standings({
                 <div
                   aria-hidden
                   className={cn(
-                    'flex w-full items-start justify-center rounded-t-lg border border-b-0 pt-1.5 font-display text-small font-semibold tabular-nums',
+                    'flex w-full items-start justify-center rounded-t-lg border border-b-0 pt-1.5 font-display text-small font-semibold tabular-nums lg:pt-2.5 lg:text-sub',
                     STEP[step],
                     step === 0
-                      ? 'border-accent-line bg-accent-soft text-accent-text'
-                      : 'border-line bg-sunk text-ink-2',
+                      ? 'border-accent-line bg-accent-soft text-accent-text shadow-vt-1'
+                      : 'border-line-strong bg-card text-ink-2 shadow-vt-1',
                   )}
                 >
                   {scoreLabel(onPlace(place)[0]!.entry.score)}

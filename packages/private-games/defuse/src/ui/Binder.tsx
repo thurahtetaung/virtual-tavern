@@ -1,4 +1,4 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { ProtectedImage, TAP_BAND, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { type Settings, isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
@@ -81,6 +81,9 @@ const L = {
     buttons: [{ x: 524, y: 906, label: 'CONTINUE', what: 'back' }],
   },
 } as const;
+
+/** The shared 44 px touch pad, minus its `relative` (these buttons are placed absolutely). */
+const PAD = TAP_BAND.replace(/^relative /, '');
 
 const LABELS = ['1. Identifier', '2. Bomb Configuration', '3. Advanced Options', '4. Result'];
 
@@ -195,7 +198,7 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
   const opacity = t < 0 ? 0 : Math.min(1, t / BINDER[how].fade);
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-black"
       onClick={() => {
         if (!done) setSkip(true);
       }}
@@ -203,7 +206,9 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
       data-done={done ? 'yes' : 'no'}
     >
       <div
-        className="relative aspect-square w-[min(100vw,100dvh)]"
+        // The sheet is about 89 % of the page's art: on a phone held upright the page grows until
+        // the sheet is the screen's width less 16 px a side (its blank edges run off the screen).
+        className="relative aspect-square w-[min(100vw,100dvh)] portrait:w-[min(calc((100vw-32px)/0.887),100dvh)]"
         style={{ containerType: 'size', opacity }}
         data-testid="binder-page"
       >
@@ -288,7 +293,11 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
               <button
                 key={x.label}
                 type="button"
-                className="absolute -translate-x-1/2 -translate-y-1/2 rounded-[0.6cqw] bg-[#1d1d1b] px-[2.2cqw] py-[0.9cqw] font-mono font-bold tracking-[0.25em] text-white/80 ring-[0.35cqw] ring-[#e8d23a]/0 hover:ring-[#e8d23a] focus-visible:ring-[#e8d23a]"
+                className={cn(
+                  'absolute -translate-x-1/2 -translate-y-1/2 rounded-[0.6cqw] bg-[#1d1d1b] px-[2.2cqw] py-[0.9cqw] font-mono font-bold tracking-[0.25em] text-white/80 ring-[0.35cqw] ring-[#e8d23a]/0 hover:ring-[#e8d23a] focus-visible:ring-[#e8d23a]',
+                  // A 44 px tap target on touch screens around the printed button.
+                  PAD,
+                )}
                 style={{
                   left: `${(x.x / 1024) * 100}%`,
                   top: `${(x.y / 1024) * 100}%`,
@@ -305,9 +314,13 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
               </button>
             ))}
       </div>
-      {done && !retry && how === 'exploded' && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] text-center text-xs text-stone-300">
-          The host starts the next bomb.
+      {/* Who acts next, for everyone but the host (whose page holds Retry), on either outcome. */}
+      {done && !retry && (
+        // A dark pill: it may sit over the binder's white paper or the dark backdrop.
+        <p className="pointer-events-none absolute inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] px-4 text-center">
+          <span className="inline-block rounded-full bg-stone-950/85 px-3 py-1 text-sm text-stone-100 shadow-vt-2">
+            The host starts the next bomb.
+          </span>
         </p>
       )}
     </div>
