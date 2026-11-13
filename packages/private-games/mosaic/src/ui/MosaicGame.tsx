@@ -8,6 +8,7 @@ import {
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   Fold,
   GuideLink,
@@ -402,71 +403,90 @@ function End({
     const p = g.players.find((x) => x.id === id)!;
     return p.score * 100 - (g.winners.includes(id) ? 0 : 1);
   };
+  const winners = g.players.filter((p) => g.winners.includes(p.id));
+  const top = winners[0]?.score ?? 0;
   return (
-    // Wide screens: the standings beside every final wall, shown large.
-    <div className="flex flex-col gap-2 lg:mx-auto lg:grid lg:w-full lg:max-w-6xl lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
-      <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
-        <EndTabs
-          tabs={[
-            {
-              id: 'scores',
-              label: '🏆 Scores',
-              content: (
-                <Standings
-                  entries={players.map((p) => ({
-                    id: p.id,
-                    name: p.name,
-                    score: score(p.id),
-                    note: endNote(
-                      p.wall,
-                      g.scoring?.last ? g.scoring.players[p.id]?.bonus : undefined,
-                      p.left,
-                    ),
-                  }))}
-                  you={room.you}
-                  scoreLabel={(n) =>
-                    `${Math.ceil(n / 100)} ${Math.ceil(n / 100) === 1 ? 'point' : 'points'}`
-                  }
-                  // Phones: the table alone (the podium repeats it), so the end fits the screen.
-                  phoneTable
-                />
-              ),
-            },
-            !!room.superlatives?.length && {
-              id: 'awards',
-              label: '✨ Awards',
-              content: <Superlatives lines={room.superlatives} />,
-            },
-            !wide && {
-              id: 'walls',
-              label: '🧱 Walls',
-              content: <Tiling view={view} room={room} act={act} art={art} />,
-            },
-          ]}
-        />
-        {room.isHost ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'mo-end' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'mo-end' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        ) : (
-          <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-        )}
-        <RefusalSlot anchor="mo-end" />
-      </Panel>
-      {wide && <Tiling view={view} room={room} act={act} art={art} size="md" />}
+    <div className="flex flex-col gap-2 lg:mx-auto lg:w-full lg:max-w-6xl lg:gap-4">
+      <EndHero
+        title={
+          winners.length
+            ? `${winners.map((p) => (p.id === room.you ? 'You' : p.name)).join(' & ')} ${
+                winners.length > 1 || winners[0]!.id === room.you ? 'win' : 'wins'
+              } with ${top} ${top === 1 ? 'point' : 'points'}!`
+            : 'Game over'
+        }
+        eyebrow={winners.length ? undefined : null}
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' }, { anchor: 'mo-end' })}
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'mo-end' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+            )}
+            <RefusalSlot anchor="mo-end" />
+          </>
+        }
+      />
+      {/* Wide screens: the standings beside every final wall, shown large. */}
+      <div className="flex flex-col gap-2 lg:mx-auto lg:grid lg:w-full lg:max-w-6xl lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
+        <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={players.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      score: score(p.id),
+                      note: endNote(
+                        p.wall,
+                        g.scoring?.last ? g.scoring.players[p.id]?.bonus : undefined,
+                        p.left,
+                      ),
+                    }))}
+                    you={room.you}
+                    scoreLabel={(n) =>
+                      `${Math.ceil(n / 100)} ${Math.ceil(n / 100) === 1 ? 'point' : 'points'}`
+                    }
+                    // Phones: the table alone (the podium repeats it), so the end fits the screen.
+                    phoneTable
+                  />
+                ),
+              },
+              !wide &&
+                !!room.superlatives?.length && {
+                  id: 'awards',
+                  label: '✨ Awards',
+                  content: <Superlatives lines={room.superlatives} />,
+                },
+              !wide && {
+                id: 'walls',
+                label: '🧱 Walls',
+                content: <Tiling view={view} room={room} act={act} art={art} />,
+              },
+            ]}
+          />
+        </Panel>
+        {wide && <Tiling view={view} room={room} act={act} art={art} size="md" />}
+      </div>
     </div>
   );
 }
