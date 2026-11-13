@@ -13,7 +13,7 @@ export interface StandingEntry {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 /** Podium step heights, by place. */
-const STEP = ['h-20', 'h-14', 'h-10'];
+const STEP = ['h-20 lg:h-28', 'h-14 lg:h-20', 'h-10 lg:h-14'];
 
 /**
  * The shared end screen: a podium for the top three places, and the full final standings below
@@ -66,11 +66,11 @@ export function Standings({
           {order.map((place) => {
             const step = places.indexOf(place);
             return (
-              <li key={place} className="flex w-28 min-w-0 flex-col items-center gap-1">
-                <span aria-hidden className="text-2xl">
+              <li key={place} className="flex w-28 min-w-0 flex-col items-center gap-1 lg:w-40">
+                <span aria-hidden className="text-2xl lg:text-4xl">
                   {MEDALS[step]}
                 </span>
-                <ul className="w-full text-center text-sm leading-tight">
+                <ul className="w-full text-center text-sm leading-tight lg:text-body">
                   {onPlace(place).map((r) => (
                     <li
                       key={r.entry.id}
@@ -94,10 +94,10 @@ export function Standings({
                 <div
                   aria-hidden
                   className={cn(
-                    'flex w-full items-start justify-center rounded-t-lg border border-b-0 pt-1.5 font-display text-small font-semibold tabular-nums',
+                    'flex w-full items-start justify-center rounded-t-lg border border-b-0 pt-1.5 font-display text-small font-semibold tabular-nums lg:pt-2.5 lg:text-sub',
                     STEP[step],
                     step === 0
-                      ? 'border-accent-line bg-accent-soft text-accent-text'
+                      ? 'border-accent-line bg-accent-soft text-accent-text shadow-vt-1'
                       : 'border-line bg-sunk text-ink-2',
                   )}
                 >

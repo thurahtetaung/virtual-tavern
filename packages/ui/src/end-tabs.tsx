@@ -29,20 +29,24 @@ export interface EndTab {
  * A finished game's end screen on phones: a tab strip and one part at a time (the scores, the
  * awards, the game's own details), so the end, the room's buttons and Play again fit the screen.
  * A part taller than the screen leaves scrolls inside, never the page. Wider screens get every
- * part in order with no strip, exactly as without it. Leave out parts
- * with nothing to show (`null` or `false`); with one part left there is no strip.
+ * part in order with no strip; with `columns`, they flow into two columns from `xl` (each part kept
+ * whole), so a long end uses the width instead of a long scroll. Leave out parts with nothing to
+ * show (`null` or `false`); with one part left there is no strip.
  */
 export function EndTabs({
   tabs,
   label = 'The end',
   testId = 'end-tabs',
   className,
+  columns = false,
 }: {
   tabs: readonly (EndTab | null | false | undefined)[];
   label?: string;
   testId?: string;
   /** Classes for the strip. */
   className?: string;
+  /** Wide screens: flow the parts into two columns from `xl` instead of one long stack. */
+  columns?: boolean;
 }) {
   const parts = tabs.filter((t): t is EndTab => !!t);
   const isWide = useWideScreen();
@@ -56,6 +60,16 @@ export function EndTabs({
     resetKey: current?.id ?? '',
     content: inner,
   });
+  if (isWide && columns && parts.length > 1)
+    return (
+      <div data-ui="end-columns" className="gap-4 xl:columns-2">
+        {parts.map((t) => (
+          <div key={t.id} className="mb-4 break-inside-avoid">
+            {t.content}
+          </div>
+        ))}
+      </div>
+    );
   if (isWide || parts.length < 2)
     return (
       <>
