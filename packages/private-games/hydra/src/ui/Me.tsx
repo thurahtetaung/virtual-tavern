@@ -61,7 +61,12 @@ export function RoleCard({
   const r = view.role;
   const { open, setOpen, setHeld, flat, shown } = reveal;
   if (!r) return null;
-  const size = cn('relative mx-auto block', big ? 'w-44 sm:w-52' : 'w-32 sm:w-40');
+  // The big card grows with a tall desktop window (the deal's panel has the room), never past
+  // what keeps the quick reference and Ready on screen.
+  const size = cn(
+    'relative mx-auto block',
+    big ? 'w-44 sm:w-52 lg:w-[clamp(13rem,calc((100dvh-40rem)*0.75),22rem)]' : 'w-32 sm:w-40',
+  );
   // The face is only in the page while the card is up, so a face-down card carries no role name,
   // not even for a screen reader.
   return (

@@ -38,14 +38,18 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
   }, [up, g.players.length]);
   return (
     <ul
-      className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3 lg:grid-cols-5"
+      // Four a row on phones, five wider, the last row centred (no card left alone at the edge).
+      className="flex flex-wrap justify-center gap-2 sm:gap-3"
       aria-label="Everyone’s role"
     >
       {g.players.map((p, i) => {
         const role = end.roles[p.id]!;
         return (
           // min-w-0: a long role name wraps in its column instead of widening the grid.
-          <li key={p.id} className="flex min-w-0 flex-col items-center gap-1 text-center">
+          <li
+            key={p.id}
+            className="flex w-[calc((100%-1.5rem)/4)] min-w-0 flex-col items-center gap-1 text-center sm:w-[calc((100%-3rem)/5)]"
+          >
             <FlipCard
               up={i < up}
               back={<RoleBack c={c} />}
