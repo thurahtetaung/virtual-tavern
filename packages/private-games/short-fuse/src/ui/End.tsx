@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   NameDot,
   Panel,
@@ -43,9 +44,10 @@ export function End({
     .sort((a, b) => (a.deadTurn ?? 999) - (b.deadTurn ?? 999));
   const isBomb = (t: string) => t === 'bomb' || t === 'void';
   const nextBomb = end.pile.findIndex((x) => isBomb(x.t));
-  // Who went when: phones show it with the awards, as the end's first tab.
+  // Who went when: under the result on every width.
+  const winnerHand = (end.winner && end.hands[end.winner]) || [];
   const outOrder = order.length > 0 && (
-    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-ink-muted">
+    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
       {order.map((p, i) => (
         <span key={p.id} className="inline-flex items-center gap-1.5">
           {i > 0 && <span aria-hidden>·</span>}
@@ -150,58 +152,63 @@ export function End({
   );
   return (
     <div className="space-y-3" data-testid="end">
-      <Panel className="space-y-2 text-center">
-        <p className="sf-pop text-4xl" aria-hidden>
-          🏆
-        </p>
-        <h2 className="text-2xl font-black text-ink" data-testid="winner">
-          {end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'}
-        </h2>
-        {wide && outOrder}
-        {wide && <Superlatives lines={room.superlatives} />}
-        {room.isHost && (
-          <StickyBar>
-            <div className="flex flex-wrap justify-center gap-2 pt-1">
-              <Button
-                size="lg"
-                onClick={() => void act({ type: 'play-again' })}
-                data-testid="play-again"
-              >
-                Play again
-              </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => void act({ type: 'back-to-lobby' })}
-              >
-                Change setup
-              </Button>
-            </div>
-          </StickyBar>
-        )}
-      </Panel>
+      <EndHero
+        title={end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'}
+        titleTestId="winner"
+        emblem={end.winner ? '🏆' : '💥'}
+        tone={end.winner ? 'win' : 'loss'}
+        superlatives={wide ? room.superlatives : undefined}
+        art={
+          // The winner's last cards, large: what they were holding when the dust settled.
+          wide && winnerHand.length > 0
+            ? sortHand(winnerHand)
+                .slice(0, 8)
+                .map((card) => <CardFace key={card.id} card={card} art={g.art} c={c} size="lg" />)
+            : undefined
+        }
+        actions={
+          room.isHost && (
+            <StickyBar>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' })}
+                  data-testid="play-again"
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            </StickyBar>
+          )
+        }
+      >
+        {outOrder}
+      </EndHero>
 
       {wide ? (
-        <>
+        // Wide screens: everything that was hidden, in two columns from xl.
+        <div className="gap-3 xl:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid">
+          {handsBlock}
           {pileBlock}
           {truthBlock}
           {stashBlock}
-          {handsBlock}
-        </>
+        </div>
       ) : (
         // Phones: the awards, the pile, the hiding spots, the Stash, the hands and the seats one
         // at a time, so the end and Play again fit the screen.
         <EndTabs
           tabs={[
-            (!!outOrder || !!room.superlatives?.length) && {
-              id: 'result',
-              label: '🏆 Result',
-              content: (
-                <div className="space-y-2">
-                  {outOrder}
-                  <Superlatives lines={room.superlatives} />
-                </div>
-              ),
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '🏅 Awards',
+              content: <Superlatives lines={room.superlatives} />,
             },
             { id: 'hands', label: '✋ Hands', content: handsBlock },
             { id: 'pile', label: '🂠 Pile', content: pileBlock },

@@ -140,7 +140,7 @@ export function PlaceSheet({
                 onClick={() => go(p)}
                 data-testid={`place-${label.toLowerCase()}`}
                 className={cn(
-                  'min-h-9 rounded-lg px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  'min-h-11 rounded-lg px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                   pos === p
                     ? 'bg-accent text-accent-fg ring-accent'
                     : 'bg-card text-ink ring-line-strong [@media(hover:hover)]:hover:bg-panel',
@@ -173,7 +173,7 @@ export function PlaceSheet({
               value={pos}
               onChange={(e) => go(Number(e.target.value))}
               aria-label="Position in the pile"
-              className="min-w-0 flex-1 accent-[var(--color-accent)]"
+              className="vt-range min-w-0 flex-1"
             />
             <Button
               variant="secondary"
