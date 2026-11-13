@@ -5,8 +5,8 @@ import { MoreBelow, markMore } from './more-below.tsx';
 
 /** The least a column keeps when the window is short: past it the page scrolls instead. */
 const MIN_COLUMN_PX = 320;
-/** The More below fade's height (`h-16`): art under it would look cut. */
-const MORE_FADE_PX = 64;
+/** The More below fade's height (`h-12`): art under it would look cut. */
+const MORE_FADE_PX = 48;
 
 function cap(el: HTMLElement, max: number | null) {
   el.style.maxHeight = max === null ? '' : `${max}px`;
@@ -16,7 +16,7 @@ function cap(el: HTMLElement, max: number | null) {
 
 /**
  * How tall the finale's column must stay so its title and art show whole, clear of the More below
- * fade (64 px) at its foot when it scrolls.
+ * fade (48 px) at its foot when it scrolls.
  */
 function keepWhole(el: HTMLElement) {
   const last =

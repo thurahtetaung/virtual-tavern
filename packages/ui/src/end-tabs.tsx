@@ -4,13 +4,12 @@ import {
   type ReactNode,
   useContext,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 import { useFitToScreen } from './fit-area.tsx';
-import { MoreBelow, markMore } from './more-below.tsx';
+import { MoreBelow, useMarkMore } from './more-below.tsx';
 import { Tabs, tabPanelProps } from './tabs.tsx';
 
 /** Wider screens (Tailwind's `lg`) show the whole end screen at once, as they always have. */
@@ -80,22 +79,7 @@ export function EndTabs({
     content: inner,
   });
   // A part that scrolls inside shows "More below" at its foot until it is read to the end.
-  useLayoutEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const mark = () => markMore(el);
-    mark();
-    el.addEventListener('scroll', mark, { passive: true });
-    const capped = new MutationObserver(mark);
-    capped.observe(el, { attributes: true, attributeFilter: ['style'] });
-    const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(mark);
-    if (inner.current) sizes?.observe(inner.current);
-    return () => {
-      el.removeEventListener('scroll', mark);
-      capped.disconnect();
-      sizes?.disconnect();
-    };
-  }, [isWide, current?.id, parts.length]);
+  useMarkMore(box, [isWide, current?.id, parts.length]);
   if (isWide && columns && !inColumn && parts.length > 1)
     return (
       <div data-ui="end-columns" className="gap-4 xl:columns-2">
