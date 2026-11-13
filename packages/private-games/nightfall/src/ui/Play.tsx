@@ -2046,7 +2046,40 @@ export function Reveal({
           // again always below, so the end fits the screen.
           <EndTabs
             tabs={[
-              { id: 'result', label: '🏆 Result', content: resultPanel },
+              {
+                id: 'result',
+                label: '🏆 Result',
+                content: (
+                  <div className="space-y-2">
+                    {/* Everyone's final card at a glance first, in one sideways row (the Cards
+                        tab has the details); the hero already says who won. */}
+                    <ul
+                      aria-label="Everyone’s final cards"
+                      className="flex snap-x gap-2 overflow-x-auto px-1 pb-1"
+                    >
+                      {view.table!.map((p) => (
+                        <li
+                          key={p.id}
+                          className="flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1"
+                        >
+                          <CardFace
+                            role={reveal.cards[p.id]!.role}
+                            deck={deck}
+                            size="sm"
+                            className="w-full"
+                          />
+                          <span className="flex max-w-full items-center gap-1 text-xs font-semibold">
+                            <NameDot name={p.name} />
+                            <span className="truncate">{p.name}</span>
+                            {result.winners.includes(p.id) && <span aria-hidden>🏆</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {resultPanel}
+                  </div>
+                ),
+              },
               !!room.superlatives?.length && {
                 id: 'awards',
                 label: '✨ Awards',
