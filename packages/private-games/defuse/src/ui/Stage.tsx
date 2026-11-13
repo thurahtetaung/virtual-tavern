@@ -205,7 +205,24 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-[32px] text-ink-muted">No pages claimed yet.</p>
+          // Nothing claimed yet: the experts, big, as slates waiting for their pages.
+          <ul
+            className="flex max-w-[1600px] flex-wrap justify-center gap-6"
+            data-testid="claims-none"
+          >
+            {v.seats
+              .filter((p) => p.id !== v.defuser)
+              .map((p) => (
+                <li key={p.id}>
+                  <PosterSlate className="min-w-[280px] content-start gap-2 px-8 text-left">
+                    <span className="block text-[32px] [&_[data-color]]:size-5">
+                      <PlayerTag name={p.name} />
+                    </span>
+                    <span className="block text-[28px] text-ink-muted">No page yet</span>
+                  </PosterSlate>
+                </li>
+              ))}
+          </ul>
         )}
       </Poster>
     );
