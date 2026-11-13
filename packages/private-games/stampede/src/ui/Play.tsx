@@ -141,7 +141,7 @@ function AnswerTicks({
       {round.players.map((id) => (
         <li
           key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm ring-1 ring-line"
+          className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-sm shadow-vt-1 ring-1 ring-line lg:px-3.5 lg:py-1.5 lg:text-base"
         >
           <PlayerTag name={nameOf(view, id)} you={id === view.me?.id} />
           {view.pinkCow === id && <PinkMark names={names} />}
@@ -221,10 +221,11 @@ function Answering(props: Props) {
     void act({ type: 'skip' }, { anchor: ANSWER_ANCHOR });
   };
   return (
-    <div className="space-y-4">
+    // Wide screens: one block the width of the question card, so the form reads with it.
+    <div className="space-y-4 lg:mx-auto lg:w-full lg:max-w-3xl">
       {dialog}
       {/* The question as the round's card, the herd waiting under it. */}
-      <div className="rounded-2xl bg-card px-4 py-3 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12">
+      <div className="rounded-2xl bg-card px-4 py-3 shadow-vt-2 ring-1 ring-line sm:py-8 lg:py-12 lg:shadow-[var(--vt-shadow-2),var(--vt-edge)]">
         <p
           aria-hidden
           className="pb-1 text-center text-3xl leading-none sm:pb-2 sm:text-5xl lg:text-6xl"
@@ -592,16 +593,11 @@ export function GameOver(props: Props) {
                   label: '✨ Awards',
                   content: <Superlatives lines={room.superlatives} />,
                 },
-              !wide &&
-                !!view.round?.result && {
-                  id: 'question',
-                  label: '❓ Last question',
-                  content: <Reveal {...props} final />,
-                },
             ]}
           />
         </Panel>
-        {wide && view.round?.result && (
+        {/* The last question's herd, under the standings on every screen. */}
+        {view.round?.result && (
           <Panel>
             <h3 className="mb-2 font-bold">The last question</h3>
             <Reveal {...props} final />

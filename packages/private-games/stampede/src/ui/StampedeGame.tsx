@@ -239,7 +239,8 @@ export function StampedeGame({
               // Wide screens: the question and the herd sit in the middle of the free height;
               // phones centre the question above the answer bar while you answer.
               className={cn(
-                'lg:flex lg:min-h-[calc(100dvh-14rem)] lg:flex-col lg:justify-center',
+                // A pool of lamp light over the question, the pasture's evening glow.
+                'bg-[radial-gradient(70%_50%_at_50%_0%,var(--vt-lamp),transparent_75%)] lg:flex lg:min-h-[calc(100dvh-14rem)] lg:flex-col lg:justify-center',
                 answering &&
                   'max-sm:flex max-sm:min-h-[calc(100dvh-31.5rem)] max-sm:flex-col max-sm:justify-center',
                 // Phones: the reveal, the herd its centre, sits in the middle of the free height.
