@@ -32,8 +32,8 @@ import {
 import { type Content, contentFor, useManifest } from './assets.ts';
 import { Compare } from './Compare.tsx';
 import { EndScreen } from './End.tsx';
-import { Lineup, SharedPicker, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
-import { GhostHand, GhostPsychics, SilentNote } from './Ghost.tsx';
+import { Lineup, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
+import { GhostReveal, GhostShared, GhostVote, LOCKED_BY } from './GhostStages.tsx';
 import { GhostVisions } from './GhostVisions.tsx';
 import { Lobby } from './Lobby.tsx';
 import { type CompareSpec, HourClock, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
@@ -429,12 +429,6 @@ function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo
   );
 }
 
-const LOCKED_BY = {
-  ghost: '👻 The ghost revealed the verdicts',
-  host: '🔒 The host locked the guesses in',
-  timer: '⏱ Time ran out',
-} as const;
-
 /** The verdicts, held for a few seconds; the ghost or host can move the clock on. */
 function RevealPanel({
   view,
@@ -597,102 +591,55 @@ function SeanceTable({
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
 
   // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
-  const ghostFinal = ghost && finalStage;
-  const psychicFinal = !ghost && finalStage;
-  const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = ghost
+  const psychicFinal = finalStage;
+  // The ghost has its own screens (GhostVisions, GhostStages): these are the psychics' and
+  // watchers' tabs.
+  const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = me
     ? [
         {
           id: 'main',
-          icon: finalStage ? 'check' : 'users',
-          label: finalStage ? 'Final' : 'Psychics',
+          icon: finalStage ? 'check' : 'moon',
+          label: finalStage ? 'Final' : 'My vision',
         },
-        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: 'hand' as const, label: 'Hand' }]),
+        { id: 'others', icon: 'users', label: 'Others' },
         { id: 'table', icon: 'hourglass', label: 'Table' },
       ]
-    : me
-      ? [
-          {
-            id: 'main',
-            icon: finalStage ? 'check' : 'moon',
-            label: finalStage ? 'Final' : 'My vision',
-          },
-          { id: 'others', icon: 'users', label: 'Others' },
-          { id: 'table', icon: 'hourglass', label: 'Table' },
-        ]
-      : [
-          ...(finalStage ? [{ id: 'main' as Tab, icon: 'check' as const, label: 'Final' }] : []),
-          { id: 'others', icon: 'users', label: 'Psychics' },
-          { id: 'table', icon: 'hourglass', label: 'Table' },
-        ];
+    : [
+        ...(finalStage ? [{ id: 'main' as Tab, icon: 'check' as const, label: 'Final' }] : []),
+        { id: 'others', icon: 'users', label: 'Psychics' },
+        { id: 'table', icon: 'hourglass', label: 'Table' },
+      ];
   // The "needs you" dot: on the tab holding your move, while another tab is open.
   const alert: Tab | null = status.yourMove ? 'main' : null;
 
-  const sideShared =
-    finalStage &&
-    !(ghost && g.stage === 'shared') &&
-    !!g.final?.sharedCount &&
-    g.final.groups.length > 3;
+  const sideShared = finalStage && !!g.final?.sharedCount && g.final.groups.length > 3;
   const finalPanel = finalStage && (
     <div className="space-y-2">
       <VoteBar view={view} room={room} act={act} />
-      {/* The ghost picks beside the line-up (below it on phones), whose groups step 1 names. */}
-      <div
-        className={cn(
-          'grid gap-2',
-          ghost && g.stage === 'shared' && 'lg:grid-cols-2 lg:items-start',
-        )}
-      >
-        {/* Desktops with four groups or more: the shared vision is a narrow column beside them,
-            so the line-up and the vote fit the window. Phones: the line-up takes the height left
-            and scrolls inside (More below), except while the ghost picks under it. */}
-        <FitArea phone on={!(ghost && g.stage === 'shared')} plain surface="page" min={260}>
-          <Panel
-            className={cn(
-              'space-y-3 p-3',
-              sideShared &&
-                'lg:grid lg:grid-cols-[7rem_minmax(0,1fr)] lg:items-start lg:gap-3 lg:space-y-0',
-            )}
-          >
-            <SharedRow g={g} content={content} tags={ghost} side={sideShared} />
-            <Lineup
-              view={view}
-              act={act}
-              content={content}
-              draft={ghost ? draft : undefined}
-              setDraft={ghost ? setDraft : undefined}
-            />
-          </Panel>
-        </FitArea>
-        {ghost && g.stage === 'shared' && (
-          <SharedPicker
-            view={view}
-            act={act}
-            content={content}
-            draft={draft}
-            setDraft={setDraft}
-            compare={compare}
-          />
-        )}
-      </div>
+      {/* Desktops with four groups or more: the shared vision is a narrow column beside them, so
+          the line-up and the vote fit the window. Phones: the line-up takes the height left and
+          scrolls inside (More below). */}
+      <FitArea phone plain surface="page" min={260}>
+        <Panel
+          className={cn(
+            'space-y-3 p-3',
+            sideShared &&
+              'lg:grid lg:grid-cols-[7rem_minmax(0,1fr)] lg:items-start lg:gap-3 lg:space-y-0',
+          )}
+        >
+          <SharedRow g={g} content={content} side={sideShared} />
+          <Lineup view={view} act={act} content={content} />
+        </Panel>
+      </FitArea>
     </div>
   );
 
   const main = finalStage ? (
     finalPanel
-  ) : ghost ? (
-    <GhostPsychics
-      view={view}
-      content={content}
-      away={awayPsychics(g, room.players).map((p) => p.color)}
-    />
   ) : me ? (
     <MineTab view={view} room={room} act={act} content={content} compare={compare} />
   ) : null;
-  const second = ghostFinal ? null : ghost ? (
-    <GhostHand view={view} act={act} content={content} />
-  ) : (
-    <OthersTab view={view} act={act} content={content} compare={compare} />
-  );
+  const second = <OthersTab view={view} act={act} content={content} compare={compare} />;
 
   if (!inGame && tableScreen)
     return (
@@ -751,9 +698,33 @@ function SeanceTable({
       </div>
     );
 
+  // The ghost's other stages, in the same design: the verdicts, the shared vision, the vote.
+  if (ghost && (g.stage === 'reveal' || g.stage === 'shared' || g.stage === 'vote')) {
+    const notes = <Banners view={view} room={room} act={act} />;
+    return (
+      <div className="space-y-2">
+        {g.stage === 'reveal' ? (
+          <GhostReveal view={view} room={room} act={act} content={content} notes={notes} />
+        ) : g.stage === 'shared' ? (
+          <GhostShared
+            view={view}
+            act={act}
+            content={content}
+            draft={draft}
+            setDraft={setDraft}
+            compare={compare}
+            notes={notes}
+          />
+        ) : (
+          <GhostVote view={view} room={room} act={act} content={content} notes={notes} />
+        )}
+        {overlay}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {ghost && <SilentNote />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <StepBar view={view} room={room} act={act} />
       {!inGame && (
@@ -780,11 +751,9 @@ function SeanceTable({
           'grid gap-3',
           // Desktops: the current task takes the width; the table is a 20 rem rail at the right
           // that fits the window and scrolls inside.
-          ghostFinal || psychicFinal
+          psychicFinal
             ? 'lg:grid-cols-[minmax(0,1fr)_20rem]'
-            : ghost
-              ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)_20rem]'
-              : 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)_20rem]',
+            : 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)_20rem]',
         )}
       >
         {(main || (wide && g.stage === 'reveal')) && (
