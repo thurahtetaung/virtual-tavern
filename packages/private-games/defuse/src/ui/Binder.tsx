@@ -314,8 +314,11 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
       </div>
       {/* Who acts next, for everyone but the host (whose page holds Retry), on either outcome. */}
       {done && !retry && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] px-4 text-center text-sm text-stone-200">
-          The host starts the next bomb.
+        // A dark pill: it may sit over the binder's white paper or the dark backdrop.
+        <p className="pointer-events-none absolute inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] px-4 text-center">
+          <span className="inline-block rounded-full bg-stone-950/85 px-3 py-1 text-sm text-stone-100 shadow-vt-2">
+            The host starts the next bomb.
+          </span>
         </p>
       )}
     </div>

@@ -519,31 +519,44 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
     <div
       className={cn('grid gap-1.5', rail ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 sm:gap-2')}
     >
-      {found.map((p) => (
-        <button
-          key={p}
-          type="button"
-          onClick={() => setPage(p)}
-          aria-current={rail && p === page ? 'page' : undefined}
-          className={cn(
-            'flex min-h-11 flex-col items-start justify-center rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel',
-            !rail && 'sm:min-h-14 sm:py-2',
-            claims[p]?.includes(you) && 'ring-2 ring-accent',
-            rail && p === page && 'bg-accent-soft',
-          )}
-          data-testid={`index-${p}`}
-        >
-          <span className={cn('text-sm font-semibold', !rail && 'sm:text-base')}>
-            {(NEEDY as readonly string[]).includes(p) && <span aria-hidden>⚠ </span>}
-            {pageName(art, p)}
-          </span>
-          {claims[p]?.length ? (
-            <span className="max-w-full truncate text-xs text-ink-muted">
-              {claims[p].map((id) => (id === you ? 'you' : (names.get(id) ?? '?'))).join(', ')}
+      {found.map((p) => {
+        // Desktops' index: each page with its module's face, as the printed manual shows it.
+        const face = wide && !rail && p !== 'appendix' ? art.module(p)?.base : null;
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPage(p)}
+            aria-current={rail && p === page ? 'page' : undefined}
+            className={cn(
+              'flex min-h-11 items-center gap-3 rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel',
+              !rail && 'sm:min-h-14 sm:py-2 lg:min-h-[5.5rem]',
+              claims[p]?.includes(you) && 'ring-2 ring-accent',
+              rail && p === page && 'bg-accent-soft',
+            )}
+            data-testid={`index-${p}`}
+          >
+            {face && (
+              <ProtectedImage
+                src={face}
+                alt=""
+                className="size-16 shrink-0 rounded-lg object-contain"
+              />
+            )}
+            <span className="flex min-w-0 flex-col items-start">
+              <span className={cn('text-sm font-semibold', !rail && 'sm:text-base')}>
+                {(NEEDY as readonly string[]).includes(p) && <span aria-hidden>⚠ </span>}
+                {pageName(art, p)}
+              </span>
+              {claims[p]?.length ? (
+                <span className="max-w-full truncate text-xs text-ink-muted">
+                  {claims[p].map((id) => (id === you ? 'you' : (names.get(id) ?? '?'))).join(', ')}
+                </span>
+              ) : null}
             </span>
-          ) : null}
-        </button>
-      ))}
+          </button>
+        );
+      })}
       {!found.length && <p className="col-span-full text-center text-ink-muted">Nothing found.</p>}
     </div>
   );

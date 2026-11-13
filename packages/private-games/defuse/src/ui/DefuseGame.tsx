@@ -11,6 +11,9 @@ import {
   Button,
   Hint,
   LobbySettings,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
   PHONE,
   Modal,
   Fold,
@@ -28,6 +31,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { leftAt, timerText } from '../logic/bomb.ts';
 import { MIN_PLAYERS } from '../logic/game.ts';
+import { guide } from '../logic/guide.ts';
 import { MISSIONS, SECTIONS, missionById, missionNumber, moduleCount } from '../logic/missions.ts';
 import {
   type Action,
@@ -1038,68 +1042,92 @@ function Lobby({
     room,
     !enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null,
   );
+  const cover = art.page(1);
+  const toDesk = desk && (
+    <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
+      🧳 To the desk
+    </Button>
+  );
   return (
-    <div className="mx-auto max-w-3xl space-y-3" data-testid="lobby">
-      {line && (
-        <div data-testid={line.me ? undefined : 'waiting'}>
-          <Hint dense tone={line.me ? 'action' : 'neutral'}>
-            {line.text}
-          </Hint>
-        </div>
-      )}
-      {intro && (
-        <TalkIntro
-          onDone={() => {
-            remember(INTRO_KEY);
-            setIntro(false);
-          }}
-        />
-      )}
-      <Panel className="space-y-2">
-        <h3 className="font-semibold">At the table ({v.seats.length})</h3>
-        <ul className="flex flex-wrap gap-2">
-          {v.seats.map((p) => (
-            <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm">
-              <PlayerTag name={p.name} you={p.id === you} />
-            </li>
-          ))}
-        </ul>
-        {v.watchers.length > 0 && (
-          <p className="text-xs text-ink-muted">
-            Watching: {v.watchers.map((p) => p.name).join(', ')}
-          </p>
+    <div data-testid="lobby">
+      <LobbyLayout
+        className="lg:gap-y-3"
+        pitch={
+          <LobbyPitch
+            title={room.gameName ?? 'Defuse'}
+            emblem="💣"
+            art={
+              cover && (
+                <ProtectedImage
+                  src={cover}
+                  alt=""
+                  className="aspect-[3/4] w-full -rotate-3 rounded-md object-cover shadow-vt-2"
+                />
+              )
+            }
+          >
+            {guide.tagline}
+          </LobbyPitch>
+        }
+        rail={
+          <>
+            <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
+            {sound}
+          </>
+        }
+        start={
+          isHost ? (
+            <LobbyStart
+              label="Start the bomb"
+              blocker={!enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null}
+              onStart={() => send({ type: 'start' }, 'defuse-start')}
+              refusal="defuse-start"
+              testId="start"
+              secondary={toDesk}
+            />
+          ) : (
+            toDesk && (
+              <StickyBar>
+                <div className="flex justify-center">{toDesk}</div>
+              </StickyBar>
+            )
+          )
+        }
+      >
+        {line && (
+          <div data-testid={line.me ? undefined : 'waiting'}>
+            <Hint dense tone={line.me ? 'action' : 'neutral'}>
+              {line.text}
+            </Hint>
+          </div>
         )}
-        <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
-        {viewChoice}
-      </Panel>
-      <GuideLink title={room.gameName ?? 'Defuse'} onClick={() => showGuide()} />
-      <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
-      {sound}
-      <StickyBar>
-        <div className="flex flex-wrap items-center gap-2">
-          {desk && (
-            <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
-              🧳 To the desk
-            </Button>
+        {intro && (
+          <TalkIntro
+            onDone={() => {
+              remember(INTRO_KEY);
+              setIntro(false);
+            }}
+          />
+        )}
+        <Panel className="space-y-2">
+          <h3 className="font-semibold">At the table ({v.seats.length})</h3>
+          <ul className="flex flex-wrap gap-2">
+            {v.seats.map((p) => (
+              <li key={p.id} className="rounded-full bg-panel px-3 py-1 text-sm">
+                <PlayerTag name={p.name} you={p.id === you} />
+              </li>
+            ))}
+          </ul>
+          {v.watchers.length > 0 && (
+            <p className="text-xs text-ink-muted">
+              Watching: {v.watchers.map((p) => p.name).join(', ')}
+            </p>
           )}
-          {isHost ? (
-            <Button
-              size="lg"
-              className="flex-1"
-              disabled={!enough || !ready}
-              onClick={() => send({ type: 'start' }, 'defuse-start')}
-              data-testid="start"
-            >
-              {enough
-                ? ready
-                  ? 'Start the bomb'
-                  : 'Waiting for a defuser'
-                : 'Waiting for an expert'}
-            </Button>
-          ) : null}
-        </div>
-        <RefusalSlot anchor="defuse-start" />
-      </StickyBar>
+          <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
+          {viewChoice}
+        </Panel>
+        <GuideLink title={room.gameName ?? 'Defuse'} onClick={() => showGuide()} />
+      </LobbyLayout>
     </div>
   );
 }
