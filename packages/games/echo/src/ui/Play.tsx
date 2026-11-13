@@ -71,6 +71,45 @@ function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act
   );
 }
 
+/** One face-down card per writer while the clues are written: who is still writing, who is done. */
+function WritingCards({ view, turn }: { view: EchoView; turn: TurnView }) {
+  const left = stillWriting(turn);
+  return (
+    <ul
+      aria-label="Clues being written"
+      className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-2 sm:grid-cols-3 lg:gap-3"
+    >
+      {turn.givers.map((id) => {
+        const writing = left.includes(id);
+        const name = nameOf(view, id);
+        return (
+          <li
+            key={id}
+            className={cn(
+              'flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-3 text-center lg:min-h-32',
+              writing
+                ? 'border-2 border-dashed border-line bg-sunk text-ink-muted'
+                : 'bg-accent-soft text-ink shadow-vt-1 ring-1 ring-accent-line',
+            )}
+          >
+            <span className="font-display text-sub font-bold lg:text-heading">
+              {writing ? (
+                <span className="motion-safe:animate-pulse">✏️ writing…</span>
+              ) : (
+                '✓ Clue in'
+              )}
+            </span>
+            <span className="flex max-w-full items-center gap-1 text-caption text-ink-muted">
+              <NameDot name={name} />
+              <span className="truncate">{name}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Five face-down words: the guesser taps one, everyone else sees them waiting. */
 function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolean }) {
   return (
@@ -380,6 +419,12 @@ export function Stage({ view, act, room }: Props) {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
           {turn.word && <SecretWord word={turn.word} />}
           {writer ? <ClueForm key={cardKey} turn={turn} act={act} /> : null}
+          {/* Nothing to write here (the guesser, or a watcher): the writers' cards fill the panel. */}
+          {!writer && (
+            <div className="lg:col-span-2">
+              <WritingCards view={view} turn={turn} />
+            </div>
+          )}
           <div className="lg:col-span-2">
             <Progress turn={turn} room={room} act={act} />
           </div>
@@ -475,7 +520,7 @@ export function CardWall({ history }: { history: ResolvedCard[] }) {
         <li
           key={i}
           className={cn(
-            'space-y-0.5 rounded-xl px-3 py-2.5 text-center ring-1 shadow-vt-1',
+            'flex flex-col justify-center space-y-0.5 rounded-xl px-3 py-2.5 text-center ring-1 shadow-vt-1 lg:min-h-36 lg:space-y-2 lg:py-5',
             h.outcome === 'right'
               ? 'bg-success-soft text-success-ink ring-success-line'
               : h.outcome === 'wrong'
@@ -483,7 +528,7 @@ export function CardWall({ history }: { history: ResolvedCard[] }) {
                 : 'bg-sunk text-ink ring-line',
           )}
         >
-          <p className="font-display text-sub font-bold tracking-wide uppercase">
+          <p className="font-display text-sub font-bold tracking-wide uppercase lg:text-heading">
             {givenBack.includes(i) ? (
               <span aria-label="given back" className="mr-1.5 text-body">
                 ↩️
@@ -495,7 +540,7 @@ export function CardWall({ history }: { history: ResolvedCard[] }) {
             )}
             {h.word}
           </p>
-          <p className="truncate text-caption opacity-90">
+          <p className="truncate text-caption opacity-90 lg:text-small">
             {h.guesserName}
             {h.outcome === 'pass'
               ? h.timedOut
