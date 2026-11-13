@@ -85,7 +85,7 @@ export async function flat(pages: Page[]) {
 
 /**
  * Shows the host's settings (folded away so the lobby fits a phone; on a phone's result screen,
- * under the Next bomb tab).
+ * under the Next up tab).
  */
 export async function settings(p: Page) {
   const tab = p.getByTestId('result-tab-next');
