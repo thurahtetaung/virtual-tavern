@@ -352,7 +352,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
             <button
               type="button"
               onClick={() => onDetail({ kind: 'firework', suit })}
-              className="relative flex flex-col items-center gap-0.5"
+              className={cn(TAP_BAND, 'flex flex-col items-center gap-0.5')}
               aria-label={`${SUIT_NAME[suit]} firework: ${h} of 5${h === 5 ? ', finished' : ''}`}
               data-testid={`sf-firework-${suit}`}
               data-height={h}
@@ -366,7 +366,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-11 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
+                  className="relative flex aspect-[5/7] w-10 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,

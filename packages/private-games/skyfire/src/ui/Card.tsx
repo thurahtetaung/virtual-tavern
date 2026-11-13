@@ -28,7 +28,7 @@ export type CardSize = 'hand' | 'row' | 'stack' | 'mini';
 const SIZE: Record<CardSize, string> = {
   hand: 'aspect-[5/7] w-full',
   row: 'aspect-[5/7] w-full',
-  stack: 'aspect-[5/7] w-11 sm:w-14',
+  stack: 'aspect-[5/7] w-10 sm:w-14',
   mini: 'aspect-[5/7] w-6',
 };
 
