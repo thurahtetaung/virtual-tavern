@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, PlayerTag } from '@vt/ui';
+import { Button, Countdown, Panel, PlayerTag, ProtectedImage, cn } from '@vt/ui';
 import { type AttemptView, DUMMY, EPILOGUE, type MissionPlay } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
 import { MissionTags } from './Logbook.tsx';
@@ -88,8 +88,9 @@ export function Briefing({
   const text = useMissionText(m);
   const people = a.crew.filter((c) => c.id !== DUMMY);
   const inCrew = people.some((p) => p.id === me);
-  return (
-    <Panel className="mx-auto max-w-2xl space-y-4" data-testid="mc-briefing">
+  const { box } = useArt();
+  const panel = (
+    <Panel className={cn('space-y-4', !box && 'mx-auto max-w-2xl')} data-testid="mc-briefing">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm text-ink-muted">
@@ -113,7 +114,7 @@ export function Briefing({
           <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">
             Logbook entry
           </summary>
-          <div className="space-y-2 text-sm leading-relaxed" data-testid="mc-story">
+          <div className="space-y-2 text-sm leading-relaxed lg:text-base" data-testid="mc-story">
             {paragraphsOf(text.story).map((p, i) => (
               <p key={i} className="whitespace-pre-line">
                 <Printed text={p} />
@@ -143,5 +144,18 @@ export function Briefing({
         </Button>
       )}
     </Panel>
+  );
+  if (!box) return panel;
+  // Wide screens: the voyage's box art stands beside the briefing, so the moment that sets the
+  // mission opens like the lid of the game rather than a lone card in an empty page.
+  return (
+    <div className="mx-auto grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+      <ProtectedImage
+        src={box}
+        alt=""
+        className="hidden w-full rounded-xl shadow-vt-2 ring-1 ring-line lg:block"
+      />
+      {panel}
+    </div>
   );
 }

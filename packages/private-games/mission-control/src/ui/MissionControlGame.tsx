@@ -93,7 +93,11 @@ function Tip({ id, children }: { id: string; children: string }) {
   return (
     <p className="flex items-start gap-2 rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line">
       <span className="flex-1">💡 {children}</span>
-      <button type="button" className="shrink-0 underline" onClick={dismiss}>
+      <button
+        type="button"
+        className="-my-2 min-h-11 min-w-11 shrink-0 px-2 font-semibold underline"
+        onClick={dismiss}
+      >
         Got it
       </button>
     </p>

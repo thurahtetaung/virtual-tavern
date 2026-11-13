@@ -131,7 +131,7 @@ function Seat({
       {tasks.length > 0 && (
         <button
           type="button"
-          className="flex min-h-7 w-full items-center gap-1 rounded-lg bg-panel px-1.5 text-xs ring-1 ring-line sm:hidden"
+          className="flex min-h-11 w-full items-center gap-1 rounded-lg bg-panel px-2 text-sm ring-1 ring-line sm:hidden"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
           data-testid="mc-seat-tasks"
@@ -533,7 +533,11 @@ export function PlayTable({
               {queued && myTurnSeat !== me && (
                 <span className="basis-full text-center text-sm">
                   Plays when it’s your turn: <CardChip card={queued} />{' '}
-                  <button type="button" className="underline" onClick={() => setQueued(null)}>
+                  <button
+                    type="button"
+                    className="-my-2 inline-flex min-h-11 items-center px-2 font-semibold underline"
+                    onClick={() => setQueued(null)}
+                  >
                     cancel
                   </button>
                 </span>
