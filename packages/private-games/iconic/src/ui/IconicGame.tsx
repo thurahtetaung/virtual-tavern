@@ -6,11 +6,13 @@ import {
   storageKey,
   waitingFor,
   waitingForHost,
+  winnersTitle,
 } from '@vt/game-sdk';
 import {
   Button,
   ChoicePicker,
   Countdown,
+  EndHero,
   EndTabs,
   FitArea,
   Fold,
@@ -34,6 +36,7 @@ import {
   useConfirm,
   usePhone,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -1442,77 +1445,97 @@ function End({
 }) {
   const g = view.game!;
   const scoring = view.settings.scoring;
+  const wide = useWideScreen();
+  const entries = g.players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    score: scoring ? p.score : p.guessed,
+  }));
+  const title = winnersTitle(entries, room.you) || 'Game over';
   return (
-    <Panel className="ic-reveal flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  score: scoring ? p.score : p.guessed,
-                  note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
-                }))}
-                you={room.you}
-                {...(!scoring && {
-                  scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
-                })}
-              />
-            ),
-          },
-          {
-            id: 'words',
-            label: '💬 Every word',
-            content: (
-              <section aria-label="Every word" className="flex flex-col gap-1 text-sm">
-                <h3 className="font-semibold">Every word</h3>
-                <ol className="flex flex-col gap-0.5">
-                  {g.history.map((h) => (
-                    <li key={h.no} className="flex flex-wrap gap-x-2">
-                      <span className="font-semibold">“{h.word}”</span>
-                      <span className="text-ink-muted">
-                        {h.outcome === 'guessed'
-                          ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
-                          : `dropped (clues by ${andList(h.givers.map(name))})`}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-        ]}
+    <div className="flex flex-col gap-3">
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="💡"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' }, { anchor: 'ic-end' })}
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'ic-end' })}
+                >
+                  Change setup
+                </Button>
+              </div>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+            )}
+            <RefusalSlot anchor="ic-end" />
+          </>
+        }
       />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'ic-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'ic-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-      <RefusalSlot anchor="ic-end" />
-    </Panel>
+      <Panel className="ic-reveal flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          columns
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={g.players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: scoring ? p.score : p.guessed,
+                    note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
+                  }))}
+                  you={room.you}
+                  {...(!scoring && {
+                    scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
+                  })}
+                />
+              ),
+            },
+            {
+              id: 'words',
+              label: '💬 Every word',
+              content: (
+                <section aria-label="Every word" className="flex flex-col gap-1 text-sm">
+                  <h3 className="font-semibold">Every word</h3>
+                  <ol className="flex flex-col gap-0.5">
+                    {g.history.map((h) => (
+                      <li key={h.no} className="flex flex-wrap gap-x-2">
+                        <span className="font-semibold">“{h.word}”</span>
+                        <span className="text-ink-muted">
+                          {h.outcome === 'guessed'
+                            ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
+                            : `dropped (clues by ${andList(h.givers.map(name))})`}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ),
+            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }
