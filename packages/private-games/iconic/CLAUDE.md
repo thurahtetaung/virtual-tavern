@@ -13,7 +13,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **`view()`:** the card only to the clue givers while choosing, the word to them and a helper, the pair's proposal and vetoes only to the pair, the pending award and "looks right" flags only to the clue team; guesses and marks are public. No bot.
   - **Phones:** while clues are given, Board, Guesses and Scores sit on the shared `TabBar` (Guesses carries a count of the guesses waiting for the clue givers' judgement); the guess box sits in the fixed `StickyBar` (`ic-guess`) under every view, and the choose step's actions too (`ic-choose`); the icon groups use the shared `Tabs`. First-time tips are a closed fold on phones. At the end phones show the standings as a table, without the podium, so a tie still fits.
 
-- **UI:** while the clue givers choose, everyone else sees the wait and the scores in one row on wide screens, so the board under them gets the height (icons about 62 px at 1440 × 900, where the window's width caps them). On phones the reveal's word stands in the middle of the free height.
+- **UI:** while the clue givers choose, everyone else sees the wait and the scores in one row on wide screens, so the board under them gets the height (icons about 62 px at 1440 × 900, where the window's width caps them). On phones the reveal's word stands in the middle of the free height, with the clue that led to it under the result. Wide boards draw a rule between icon groups under uppercase group captions.
 
 ## Assets
 

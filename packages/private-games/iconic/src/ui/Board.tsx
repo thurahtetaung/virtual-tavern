@@ -383,10 +383,19 @@ function FullBoard({ tile }: { tile: (n: number) => ReactNode }) {
     <div ref={ref} className="hidden w-full md:block" data-testid="ic-board-full">
       {width > 0 && (
         <div className="flex justify-center" style={{ gap: GROUP_GAP }}>
-          {GROUPS.map((g) => (
-            <section key={g} aria-label={GROUP_LABELS[g]} className="flex flex-col">
+          {GROUPS.map((g, i) => (
+            // A rule down the middle of the gap between groups, so the eye can jump group to group.
+            <section
+              key={g}
+              aria-label={GROUP_LABELS[g]}
+              className={cn(
+                'relative flex flex-col',
+                i > 0 &&
+                  'before:absolute before:inset-y-1 before:-left-[6.5px] before:w-px before:bg-line-strong',
+              )}
+            >
               <h4
-                className="text-center text-xs font-semibold text-ink-muted"
+                className="text-center text-xs font-bold tracking-wide text-ink-muted uppercase"
                 style={{ height: LABEL }}
               >
                 {GROUP_LABELS[g]}

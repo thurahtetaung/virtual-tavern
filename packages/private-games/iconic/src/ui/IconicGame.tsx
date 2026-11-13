@@ -1400,6 +1400,12 @@ function Reveal({
           expiredLabel="Next word…"
           expiredHint="The next clue givers are up."
         />
+        {/* Phones: the clue that led to the word, in the panel's free height under the result. */}
+        {!wide && (
+          <div className="mt-2 w-full text-left">
+            <ClueStrip board={r.board} art={art} />
+          </div>
+        )}
         {r.card && (
           <details className="w-full text-left">
             <FoldSummary className="px-0 text-ink-muted">The whole card</FoldSummary>
@@ -1409,7 +1415,7 @@ function Reveal({
           </details>
         )}
       </Panel>
-      <ClueStrip board={r.board} art={art} />
+      {wide && <ClueStrip board={r.board} art={art} />}
     </>
   );
   // Wide screens: the finished board stays on the left as it was during the clues, the word and
