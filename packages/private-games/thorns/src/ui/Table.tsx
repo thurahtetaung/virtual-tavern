@@ -119,7 +119,9 @@ function Mat({
         )}
       </div>
       <div
-        className="relative flex min-h-14 lg:min-h-32 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
+        // Phones: the mat art takes the free height (up to 6rem), shorter on short screens
+        // so six mats still fit.
+        className="relative flex min-h-[clamp(3.5rem,10dvh,6rem)] lg:min-h-32 items-center justify-center rounded-xl bg-panel px-2 py-1.5 ring-1 ring-line dark:ring-0"
         aria-label={`${p.name}’s mat: ${p.stack} ${p.stack === 1 ? 'disc' : 'discs'}`}
       >
         {matArt && (
@@ -141,9 +143,9 @@ function Mat({
                 seat={seat}
                 color={color}
                 art={art}
-                size={36}
+                size={48}
                 flip={d.up}
-                className={cn('lg:size-14!', i > 0 && '-ml-4', you && !d.up && 'opacity-80')}
+                className={cn('lg:size-14!', i > 0 && '-ml-6', you && !d.up && 'opacity-80')}
               />
             ))
           )}
@@ -320,7 +322,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                   className="flex flex-col items-center gap-1 rounded-xl p-2 hover:bg-panel focus-visible:outline-2 focus-visible:outline-accent"
                   onClick={() => void act({ type: 'lose', disc: d }, { anchor: 'th-play' })}
                 >
-                  <DiscView face={d} seat={seat} color={color} art={art} size={56} />
+                  <DiscView face={d} seat={seat} color={color} art={art} size={64} />
                   <span className="text-sm font-semibold">Lose a {discName(names, d)}</span>
                 </button>
               ))}
@@ -364,7 +366,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       aria-label={`Put down a ${discName(names, d)}`}
                       data-place={d}
                     >
-                      <DiscView face={d} seat={seat} color={color} art={art} size={56} />
+                      <DiscView face={d} seat={seat} color={color} art={art} size={64} />
                     </button>
                   ) : (
                     <DiscView
@@ -373,7 +375,7 @@ function MyArea({ view, room, act, art, name, show = false }: TableProps & { sho
                       seat={seat}
                       color={color}
                       art={art}
-                      size={48}
+                      size={64}
                     />
                   ),
                 )

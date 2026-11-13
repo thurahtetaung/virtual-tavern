@@ -11,7 +11,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Rules (the owner's rulings):** the lost disc is secret (random from another's thorn, the Challenger's choice from their own); a revealed thorn that was its owner's last disc knocks its owner out. A player who leaves is away, not out (skipped, discs kept, an away Challenger waited for); the host's `remove` takes them out. Strict timers never put a disc down except a round's first.
   - **`view()`:** your own discs only, others' as counts, turned-over and shown discs public, lost discs only to their owner.
 
-- **UI:** Desktop mats use a fluid grid with taller art areas and larger discs; phone sizing stays compact.
+- **UI:** Desktop mats use a fluid grid with taller art areas and larger discs; on phones the mats grow with the screen's height (up to 6rem) and your own discs are 64 px.
 
 ## Assets
 
