@@ -173,7 +173,10 @@ function Segmented<T extends string | number>({
             className={cn(
               'min-h-11 rounded-lg px-3 text-sm font-semibold ring-1 ring-line-strong transition',
               o.id === value ? 'bg-accent text-accent-fg ring-accent' : 'bg-card hover:bg-panel',
-              disabled && o.id !== value && 'opacity-50',
+              // A guest's read-only view: the host's choice stays filled, the rest plain and
+              // readable (never faded).
+              disabled && 'cursor-default',
+              disabled && o.id !== value && 'bg-sunk text-ink-2 hover:bg-sunk',
             )}
           >
             {o.label}
@@ -416,7 +419,7 @@ export function Lobby({
     .filter(({ set }) => set !== 'base')
     .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
   return (
-    <div className="w-full space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
       <Panel className="space-y-2">
         <h3 className="font-bold">
