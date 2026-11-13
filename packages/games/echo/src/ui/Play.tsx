@@ -81,10 +81,11 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
           onClick={() => void act({ type: 'pick', index: i })}
           className={cn(
             'flex aspect-[3/4] min-h-11 items-center justify-center rounded-xl text-3xl font-black ring-1 transition',
-            'bg-accent text-accent-fg ring-accent-line shadow-vt-1',
+            // Waiting on the guesser, the cards turn to the soft accent (never faded, so the
+            // numbers stay readable in a bright room).
             mine
-              ? 'hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
-              : 'cursor-default opacity-60',
+              ? 'bg-accent text-accent-fg ring-accent-line shadow-vt-1 hover:scale-105 hover:bg-accent-hover focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus'
+              : 'cursor-default bg-accent-soft text-accent-text ring-accent-line',
           )}
         >
           {i + 1}
@@ -451,6 +452,43 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   );
 }
 
+/** Wide screens' end: every card played as a tile, coloured by how it went. */
+function CardWall({ history }: { history: ResolvedCard[] }) {
+  if (history.length === 0) return null;
+  return (
+    <ul aria-label="Cards played" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+      {history.map((h, i) => (
+        <li
+          key={i}
+          className={cn(
+            'space-y-0.5 rounded-xl px-3 py-2.5 text-center ring-1 shadow-vt-1',
+            h.outcome === 'right'
+              ? 'bg-success-soft text-success-ink ring-success-line'
+              : h.outcome === 'wrong'
+                ? 'bg-danger-soft text-danger-ink ring-danger-line'
+                : 'bg-sunk text-ink ring-line',
+          )}
+        >
+          <p className="font-display text-sub font-bold tracking-wide uppercase">
+            <span aria-label={h.outcome} className="mr-1.5 text-body">
+              {RESULT_ICON[h.outcome]}
+            </span>
+            {h.word}
+          </p>
+          <p className="truncate text-caption opacity-90">
+            {h.guesserName}
+            {h.outcome === 'pass'
+              ? h.timedOut
+                ? ' ran out of time'
+                : ' passed'
+              : ` guessed “${h.guess ?? '—'}”`}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** `details`: on phones, the awards, cards and players as tabs, in place of the awards. */
 export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
   const deck = view.settings.deckSize;
@@ -465,6 +503,7 @@ export function GameOver({ view, act, room, details }: Props & { details?: React
         {!details && <Superlatives lines={room.superlatives} />}
         {!details && <EndButtons view={view} act={act} room={room} />}
       </Panel>
+      {!details && <CardWall history={view.history} />}
       {details && (
         <>
           {details}

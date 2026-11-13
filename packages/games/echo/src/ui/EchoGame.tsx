@@ -174,7 +174,8 @@ export function EchoGame({
       <aside className={cn('space-y-3', view.phase === 'over' && !wide && 'hidden')}>
         <Panel className="space-y-1">
           <Table view={view} online={online} act={act} hostId={room.hostId} />
-          <History key={view.phase} history={view.history} open={view.phase === 'over'} />
+          {/* At the end on wide screens the cards are the result's own wall. */}
+          {view.phase !== 'over' && <History history={view.history} />}
         </Panel>
       </aside>
     </div>
