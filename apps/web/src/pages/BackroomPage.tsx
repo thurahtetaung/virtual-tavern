@@ -165,10 +165,12 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
           ))}
         </Chips>
       )}
-      {/* The registry's order keeps the mostly white covers out of one desktop row. */}
+      {/* The registry's order keeps the mostly white covers out of one desktop row. Wide screens:
+          the list steps out of the page's column (up to 76rem, four across), so 26 games are a
+          few rows rather than a long scroll. */}
       <section
         aria-label="Back room games"
-        className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
+        className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:mx-[calc(50%_-_min(50vw_-_2rem,38rem))] xl:grid-cols-4"
       >
         {games?.map((game) => (
           <BackroomGameCard

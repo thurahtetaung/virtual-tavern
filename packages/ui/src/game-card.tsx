@@ -39,8 +39,9 @@ export function GameCard({
   tagline?: ReactNode;
   cover?: GameCover | null;
   /**
-   * Always show the art strip, with the emblem in it while there is no cover. On phones it is a
-   * shallower 21:9 (cropped), so a long list shows more than one game a screen.
+   * Always show the art strip, with the emblem in it while there is no cover (wider screens only:
+   * phones show a cover's strip alone). On phones it is a shallower 21:9 (cropped), so a long list
+   * shows more than one game a screen.
    */
   strip?: boolean;
   createLabel?: string;
@@ -65,7 +66,9 @@ export function GameCard({
       )}
     >
       {(art || strip) && (
-        <div className="bg-sunk p-2.5">
+        // Phones drop an emblem-only strip (the emblem is beside the name already), so a long
+        // list stays short; a real cover always shows.
+        <div className={cn('bg-sunk p-2.5', !art && 'max-sm:hidden')}>
           {art ? (
             <div
               className={cn(
