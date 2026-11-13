@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import { Button, EndHero, Panel, ProtectedImage, RefusalSlot, cn, useWideScreen } from '@vt/ui';
+import { Button, EndHero, Panel, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { type CardId, sortCards } from '../logic/cards.ts';
 import {
@@ -112,7 +112,6 @@ export function Debrief({
 }) {
   const art = useArt();
   const { box } = art;
-  const wide = useWideScreen();
   const r = a.result!;
   const send = (action: MissionControlAction) => void act(action, { anchor: ANCHOR });
   const inCrew = a.crew.some((c) => c.id === me);
@@ -146,13 +145,12 @@ export function Debrief({
         tone={r.success ? 'success' : 'loss'}
         superlatives={room.superlatives}
         art={
-          // Wide screens: the voyage's box art, as on the briefing.
-          wide &&
+          // The voyage's box art, as on the briefing.
           box && (
             <ProtectedImage
               src={box}
               alt=""
-              className="w-48 rounded-xl shadow-vt-2 ring-1 ring-line"
+              className="w-28 rounded-xl shadow-vt-2 ring-1 ring-line lg:w-48"
             />
           )
         }

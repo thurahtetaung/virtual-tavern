@@ -92,7 +92,15 @@ export function Briefing({
   const panel = (
     <Panel className={cn('space-y-4', !box && 'mx-auto max-w-2xl')} data-testid="mc-briefing">
       <div className="flex items-start justify-between gap-2">
-        <div>
+        {/* Phones: the voyage's box art beside the title (wide screens show it large beside the panel). */}
+        {box && (
+          <ProtectedImage
+            src={box}
+            alt=""
+            className="w-20 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line lg:hidden"
+          />
+        )}
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-ink-muted">
             📜 Briefing{m.practice ? ' · practice' : ''}
             {m.n === EPILOGUE ? ` · difficulty ${m.difficulty}` : ''}
