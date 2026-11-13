@@ -27,6 +27,7 @@ import {
   Switch,
   cn,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { leftAt, timerText } from '../logic/bomb.ts';
@@ -1043,6 +1044,9 @@ function Lobby({
     !enough ? 'Waiting for an expert' : !ready ? 'Waiting for a defuser' : null,
   );
   const cover = art.page(1);
+  // The phone lobby is full already (seats, who defuses, the first-time tip): the pitch card is
+  // for wide screens only.
+  const wide = useWideScreen();
   const toDesk = desk && (
     <Button size="lg" variant="tint" onClick={desk} data-testid="to-desk">
       🧳 To the desk
@@ -1053,21 +1057,23 @@ function Lobby({
       <LobbyLayout
         className="lg:gap-y-3"
         pitch={
-          <LobbyPitch
-            title={room.gameName ?? 'Defuse'}
-            emblem="💣"
-            art={
-              cover && (
-                <ProtectedImage
-                  src={cover}
-                  alt=""
-                  className="aspect-[3/4] w-full -rotate-3 rounded-md object-cover shadow-vt-2"
-                />
-              )
-            }
-          >
-            {guide.tagline}
-          </LobbyPitch>
+          wide && (
+            <LobbyPitch
+              title={room.gameName ?? 'Defuse'}
+              emblem="💣"
+              art={
+                cover && (
+                  <ProtectedImage
+                    src={cover}
+                    alt=""
+                    className="aspect-[3/4] w-full -rotate-3 rounded-md object-cover shadow-vt-2"
+                  />
+                )
+              }
+            >
+              {guide.tagline}
+            </LobbyPitch>
+          )
         }
         rail={
           <>
