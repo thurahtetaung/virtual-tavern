@@ -109,6 +109,8 @@ export const Hand = memo(function Hand({
               type="button"
               className={cn(
                 'block rounded-[0.6rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                // A button doesn't stretch to its box by itself: a sized card fills it.
+                fit && 'w-full',
               )}
               aria-pressed={selected.has(card.id)}
               aria-label={c.name(card.t)}

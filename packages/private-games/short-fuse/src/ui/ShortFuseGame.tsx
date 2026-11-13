@@ -632,7 +632,7 @@ export function ShortFuseGame({
   );
   const table = (
     <div className="space-y-2">
-      {/* Desktop: the two piles at 160 px, centred in the table with the turn between them. */}
+      {/* Desktop: the two piles at 128 px, centred in the table with the turn between them. */}
       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:gap-4 sm:p-3 lg:grid-cols-[auto_minmax(0,24rem)_auto] lg:items-center lg:justify-center lg:gap-8 lg:p-5">
         <Pile
           pile={g.pile}
