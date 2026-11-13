@@ -341,26 +341,56 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
   const artifacts = roles.includes('curator')
     ? view.settings.artifacts.filter((a) => defaultArtifacts(roles).includes(a))
     : [];
+  const wide = useWide();
   return (
     <div className="space-y-3">
-      <ul className="space-y-2" aria-label="Roles in play">
-        {sorted.map((r) => (
-          <li key={r} className="flex gap-2">
-            <span className="flex shrink-0 items-center gap-1">
+      {wide ? (
+        // Wide screens: the roles as their cards, in wake order, each with how it wins.
+        <ul
+          className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-2 gap-y-3"
+          aria-label="Roles in play"
+        >
+          {sorted.map((r) => (
+            <li key={r} className="flex flex-col items-center gap-1.5 text-center">
+              <span className="relative">
+                <CardFace role={r} deck={deck} className="w-20 rounded-lg" />
+                {copies(r) > 1 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 rounded-full bg-accent px-1.5 text-xs font-bold text-accent-fg shadow-vt-1"
+                    data-testid="copies"
+                  >
+                    ×{copies(r)}
+                  </span>
+                )}
+              </span>
               <RoleChip role={r} deck={deck} />
-              {copies(r) > 1 && (
-                <span className="text-xs font-semibold" data-testid="copies">
-                  ×{copies(r)}
-                </span>
-              )}
-            </span>
-            <span className="text-sm text-ink-muted">
-              {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
-              {winFor(r, roles, view.settings.artifacts)}
-            </span>
-          </li>
-        ))}
-      </ul>
+              <span className="text-xs text-ink-muted">
+                {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
+                {winFor(r, roles, view.settings.artifacts)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="space-y-2" aria-label="Roles in play">
+          {sorted.map((r) => (
+            <li key={r} className="flex gap-2">
+              <span className="flex shrink-0 items-center gap-1">
+                <RoleChip role={r} deck={deck} />
+                {copies(r) > 1 && (
+                  <span className="text-xs font-semibold" data-testid="copies">
+                    ×{copies(r)}
+                  </span>
+                )}
+              </span>
+              <span className="text-sm text-ink-muted">
+                {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
+                {winFor(r, roles, view.settings.artifacts)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {rewakes.length > 0 && (
         <p className="text-sm" data-testid="doppel-rewakes">
           The <RoleChip role="doppelganger" deck={deck} /> wakes again later if she copied:{' '}
@@ -498,7 +528,7 @@ function MySecrets({
           big ? (
             // The theme's own ink: the night forces the dark theme, and by day it sits on the page.
             <span className="flex flex-col items-center gap-2 text-sm font-semibold text-ink">
-              <CardBack deck={deck} size="md" className="shadow-vt-3 lg:w-44 lg:rounded-xl" />
+              <CardBack deck={deck} size="md" className="shadow-vt-3 lg:w-52 lg:rounded-xl" />
               Hold to see your card
             </span>
           ) : (
@@ -559,13 +589,13 @@ export function Ready({
                 onReveal={() => setSeenDeal(deal)}
                 cover={
                   <span className="flex flex-col items-center gap-2 font-semibold">
-                    <CardBack deck={deck} size="lg" />
+                    <CardBack deck={deck} size="lg" className="lg:w-64" />
                     Hold to see your card
                   </span>
                 }
               >
                 <div className="flex flex-col items-center gap-3">
-                  <CardFace role={role} deck={deck} size="lg" />
+                  <CardFace role={role} deck={deck} size="lg" className="lg:w-64" />
                   <p className="text-lg">
                     You are the <RoleChip role={role} deck={deck} />
                   </p>
