@@ -381,7 +381,15 @@ export function EnigmaGame({
             {view.phase !== 'over' && view.stage !== 'showdown' && (
               <>
                 {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
-                <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
+                {/* While one team waits on the other, its panel holds a status line: it takes
+                    its own height rather than standing as a tall empty slab. */}
+                <div
+                  className={cn(
+                    'grid gap-4',
+                    shown.length > 1 && 'md:grid-cols-2',
+                    view.stage !== 'reveal' && 'md:items-start',
+                  )}
+                >
                   {shown.map((tx) => (
                     <TransmissionCard
                       key={`${view.round}-${tx.team}`}

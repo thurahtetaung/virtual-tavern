@@ -338,7 +338,8 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
   const r = tx.result;
   if (!r) return null;
   const sender = TEAM_LABEL[tx.team];
-  const receiver = TEAM_LABEL[tx.team === 'red' ? 'blue' : 'red'];
+  const receiverTeam = tx.team === 'red' ? 'blue' : 'red';
+  const receiver = TEAM_LABEL[receiverTeam];
   const canIntercept = view.round >= 2;
   return (
     <div className="space-y-2">
@@ -394,8 +395,11 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       {canIntercept && (
         <p
           className={cn(
-            'rounded-lg px-3 py-2 font-semibold',
-            r.intercepted ? 'bg-ink text-page' : 'bg-sunk text-ink',
+            'rounded-lg px-3 py-2 font-semibold ring-1 ring-inset',
+            // An interception is the other team's moment: it wears their colours.
+            r.intercepted
+              ? cn(TEAM_PANEL[receiverTeam], TEAM_TEXT[receiverTeam], 'text-sub shadow-vt-1')
+              : 'bg-sunk text-ink ring-line',
           )}
         >
           {r.intercepted

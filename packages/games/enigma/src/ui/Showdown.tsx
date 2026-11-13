@@ -101,7 +101,7 @@ export function ShowdownPanel({ view, act }: { view: EnigmaView; act: Act }) {
   const team = view.me?.team ?? null;
   if (view.phase === 'over') {
     return (
-      <section aria-label="Showdown" className="space-y-2">
+      <section aria-label="Showdown" className="mx-auto w-full max-w-lg space-y-3">
         {(['red', 'blue'] as const).map((t) => (
           <GuessList key={t} view={view} team={t} />
         ))}
