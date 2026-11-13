@@ -139,7 +139,7 @@ function StageShow({ roomId }: { roomId: string }) {
           <Poster
             eyebrow="Table screen"
             headline={gameName || 'Table screen'}
-            line="One tap lets the show play its sound and fill the screen."
+            line="One tap starts the sound and fills the screen."
           >
             <Button
               size="lg"
@@ -150,7 +150,7 @@ function StageShow({ roomId }: { roomId: string }) {
                 setStarted(true);
               }}
             >
-              ▶ Start the show
+              ▶ Start the table screen
             </Button>
           </Poster>
         </PosterInfoProvider>

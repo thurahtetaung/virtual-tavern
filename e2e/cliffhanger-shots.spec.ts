@@ -37,7 +37,7 @@ async function pairTableScreen(browser: Browser, host: Page, look: Look) {
   await tv.goto('/stage');
   await tv.getByLabel('Pairing code').fill(code);
   await tv.getByRole('button', { name: 'Pair this screen' }).click();
-  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  await tv.getByRole('button', { name: '▶ Start the table screen' }).click();
   await expect(tv.getByTestId('cl-stage')).toBeVisible();
   return tv;
 }

@@ -82,7 +82,7 @@ test('the host pairs a table screen, the phones hear of it, and the host removes
   }
   await tv.getByLabel('Pairing code').fill(code.toLowerCase());
   await tv.getByRole('button', { name: 'Pair this screen' }).click();
-  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  await tv.getByRole('button', { name: '▶ Start the table screen' }).click();
   await expect(tv).toHaveURL(new RegExp(`/stage/${roomId}$`));
   const scene = tv.getByTestId('scene');
   await expect(scene.getByText('Everything in this game happens on your phones.')).toBeVisible();
@@ -90,7 +90,7 @@ test('the host pairs a table screen, the phones hear of it, and the host removes
   await expect(scene.getByText('Ana', { exact: true })).toBeVisible();
   if (shots) {
     await shot(tv, 'table-screen-generic-desktop');
-    // "Start the show" went full screen; a window can only be resized out of it.
+    // "Start the table screen" went full screen; a window can only be resized out of it.
     await tv.evaluate(() => document.exitFullscreen().catch(() => {}));
     await tv.setViewportSize({ width: 1920, height: 1080 });
     await shot(tv, 'table-screen-generic-tv');
@@ -131,7 +131,7 @@ test('the host pairs a table screen, the phones hear of it, and the host removes
   await expect(
     tv.getByRole('heading', { name: "This screen isn't paired any more" }),
   ).toBeVisible();
-  await late.getByRole('button', { name: '▶ Start the show' }).click();
+  await late.getByRole('button', { name: '▶ Start the table screen' }).click();
   await expect(late.getByTestId('scene').getByText('Hana', { exact: true })).toBeVisible();
   await expect(panel.getByTestId('stage-status')).toHaveText('Connected');
   // The code is used: the panel goes back to its buttons.

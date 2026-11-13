@@ -126,7 +126,7 @@ test('going once table screen (tv)', async ({ browser }) => {
   await tv.goto('/stage');
   await tv.getByLabel('Pairing code').fill(code);
   await tv.getByRole('button', { name: 'Pair this screen' }).click();
-  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  await tv.getByRole('button', { name: '▶ Start the table screen' }).click();
   const stage = tv.getByTestId('go-stage');
   await expect(stage).toHaveAttribute('data-phase', 'lobby');
   const audit = async (name: string) => {
