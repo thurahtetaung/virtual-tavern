@@ -10,7 +10,7 @@ const WIDTH: Record<CardSize, string> = {
   xxs: 'w-6',
   xs: 'w-9',
   sm: 'w-14',
-  md: 'w-16 sm:w-24 lg:w-32',
+  md: 'w-16 sm:w-24',
   lg: 'w-28 sm:w-32',
   xl: 'w-44 sm:w-56',
 };
