@@ -329,6 +329,13 @@ export interface DrawingPadProps {
    * screen (its height kept free on the page), so the sheet above gets the rest of the screen.
    */
   bar?: boolean;
+  /**
+   * Desktops (`lg`): the tools, Send and `aside` sit in a column beside the sheet instead of under
+   * it, so the sheet can take the window's height. Phones are unchanged.
+   */
+  beside?: boolean;
+  /** With `beside`, shown at the top of that column on desktops only (the prompt). */
+  aside?: ReactNode;
   className?: string;
 }
 
@@ -348,6 +355,8 @@ export function DrawingPad({
   footer,
   refusal,
   bar = false,
+  beside = false,
+  aside,
   className,
 }: DrawingPadProps) {
   const [strokes, setStrokes] = useState<Stroke[]>(() => readDraft(draftKey));
@@ -574,7 +583,13 @@ export function DrawingPad({
     </div>
   );
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-2',
+        beside && 'lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-x-6',
+        className,
+      )}
+    >
       <div
         ref={sheet}
         className={cn(
@@ -618,107 +633,119 @@ export function DrawingPad({
           )}
         </svg>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Pen">
-          {DRAWING_COLORS.map((c, i) => (
+      <div
+        className={cn('flex flex-col gap-2', beside && 'lg:col-start-2 lg:row-start-1 lg:gap-4')}
+      >
+        {beside && aside && <div className="max-lg:hidden">{aside}</div>}
+        <div
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-x-3 gap-y-2',
+            beside && 'lg:flex-col lg:items-start',
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Pen">
+            {DRAWING_COLORS.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={color === i}
+                aria-label={c.name}
+                title={c.name}
+                onClick={() => setColor(i)}
+                className={cn(
+                  'size-11 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
+                  color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
+                )}
+                // The pens are made for the paper, so each swatch sits on a rim of it
+                style={{ background: c.hex, borderColor: PAPER }}
+              />
+            ))}
             <button
-              key={c.id}
               type="button"
               role="radio"
-              aria-checked={color === i}
-              aria-label={c.name}
-              title={c.name}
-              onClick={() => setColor(i)}
+              aria-checked={erasing}
+              aria-label="Eraser"
+              title="Eraser: rub out what you drew"
+              onClick={() => setColor(ERASER)}
               className={cn(
-                'size-11 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
-                color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
+                'flex size-11 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
+                erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
               )}
-              // The pens are made for the paper, so each swatch sits on a rim of it
-              style={{ background: c.hex, borderColor: PAPER }}
-            />
-          ))}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={erasing}
-            aria-label="Eraser"
-            title="Eraser: rub out what you drew"
-            onClick={() => setColor(ERASER)}
-            className={cn(
-              'flex size-11 items-center justify-center rounded-full ring-offset-2 ring-offset-page transition-shadow',
-              erasing ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
-            )}
-            style={{ background: PAPER }}
-          >
-            <span aria-hidden className="text-lg leading-none">
-              🧽
-            </span>
-          </button>
-        </div>
-        <div className="flex items-center gap-1" role="radiogroup" aria-label="Line width">
-          {DRAWING_WIDTHS.map((w, i) => (
-            <button
-              key={w.id}
-              type="button"
-              role="radio"
-              aria-checked={width === i}
-              aria-label={w.name}
-              title={w.name}
-              onClick={() => setWidth(i)}
-              className={cn(
-                'flex size-11 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
-                width === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong hover:ring-ink-muted',
-              )}
-              // The pen's colour on a chip of paper, as it will draw
               style={{ background: PAPER }}
             >
-              <span
-                className="block rounded-full"
-                style={{
-                  width: 4 + i * 6,
-                  height: 4 + i * 6,
-                  // The eraser's size is a hollow ring, as its cursor shows
-                  ...(erasing
-                    ? { boxShadow: 'inset 0 0 0 1.5px #57534e' }
-                    : { background: DRAWING_COLORS[color]!.hex }),
-                }}
-              />
+              <span aria-hidden className="text-lg leading-none">
+                🧽
+              </span>
             </button>
-          ))}
+          </div>
+          <div className="flex items-center gap-1" role="radiogroup" aria-label="Line width">
+            {DRAWING_WIDTHS.map((w, i) => (
+              <button
+                key={w.id}
+                type="button"
+                role="radio"
+                aria-checked={width === i}
+                aria-label={w.name}
+                title={w.name}
+                onClick={() => setWidth(i)}
+                className={cn(
+                  'flex size-11 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
+                  width === i
+                    ? 'ring-3 ring-accent'
+                    : 'ring-1 ring-line-strong hover:ring-ink-muted',
+                )}
+                // The pen's colour on a chip of paper, as it will draw
+                style={{ background: PAPER }}
+              >
+                <span
+                  className="block rounded-full"
+                  style={{
+                    width: 4 + i * 6,
+                    height: 4 + i * 6,
+                    // The eraser's size is a hollow ring, as its cursor shows
+                    ...(erasing
+                      ? { boxShadow: 'inset 0 0 0 1.5px #57534e' }
+                      : { background: DRAWING_COLORS[color]!.hex }),
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Undo"
+              title="Undo (or tap with two fingers)"
+              onClick={undo}
+              disabled={!strokes.length || disabled}
+            >
+              ↶
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Clear the page"
+              title="Clear"
+              onClick={() => void clear()}
+              disabled={!strokes.length || disabled}
+            >
+              🗑
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="secondary"
-            size="icon"
-            aria-label="Undo"
-            title="Undo (or tap with two fingers)"
-            onClick={undo}
-            disabled={!strokes.length || disabled}
-          >
-            ↶
-          </Button>
-          <Button
-            variant="secondary"
-            size="icon"
-            aria-label="Clear the page"
-            title="Clear"
-            onClick={() => void clear()}
-            disabled={!strokes.length || disabled}
-          >
-            🗑
-          </Button>
-        </div>
+        {bar ? (
+          <StickyBar fixed refusal={refusal}>
+            {send}
+          </StickyBar>
+        ) : (
+          <>
+            {send}
+            {refusal !== undefined && <RefusalSlot anchor={refusal} />}
+          </>
+        )}
       </div>
-      {bar ? (
-        <StickyBar fixed refusal={refusal}>
-          {send}
-        </StickyBar>
-      ) : (
-        <>
-          {send}
-          {refusal !== undefined && <RefusalSlot anchor={refusal} />}
-        </>
-      )}
       {dialog}
     </div>
   );
