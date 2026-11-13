@@ -538,6 +538,7 @@ export function InquestGame({
       <TableScreen view={view} room={room} content={content} onExit={() => setTableScreen(false)} />
     );
 
+  const sceneless = g.slots.length === 0;
   const solvePanel = (
     <>
       {g.stage === 'night' && <NightPanel view={view} content={content} act={act} room={room} />}
@@ -585,7 +586,12 @@ export function InquestGame({
             role moves to a rail on the right, so it is in view on a laptop screen. */}
         <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)_18rem]">
           <div
-            className={cn('min-w-0 lg:col-start-1 lg:row-start-1', onTab('scene'))}
+            className={cn(
+              'min-w-0 lg:col-start-1 lg:row-start-1',
+              // Night: no tiles yet, so the suspects take the scene's column too.
+              sceneless && 'xl:hidden',
+              onTab('scene'),
+            )}
             {...(!wide && tabPanelProps(TABS_ID, 'scene'))}
           >
             <Scene view={view} content={content} act={act} />
@@ -607,6 +613,7 @@ export function InquestGame({
           <div
             className={cn(
               'min-w-0 space-y-2 lg:col-start-2 lg:row-span-2 lg:row-start-1',
+              sceneless && 'xl:col-span-2 xl:col-start-1',
               onTab('suspects'),
             )}
             {...(!wide && tabPanelProps(TABS_ID, 'suspects'))}
