@@ -5,9 +5,11 @@ import {
   playersNeeded,
   storageKey,
   waitingForHost,
+  winTitle,
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   Fold,
   GuideLink,
@@ -349,97 +351,113 @@ function End({
       ? `lost: ${lost.map((d) => discName(art.names, d)).join(', ')}`
       : 'lost nothing';
   };
+  const wide = useWideScreen();
+  const title =
+    winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
+    'Game over';
   return (
-    <Panel className="th-rise flex flex-col gap-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={g.players.map((p) => ({
-                  id: p.id,
-                  // The winner always tops the podium (a last player standing
-                  // may have fewer points); the column shows everyone's real points.
-                  name: p.name,
-                  score: p.points + (g.winners.includes(p.id) ? WINNER : 0),
-                  note: `${g.winners.includes(p.id) ? '👑 winner · ' : ''}${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
-                }))}
-                you={room.you}
-                scoreLabel={(n) => {
-                  const pts = n >= WINNER ? n - WINNER : n;
-                  return `${pts} ${pts === 1 ? 'point' : 'points'}`;
-                }}
-              />
-            ),
-          },
-          {
-            id: 'stacks',
-            label: '🌹 Stacks',
-            content: (
-              <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
-                <h3 className="font-semibold">What everyone had down</h3>
-                <ul className="flex flex-col gap-1">
-                  {g.players.map((p, seat) => {
-                    const stack = reveal.get(p.id)?.stack ?? [];
-                    return (
-                      <li key={p.id} className="flex items-center gap-2">
-                        <span className="w-24 truncate">{name(p.id)}</span>
-                        <span className="flex items-center">
-                          {stack.length === 0 ? (
-                            <span className="text-ink-muted">—</span>
-                          ) : (
-                            stack.map((d, i) => (
-                              <DiscView
-                                key={i}
-                                face={d}
-                                seat={seat}
-                                color={room.players.find((x) => x.id === p.id)?.color}
-                                art={art}
-                                size={28}
-                                className={i > 0 ? '-ml-2' : undefined}
-                              />
-                            ))
-                          )}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && { id: 'table', label: '🪑 Table', content: table },
-        ]}
+    <div className="flex flex-col gap-3">
+      <EndHero
+        title={title}
+        eyebrow={title === 'Game over' ? null : undefined}
+        emblem="🌹"
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <StickyBar refusal="th-end">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button
+                    size="lg"
+                    onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
+                  >
+                    Play again
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
+                  >
+                    Change setup
+                  </Button>
+                </div>
+              </StickyBar>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+            )}
+          </>
+        }
       />
-      {room.isHost ? (
-        <StickyBar refusal="th-end">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'th-end' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'th-end' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        </StickyBar>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-      )}
-    </Panel>
+      <Panel className="th-rise flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={g.players.map((p) => ({
+                    id: p.id,
+                    // The winner always tops the podium (a last player standing
+                    // may have fewer points); the column shows everyone's real points.
+                    name: p.name,
+                    score: p.points + (g.winners.includes(p.id) ? WINNER : 0),
+                    note: `${g.winners.includes(p.id) ? '👑 winner · ' : ''}${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
+                  }))}
+                  you={room.you}
+                  scoreLabel={(n) => {
+                    const pts = n >= WINNER ? n - WINNER : n;
+                    return `${pts} ${pts === 1 ? 'point' : 'points'}`;
+                  }}
+                />
+              ),
+            },
+            {
+              id: 'stacks',
+              label: '🌹 Stacks',
+              content: (
+                <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
+                  <h3 className="font-semibold">What everyone had down</h3>
+                  <ul className="flex flex-col gap-1">
+                    {g.players.map((p, seat) => {
+                      const stack = reveal.get(p.id)?.stack ?? [];
+                      return (
+                        <li key={p.id} className="flex items-center gap-2">
+                          <span className="w-24 truncate">{name(p.id)}</span>
+                          <span className="flex items-center">
+                            {stack.length === 0 ? (
+                              <span className="text-ink-muted">—</span>
+                            ) : (
+                              stack.map((d, i) => (
+                                <DiscView
+                                  key={i}
+                                  face={d}
+                                  seat={seat}
+                                  color={room.players.find((x) => x.id === p.id)?.color}
+                                  art={art}
+                                  size={28}
+                                  className={i > 0 ? '-ml-2' : undefined}
+                                />
+                              ))
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ),
+            },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+            !!table && { id: 'table', label: '🪑 Table', content: table },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }
