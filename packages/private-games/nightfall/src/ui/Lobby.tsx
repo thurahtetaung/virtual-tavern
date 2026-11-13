@@ -16,6 +16,7 @@ import {
   SeatToggle,
   Switch,
   TAP_BAND,
+  useWideScreen,
 } from '@vt/ui';
 import { makeGuide } from '../logic/guide.ts';
 import { nightEstimateMs } from '../logic/narration.ts';
@@ -123,7 +124,8 @@ function PresetCard({
         className={cn(
           'flex h-full w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left ring-1 transition',
           on ? 'bg-special-soft ring-2 ring-special' : 'bg-card ring-line-strong hover:bg-panel',
-          !roles && 'opacity-60',
+          // Off: a sunk card, its words still at full strength (the reason must read).
+          !roles && 'cursor-not-allowed bg-sunk ring-line hover:bg-sunk',
         )}
       >
         <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
@@ -422,6 +424,158 @@ export function Lobby({
   const advancedIn = sets
     .filter(({ set }) => set !== 'base')
     .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
+  const wide = useWideScreen();
+  // The card picker: in the main column on wide screens (four or more cards across beside the
+  // players), with the other settings in the rail; on phones in the settings, as before.
+  const cardsFold = (
+    <LobbySettings
+      editable={editable}
+      title="The cards"
+      summary={cardsSummary(s.roles, (r) => deck.name(r))}
+      className="space-y-3"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span
+          data-testid="card-count"
+          className={cn(
+            'text-sm font-semibold',
+            s.roles.length === need ? 'text-success-ink' : 'text-danger-ink',
+          )}
+        >
+          {s.roles.length === need
+            ? `${need} of ${need} cards`
+            : `${s.roles.length} cards picked, ${need} needed for ${seated.length} players`}
+          {s.roles.includes('alpha-wolf') ? ' (with the centre werewolf)' : ''}
+          {usesMarks(s.roles) ? ` · ${seated.length} Marks` : ''}
+        </span>
+      </div>
+      <p className="text-sm text-ink-muted">
+        One card per player, three in the centre
+        {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}. Select a
+        card to read it.
+      </p>
+      {usesMarks(s.roles) && (
+        <p className="text-sm" data-testid="marks-setup">
+          Marks are in play: every player starts with a face-down{' '}
+          <MarkChip mark="clarity" deck={deck} />
+          {buildNightPlan(s.roles).includes('dusk') ? ', and looks at their Mark at dusk.' : '.'}
+        </p>
+      )}
+      {epicPossible(s.roles) && (
+        <p className="text-sm" data-testid="epic-hint">
+          ⚔️{' '}
+          {sides.length === 3
+            ? 'Werewolves, vampires and aliens'
+            : sides.includes('alien')
+              ? sides.includes('vampire')
+                ? 'Vampires and aliens'
+                : 'Werewolves and aliens'
+              : 'Werewolves and vampires'}
+          : if two evil sides end up among the players with villagers, it’s an epic battle. The most
+          voted player dies if they have at least 2 votes, and so does everyone tied for second; if
+          several tie for the most votes, only they die.
+        </p>
+      )}
+      {numbers && (
+        <p className="text-sm" data-testid="numbers-hint">
+          Players are numbered in seat order (the numbers above): the narrator names players by
+          number, and the numbers go up to the left.
+        </p>
+      )}
+      {editable && s.roles.length !== need && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="fit-cards">
+          <Button size="sm" onClick={() => setRoles(recommended(seated.length))}>
+            Use the recommended cards for {tableSize}
+          </Button>
+          <span className="text-xs text-ink-muted">or add and remove cards below.</span>
+        </div>
+      )}
+      {editable && (
+        <details className="group space-y-1" open={!customised}>
+          <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+            <span aria-hidden className="transition group-open:rotate-90">
+              ▸
+            </span>
+            Ready-made setups
+          </summary>
+          <ul className="grid gap-1.5 sm:grid-cols-2" aria-label="Ready-made setups">
+            <PresetCard
+              name={`Recommended for ${tableSize}`}
+              preset={RECOMMENDED}
+              roles={recommended(seated.length)}
+              current={s.roles}
+              minPlayers={3}
+              onPick={setRoles}
+            />
+            {SCENARIOS.map((p) => (
+              <PresetCard
+                key={p.id}
+                name={presetName(p.id, p.name)}
+                preset={p}
+                roles={scenarioRoles(p, seated.length)}
+                current={s.roles}
+                minPlayers={p.minPlayers}
+                onPick={setRoles}
+              />
+            ))}
+          </ul>
+        </details>
+      )}
+      {(() => {
+        const groups = sets.map(({ set, roles: all }) => {
+          // Guests see only what's in; the host sees every set, the busy ones open.
+          const roles = editable ? all : all.filter((r) => counts.has(r));
+          const inSet = all.reduce((n, r) => n + (counts.get(r) ?? 0), 0);
+          if (!roles.length) return null;
+          return (
+            <details
+              key={set}
+              open={!editable || set === 'base' || inSet > 0}
+              aria-label={deck.setName(set)}
+              className="group space-y-1"
+            >
+              <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold text-ink-muted">
+                <span aria-hidden className="transition group-open:rotate-90">
+                  ▸
+                </span>
+                {deck.setName(set)}
+                {inSet > 0 && <span className="font-normal">· {inSet} in</span>}
+              </summary>
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
+                {roles.map((role) => (
+                  <RoleTile
+                    key={role}
+                    role={role}
+                    count={counts.get(role) ?? 0}
+                    deck={deck}
+                    editable={editable}
+                    onChange={(n) => setCount(role, n)}
+                  />
+                ))}
+              </ul>
+            </details>
+          );
+        });
+        if (!editable) return groups;
+        // The host's picker: the base set first, the rest folded away until wanted.
+        return (
+          <>
+            {groups[0]}
+            <details open={advancedIn > 0} className="group/more space-y-1">
+              <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+                <span aria-hidden className="transition group-open/more:rotate-90">
+                  ▸
+                </span>
+                More roles (advanced)
+                {advancedIn > 0 && <span className="font-normal">· {advancedIn} in</span>}
+              </summary>
+              <div className="space-y-1 pl-2">{groups.slice(1)}</div>
+            </details>
+          </>
+        );
+      })()}
+    </LobbySettings>
+  );
   return (
     <LobbyLayout
       pitch={
@@ -435,155 +589,7 @@ export function Lobby({
       }
       rail={
         <>
-          <LobbySettings
-            editable={editable}
-            title="The cards"
-            summary={cardsSummary(s.roles, (r) => deck.name(r))}
-            className="space-y-3"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span
-                data-testid="card-count"
-                className={cn(
-                  'text-sm font-semibold',
-                  s.roles.length === need ? 'text-success-ink' : 'text-danger-ink',
-                )}
-              >
-                {s.roles.length === need
-                  ? `${need} of ${need} cards`
-                  : `${s.roles.length} cards picked, ${need} needed for ${seated.length} players`}
-                {s.roles.includes('alpha-wolf') ? ' (with the centre werewolf)' : ''}
-                {usesMarks(s.roles) ? ` · ${seated.length} Marks` : ''}
-              </span>
-            </div>
-            <p className="text-sm text-ink-muted">
-              One card per player, three in the centre
-              {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}.
-              Select a card to read it.
-            </p>
-            {usesMarks(s.roles) && (
-              <p className="text-sm" data-testid="marks-setup">
-                Marks are in play: every player starts with a face-down{' '}
-                <MarkChip mark="clarity" deck={deck} />
-                {buildNightPlan(s.roles).includes('dusk')
-                  ? ', and looks at their Mark at dusk.'
-                  : '.'}
-              </p>
-            )}
-            {epicPossible(s.roles) && (
-              <p className="text-sm" data-testid="epic-hint">
-                ⚔️{' '}
-                {sides.length === 3
-                  ? 'Werewolves, vampires and aliens'
-                  : sides.includes('alien')
-                    ? sides.includes('vampire')
-                      ? 'Vampires and aliens'
-                      : 'Werewolves and aliens'
-                    : 'Werewolves and vampires'}
-                : if two evil sides end up among the players with villagers, it’s an epic battle.
-                The most voted player dies if they have at least 2 votes, and so does everyone tied
-                for second; if several tie for the most votes, only they die.
-              </p>
-            )}
-            {numbers && (
-              <p className="text-sm" data-testid="numbers-hint">
-                Players are numbered in seat order (the numbers above): the narrator names players
-                by number, and the numbers go up to the left.
-              </p>
-            )}
-            {editable && s.roles.length !== need && (
-              <div className="flex flex-wrap items-center gap-2" data-testid="fit-cards">
-                <Button size="sm" onClick={() => setRoles(recommended(seated.length))}>
-                  Use the recommended cards for {tableSize}
-                </Button>
-                <span className="text-xs text-ink-muted">or add and remove cards below.</span>
-              </div>
-            )}
-            {editable && (
-              <details className="group space-y-1" open={!customised}>
-                <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
-                  <span aria-hidden className="transition group-open:rotate-90">
-                    ▸
-                  </span>
-                  Ready-made setups
-                </summary>
-                <ul className="grid gap-1.5 sm:grid-cols-2" aria-label="Ready-made setups">
-                  <PresetCard
-                    name={`Recommended for ${tableSize}`}
-                    preset={RECOMMENDED}
-                    roles={recommended(seated.length)}
-                    current={s.roles}
-                    minPlayers={3}
-                    onPick={setRoles}
-                  />
-                  {SCENARIOS.map((p) => (
-                    <PresetCard
-                      key={p.id}
-                      name={presetName(p.id, p.name)}
-                      preset={p}
-                      roles={scenarioRoles(p, seated.length)}
-                      current={s.roles}
-                      minPlayers={p.minPlayers}
-                      onPick={setRoles}
-                    />
-                  ))}
-                </ul>
-              </details>
-            )}
-            {(() => {
-              const groups = sets.map(({ set, roles: all }) => {
-                // Guests see only what's in; the host sees every set, the busy ones open.
-                const roles = editable ? all : all.filter((r) => counts.has(r));
-                const inSet = all.reduce((n, r) => n + (counts.get(r) ?? 0), 0);
-                if (!roles.length) return null;
-                return (
-                  <details
-                    key={set}
-                    open={!editable || set === 'base' || inSet > 0}
-                    aria-label={deck.setName(set)}
-                    className="group space-y-1"
-                  >
-                    <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold text-ink-muted">
-                      <span aria-hidden className="transition group-open:rotate-90">
-                        ▸
-                      </span>
-                      {deck.setName(set)}
-                      {inSet > 0 && <span className="font-normal">· {inSet} in</span>}
-                    </summary>
-                    <ul className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
-                      {roles.map((role) => (
-                        <RoleTile
-                          key={role}
-                          role={role}
-                          count={counts.get(role) ?? 0}
-                          deck={deck}
-                          editable={editable}
-                          onChange={(n) => setCount(role, n)}
-                        />
-                      ))}
-                    </ul>
-                  </details>
-                );
-              });
-              if (!editable) return groups;
-              // The host's picker: the base set first, the rest folded away until wanted.
-              return (
-                <>
-                  {groups[0]}
-                  <details open={advancedIn > 0} className="group/more space-y-1">
-                    <summary className="flex min-h-11 cursor-pointer items-center gap-2 py-1 text-sm font-bold">
-                      <span aria-hidden className="transition group-open/more:rotate-90">
-                        ▸
-                      </span>
-                      More roles (advanced)
-                      {advancedIn > 0 && <span className="font-normal">· {advancedIn} in</span>}
-                    </summary>
-                    <div className="space-y-1 pl-2">{groups.slice(1)}</div>
-                  </details>
-                </>
-              );
-            })()}
-          </LobbySettings>
+          {!wide && cardsFold}
 
           <AlienOptions view={view} act={act} deck={deck} editable={editable} />
 
@@ -757,6 +763,7 @@ export function Lobby({
           </p>
         )}
       </Panel>
+      {wide && cardsFold}
       <GuideLink title={room.gameName ?? 'Nightfall'} onClick={showGuide} />
     </LobbyLayout>
   );

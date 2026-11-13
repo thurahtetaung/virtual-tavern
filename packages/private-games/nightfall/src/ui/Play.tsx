@@ -496,7 +496,8 @@ function MySecrets({
         what="your card"
         cover={
           big ? (
-            <span className="flex flex-col items-center gap-2 text-sm font-semibold text-stone-100">
+            // The theme's own ink: the night forces the dark theme, and by day it sits on the page.
+            <span className="flex flex-col items-center gap-2 text-sm font-semibold text-ink">
               <CardBack deck={deck} size="md" className="shadow-vt-3 lg:w-44 lg:rounded-xl" />
               Hold to see your card
             </span>
