@@ -12,11 +12,20 @@ function cap(el: HTMLElement, max: number | null) {
   el.style.overscrollBehavior = max === null ? '' : 'contain';
 }
 
+/** How tall the finale's column must stay so its title and art show whole. */
+function keepWhole(el: HTMLElement) {
+  const last =
+    el.querySelector('[data-ui=end-hero-art]') ?? el.querySelector('[data-ui=end-hero] h2');
+  if (!last) return Infinity;
+  return Math.ceil(last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + 8);
+}
+
 /**
  * Keeps the end within the window: when the page is taller than the window, the rest's column (the
  * standings, the game's reveal) gets the height that fits and scrolls inside, so the whole end is
- * on one screen. The finale (`keep`) is never capped: its title and art always show whole; where it
- * stands above the rest (a banner), the rest takes what the window leaves under it. Each column's
+ * on one screen. The finale (`keep`) never loses its title or art: beside the rest it scrolls only
+ * what lies under them; where it stands above the rest (a banner), it is never capped and the rest
+ * takes what the window leaves under it. Each column's
  * own scroll is kept across re-fits.
  */
 function useFitColumns(
@@ -47,8 +56,11 @@ function useFitColumns(
       const tallest = Math.max(...els.map((el, i) => (stacked && el === kept ? 0 : heights[i]!)));
       const room = Math.max(MIN_COLUMN_PX, Math.floor(tallest - over - 1));
       els.forEach((el, i) => {
-        if (el === kept || heights[i]! <= room) return;
-        cap(el, room);
+        // The finale gives up only what lies under its title and art (awards, Play again), and
+        // only beside the rest; above it, as a banner, it is never capped.
+        const max = el === kept ? (stacked ? Infinity : Math.max(room, keepWhole(el))) : room;
+        if (heights[i]! <= max) return;
+        cap(el, max);
         el.scrollTop = tops[i]!;
         markMore(el);
       });

@@ -80,7 +80,7 @@ export function EndHero({
         banner
           ? 'lg:flex lg:flex-wrap lg:items-center lg:justify-center lg:gap-x-12 lg:gap-y-4 lg:px-10 lg:py-8 lg:text-left'
           : inColumn
-            ? 'lg:flex lg:min-h-[min(calc(100dvh-8.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
+            ? 'lg:flex lg:min-h-[min(calc(100dvh-10.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
             : 'lg:px-10 lg:py-8',
         tone === 'loss'
           ? 'border-danger-line'
@@ -161,7 +161,10 @@ export function EndHero({
         )}
       </div>
       {art && (
-        <div className="vt-end-in relative mt-4 flex flex-wrap items-end justify-center gap-3 lg:mt-6 lg:gap-5">
+        <div
+          data-ui="end-hero-art"
+          className="vt-end-in relative mt-4 flex flex-wrap items-end justify-center gap-3 lg:mt-6 lg:gap-5"
+        >
           {art}
         </div>
       )}
