@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.101.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.2...v0.101.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ui:** room and game layouts fit the screen and read clearly on every device ([#580](https://github.com/thurahtetaung/virtual-tavern/issues/580)) ([45519bd](https://github.com/thurahtetaung/virtual-tavern/commit/45519bdda5f5a130f7eb5c3920d6a699b7e02e71))
+
 ## [0.101.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.101.1...v0.101.2) (2026-11-13)
 
 
