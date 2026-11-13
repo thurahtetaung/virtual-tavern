@@ -675,9 +675,7 @@ export function HydraGame({
       ? null
       : view.stage === 'vote'
         ? c.copy('talk.vote')
-        : // While claims come in, the status line already says to question them (unless it is
-          // asking for your own claim).
-          (view.stage === 'claim' && g.needs.some((x) => x.by === me)) ||
+        : view.stage === 'claim' ||
             (view.stage === 'nominate' && (g.rounds.at(-1)?.claims.length ?? 0) > 0)
           ? c.copy('talk.claims')
           : null;

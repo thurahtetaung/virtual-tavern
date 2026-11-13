@@ -45,7 +45,8 @@ export const COPY = {
     'Tell the table what you saw on {target}’s {party} card. Claims are final, and you may lie.',
   'status.claim.peek.you':
     'Tell the table the top three cards you saw. Claims are final, and you may lie.',
-  'status.claim.other': 'Claims are coming in. Question them out loud before the next nomination!',
+  // The talk notice under it says to question them, so the status line doesn't repeat it.
+  'status.claim.other': 'Claims are coming in.',
   'status.power.investigate.you': 'Use your power: {power}. Talk it over first if you like.',
   'status.power.special.you': 'Use your power: {power}. Talk it over first if you like.',
   'status.power.peek.you': 'Use your power: {power}. Talk it over first if you like.',
