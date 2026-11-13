@@ -1,4 +1,4 @@
-import { NameDot, cn } from '@vt/ui';
+import { NameDot, TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import { type Flag, type FlagKind, claimFlags } from '../logic/claims.ts';
 import type { HydraView, Round } from '../logic/types.ts';
@@ -120,6 +120,7 @@ export function Timeline({
                 onClick={() => setFilter(f)}
                 className={cn(
                   'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
+                  TAP_BAND,
                   filter === f ? 'bg-accent text-accent-fg ring-accent' : 'ring-line-strong',
                 )}
               >

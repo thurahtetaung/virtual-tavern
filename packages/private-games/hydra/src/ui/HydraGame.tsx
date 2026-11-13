@@ -150,6 +150,7 @@ function HeaderStrip({
             className={cn(
               'flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm',
               TAP_BAND,
+              TAP_BAND,
             )}
             aria-label="My role"
           >
@@ -207,7 +208,10 @@ function WaitingChips({
               <button
                 type="button"
                 disabled={recently}
-                className={cn('rounded-full px-1 disabled:opacity-40', TAP_BAND)}
+                className={cn(
+                  'inline-flex size-6 items-center justify-center rounded-full disabled:opacity-40',
+                  TAP_BAND,
+                )}
                 aria-label={`Nudge ${nameOf(view, id)}`}
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
@@ -398,9 +402,9 @@ function TableRing({
       {seats(top, half)}
       <div className="grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-3xl bg-gradient-to-b from-emerald-950 to-stone-900 p-4 shadow-inner">
         <Pile label="Deck" count={g.deckCount} c={c} />
-        {/* The boards' width follows the window's height, so both seat rows and the dock fit a
-            laptop screen (the art is about three times as wide as it is tall). */}
-        <div className="mx-auto w-full max-w-[max(24rem,calc((100dvh-37rem)*1.5))] space-y-2">
+        {/* The boards' width follows the window's height, so both seat rows and the dock (with
+            its ballots) fit a laptop screen (the art is about three times as wide as it is tall). */}
+        <div className="mx-auto w-full max-w-[max(22rem,calc((100dvh-42rem)*1.5))] space-y-2">
           <Board team="red" g={g} c={c} />
           <Board team="blue" g={g} c={c} />
         </div>
@@ -671,7 +675,9 @@ export function HydraGame({
       ? null
       : view.stage === 'vote'
         ? c.copy('talk.vote')
-        : view.stage === 'claim' ||
+        : // While claims come in, the status line already says to question them (unless it is
+          // asking for your own claim).
+          (view.stage === 'claim' && g.needs.some((x) => x.by === me)) ||
             (view.stage === 'nominate' && (g.rounds.at(-1)?.claims.length ?? 0) > 0)
           ? c.copy('talk.claims')
           : null;
@@ -689,7 +695,8 @@ export function HydraGame({
     return (
       <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        {/* The rail as wide as in play, so the roles get the room to show at a readable size. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1.3fr)]">
           <End
             view={view}
             room={room}

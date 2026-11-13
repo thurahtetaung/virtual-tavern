@@ -37,7 +37,10 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
     };
   }, [up, g.players.length]);
   return (
-    <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3" aria-label="Everyone’s role">
+    <ul
+      className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]"
+      aria-label="Everyone’s role"
+    >
       {g.players.map((p, i) => {
         const role = end.roles[p.id]!;
         return (
@@ -245,15 +248,15 @@ export function End({
           // again always below, so the end fits the screen.
           <EndTabs
             tabs={[
-              { id: 'roles', label: '🎭 Roles', content: <RoleReveal view={view} c={c} /> },
+              { id: 'roles', label: 'Roles', content: <RoleReveal view={view} c={c} /> },
               !!room.superlatives?.length && {
                 id: 'awards',
-                label: '✨ Awards',
+                label: 'Awards',
                 content: <Superlatives lines={room.superlatives} />,
               },
-              { id: 'truth', label: '📜 Truth', content: <TruthLog view={view} c={c} /> },
-              { id: 'timeline', label: '🕰️ Timeline', content: timeline },
-              !!c.credit && { id: 'credits', label: '©️ Credits', content: <CreditBlock c={c} /> },
+              { id: 'truth', label: 'Truth', content: <TruthLog view={view} c={c} /> },
+              { id: 'timeline', label: 'Timeline', content: timeline },
+              !!c.credit && { id: 'credits', label: 'Credits', content: <CreditBlock c={c} /> },
             ]}
           />
         ) : (

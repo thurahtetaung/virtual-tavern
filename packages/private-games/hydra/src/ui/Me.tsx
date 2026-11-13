@@ -61,7 +61,7 @@ export function RoleCard({
   const r = view.role;
   const { open, setOpen, setHeld, flat, shown } = reveal;
   if (!r) return null;
-  const size = cn('relative mx-auto block', big ? 'w-44 sm:w-52' : 'w-32 sm:w-40');
+  const size = cn('relative mx-auto block', big ? 'w-44 sm:w-52' : 'w-32 sm:w-40 lg:w-32');
   // The face is only in the page while the card is up, so a face-down card carries no role name,
   // not even for a screen reader.
   return (
@@ -83,7 +83,8 @@ export function RoleCard({
               className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900"
             />
             <RoleBack c={c} className="relative" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-xs font-bold text-white drop-shadow">
+            {/* On a dark pill, so it reads over the envelope and the card's light art alike. */}
+            <span className="pointer-events-none absolute inset-x-1 bottom-2 rounded-full bg-black/75 px-2 py-1 text-center text-xs leading-tight font-bold text-white shadow-vt-1">
               ⬆ Slide up or hold
             </span>
           </span>
