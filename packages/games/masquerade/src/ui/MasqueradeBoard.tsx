@@ -178,27 +178,58 @@ function StatusHint({ view, room }: { view: MasqueradeView; room: GameRoomInfo }
  */
 function MyCard({ round, display }: { round: RoundView; display: LocationDisplay }) {
   if (round.role === 'watching') return null;
+  // While everyone talks the card is the moment; in the vote and the guess it steps aside for them
+  // (a row at every size).
+  const big = round.stage === 'talk';
   return (
     <section aria-label="Your card">
       <Peek
         what="your card"
         cover={
+          // Covered, your card is a card. Phones: its back at full size (as big as the place's
+          // picture at the reveal), with the hold gesture across its foot. Wide screens, where the
+          // column also holds the vote and the scores: a row with a 160 px back beside the words.
           <span
             data-testid="card-cover"
-            className="flex min-h-24 w-full items-center gap-3 rounded-xl border-t-4 border-accent bg-card p-3 text-ink shadow-vt-2 ring-1 ring-line"
+            className={cn(
+              'relative mx-auto flex w-full overflow-hidden rounded-xl border-t-4 border-accent bg-card text-ink shadow-vt-2 ring-1 ring-line',
+              big
+                ? 'aspect-[20/13] max-w-xs flex-col justify-end lg:aspect-auto lg:max-w-none lg:flex-row lg:items-center lg:gap-4 lg:p-3'
+                : 'flex-row items-center gap-3 p-3 lg:gap-4',
+            )}
           >
             {display.back ? (
               <ProtectedImage
                 src={display.back}
                 alt=""
-                className="aspect-[20/13] w-24 shrink-0 rounded-lg object-cover shadow-vt-1 ring-1 ring-line"
+                className={cn(
+                  'object-cover',
+                  big
+                    ? 'absolute inset-0 size-full lg:static lg:aspect-[20/13] lg:size-auto lg:w-40 lg:shrink-0 lg:rounded-lg lg:shadow-vt-1 lg:ring-1 lg:ring-line'
+                    : 'aspect-[20/13] w-24 shrink-0 rounded-lg shadow-vt-1 ring-1 ring-line lg:w-40',
+                )}
               />
             ) : (
-              <span aria-hidden className="text-4xl">
+              <span
+                aria-hidden
+                className={cn(
+                  'flex items-center justify-center bg-sunk',
+                  big
+                    ? 'absolute inset-0 pb-12 text-7xl lg:static lg:aspect-[20/13] lg:w-40 lg:shrink-0 lg:rounded-lg lg:pb-0 lg:text-6xl'
+                    : 'aspect-[20/13] w-24 shrink-0 rounded-lg text-4xl lg:w-40 lg:text-6xl',
+                )}
+              >
                 🎴
               </span>
             )}
-            <span className="min-w-0">
+            <span
+              className={cn(
+                'relative min-w-0',
+                big
+                  ? 'bg-card/90 px-3 py-2 text-center backdrop-blur-sm lg:bg-transparent lg:px-0 lg:text-left lg:backdrop-blur-none'
+                  : 'text-left',
+              )}
+            >
               <span className="block font-bold">Hold to see your card</span>
               <span className="block text-caption text-ink-2">
                 Or tap Show. Keep it hidden from your neighbours.
@@ -448,14 +479,15 @@ function VotesList({
   return (
     <div className="space-y-1">
       {tally.length > 0 && (
-        <p className="text-small" data-testid="vote-tally">
+        <p className="text-small lg:text-body" data-testid="vote-tally">
           <b>Votes: </b>
           {tally.map((t) => `${label(t.id)} ${t.votes}`).join(' · ')}
         </p>
       )}
       <ul
         aria-label="Votes"
-        className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-small sm:grid-cols-2"
+        // Wide screens: one vote to a line in body text (the column is narrow beside the board).
+        className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-small sm:grid-cols-2 lg:grid-cols-1 lg:gap-y-1.5 lg:text-body"
       >
         {round.players.map((p) => (
           <li key={p.id} className="flex justify-between gap-2">
@@ -734,7 +766,8 @@ function Podium({
             {
               id: 'scores',
               label: '🏆 Scores',
-              content: <Standings entries={entries} you={view.me?.id} />,
+              // Phones: the table alone (the podium would push its rows under the tab's edge).
+              content: <Standings entries={entries} you={view.me?.id} phoneTable />,
             },
             !wide &&
               !!room.superlatives?.length && {
