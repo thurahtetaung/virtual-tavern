@@ -192,7 +192,7 @@ export function Seats({
           );
         })}
       </ol>
-      <p className="mt-0.5 text-[0.7rem] text-ink-muted">
+      <p className="mt-0.5 text-xs text-ink-muted">
         Play goes {g.turn.dir === 1 ? 'left to right →' : '← right to left'}
       </p>
     </section>

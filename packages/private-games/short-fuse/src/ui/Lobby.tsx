@@ -313,7 +313,7 @@ export function Lobby({
                   max={NOPE_SECONDS.max}
                   value={s.nopeSeconds}
                   onChange={(e) => set({ nopeSeconds: Number(e.target.value) })}
-                  className="min-w-0 flex-1 accent-[var(--color-accent)]"
+                  className="h-11 min-w-0 flex-1 accent-[var(--color-accent)]"
                   aria-label={`${c.name('nope')} countdown in seconds`}
                 />
                 <b className="w-10 text-ink">{s.nopeSeconds} s</b>
