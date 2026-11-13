@@ -48,7 +48,7 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
   // From lg up the five rows take exactly the height left between what sits above the board (a
   // result line, the playtest bar) and what follows it in its column (the clue form) or the bar at
   // the foot, so the whole board, the Spymaster's key included, is in view with no scroll: down to
-  // 40 px rows on a short laptop window.
+  // 40 px rows on a short laptop window (at the default text size; larger text keeps a rem floor).
   const root = useRef<HTMLDivElement>(null);
   const wide = useWide();
   const free = useFreeHeight(root, wide);
@@ -134,7 +134,10 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
                 lastGuessed === i &&
                   'z-10 scale-105 ring-[3px] ring-accent ring-offset-2 ring-offset-page',
                 card.revealed && lastGuessed !== i && 'opacity-90',
-                rows !== null && 'lg:h-(--row-h)!',
+                // The fitted rows, but never under the 4.5rem floor once the browser's text is larger
+                // than its default (the min() is 0 at 16 px and the floor above it), so long phrases
+                // still fit their cards at 150% text; at the default size the rows fit the window.
+                rows !== null && 'lg:h-[max(var(--row-h),min(4.5rem,calc((1rem_-_16px)*1000)))]!',
                 // At the end the cards nobody guessed keep their words at full strength: their soft
                 // key tint and the missing check mark already tell them from the guessed ones.
               )}
