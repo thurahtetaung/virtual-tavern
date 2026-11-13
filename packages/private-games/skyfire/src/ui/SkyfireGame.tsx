@@ -8,6 +8,7 @@ import {
 } from '@vt/game-sdk';
 import {
   Button,
+  EndHero,
   EndTabs,
   GuideLink,
   Hint,
@@ -482,6 +483,7 @@ function End({
   /** Phones: the table, as one of the end's tabs. */
   table: ReactNode;
 }) {
+  const wide = useWideScreen();
   const g = view.game!;
   const r = g.result;
   if (!r) return null;
@@ -494,85 +496,96 @@ function End({
       ? 'Lost'
       : ratingOf(r.score, r.max);
   return (
-    <Panel className="flex flex-col gap-3" data-testid="sf-end">
-      <EndTabs
-        tabs={[
-          {
-            id: 'score',
-            label: '🎆 Score',
-            content: (
-              <div className="flex flex-col items-center gap-1 text-center">
-                <p className="text-4xl font-black tabular-nums" data-testid="sf-final-score">
-                  {r.score} <span className="text-lg font-semibold text-ink-muted">/ {r.max}</span>
-                </p>
-                <p className="text-lg font-bold">
-                  {r.win ? '🎆 ' : ''}
-                  {rating}
-                </p>
-                <p className="text-sm text-ink-muted">
-                  {lost || r.how === 'ended' || view.settings.expert
-                    ? endHowText(r.how)
-                    : (RATING_LINE[rating] ?? '')}
-                </p>
-                {(r.score !== r.reached || lost) && (
-                  <p className="text-sm" data-testid="sf-reached">
-                    The fireworks reached {r.reached}.
-                  </p>
-                )}
-                {r.how === 'lost-card' && r.card && (
-                  <p className="flex items-center gap-2 text-sm">
-                    Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
-                  </p>
-                )}
-                {r.how === 'no-cards' && r.player && (
-                  <p className="text-sm">{name(r.player)} had no cards left.</p>
-                )}
+    <div className="flex flex-col gap-3" data-testid="sf-end">
+      <EndHero
+        title={
+          <>
+            {r.win ? '🎆 ' : ''}
+            {rating}
+          </>
+        }
+        // The score is the emblem: the whole table played as one.
+        emblem={
+          <span className="font-black tabular-nums" data-testid="sf-final-score">
+            {r.score} <span className="text-heading font-semibold text-ink-muted">/ {r.max}</span>
+          </span>
+        }
+        tone={lost || rating === 'Lost' ? 'loss' : 'success'}
+        superlatives={wide ? room.superlatives : undefined}
+        actions={
+          <>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  size="lg"
+                  onClick={() => void act({ type: 'play-again' }, { anchor: 'sf-end' })}
+                >
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'sf-end' })}
+                >
+                  Change setup
+                </Button>
               </div>
-            ),
-          },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          {
-            id: 'replay',
-            label: '⏪ Replay',
-            content: (
-              <details className="rounded-xl bg-card p-2 ring-1 ring-line" open>
-                <summary className="cursor-pointer text-sm font-semibold">
-                  Replay: every turn, every hand face up
-                </summary>
-                <div className="mt-2">
-                  <Replay view={view} you={room.you} art={art} name={name} />
-                </div>
-              </details>
-            ),
-          },
-          !!table && { id: 'table', label: '🎇 Table', content: table },
-        ]}
-      />
-      {room.isHost ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="lg"
-            className="flex-1"
-            onClick={() => void act({ type: 'play-again' }, { anchor: 'sf-end' })}
-          >
-            Play again
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'sf-end' })}
-          >
-            Change setup
-          </Button>
-        </div>
-      ) : (
-        <Hint>{waitingForHost(room, 'start the next show')}</Hint>
-      )}
-      <RefusalSlot anchor="sf-end" />
-    </Panel>
+            ) : (
+              <Hint>{waitingForHost(room, 'start the next show')}</Hint>
+            )}
+            <RefusalSlot anchor="sf-end" />
+          </>
+        }
+      >
+        <p className="sr-only">
+          Score: {r.score} of {r.max}.
+        </p>
+        <p className="text-sm text-ink-muted">
+          {lost || r.how === 'ended' || view.settings.expert
+            ? endHowText(r.how)
+            : (RATING_LINE[rating] ?? '')}
+        </p>
+        {(r.score !== r.reached || lost) && (
+          <p className="text-sm" data-testid="sf-reached">
+            The fireworks reached {r.reached}.
+          </p>
+        )}
+        {r.how === 'lost-card' && r.card && (
+          <p className="flex items-center justify-center gap-2 text-sm">
+            Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
+          </p>
+        )}
+        {r.how === 'no-cards' && r.player && (
+          <p className="text-sm">{name(r.player)} had no cards left.</p>
+        )}
+      </EndHero>
+      <Panel className="flex flex-col gap-3">
+        <EndTabs
+          tabs={[
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+            {
+              id: 'replay',
+              label: '⏪ Replay',
+              content: (
+                <details className="rounded-xl bg-card p-2 ring-1 ring-line" open>
+                  <summary className="cursor-pointer text-sm font-semibold">
+                    Replay: every turn, every hand face up
+                  </summary>
+                  <div className="mt-2">
+                    <Replay view={view} you={room.you} art={art} name={name} />
+                  </div>
+                </details>
+              ),
+            },
+            !!table && { id: 'table', label: '🎇 Table', content: table },
+          ]}
+        />
+      </Panel>
+    </div>
   );
 }
