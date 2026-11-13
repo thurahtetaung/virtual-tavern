@@ -76,7 +76,10 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
             aria-expanded={legend}
             aria-controls="enigma-legend"
             onClick={() => setToggled(!legend)}
-            className={cn('rounded px-1 underline decoration-dotted underline-offset-2', TAP_BAND)}
+            className={cn(
+              'rounded px-1 underline decoration-dotted underline-offset-2 lg:inline-flex lg:min-h-11 lg:items-center',
+              TAP_BAND,
+            )}
           >
             Round {view.round} of {view.maxRounds} <span aria-hidden>ⓘ</span>
             <span className="sr-only"> (what do the scores mean?)</span>
@@ -108,28 +111,6 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         🕵️ 2 intercepts win · 💥 2 miscommunications lose
       </p>
     </div>
-  );
-}
-
-/** Your team's four keywords in one compact line, for decoders waiting on the clues. */
-function KeywordStrip({ keywords }: { keywords: string[] }) {
-  return (
-    <section aria-label="Your keywords" className="space-y-1 text-center">
-      <p className="text-small text-ink-muted">
-        Your keywords. You’ll match each clue to one of these.
-      </p>
-      <ol className="flex flex-wrap justify-center gap-1.5">
-        {keywords.map((word, i) => (
-          <li
-            key={i}
-            className="rounded-lg bg-card px-2 py-1 text-small font-bold uppercase ring-1 ring-line"
-          >
-            <span className="mr-1 text-ink-muted tabular-nums">{i + 1}</span>
-            {word}
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }
 
@@ -227,7 +208,8 @@ export function EnigmaGame({
     .filter((t) => t.active || t.revealed)
     .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam));
   const sheetTeams: Team[] = myTeam ? [myTeam, other(myTeam)] : ['red', 'blue'];
-  // Decoders waiting for clues see their keywords right on the Play tab, not only under Clues.
+  // Decoders waiting for clues on a phone see their keywords and past clues right on the Play tab
+  // (wide screens show them beside it, under Clues).
   const keywords = myTeam ? view.teams[myTeam].keywords : null;
   const waitingKeywords =
     view.stage === 'clue' &&
@@ -392,7 +374,6 @@ export function EnigmaGame({
             )}
             {view.phase !== 'over' && view.stage !== 'showdown' && (
               <>
-                {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
                 {/* While one team waits on the other, its panel holds a status line: it takes
                     its own height rather than standing as a tall empty slab. */}
                 <div
@@ -413,6 +394,7 @@ export function EnigmaGame({
                     />
                   ))}
                 </div>
+                {waitingKeywords && myTeam && !wide && <OwnSheet view={view} team={myTeam} />}
               </>
             )}
             {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
