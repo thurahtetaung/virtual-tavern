@@ -721,8 +721,9 @@ export function Stepper({
           variant="secondary"
           size="sm"
           disabled={i === 0}
-          // The first step has nothing to go back to: the button keeps its place, unseen.
-          className={cn(i === 0 && 'invisible')}
+          // The first step has nothing to go back to: the button keeps its place, unseen (but
+          // still announced as disabled).
+          className={cn(i === 0 && 'opacity-0')}
           onClick={() => go(i - 1)}
         >
           <Icon name="arrow-left" size={16} />
