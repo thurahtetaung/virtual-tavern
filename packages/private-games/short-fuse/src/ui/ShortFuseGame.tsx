@@ -220,7 +220,10 @@ function WaitingChips({
               <button
                 type="button"
                 disabled={recently}
-                className={cn('rounded-full px-1 disabled:opacity-40', TAP_BAND)}
+                className={cn(
+                  'inline-flex min-h-6 min-w-6 items-center justify-center rounded-full px-1 disabled:opacity-40',
+                  TAP_BAND,
+                )}
                 aria-label={`Nudge ${who(view, id)}`}
                 title="Nudge: buzz their phone"
                 onClick={() => void act({ type: 'nudge', player: id })}
@@ -639,7 +642,7 @@ export function ShortFuseGame({
           <button
             type="button"
             className={cn(
-              'rounded-md px-1.5 py-0.5 underline decoration-dotted underline-offset-2 hover:text-ink',
+              'inline-flex min-h-7 items-center rounded-md px-1.5 underline decoration-dotted underline-offset-2 hover:text-ink',
               TAP_BAND,
             )}
             onClick={() => setDiscardOpen(true)}

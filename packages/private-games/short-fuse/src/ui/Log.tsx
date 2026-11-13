@@ -61,7 +61,7 @@ export function Log({ view, c }: { view: ShortFuseView; c: Content }) {
             onClick={() => setFilter(id)}
             className={cn(
               // 44 px to a finger, the same pills to a mouse.
-              'rounded-full px-2.5 py-1 text-xs font-semibold ring-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-3.5',
+              'inline-flex min-h-8 items-center rounded-full px-2.5 text-xs font-semibold ring-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-3.5',
               filter === id
                 ? 'bg-accent-soft text-accent-text ring-accent-line'
                 : 'bg-card text-ink-muted ring-line',

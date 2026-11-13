@@ -56,7 +56,7 @@ export const Hand = memo(function Hand({
   return (
     <section aria-label={label}>
       <ul
-        className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pt-3 pb-1 [scrollbar-width:thin] sm:gap-2 lg:flex-wrap lg:overflow-visible"
+        className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pt-3 pb-1 [scrollbar-width:thin] sm:gap-2"
         data-testid="hand"
       >
         {sortHand(cards).map((card) => (
@@ -94,8 +94,9 @@ export const Hand = memo(function Hand({
                 size="md"
                 eager
                 selected={selected.has(card.id)}
-                // Desktops have the room: cards large enough to read their art.
-                className="lg:w-32 xl:w-36"
+                // Desktops: one row (as on phones, scrolling past eight or so), cards large
+                // enough to read their art, so the whole hand stays above the fold.
+                className="lg:w-28"
               />
             </button>
           </li>
