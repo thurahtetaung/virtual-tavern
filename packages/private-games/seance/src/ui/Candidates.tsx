@@ -1,4 +1,5 @@
 import { Panel, cn } from '@vt/ui';
+import type { CSSProperties } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, PsychicView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -58,6 +59,8 @@ export function CandidatesRow({
   one,
   label,
   small,
+  listClassName,
+  listStyle,
 }: {
   g: GameView;
   pillar: Pillar;
@@ -65,6 +68,9 @@ export function CandidatesRow({
   one?: PsychicView;
   label: string;
   small?: boolean;
+  /** The list's own grid, in place of the default columns (a layout that sizes the cards). */
+  listClassName?: string;
+  listStyle?: CSSProperties;
 }) {
   const { look, viewer } = useLook(content);
   const kind = content.kindOf(pillar);
@@ -76,9 +82,13 @@ export function CandidatesRow({
       {viewer}
       <ul
         aria-label={label}
+        style={listStyle}
         className={cn(
           'grid gap-1.5',
-          small ? 'grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))]' : 'grid-cols-3 sm:grid-cols-4',
+          listClassName ??
+            (small
+              ? 'grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))]'
+              : 'grid-cols-3 sm:grid-cols-4'),
         )}
       >
         {cards.map((n, i) => {

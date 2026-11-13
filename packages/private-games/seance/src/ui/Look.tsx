@@ -97,7 +97,7 @@ export function PickButton({
         // On a card it is a chip in the corner, 44 px tall so it is an easy tap, kept narrow so
         // most of the picture shows. No invisible touch band: on a small card it would reach the
         // middle and catch the taps meant to open the card.
-        big ? 'min-h-12 px-6 text-base' : 'min-h-11 px-3 text-xs',
+        big ? 'min-h-12 px-6 text-base' : 'min-h-11 px-2.5 text-xs whitespace-nowrap',
         on ? 'bg-accent-line text-ink ring-black/20' : 'bg-black/70 text-white ring-white/30',
         className,
       )}

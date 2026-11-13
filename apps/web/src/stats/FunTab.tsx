@@ -1,7 +1,6 @@
 import type { FunFact, RecentNight, RoomRecap } from '@vt/protocol';
-import { Card, cn } from '@vt/ui';
+import { Card, Drawer, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { Drawer } from '../components/Drawer.tsx';
 import { type CardContext, NightCard, nightLabel } from '../recap/RecapSheet.tsx';
 import { statsApi } from './api.ts';
 import { clock } from './format.ts';

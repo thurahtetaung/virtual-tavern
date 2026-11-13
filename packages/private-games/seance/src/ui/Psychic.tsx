@@ -29,9 +29,8 @@ export interface CompareSpec {
   pinnedLabel?: string;
   strip?: CardRow | null;
   stripLabel?: string;
-  /** psychic: the strip picks the viewer's guess; send: the ghost picks cards for a psychic. */
-  mode: 'view' | 'guess' | 'send' | 'shared';
-  to?: PsychicView['color'];
+  /** guess: the strip picks the viewer's guess; shared: the ghost picks the shared vision. */
+  mode: 'view' | 'guess' | 'shared';
   start?: number;
 }
 

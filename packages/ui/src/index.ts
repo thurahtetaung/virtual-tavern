@@ -9,6 +9,7 @@ export * from './phone.ts';
 export * from './summary-fit.ts';
 export * from './summary-width.ts';
 export * from './modal.tsx';
+export * from './drawer.tsx';
 export * from './peek.tsx';
 export * from './timer-settings.tsx';
 export * from './word-list-picker.tsx';
