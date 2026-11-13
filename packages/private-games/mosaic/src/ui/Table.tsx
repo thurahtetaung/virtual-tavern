@@ -759,7 +759,31 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           {clockLine}
           <Ouch view={view} name={name} you={room.you} />
           {centrePiece}
-          {!(tiling && !wide) && myBoard}
+          {!(tiling && !wide) &&
+            (wide && others.length > 0 && !tiling ? (
+              // Wide screens: the rivals' boards beside yours (one at 60 %, two or three smaller in
+              // a grid), where they can be read while you plan; the rail keeps the scores.
+              <div className="flex items-start justify-center gap-3">
+                {myBoard}
+                <div
+                  className={cn('grid gap-2', others.length > 1 && 'grid-cols-2')}
+                  aria-label="Other boards"
+                >
+                  {others.map((p) => (
+                    <PlayerBoard
+                      key={p.id}
+                      p={p}
+                      view={view}
+                      room={room}
+                      art={art}
+                      size={others.length === 1 ? 'md' : 'sm'}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              myBoard
+            ))}
           {hostTools}
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} ·{' '}
@@ -777,9 +801,11 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           <FitArea on={wide} plain min={128}>
             <div className="space-y-2">
               {tips}
-              {others.map((p) => (
-                <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
-              ))}
+              {/* In the wall-tiling the boards are the stage; otherwise they sit beside yours. */}
+              {tiling &&
+                others.map((p) => (
+                  <PlayerBoard key={p.id} p={p} view={view} room={room} art={art} size="sm" />
+                ))}
               <div className="rounded-2xl bg-card/85 p-2.5 ring-1 ring-line">
                 <Scores view={view} room={room} art={art} />
               </div>
