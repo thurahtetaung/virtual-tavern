@@ -129,7 +129,7 @@ export function IconicGame({
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {view.phase === 'over' ? (
-            <End view={view} room={room} act={act} name={name} />
+            <End view={view} room={room} act={act} art={art} name={name} />
           ) : (
             <Play view={view} room={room} act={act} art={art} name={name} />
           )}
@@ -578,6 +578,15 @@ function Play({
               <Choose view={view} room={room} act={act} name={name} />
               <Scores view={view} room={room} />
               {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+              {/* Everyone waiting studies the icons while the clue givers pick (read-only). */}
+              {!r.givers.includes(room.you) && (
+                <Panel className="p-3">
+                  <p className="pb-2 text-center text-sm text-ink-muted">
+                    The icons they’ll clue with
+                  </p>
+                  <BoardView board={r.board} art={art} />
+                </Panel>
+              )}
             </>
           )}
           {r.stage === 'reveal' && (
@@ -1436,11 +1445,13 @@ function End({
   view,
   room,
   act,
+  art,
   name,
 }: {
   view: IconicView;
   room: GameRoomInfo;
   act: Act;
+  art: Art;
   name: NameOf;
 }) {
   const g = view.game!;
@@ -1457,7 +1468,16 @@ function End({
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="💡"
+        emblem={art.box ? null : '💡'}
+        art={
+          art.box && (
+            <ProtectedImage
+              src={art.box}
+              alt=""
+              className="h-36 w-auto rounded-xl object-contain shadow-vt-2 lg:h-52"
+            />
+          )
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
@@ -1510,11 +1530,14 @@ function End({
               id: 'words',
               label: '💬 Every word',
               content: (
-                <section aria-label="Every word" className="flex flex-col gap-1 text-sm">
+                <section aria-label="Every word" className="flex flex-col gap-1 text-small">
                   <h3 className="font-semibold">Every word</h3>
-                  <ol className="flex flex-col gap-0.5">
+                  <ol className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-1.5">
                     {g.history.map((h) => (
-                      <li key={h.no} className="flex flex-wrap gap-x-2">
+                      <li
+                        key={h.no}
+                        className="flex flex-wrap gap-x-2 lg:rounded-lg lg:bg-sunk lg:px-3 lg:py-2"
+                      >
                         <span className="font-semibold">“{h.word}”</span>
                         <span className="text-ink-muted">
                           {h.outcome === 'guessed'
