@@ -141,7 +141,15 @@ export function EchoGame({
         ) : (
           view.turn && (
             // Wide screens: the card sits in the middle of the free height, not a strip at the top.
-            <Panel className="lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10">
+            // Phones: the pick row and the wait for the guess sit in the middle of the free height too.
+            <Panel
+              className={cn(
+                'lg:flex lg:min-h-[max(26rem,calc(100dvh-17rem))] lg:flex-col lg:justify-center lg:px-10',
+                (view.turn.stage === 'pick' ||
+                  (view.turn.stage === 'guess' && view.role !== 'guesser')) &&
+                  'max-lg:flex max-lg:min-h-[clamp(11rem,calc(100dvh-27rem),24rem)] max-lg:flex-col max-lg:justify-center',
+              )}
+            >
               <Stage view={view} act={act} room={room} />
             </Panel>
           )

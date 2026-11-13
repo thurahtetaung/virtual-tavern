@@ -86,15 +86,21 @@ function WritingCards({ view, turn }: { view: EchoView; turn: TurnView }) {
           <li
             key={id}
             className={cn(
-              'flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-3 text-center lg:min-h-32',
+              'flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-3 py-3 text-center lg:min-h-40',
               writing
-                ? 'border-2 border-dashed border-line bg-sunk text-ink-muted'
+                ? 'border-2 border-dashed border-line bg-sunk text-ink-2'
                 : 'bg-accent-soft text-ink shadow-vt-1 ring-1 ring-accent-line',
             )}
           >
             <span className="font-display text-sub font-bold lg:text-heading">
               {writing ? (
-                <span className="motion-safe:animate-pulse">✏️ writing…</span>
+                // Only the pencil pulses: the words stay at full strength, readable in a dim room.
+                <>
+                  <span aria-hidden className="motion-safe:animate-pulse">
+                    ✏️
+                  </span>{' '}
+                  writing…
+                </>
               ) : (
                 '✓ Clue in'
               )}
@@ -113,7 +119,9 @@ function WritingCards({ view, turn }: { view: EchoView; turn: TurnView }) {
 /** Five face-down words: the guesser taps one, everyone else sees them waiting. */
 function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolean }) {
   return (
-    <div className="mx-auto grid max-w-lg grid-cols-5 gap-2 lg:max-w-3xl lg:gap-4">
+    // w-full: the panel centres its content on wide screens, which would otherwise shrink the row
+    // to the numerals' width; the cards take the panel's width instead (about 150 px each).
+    <div className="mx-auto grid w-full max-w-lg grid-cols-5 gap-2 lg:max-w-4xl lg:gap-5">
       {Array.from({ length: turn.cardSize }, (_, i) => (
         <button
           key={i}
@@ -122,7 +130,7 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
           aria-label={`Pick word ${i + 1}`}
           onClick={() => void act({ type: 'pick', index: i })}
           className={cn(
-            'flex aspect-[3/4] min-h-16 items-center justify-center rounded-xl font-display text-4xl font-black ring-1 transition lg:text-6xl',
+            'flex aspect-[2/3] min-h-16 items-center justify-center rounded-xl font-display text-4xl font-black ring-1 transition lg:aspect-[3/4] lg:rounded-2xl lg:text-8xl',
             // Waiting on the guesser, the cards turn to the soft accent (never faded, so the
             // numbers stay readable in a bright room).
             mine
@@ -220,19 +228,19 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
         <li
           key={`${c.by}-${i}`}
           className={cn(
-            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:px-4 lg:py-3',
+            'min-w-0 rounded-xl px-3 py-2 ring-1 lg:flex lg:min-h-32 lg:flex-col lg:justify-center lg:gap-1 lg:px-5 lg:py-4 lg:text-center',
             c.cancelled ? 'bg-sunk ring-line' : 'bg-accent-soft shadow-vt-1 ring-accent-line',
           )}
         >
           <span
             className={cn(
-              'block truncate font-display text-sub font-bold lg:text-heading',
+              'block truncate font-display text-sub font-bold lg:text-title',
               c.cancelled && 'text-ink-muted line-through',
             )}
           >
             {c.text}
           </span>
-          <span className="flex items-center gap-1 text-caption text-ink-muted">
+          <span className="flex items-center gap-1 text-caption text-ink-muted lg:justify-center lg:text-small">
             <span className="truncate">
               {c.name ?? nameOf(view, c.by)}
               {c.cancelled && ` · ${cancelReason(view, c)}`}
@@ -439,8 +447,9 @@ export function Stage({ view, act, room }: Props) {
           </div>
         );
       }
+      // Waiting on the guesser: the word over the clues, both at the size they have on the reveal.
       return (
-        <div className="grid gap-3 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-4 lg:space-y-8">
           {turn.word && <SecretWord word={turn.word} />}
           <ClueList view={view} clues={turn.clues} />
         </div>
