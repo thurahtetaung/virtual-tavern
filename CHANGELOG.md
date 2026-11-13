@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.104.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.104.0...v0.104.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **seance:** a card left open full screen closes when the game moves on ([#590](https://github.com/thurahtetaung/virtual-tavern/issues/590)) ([3c017c9](https://github.com/thurahtetaung/virtual-tavern/commit/3c017c9d3c5adf56ff4b3a712b6286fd786967e9))
+
 ## [0.104.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.103.0...v0.104.0) (2026-11-13)
 
 
