@@ -250,9 +250,10 @@ function InGame({
       }
       eyebrow={view.winner ? undefined : null}
       tone={tone}
-      superlatives={wide ? room.superlatives : undefined}
       actions={endButtons}
     >
+      {/* Wide screens fold the last guess's banner ("It's the assassin!") into the finale. */}
+      {wide && result && <p className="font-semibold text-ink">{result.headline}</p>}
       {winHow(view)}.{' '}
       {me?.team && (
         <b>{me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}</b>
@@ -309,7 +310,8 @@ function InGame({
         {...(shown === 'board' && tabPanelProps(PLAY_TABS_ID, 'board'))}
       >
         <ScoreBar view={view} clockOffset={room.clockOffset} />
-        {result && (
+        {/* Wide screens at the end: the finale's line says how it ended, so the board stays whole. */}
+        {result && !(wide && view.phase === 'over') && (
           <ResultBanner
             key={view.log.length}
             result={result}
@@ -387,8 +389,9 @@ function InGame({
           </p>
         )}
 
-        {/* Above the board, so the result and Play again need no scroll past the key. */}
-        {view.phase === 'over' && (wide ? hero : phoneEnd)}
+        {/* Phones: above the board, so the result and Play again need no scroll past the key.
+            Wide screens put the finale beside the board, so the whole revealed key fits. */}
+        {view.phase === 'over' && !wide && phoneEnd}
         {(wide || view.phase !== 'over') && (
           <Board
             view={view}
@@ -441,6 +444,12 @@ function InGame({
         )}
         {...(shown && shown !== 'board' && tabPanelProps(PLAY_TABS_ID, shown))}
       >
+        {wide && view.phase === 'over' && (
+          <>
+            {hero}
+            {!!room.superlatives?.length && <Superlatives lines={room.superlatives} />}
+          </>
+        )}
         {shown !== 'teams' && (
           <Panel>
             <h3 className="mb-1 font-bold">Game log</h3>

@@ -67,11 +67,12 @@ export function ClueForm({ act, max }: Props) {
             </span>
           )}
         </label>
-        <fieldset className="col-span-2 row-start-2 min-w-0">
+        <fieldset className="col-span-2 row-start-2 min-w-0 lg:shrink-0">
           <legend className="text-small font-semibold max-sm:sr-only">
             How many of your agents does it point to?
           </legend>
-          <div className="grid grid-cols-5 gap-1 sm:mt-1 sm:grid-cols-9">
+          {/* Wide screens: nine full 44 px squares. */}
+          <div className="grid grid-cols-5 gap-1 sm:mt-1 sm:grid-cols-9 lg:grid-cols-[repeat(9,2.75rem)]">
             {COUNTS.map((c) => (
               <button
                 key={c}
