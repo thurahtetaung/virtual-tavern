@@ -266,9 +266,10 @@ export function Table({
           className={cn(
             'grid gap-1.5 sm:gap-2',
             many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
-            // Four at a desktop table sit two by two, their cards sized to the window's height so
-            // your hand still fits under them while cards are laid.
-            r.order.length === 4 && 'lg:grid-cols-2',
+            // Four at a desktop table: one row of four while cards are laid (your hand runs across
+            // the width under them, as large as the height left allows), two by two otherwise, the
+            // cards sized to the window's height so the vote or the reveal fits under them.
+            r.order.length === 4 && (laying ? 'lg:grid-cols-4' : 'lg:grid-cols-2'),
           )}
         >
           {r.order.map((id) => {
@@ -324,10 +325,10 @@ export function Table({
                     many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
                     laying
                       ? r.order.length === 4
-                        ? 'lg:max-w-[clamp(12rem,calc((100vh-34rem)/1.5),20rem)]'
+                        ? 'lg:max-w-none'
                         : 'lg:max-w-[clamp(12rem,30vh,18rem)]'
                       : r.order.length === 4
-                        ? 'lg:max-w-[clamp(14rem,32vh,22rem)]'
+                        ? 'lg:max-w-[clamp(12rem,calc((100vh-36rem)/1.4),22rem)]'
                         : 'lg:max-w-[12rem]',
                   )}
                 >
@@ -412,8 +413,11 @@ export function HandStrip({
           'grid gap-1 sm:grid-cols-6',
           canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
           // Desktops: as large as the window's height allows across the page (6 across).
+          // With four players the table is one row then, so the hand has more height.
           r.stage === 'card' || r.stage === 'play'
-            ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
+            ? r.order.length === 4
+              ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-28rem)*3.4),72rem)]'
+              : 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
             : 'lg:max-w-xl',
         )}
       >

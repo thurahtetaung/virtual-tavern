@@ -118,11 +118,11 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   const you = room.you;
   const inGame = r.order.includes(you);
   const handStage = r.stage === 'card' || r.stage === 'word' || r.stage === 'play';
-  // Phones and tablets: the table, your notebook and hand (Me), and the scores, from the tab bar.
-  // On your card or play turn the hand is the table's workspace instead (never shown twice).
+  // Phones and tablets: the table, your notebook (Me), and the scores, from the tab bar. While cards
+  // are chosen the hand sits under the table: large on your turn, a small row while others choose,
+  // so the band under the table shows what you hold rather than empty space.
   const shown: PlayTab | null = wide ? null : tab;
-  const yourCardTurn = (r.stage === 'card' || r.stage === 'play') && r.turn === you;
-  const handOnTable = shown === null ? handStage : yourCardTurn;
+  const handOnTable = handStage;
   const timerLabel =
     r.stage === 'discuss'
       ? 'to talk'
@@ -208,12 +208,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         {shown === 'me' && (
           <div className="flex min-w-0 flex-col gap-2" {...tabPanelProps(PLAY_TABS_ID, 'me')}>
             {inGame ? (
-              <>
-                <Notebook view={view} you={you} art={art} />
-                {handStage && !handOnTable && (
-                  <HandStrip view={view} act={act} art={art} you={you} />
-                )}
-              </>
+              <Notebook view={view} you={you} art={art} />
             ) : (
               <ScoreList view={view} you={you} art={art} />
             )}
