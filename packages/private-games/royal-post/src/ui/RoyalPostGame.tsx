@@ -769,7 +769,10 @@ function Table({
                 <ul className="flex shrink-0 justify-center gap-2 max-sm:gap-3">
                   {view.hand.map((role, i) => (
                     // Big enough to read the card's art and name without opening it.
-                    <li key={`${role}-${i}`} className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-52">
+                    <li
+                      key={`${role}-${i}`}
+                      className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-52 xl:w-60"
+                    >
                       <Card
                         role={role}
                         rank={rankIn(edition, role)}
