@@ -89,24 +89,19 @@ export async function writeWord(p: Page, word: string, fit = false) {
 }
 
 /** Phones and tablets show the game in tabs. */
-export async function showTab(p: Page, name: 'Table' | 'Me' | 'Scores') {
+export async function showTab(p: Page, name: 'Table' | 'Scores') {
   if ((p.viewportSize()?.width ?? 1280) < 1024) await p.getByRole('tab', { name }).click();
 }
 
-/** What `p`'s notebook says (opened with Show, closed again). */
+/** What `p`'s notebook says: always open under the round line, in view with the table. */
 export async function notebook(p: Page): Promise<string> {
-  // Phones keep the notebook on the Me tab.
-  const phone = (p.viewportSize()?.width ?? 1280) < 1024;
-  if (phone) await p.getByRole('tab', { name: 'Me' }).click();
-  await p.getByRole('button', { name: 'Show your notebook' }).click();
   const page = p.getByTestId('rh-notebook-page');
-  await expect(page.getByTestId('rh-word').or(page.getByTestId('rh-conspirator'))).toBeVisible();
+  await expect(page.getByTestId('rh-word').or(page.getByTestId('rh-conspirator'))).toBeInViewport();
+  await expect(p.getByTestId('rh-table')).toBeInViewport();
   // The Conspirator's page has no word.
   const word = (await page.getByTestId('rh-word').count())
     ? ((await page.getByTestId('rh-word').textContent()) ?? '')
     : '';
-  await p.getByRole('button', { name: 'Hide your notebook' }).click();
-  if (phone) await p.getByRole('tab', { name: 'Table' }).click();
   return word.trim();
 }
 
@@ -124,10 +119,25 @@ export async function talk(pages: Page[], host: Page, word?: string) {
   await host.getByRole('button', { name: 'Start the vote' }).click();
 }
 
-/** `p` accuses `name` and confirms. */
-export async function accuse(p: Page, name: string) {
-  await p.getByRole('button', { name: `Accuse ${name}` }).click();
-  await p.getByRole('dialog').getByRole('button', { name: 'Accuse' }).click();
+/**
+ * `p` accuses `name` by tapping their place on the table (or, `viaCard`, one of their cards, whose
+ * full-screen view offers the accusation), and confirms.
+ */
+export async function accuse(p: Page, name: string, viaCard = false) {
+  const table = p.getByTestId('rh-table');
+  const place = table.getByRole('button', { name: `Accuse ${name}`, exact: true });
+  await expect(place).toBeInViewport();
+  if (viaCard) {
+    await table.getByRole('button', { name: new RegExp(`^${name}’s card I:`) }).click();
+    await p
+      .getByRole('dialog')
+      .getByRole('button', { name: `🔍 Accuse ${name}` })
+      .click();
+  } else {
+    // The place's name line (its cards open full screen, with Accuse there too).
+    await place.click({ position: { x: 48, y: 18 } });
+  }
+  await p.getByRole('dialog').getByRole('button', { name: 'Accuse', exact: true }).click();
   // The last vote turns the ballot into the reveal.
   await expect(p.getByText(`You voted for ${name}.`).or(p.getByTestId('rh-reveal'))).toBeVisible();
 }

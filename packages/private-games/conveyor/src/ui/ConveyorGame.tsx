@@ -580,13 +580,14 @@ function End({
             // The winner's last tray, card by card: the meal that won it.
             art={
               winnerTray.length > 0 && (
-                // Wide screens: the finale's card size (about 140 px), two or three to a row, so the
-                // meal fills the column instead of a strip of stamps.
+                // Wide screens: the finale's card size (about 140 px, sized by the end's fit,
+                // `--vt-fit`, so Play again stays in view), so the meal fills the column instead of a strip of stamps.
                 <ul
                   aria-label="The winning tray"
                   className={cn(
                     'flex flex-wrap justify-center gap-1.5 lg:gap-3',
-                    winnerTray.length === 4 && 'lg:max-w-[19rem]',
+                    winnerTray.length === 4 &&
+                      'lg:max-w-[calc(4*min(9rem,calc(var(--vt-fit,45vh)*0.33))+2.25rem)]',
                   )}
                 >
                   {winnerTray.map((c, i) => (
@@ -599,10 +600,10 @@ function End({
                         className={cn(
                           'shadow-vt-1',
                           winnerTray.length <= 4
-                            ? 'lg:w-36'
+                            ? 'lg:w-[min(9rem,calc(var(--vt-fit,45vh)*0.33))]'
                             : winnerTray.length <= 6
-                              ? 'lg:w-28'
-                              : 'lg:w-24',
+                              ? 'lg:w-[min(7rem,calc(var(--vt-fit,45vh)*0.27))]'
+                              : 'lg:w-[min(6rem,calc(var(--vt-fit,45vh)*0.22))]',
                         )}
                       />
                     </li>

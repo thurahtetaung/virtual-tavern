@@ -11,9 +11,10 @@ export const WIDTH: Record<CardSize, string> = {
   xs: 'w-9',
   sm: 'w-14',
   md: 'w-16 sm:w-24',
-  // The draw and discard piles: a little bigger on phones, 128 px on a desktop's table (as big as
-  // the hand under it still allows on a 900 px window).
-  table: 'w-[4.5rem] sm:w-24 lg:w-32',
+  // The draw and discard piles: a little bigger on phones; on a desktop's table they size by the
+  // window's height, 80 px on a 720 px laptop up to 128 px from about 950 px, so the hand and its
+  // bar under them stay in view.
+  table: 'w-[4.5rem] sm:w-24 lg:w-[clamp(5rem,calc(24dvh-6rem),8rem)]',
   lg: 'w-28 sm:w-32',
   xl: 'w-44 sm:w-56',
 };

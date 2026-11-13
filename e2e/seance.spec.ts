@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, unlock, visitor } from './inquest-play.ts';
 import {
@@ -38,6 +39,12 @@ test('a ghost and three psychics find everything, read the shared vision in stag
     await expect(p.page.locator('[aria-label$="’s target)"]')).toHaveCount(0);
   }
 
+  // A laptop shows the ghost the psychics to send to and their own hand, Raven included.
+  await expectLaptopFit(ghost.page, 'seance ghost', [
+    ghost.page.getByRole('button', { name: /^🔍 Choose .+’s vision$/ }).first(),
+    ghost.page.getByRole('heading', { name: 'Your hand' }),
+    ghost.page.getByRole('button', { name: /Raven/ }),
+  ]);
   // Hour I: Ana puts ✓ on Ben's and Cy's guesses before guessing herself.
   await sendVisions(ghost.page);
   for (const p of [ben!, cy!]) await guess(p.page, (await targetOf(ghost.page, p.name))!, true);

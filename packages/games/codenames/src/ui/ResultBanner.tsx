@@ -25,11 +25,17 @@ export function ResultBanner({ result, kind }: { result: GuessResult; kind: Card
     <div
       role="status"
       aria-live="assertive"
-      className={cn('rounded-xl border px-4 py-2.5 text-center shadow-vt-1', tone(result, kind))}
+      className={cn(
+        'rounded-xl border px-4 py-2.5 text-center shadow-vt-1',
+        // Wide screens: one line where it fits (who, what it was, whose turn), so the board below
+        // keeps rows tall enough to read on a laptop window.
+        'lg:flex lg:flex-wrap lg:items-baseline lg:justify-center lg:gap-x-3 lg:py-2',
+        tone(result, kind),
+      )}
     >
       {result.who && <p className="text-small font-medium">{result.who}</p>}
-      <p className="text-sub font-extrabold sm:text-heading">{result.headline}</p>
-      <p className="mt-0.5 text-small font-semibold sm:text-body">{result.next}</p>
+      <p className="text-sub font-extrabold sm:text-heading lg:text-sub">{result.headline}</p>
+      <p className="mt-0.5 text-small font-semibold sm:text-body lg:mt-0">{result.next}</p>
     </div>
   );
 }

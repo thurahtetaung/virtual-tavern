@@ -148,6 +148,7 @@ export function MeTab({
   setMoments,
   plain,
   setPlain,
+  part = 'all',
 }: {
   view: HydraView;
   c: Content;
@@ -155,6 +156,11 @@ export function MeTab({
   showGuide: () => void;
   /** The deal: the role card is the star. */
   big?: boolean;
+  /**
+   * Which sections: all of them, or split between columns (the deal on desktops keeps the role in
+   * the main column above Ready, the quick reference in the rail).
+   */
+  part?: 'all' | 'role' | 'reference';
   moments: boolean;
   setMoments: (on: boolean) => void;
   /** The edition's display font switched off ("Themed lettering" off). */
@@ -166,8 +172,16 @@ export function MeTab({
   const track = trackFor(g.players.length);
   return (
     <div className="space-y-3">
-      {r && (
-        <section className="space-y-3 rounded-2xl bg-card p-3 shadow-sm ring-1 ring-line">
+      {part !== 'reference' && r && (
+        <section
+          className={cn(
+            'space-y-3 rounded-2xl bg-card p-3 shadow-sm ring-1 ring-line',
+            // The deal on wide screens: how you win and who you know sit beside the card, so they
+            // are in view above Ready on a laptop window.
+            big &&
+              'lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:space-y-0',
+          )}
+        >
           <RoleCard view={view} c={c} reveal={reveal} big={big} />
           {/* Only with the card up: a glance at a face-down card must give nothing away. */}
           {!reveal.shown ? (
@@ -201,7 +215,7 @@ export function MeTab({
           )}
         </section>
       )}
-      {reveal.shown && g.memories.length > 0 && (
+      {part !== 'reference' && reveal.shown && g.memories.length > 0 && (
         <section className="rounded-2xl bg-card p-3 text-sm shadow-sm ring-1 ring-line">
           <h3 className="mb-1 font-bold">🔒 What only you saw</h3>
           <ul className="space-y-1">
@@ -213,53 +227,55 @@ export function MeTab({
           </ul>
         </section>
       )}
-      <section className="rounded-2xl bg-card p-3 text-sm shadow-sm ring-1 ring-line">
-        <h3 className="mb-1 font-bold">Quick reference: {g.players.length} players</h3>
-        <ol className="space-y-0.5">
-          {track.map((p, i) => (
-            <li key={i} className={cn(i < g.enacted.red && 'text-ink-muted line-through')}>
-              {c.policyName('red')} #{i + 1}:{' '}
-              {i === 5
-                ? c.t('the {reds} win')
-                : p
-                  ? `${POWER_EMOJI[p]} ${c.powerName(p)}`
-                  : 'no power'}
-              {i === 2 && <span className="text-accent-text"> · danger zone starts</span>}
-              {i === 4 && <span className="text-accent-text">{c.t(' · {veto} unlocks')}</span>}
-            </li>
-          ))}
-        </ol>
-        {g.rebalance && <p className="mt-1 text-xs text-ink-muted">Community rebalance is on.</p>}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline"
-            onClick={showGuide}
-          >
-            Rules →
-          </button>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={moments}
-            onClick={() => setMoments(!moments)}
-            className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
-          >
-            Big moments: {moments ? 'on' : 'off'}
-          </button>
-          {c.font && (
+      {part !== 'role' && (
+        <section className="rounded-2xl bg-card p-3 text-sm shadow-sm ring-1 ring-line">
+          <h3 className="mb-1 font-bold">Quick reference: {g.players.length} players</h3>
+          <ol className="space-y-0.5">
+            {track.map((p, i) => (
+              <li key={i} className={cn(i < g.enacted.red && 'text-ink-muted line-through')}>
+                {c.policyName('red')} #{i + 1}:{' '}
+                {i === 5
+                  ? c.t('the {reds} win')
+                  : p
+                    ? `${POWER_EMOJI[p]} ${c.powerName(p)}`
+                    : 'no power'}
+                {i === 2 && <span className="text-accent-text"> · danger zone starts</span>}
+                {i === 4 && <span className="text-accent-text">{c.t(' · {veto} unlocks')}</span>}
+              </li>
+            ))}
+          </ol>
+          {g.rebalance && <p className="mt-1 text-xs text-ink-muted">Community rebalance is on.</p>}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline"
+              onClick={showGuide}
+            >
+              Rules →
+            </button>
             <button
               type="button"
               role="switch"
-              aria-checked={!plain}
-              onClick={() => setPlain(!plain)}
+              aria-checked={moments}
+              onClick={() => setMoments(!moments)}
               className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
             >
-              Themed lettering: {plain ? 'off' : 'on'}
+              Big moments: {moments ? 'on' : 'off'}
             </button>
-          )}
-        </div>
-      </section>
+            {c.font && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!plain}
+                onClick={() => setPlain(!plain)}
+                className="min-h-11 rounded-full px-3 text-xs font-semibold ring-1 ring-line-strong"
+              >
+                Themed lettering: {plain ? 'off' : 'on'}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

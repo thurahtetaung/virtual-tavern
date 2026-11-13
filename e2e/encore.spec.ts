@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { keepAll, myTurn, readyAll, recruit, show, table } from './encore-play.ts';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -36,6 +37,12 @@ test('a 3-player game: shows, recruits, a Recruit & Show, rounds ending unbeaten
   await expect(
     ana.getByText(/Careful: if you only recruit, the round ends and Ben wins it\./),
   ).toBeVisible();
+  // A laptop sees the show to beat, the whole hand and the actions together.
+  await expectLaptopFit(ana, 'encore turn', [
+    ana.getByTestId('en-table'),
+    ana.locator('[aria-label="Your hand"]').first(),
+    ana.getByTestId('en-actions'),
+  ]);
   await recruit(ana, 0);
   for (const p of pages)
     await expect(roundEnd(p)).toContainText(/Nobody beat (Ben’s|your) show \(8-8\)/);

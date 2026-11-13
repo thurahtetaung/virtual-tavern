@@ -6,13 +6,13 @@ import {
   FitArea,
   Input,
   Panel,
-  Peek,
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
   StickyBar,
   TAP_BAND,
   useConfirm,
+  useFitSize,
   useFreeHeight,
   useWideScreen,
   type ViewerItem,
@@ -55,9 +55,8 @@ const viewerItem = (card: number, caption?: string): ViewerItem => ({
 // ---- The notebook ----
 
 /**
- * Your notebook: hold to read it. The word-picker's shows their own word; a Detective's the word and
- * that they're a Detective; the Conspirator's says so instead of a word. Every page has the same
- * cover, size and gestures, so a glance at someone's screen shows nothing.
+ * Your notebook, always open by the round line: the word-picker's shows their own word; a
+ * Detective's the word and that they're a Detective; the Conspirator's says so instead of a word.
  */
 export function Notebook({ view, you, art }: { view: RedHerringView; you: string; art: Art }) {
   const r = view.game!.round;
@@ -65,68 +64,75 @@ export function Notebook({ view, you, art }: { view: RedHerringView; you: string
   const word = picker ? r.word : r.notebook ? r.notebook.word : undefined;
   if (word === undefined || (picker && word === null)) return null;
   const topic = view.settings.topic;
-  const cover = (
-    <span className="flex items-center gap-2">
-      {art.notebookCover ? (
-        <ProtectedImage
-          src={art.notebookCover}
-          alt=""
-          className="h-11 w-8 shrink-0 rounded-sm object-cover shadow"
-        />
-      ) : (
-        <span aria-hidden className="text-2xl">
-          📓
-        </span>
-      )}
-      <span className="text-sm font-semibold">{picker ? 'Your word' : 'Your notebook'}</span>
-    </span>
-  );
   // The paper art is cream in both themes, so on it the page prints in fixed dark ink
   // (vt-palette: card art's own colours, which never follow the theme).
   const paper = !!art.notebookPage;
   const muted = paper ? 'text-[#5c5248]' : 'text-ink-muted';
   return (
-    <div data-testid="rh-notebook">
-      <Peek what={picker ? 'your word' : 'your notebook'} cover={cover} inline>
-        <div
-          className={cn(
-            'relative flex min-h-28 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg bg-card px-4 py-3 text-center shadow-inner ring-1 ring-line',
-            paper ? 'text-[#2a2420]' : 'text-ink',
-          )}
-          data-testid="rh-notebook-page"
-        >
-          {art.notebookPage && (
-            <ProtectedImage
-              src={art.notebookPage}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-            />
-          )}
-          {topic && <span className={cn('relative text-xs', muted)}>Topic: {topic}</span>}
-          {word !== null ? (
+    <div
+      data-testid="rh-notebook"
+      className={cn(
+        'relative flex min-h-14 items-center gap-3 overflow-hidden rounded-xl bg-card px-3 py-2 shadow-inner ring-1 ring-line',
+        paper ? 'text-[#2a2420]' : 'text-ink',
+      )}
+    >
+      {art.notebookPage && (
+        <ProtectedImage
+          src={art.notebookPage}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
+      {art.notebookCover ? (
+        <ProtectedImage
+          src={art.notebookCover}
+          alt=""
+          className="relative h-11 w-8 shrink-0 rounded-sm object-cover shadow"
+        />
+      ) : (
+        <span aria-hidden className="relative text-2xl">
+          📓
+        </span>
+      )}
+      <div
+        className="relative flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5"
+        data-testid="rh-notebook-page"
+      >
+        {word !== null ? (
+          <p className="flex min-w-0 items-baseline gap-2">
+            <span className={cn('shrink-0 text-sm font-semibold', muted)}>
+              {picker ? 'Your word' : 'The word'}
+            </span>
             <span
-              className="relative min-h-9 font-serif text-3xl font-bold break-words italic"
+              className="min-w-0 font-serif text-2xl leading-tight font-bold break-words italic"
               data-testid="rh-word"
             >
               {word}
             </span>
-          ) : (
-            <span
-              className="relative flex min-h-9 items-center font-serif text-2xl font-bold italic"
-              data-testid="rh-conspirator"
-            >
-              You’re the Conspirator
-            </span>
-          )}
-          {!picker && (
-            <span className={cn('relative text-xs', muted)}>
-              {word !== null
+          </p>
+        ) : (
+          <p
+            className="font-serif text-xl leading-tight font-bold italic"
+            data-testid="rh-conspirator"
+          >
+            You’re the Conspirator
+          </p>
+        )}
+        {(!picker || topic) && (
+          <span className={cn('text-xs', muted)}>
+            {!picker &&
+              (word !== null
                 ? 'You’re a Detective: find who doesn’t know this word.'
-                : 'You don’t know the word. Blend in with your cards and your explanation.'}
-            </span>
-          )}
-        </div>
-      </Peek>
+                : 'You don’t know the word. Blend in with your cards and your explanation.')}
+            {topic && (
+              <>
+                {' '}
+                {!picker && '· '}Topic: {topic}
+              </>
+            )}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -238,13 +244,16 @@ function useMarks(roundKey: string) {
 export function Table({
   view,
   room,
+  act,
   art,
   name,
   focus,
-}: Omit<PartProps, 'act'> & { focus?: PlayerId | null }) {
+}: PartProps & { focus?: PlayerId | null }) {
   const g = view.game!;
   const r = g.round;
   const you = room.you;
+  // At the vote, a player's place on the table is their accusation too (as the ballot's row).
+  const vote = useAccuse({ view, room, act, name });
   const roundKey = `${g.history.length}|${r.no}|${r.picker}|${r.plays[0]?.card ?? ''}`;
   const [marks, cycle] = useMarks(roundKey);
   const [open, setOpen] = useState<number | null>(null);
@@ -260,8 +269,13 @@ export function Table({
   const active = focus ?? r.turn;
   // Desktops: while cards are being laid the table has the height to spare, so they grow with it.
   const laying = r.stage === 'card' || r.stage === 'play';
+  const fourAcross = laying && r.order.length === 4;
+  const wide = useWideScreen();
+  const box = useRef<HTMLElement>(null);
+  useFitSize(box, { on: wide && !fourAcross, min: 128, max: r.order.length === 4 ? 352 : 288 });
   return (
-    <section aria-label="The table" data-testid="rh-table">
+    <section ref={box} aria-label="The table" data-testid="rh-table">
+      {vote.dialog}
       {/* Phones: the laps take what the screen has left and scroll inside it. */}
       <FitArea phone plain min={128}>
         <ul
@@ -278,16 +292,32 @@ export function Table({
             const mine = plays.filter((p) => p.by === id);
             const marker = art.marker(color(id));
             const mark = marks[id];
+            const accusable = vote.myTurn && vote.candidates.includes(id);
+            const chosen = r.myVote === id;
             return (
               <li
                 key={id}
                 data-testid={`rh-seat-${id}`}
                 className={cn(
-                  'flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line',
-                  active === id && 'ring-2 ring-accent',
+                  'relative flex min-w-0 flex-col gap-1 rounded-xl bg-card/85 p-1.5 ring-1 ring-line',
+                  (active === id || chosen) && 'ring-2 ring-accent',
+                  accusable && 'transition hover:bg-panel hover:ring-2 hover:ring-accent/70',
+                  // Over the place's own button, only its cards and mark take taps.
+                  accusable && '[&>*]:pointer-events-none [&_button]:pointer-events-auto',
                 )}
               >
-                <div className="flex min-h-8 min-w-0 items-center gap-1 text-xs sm:text-sm">
+                {accusable && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void vote.accuse(id);
+                    }}
+                    className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-accent"
+                    data-testid={`rh-accuse-seat-${id}`}
+                    aria-label={`Accuse ${name(id)}`}
+                  />
+                )}
+                <div className="relative flex min-h-8 min-w-0 items-center gap-1 text-xs sm:text-sm">
                   {id === r.picker && (
                     <span title="Word-picker" aria-label="word-picker">
                       {art.pencil ? (
@@ -304,6 +334,16 @@ export function Table({
                     className="min-w-0 flex-1"
                   />
                   {left.has(id) && <span className="text-xs text-ink-muted">away</span>}
+                  {accusable && (
+                    <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-text">
+                      🔍 Accuse
+                    </span>
+                  )}
+                  {chosen && (
+                    <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-fg">
+                      🔍 Your vote
+                    </span>
+                  )}
                   {id !== you && id !== r.picker && (
                     <button
                       type="button"
@@ -323,15 +363,12 @@ export function Table({
                 </div>
                 <div
                   className={cn(
-                    'grid grid-cols-2 gap-1',
+                    'relative grid grid-cols-2 gap-1',
                     many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
-                    laying
-                      ? r.order.length === 4
-                        ? 'lg:max-w-none'
-                        : 'lg:max-w-[clamp(12rem,30vh,18rem)]'
-                      : r.order.length === 4
-                        ? 'lg:max-w-[clamp(12rem,calc((100vh-36rem)/1.4),22rem)]'
-                        : 'lg:max-w-[12rem]',
+                    // Desktops: a four-player table laying cards runs one row of four across the
+                    // width; otherwise each place's cards are as large as the window allows with
+                    // the hand, the vote or the reveal still in view (`useFitSize`).
+                    fourAcross ? 'lg:max-w-none' : 'lg:max-w-(--vt-fit)',
                   )}
                 >
                   {([1, 2] as const).map((lap) => {
@@ -356,7 +393,7 @@ export function Table({
                   <ProtectedImage
                     src={marker}
                     alt=""
-                    className="h-1.5 w-full rounded-full object-cover opacity-80"
+                    className="relative h-1.5 w-full rounded-full object-cover opacity-80"
                   />
                 )}
               </li>
@@ -371,6 +408,23 @@ export function Table({
           title="Cards on the table"
           onClose={() => {
             setOpen(null);
+          }}
+          // At your vote, a card on a place you can accuse offers the accusation too, so a tap
+          // anywhere on that place leads to the vote.
+          actions={(i) => {
+            const by = plays[i]?.by;
+            return by && vote.myTurn && vote.candidates.includes(by) ? (
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  setOpen(null);
+                  void vote.accuse(by);
+                }}
+              >
+                🔍 Accuse {name(by)}
+              </Button>
+            ) : null;
           }}
         />
       )}
@@ -478,13 +532,31 @@ export function HandStrip({
 
 // ---- The vote ----
 
-export function Ballot({ view, room, act, art, name }: PartProps) {
+/** Who you may accuse now, and the accusation behind its confirm (the ballot's and the table's). */
+function useAccuse({ view, room, act, name }: Omit<PartProps, 'art'>) {
   const r = view.game!.round;
   const you = room.you;
   const [confirm, dialog] = useConfirm();
   const voter = r.order.slice(1).includes(you);
-  const myTurn = voter && !r.myVote && (!view.settings.openVote || r.turn === you);
+  const myTurn =
+    r.stage === 'vote' && voter && !r.myVote && (!view.settings.openVote || r.turn === you);
   const candidates = r.order.slice(1).filter((id) => id !== you);
+  const accuse = async (id: PlayerId) => {
+    if (
+      await confirm({
+        title: `Accuse ${name(id)}?`,
+        body: 'Your vote can’t be changed.',
+        confirmLabel: 'Accuse',
+      })
+    )
+      await act({ type: 'vote', player: id }, { anchor: 'rh-vote' });
+  };
+  return { voter, myTurn, candidates, accuse, dialog };
+}
+
+export function Ballot({ view, room, act, art, name }: PartProps) {
+  const r = view.game!.round;
+  const { voter, myTurn, candidates, accuse, dialog } = useAccuse({ view, room, act, name });
   const counts: Record<string, number> = {};
   for (const t of Object.values(r.votes ?? {})) counts[t] = (counts[t] ?? 0) + 1;
   const waiting = r.order.slice(1).filter((id) => !r.voted.includes(id));
@@ -500,9 +572,11 @@ export function Ballot({ view, room, act, art, name }: PartProps) {
         {r.myVote
           ? `You voted for ${name(r.myVote)}.`
           : voter
-            ? 'Who had no word? Never yourself, never the word-picker.'
+            ? myTurn
+              ? 'Who had no word? Tap their place on the table, or pick here. Never yourself, never the word-picker.'
+              : 'Who had no word? Never yourself, never the word-picker.'
             : 'The word-picker doesn’t vote.'}{' '}
-        {waiting.length ? waitingFor(waiting, room.players, { you }) : ''}
+        {waiting.length ? waitingFor(waiting, room.players, { you: room.you }) : ''}
       </p>
       <ul className="flex flex-col gap-1">
         {candidates.map((id) => (
@@ -511,16 +585,7 @@ export function Ballot({ view, room, act, art, name }: PartProps) {
               type="button"
               disabled={!myTurn}
               onClick={() => {
-                void (async () => {
-                  if (
-                    await confirm({
-                      title: `Accuse ${name(id)}?`,
-                      body: 'Your vote can’t be changed.',
-                      confirmLabel: 'Accuse',
-                    })
-                  )
-                    await act({ type: 'vote', player: id }, { anchor: 'rh-vote' });
-                })();
+                void accuse(id);
               }}
               className={cn(
                 'flex w-full items-center gap-2 rounded-xl p-1.5 text-left ring-1 ring-line transition',

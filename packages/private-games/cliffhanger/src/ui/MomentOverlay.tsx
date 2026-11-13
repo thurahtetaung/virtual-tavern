@@ -63,12 +63,8 @@ export function MomentOverlay({
         'pointer-events-none z-40 flex items-center justify-center',
         // On the table screen it sits over the poster (in its 1920 × 1080 units).
         // On the table screen a scrim keeps the headline under it from showing through.
-        // On phones and desktops a light scrim lifts the moment off the play under it.
-        inline
-          ? 'relative h-[160px]'
-          : big
-            ? 'absolute inset-0 bg-page/85'
-            : 'fixed inset-0 bg-page/60 backdrop-blur-[2px]',
+        // On phones and desktops no scrim: the names, scores and controls under it stay readable.
+        inline ? 'relative h-[160px]' : big ? 'absolute inset-0 bg-page/85' : 'fixed inset-0',
       )}
     >
       <div key={key} className="cl-pop flex flex-col items-center gap-2">

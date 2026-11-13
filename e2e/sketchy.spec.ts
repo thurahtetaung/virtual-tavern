@@ -3,6 +3,7 @@ import { test } from './fixtures.ts';
 import { expectPhoneFit, expectScrollKept } from './phone-fit.ts';
 import {
   PHONE,
+  expectNamesClear,
   drawAndSend,
   importPacks,
   like,
@@ -114,7 +115,12 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await writeLie(hana, 'fluffy puff');
   await writeLie(cleo, 'smiling sky');
   await pick(hana, 'happy cloud');
+  // Ben watches this reveal on a laptop: while it runs, nothing covers the scores or the status line.
+  await ben.setViewportSize({ width: 1280, height: 720 });
   await pick(cleo, 'happy cloud');
+  await expect(ben.getByTestId('reveal-sequence')).toBeVisible();
+  await expectNamesClear(ben);
+  await ben.setViewportSize({ width: 390, height: 844 });
   await results(all, 'happy cloud');
   // Ben 1,500 + 2,000 as the artist.
   await hana.getByRole('tab', { name: 'Scores', exact: true }).click();

@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { checkGuidePeek } from './guide-peek.ts';
 import {
   evilPages,
@@ -115,6 +116,10 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   await expect(merlin.getByText(/the Assassin, is choosing/)).toBeVisible();
   const other = evilPages(t).find((p) => p !== assassin)!;
   await expect(other.getByText(/Help .+ \(the Assassin\)/)).toBeVisible();
+  // On a laptop every seat the Assassin can name is in view above the bar.
+  await expectLaptopFit(assassin, 'round-table assassin', [
+    assassin.getByRole('list', { name: 'Seats' }).getByRole('listitem').last(),
+  ]);
   const servant = withRole(t, 'Loyal Servant');
   const name = t.names.get(servant)!;
   await assassin

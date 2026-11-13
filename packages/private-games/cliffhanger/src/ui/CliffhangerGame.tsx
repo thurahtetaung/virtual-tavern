@@ -77,11 +77,14 @@ function Tips({ view }: { view: CliffhangerView }) {
         data-testid="tips"
         className="cl-rise hidden flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex"
       >
-        <p className="font-semibold">New here? Three things to know</p>
+        {/* Got it on the heading's line, so the tips take less of the height above the play. */}
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-semibold">New here? Three things to know</p>
+          <Button variant="quiet" size="sm" className="-my-1" onClick={dismiss}>
+            Got it
+          </Button>
+        </div>
         {list}
-        <Button variant="quiet" size="sm" className="self-end" onClick={dismiss}>
-          Got it
-        </Button>
       </aside>
       <aside
         data-testid="tips-line"

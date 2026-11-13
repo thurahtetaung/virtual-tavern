@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import {
   dock,
   fullBrawl,
@@ -63,6 +64,13 @@ test('two heroes brawl: chains, shields, the howl, a taken shield, a knockout', 
   await playCard(hana, 'Attack 1 + Shield 1');
   await expect(row(hana, 'You').locator('[data-shield]')).toHaveCount(2);
   await expect(ana.getByText('Your turn: play a card')).toBeVisible();
+  // A laptop sees the card just played, the prompt, Play and the whole hand at once.
+  await expectLaptopFit(ana, 'tavern-brawl turn', [
+    ana.getByRole('region', { name: 'Table' }),
+    ana.getByText('Your turn: play a card'),
+    dock(ana),
+    hand(ana),
+  ]);
 
   // Three damage into shields worth 1 and 3: the attacker picks which breaks first.
   await playCard(ana, 'Play 2');

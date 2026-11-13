@@ -542,7 +542,7 @@ function End({
                   return (
                     <li
                       key={suit}
-                      className="flex w-12 flex-col items-center gap-1 sm:w-16 lg:w-24"
+                      className="flex w-12 flex-col items-center gap-1 sm:w-16 lg:w-[min(6rem,calc(var(--vt-fit,45vh)*0.3))]"
                     >
                       {top ? (
                         <CardFace

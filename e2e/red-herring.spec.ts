@@ -163,7 +163,8 @@ test('one round with the options: one picture set, No Discussion and the open vo
   await accuse(ben, 'Cy');
   // Open: the vote shows as it is cast.
   await expect(dee.getByRole('button', { name: 'Accuse Cy' })).toContainText('🔍×1');
-  await accuse(cy, 'Dee');
+  // A card on Dee's place offers the accusation in its full-screen view.
+  await accuse(cy, 'Dee', true);
   await accuse(dee, 'Cy');
   const reveal = ana.getByTestId('rh-reveal');
   await expect(reveal).toContainText('Cy was the Conspirator: 2 votes. Caught!');

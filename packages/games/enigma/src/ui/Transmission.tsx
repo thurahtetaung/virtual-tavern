@@ -69,12 +69,14 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
     setBusy(false);
   };
   return (
-    <form onSubmit={(e) => void submit(e)} className="space-y-3">
-      <div className="text-center">
+    // From lg up each clue's label sits beside its field and the code beside its label, so the
+    // code, all three fields and Send clues fit a 1280 × 720 laptop window with no scroll.
+    <form onSubmit={(e) => void submit(e)} className="space-y-3 lg:space-y-2">
+      <div className="text-center lg:flex lg:items-center lg:justify-center lg:gap-3">
         <span className="text-small text-ink-muted">Your secret code</span>
         <Peek
           what="your code"
-          className="mt-1"
+          className="mt-1 lg:mt-0 lg:max-w-sm lg:min-w-0 lg:flex-1"
           onShownChange={setShown}
           cover={
             <span className="block rounded-lg bg-sunk px-3 py-2 text-center text-small text-ink-muted">
@@ -88,7 +90,10 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
         </Peek>
       </div>
       {tx.code?.map((digit, i) => (
-        <label key={i} className="block">
+        <label
+          key={i}
+          className="block lg:grid lg:grid-cols-[10rem_minmax(0,1fr)] lg:items-center lg:gap-x-3"
+        >
           <span className="text-small font-semibold">
             Clue {i + 1}
             {shown && (
@@ -106,10 +111,10 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
             onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="A hint only your team will get"
             invalid={!!problems[i]}
-            className="mt-1"
+            className="mt-1 lg:mt-0"
           />
           {problems[i] && (
-            <span role="alert" className="mt-1 block text-small text-danger-ink">
+            <span role="alert" className="mt-1 block text-small text-danger-ink lg:col-start-2">
               {problems[i]}
             </span>
           )}

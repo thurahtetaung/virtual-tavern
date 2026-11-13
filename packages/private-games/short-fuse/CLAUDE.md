@@ -10,6 +10,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
   - **Surprises:** a blindfolded hand (`blind`) is face down and reshuffled on every change, so its owner acts by slot; a held Bomb goes off if the Shelter leaves; ghosts (Expansion 4) keep their hand and Vault, take no turns, can't be targeted, and may play Nope and NOW cards; a Second Life is never Noped and must bring back a ghost if there is one. The rulings are in `cursed.test.ts` and `ghosts.test.ts`.
   - **`view()`:** the pile is only `count`, `bombsOut` and the face-up Black Hole's edge; peeks, placements and swapped cards only in their owner's `memory`; at the end, where each Bomb was hidden.
   - **Testing:** `SHORT_FUSE_TEST_RIG=1` lets the host fix the next game's hands and pile from a lobby panel.
+  - **Wide screens:** the draw and discard piles size by the window's height (80 px on a 720 px laptop up to 128 px), and your move (Play and Draw, targets, the blindfold and NOW docks) sits between the piles like the Nope countdown, so nothing covers the hand; phones keep it in the fixed bar. At the end the winner's hand is sized by the end's fit (`--vt-fit`), so Play again stays in view.
 
 ## Assets
 

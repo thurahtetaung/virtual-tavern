@@ -7,9 +7,10 @@ import {
   RefusalSlot,
   StickyBar,
   cn,
+  useFitSize,
   useWideScreen,
 } from '@vt/ui';
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { lieProblem, tidyLie } from '../logic/game.ts';
 import { revealOrder, revealProgress } from '../logic/reveal.ts';
 import {
@@ -104,8 +105,15 @@ export function TableDrawing({
 }) {
   const artist = turn.artist ? nameOf(view, turn.artist) : null;
   const room = PHONE_CHROME + reserve + (caption && !side ? 44 : 0);
+  // Wide screens: the drawing is as large as the window allows with the form, the board or the
+  // result and the action still in view.
+  const wide = useWideScreen();
+  const box = useRef<HTMLElement>(null);
+  const writing = view.game?.stage === 'write';
+  useFitSize(box, { on: wide, min: 176, max: writing ? 448 : 384 });
   return (
     <figure
+      ref={box}
       className={cn(
         'space-y-1',
         side &&
@@ -129,11 +137,12 @@ export function TableDrawing({
         className={cn(
           'mx-auto w-full max-w-(--fit) shadow-vt-1 ring-1 ring-line',
           side && 'max-sm:mx-0 max-sm:w-(--fit) max-sm:shrink-0',
-          // Big while titles are written; smaller once the board needs the room. Wider screens
-          // also keep it within the window's height, so the title form or the board below fits.
-          view.game?.stage === 'write'
-            ? 'sm:max-w-[min(28rem,max(16rem,calc((100svh-420px)*0.8)))]'
-            : 'sm:max-w-[min(24rem,max(16rem,calc((100svh-480px)*0.8)))]',
+          // Big while titles are written; smaller once the board needs the room. Tablets keep it
+          // within the window's height; wide screens size it to fit (`useFitSize`).
+          writing
+            ? 'sm:max-lg:max-w-[min(28rem,max(16rem,calc((100svh-420px)*0.8)))]'
+            : 'sm:max-lg:max-w-[min(24rem,max(16rem,calc((100svh-480px)*0.8)))]',
+          'lg:max-w-(--vt-fit)',
         )}
       />
       <figcaption
@@ -658,7 +667,8 @@ export function TurnStage({
       <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:space-y-0">
         {/* Mounted for the whole reveal (each step's moments find its parts), shown while it runs. */}
         <div className="lg:col-start-2 lg:row-start-1">
-          <PhoneCard shown />
+          {/* Six or more choosers of one title need seven seats: their names take a second row. */}
+          <PhoneCard shown crowd={view.seats.length >= 7} />
         </div>
         {/* A phone with the balloon card has no room for the drawing too (the card is the show). */}
         <div
@@ -682,34 +692,47 @@ export function TurnStage({
     );
   }
   const last = turn.number >= turn.of && g.round >= g.rounds;
+  // Folded away on a phone (a tap opens it), open on a wide screen.
+  const pointsFold = (
+    <Fold
+      summary={<span className="font-semibold">Points for this drawing</span>}
+      open={wide || undefined}
+      className="text-sm"
+      bodyClassName="px-3 pb-3"
+    >
+      <TurnPoints view={view} turn={turn} />
+    </Fold>
+  );
   return (
-    <div className="space-y-2 lg:space-y-3">
-      {g.stage === 'reveal' && <PhoneCard shown={false} />}
+    // Wide screens: the drawing and the points on the left, who drew it, the titles and Next
+    // drawing beside them, so the whole result and Next drawing are in view (as the reveal before it).
+    <div className="space-y-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:space-y-0">
+      {g.stage === 'reveal' && <PhoneCard shown={false} crowd={view.seats.length >= 7} />}
       {/* Phones: the drawing small beside who drew it, the points folded away. */}
-      <div className="max-lg:hidden">{drawing(0)}</div>
-      <ArtistMoment view={view} turn={turn} drawing={turn.drawing} />
-      <RevealBoard view={view} turn={turn} />
-      {/* Folded away on a phone (a tap opens it), open on a wide screen. */}
-      <Fold
-        summary={<span className="font-semibold">Points for this drawing</span>}
-        open={wide || undefined}
-        className="text-sm"
-        bodyClassName="px-3 pb-3"
-      >
-        <TurnPoints view={view} turn={turn} />
-      </Fold>
-      {isHost && (
-        <StickyBar fixed>
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => void act({ type: 'next' })}
-            data-testid="sketchy-next"
-          >
-            {last ? 'Finish' : turn.number >= turn.of ? 'Next round' : 'Next drawing'}
-          </Button>
-        </StickyBar>
-      )}
+      {/* Wide screens: the points under the drawing, so the page fits beside the titles. */}
+      <div className="max-lg:hidden lg:col-start-1 lg:row-start-1 lg:space-y-3">
+        {drawing(0)}
+        {wide && pointsFold}
+      </div>
+      <div className="space-y-2 lg:col-start-2 lg:row-start-1 lg:space-y-3">
+        <ArtistMoment view={view} turn={turn} drawing={turn.drawing} />
+        <RevealBoard view={view} turn={turn} />
+        {/* The host's Next under the titles, before the points, so the result and Next are in
+            view together. */}
+        {isHost && (
+          <StickyBar fixed>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => void act({ type: 'next' })}
+              data-testid="sketchy-next"
+            >
+              {last ? 'Finish' : turn.number >= turn.of ? 'Next round' : 'Next drawing'}
+            </Button>
+          </StickyBar>
+        )}
+        {!wide && pointsFold}
+      </div>
     </div>
   );
 }

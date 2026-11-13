@@ -222,6 +222,33 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
             }
             eyebrow={lead ? undefined : null}
             superlatives={wide ? room.superlatives : undefined}
+            // Play again under the result (the hero keeps it whole on wide screens), in the bar on
+            // phones.
+            actions={
+              room.isHost ? (
+                <StickyBar fixed>
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
+                    <Button
+                      size="lg"
+                      className="max-lg:px-3"
+                      onClick={() => void act({ type: 'start' })}
+                    >
+                      Play again
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="whitespace-nowrap max-lg:px-3"
+                      onClick={() => void act({ type: 'back-to-lobby' })}
+                    >
+                      Change setup
+                    </Button>
+                  </div>
+                </StickyBar>
+              ) : (
+                <p>{waitingForHost(room, 'start the next game')}</p>
+              )
+            }
           >
             {view.endReason === 'too-few'
               ? 'Too few players left: final scores so far.'
@@ -280,29 +307,6 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
                 ))}
               </ul>
             </Fold>
-          )}
-          {room.isHost ? (
-            <StickyBar fixed>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
-                <Button
-                  size="lg"
-                  className="max-lg:px-3"
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  className="whitespace-nowrap max-lg:px-3"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            </StickyBar>
-          ) : (
-            <p>{waitingForHost(room, 'start the next game')}</p>
           )}
         </Panel>
       </EndLayout>
@@ -445,7 +449,7 @@ function SketchyPlay({
             </div>
           )}
           {view.phase === 'over' && <div className="flex justify-end">{sound}</div>}
-          <div className="relative">
+          <div className="space-y-2">
             {/* Phones: one line while the skip panel shows (who is missing is on its button). */}
             <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
               <span className={cn(skip && !wide && 'line-clamp-1')}>{status.text}</span>

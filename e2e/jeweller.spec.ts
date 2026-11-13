@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
+import { expectLaptopFit } from './laptop-fit.ts';
 import { expectPhoneFit } from './phone-fit.ts';
 import {
   YOUR_TURN,
@@ -48,6 +49,12 @@ test('a 2-player game on phones: gems, a purchase, a noble visit, the final roun
   await hana.locator('[data-pile="white"]').click();
   // The take is the tightest screen: the market, the nobles and the piles in the bar.
   await expectPhoneFit(hana, 'jeweller take');
+  // A laptop keeps the piles and Take beside the market, never over its bottom row.
+  await expectLaptopFit(hana, 'jeweller take', [
+    hana.getByRole('region', { name: 'Cards for sale' }),
+    hana.getByRole('group', { name: 'Gem piles' }),
+    hana.getByTestId('jw-take'),
+  ]);
   await hana.getByTestId('jw-take').click();
   await expect(ana.getByText(YOUR_TURN)).toBeVisible();
   // Phones keep the other players on Table talk.
@@ -218,6 +225,8 @@ test('Strongholds: a placement locks a card, and a Conquest buys it on top of th
   await expect(sheet(hana)).toHaveCount(0);
   const picker = hana.getByRole('group', { name: 'Place a stronghold' });
   await expect(picker).toBeVisible();
+  // A phone sees the whole market, the cards to tap included, above the stronghold bar.
+  await expectPhoneFit(hana, 'jeweller stronghold');
   await marketCard(hana, 'L1-35').click();
 
   // Conquest: all three are on it, and her green and red gems pay the rest.

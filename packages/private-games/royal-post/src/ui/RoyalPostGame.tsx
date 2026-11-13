@@ -5,6 +5,7 @@ import {
   cn,
   Countdown,
   END_ART,
+  FitArea,
   EndHero,
   EndLayout,
   EndTabs,
@@ -634,7 +635,14 @@ function Table({
   const tableBlock = (
     <>
       {round && (
-        <ul aria-label="Players" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        // Wide screens: four players sit in one row, so the hand under them stays in the window.
+        <ul
+          aria-label="Players"
+          className={cn(
+            'grid grid-cols-2 gap-2 sm:grid-cols-3',
+            round.players.length === 4 && 'lg:grid-cols-4',
+          )}
+        >
           {round.players.map((p) => (
             <PlayerTile
               key={p.id}
@@ -679,27 +687,31 @@ function Table({
 
       {/* Phones and desktops: the last card played, large, beside the moves since your turn, so
           the band above the hand shows the table's latest card rather than empty space. */}
+      {/* Phones: it takes the band left above the hand's bar and scrolls inside it (More below),
+          so nothing runs under the bar. */}
       {lastPlay && view.phase === 'playing' && round?.stage !== 'over' ? (
-        <div className="flex items-start gap-3">
-          <figure className="w-30 shrink-0 space-y-1 sm:hidden lg:block lg:w-40">
-            <Card
-              role={lastPlay.card}
-              rank={rankIn(edition, lastPlay.card)}
-              deck={deck}
-              size="md"
-              reads
-              onClick={() => read(lastPlay.card)}
-            />
-            <figcaption className="text-center text-caption leading-tight font-semibold text-ink-muted">
-              Last played by {lastPlay.by === me?.id ? 'you' : nameOf(view, lastPlay.by)}
-            </figcaption>
-          </figure>
-          {recent.length > 0 && (
-            <div className="min-w-0 flex-1">
-              <Recent view={view} entries={recent} />
-            </div>
-          )}
-        </div>
+        <FitArea phone plain min={96}>
+          <div className="flex items-start gap-3">
+            <figure className="w-20 shrink-0 space-y-1 sm:hidden lg:block lg:w-40">
+              <Card
+                role={lastPlay.card}
+                rank={rankIn(edition, lastPlay.card)}
+                deck={deck}
+                size="md"
+                reads
+                onClick={() => read(lastPlay.card)}
+              />
+              <figcaption className="text-center text-caption leading-tight font-semibold text-ink-muted">
+                Last played by {lastPlay.by === me?.id ? 'you' : nameOf(view, lastPlay.by)}
+              </figcaption>
+            </figure>
+            {recent.length > 0 && (
+              <div className="min-w-0 flex-1">
+                <Recent view={view} entries={recent} />
+              </div>
+            )}
+          </div>
+        </FitArea>
       ) : (
         recent.length > 0 && <Recent view={view} entries={recent} />
       )}
@@ -811,11 +823,11 @@ function Table({
                 <ul className="flex shrink-0 justify-center gap-2 max-sm:gap-3">
                   {view.hand.map((role, i) => (
                     // Big enough to read the card's art and name without opening it; on wide
-                    // screens no taller than the space under the table, so the whole card (its
-                    // text included) is above a laptop's fold.
+                    // screens no taller than the space under the table (down to 96 px wide on a
+                    // 720 px laptop), so the whole card (its text included) is above the fold.
                     <li
                       key={`${role}-${i}`}
-                      className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-[clamp(9rem,calc((100dvh-38rem)*0.714),13rem)] xl:w-[clamp(9rem,calc((100dvh-38rem)*0.714),15rem)]"
+                      className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-[clamp(6rem,calc((100dvh-44rem)*0.714),13rem)] xl:w-[clamp(6rem,calc((100dvh-44rem)*0.714),15rem)]"
                     >
                       <Card
                         role={role}
@@ -1496,9 +1508,9 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   if (!result || Object.keys(result.hands).length === 0) return null;
   const edition = view.settings.edition;
   return (
-    <ul aria-label="Final hands" className="flex flex-wrap justify-center gap-3">
+    <ul aria-label="Final hands" className="flex flex-wrap justify-center gap-2 sm:gap-3">
       {Object.entries(result.hands).map(([id, role]) => (
-        <li key={id} className="w-20 space-y-1 text-xs sm:w-24 lg:w-36 xl:w-40">
+        <li key={id} className="w-16 space-y-1 text-xs sm:w-24 lg:w-36 xl:w-40">
           <Card
             role={role}
             rank={rankIn(edition, role)}
@@ -1557,9 +1569,10 @@ function RoundResult({
     ? `${listNames(won)} ${won.length > 1 || won[0] === 'You' ? 'win' : 'wins'} the round!`
     : 'Nobody wins the round.';
   return (
-    <Panel aria-label="Round result" className="space-y-3 text-center">
+    // Phones: tighter, so the seats under it stay above the tab bar.
+    <Panel aria-label="Round result" className="space-y-2 text-center sm:space-y-3">
       <p className="text-xl font-bold">💌 {headline}</p>
-      <p className="text-sm leading-7 text-ink-muted">
+      <p className="text-sm leading-6 text-ink-muted sm:leading-7">
         {result.reason === 'last-standing'
           ? 'Everyone else was knocked out.'
           : 'The deck ran out, so the highest card won.'}
@@ -1647,6 +1660,25 @@ function Podium({
               : 'Nobody wins the game.'
           }
           superlatives={wide ? room.superlatives : undefined}
+          // Play again sits under the result, so it is in view beside the rest on wide screens.
+          actions={
+            room.isHost ? (
+              <StickyBar className="flex flex-wrap justify-center gap-2">
+                <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                  Play again
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change setup
+                </Button>
+              </StickyBar>
+            ) : (
+              <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
+            )
+          }
           art={
             // The winners' last letters, large.
             wide &&
@@ -1655,15 +1687,8 @@ function Podium({
               .map((e) => (
                 <figure
                   key={e.id}
-                  className={cn(
-                    'space-y-1',
-                    END_ART[champions.length > 1 ? 2 : 1],
-                    // Under the long title and its caption, a little shorter than the shared size,
-                    // so the card stays whole in a 900 px window.
-                    champions.length > 1
-                      ? 'lg:w-[min(46%,15rem,calc(34vh*0.72))]'
-                      : 'lg:w-[min(100%,18rem,calc(34vh*0.72))]',
-                  )}
+                  // Sized by the end's fit, so the card and Play again stay in view.
+                  className={cn('space-y-1', END_ART[champions.length > 1 ? 2 : 1])}
                 >
                   <Card
                     role={lastCards[e.id]!}
@@ -1725,22 +1750,6 @@ function Podium({
             !!table && { id: 'seats', label: '👥 Seats', content: nextGame },
           ]}
         />
-        {room.isHost ? (
-          <StickyBar className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={() => void act({ type: 'start' })}>
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' })}
-            >
-              Change setup
-            </Button>
-          </StickyBar>
-        ) : (
-          <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
-        )}
         {!table && nextGame}
       </Panel>
     </EndLayout>

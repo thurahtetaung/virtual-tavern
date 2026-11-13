@@ -16,7 +16,7 @@ import {
   useWideScreen,
   FoldSummary,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   type HandCard,
   type Strength,
@@ -38,6 +38,20 @@ import type { Art } from './assets.ts';
 import { CardBack, CardFace, Hand } from './Cards.tsx';
 import { useSay } from './say.ts';
 import { type NameOf, endLine, logLine, poss } from './text.ts';
+
+const TALL = '(min-height: 900px)';
+const onTall = (f: () => void) => {
+  const m = window.matchMedia(TALL);
+  m.addEventListener('change', f);
+  return () => m.removeEventListener('change', f);
+};
+/** A window tall enough for the hand's two rows of bigger cards under the table. */
+const useTallWindow = () =>
+  useSyncExternalStore(
+    onTall,
+    () => window.matchMedia(TALL).matches,
+    () => true,
+  );
 
 export type Act = (action: EncoreAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -433,6 +447,7 @@ function Play({
   const turnKey = `${g.round}:${view.log.at(-1)?.id ?? 0}:${g.current}`;
   const [recruiting, setRecruiting] = useState<Recruiting | null>(null);
   const wide = useWideScreen();
+  const tall = useTallWindow();
   // Phones: the hand's cards grow only when the band from the hand down to the bars has room.
   const handRef = useRef<HTMLDivElement>(null);
   const free = useFreeHeight(handRef, !wide && !!g.hand);
@@ -521,6 +536,120 @@ function Play({
     };
   }, [turning]);
 
+  // The turn's actions: in the bar on phones; on wide screens beside the show they act on, so
+  // they never cover the hand.
+  const actions = mine && (
+    <div className="flex flex-col gap-2" data-testid="en-actions">
+      {recruiting ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setRecruiting(null);
+              setSel(null);
+            }}
+          >
+            Cancel
+          </Button>
+          {!recruiting.double ? (
+            <Button
+              className="flex-1"
+              disabled={recruiting.at === null || busy}
+              onClick={() =>
+                void send({
+                  type: 'recruit',
+                  end: recruiting.end,
+                  flip: recruiting.flip,
+                  at: recruiting.at!,
+                })
+              }
+            >
+              {recruiting.at === null
+                ? 'Tap a gap in your hand'
+                : g.twoPlayer
+                  ? say('Pay a chip and recruit it here')
+                  : say(`Recruit it here · ${ownerName} +1`)}
+            </Button>
+          ) : (
+            <Button
+              className="flex-1"
+              disabled={recruiting.at === null || !sel || !!problem || busy}
+              onClick={() =>
+                void send({
+                  type: 'recruit-show',
+                  end: recruiting.end,
+                  flip: recruiting.flip,
+                  at: recruiting.at!,
+                  from: sel![0],
+                  to: sel![1],
+                })
+              }
+            >
+              {recruiting.at === null
+                ? 'Tap a gap in your hand'
+                : !sel
+                  ? 'Now tap the cards to show'
+                  : problem
+                    ? problem
+                    : say(
+                        `🎪 Recruit & show ${groupLine(selected)} · ${beatReason(strength!, against)}`,
+                      )}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          <Button
+            disabled={!sel || !!problem || busy}
+            onClick={() => void send({ type: 'show', from: sel![0], to: sel![1] })}
+            data-testid="en-show"
+          >
+            {!sel
+              ? shows.length
+                ? 'Tap your cards to pick a show'
+                : 'Nothing in your hand beats the table'
+              : problem
+                ? problem
+                : `Show ${groupLine(selected)} · ${beatReason(strength!, against)}`}
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="soft"
+              className="flex-1 px-2 whitespace-nowrap"
+              disabled={!canRecruit || busy}
+              onClick={() => beginRecruit(false)}
+              data-testid="en-recruit"
+            >
+              🤝 {say('Recruit')}
+              {table.length
+                ? g.twoPlayer
+                  ? ` (${plural(me?.chips ?? 0, 'chip')} left)`
+                  : ` · ${ownerName} +1`
+                : ''}
+            </Button>
+            {!g.twoPlayer && (
+              <Button
+                variant="soft"
+                className="flex-1 px-2 whitespace-nowrap"
+                disabled={!canRecruit || !me?.marker || busy}
+                onClick={() => beginRecruit(true)}
+                data-testid="en-recruit-show"
+              >
+                🎪 {say('Recruit & Show')}
+                {me?.marker ? '' : ' (used)'}
+              </Button>
+            )}
+          </div>
+          {picking && (
+            <p className="text-sm text-info-ink">
+              Tap the card you want at either end of the table.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <section className="flex flex-col gap-3" aria-label="The table">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -540,74 +669,80 @@ function Play({
         />
       </div>
       <div
-        className="relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-3 ring-1 sm:min-h-36 sm:py-4 ring-line"
+        className="relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-3 ring-1 sm:min-h-36 sm:py-4 ring-line lg:flex-row lg:items-stretch lg:gap-4"
         data-testid="en-table"
       >
-        {table.length ? (
-          <>
-            <p className="text-center text-sm">
-              <span className="font-semibold">{poss(ownerName, true)} show</span>{' '}
-              <span className="text-ink-muted">· {kindLine(table)}</span>
-            </p>
-            <div
-              key={last?.entry.id ?? 0}
-              className={cn(
-                'flex flex-wrap items-end justify-center gap-1.5',
-                last?.fresh && (table.length >= 4 ? 'en-big' : 'en-show'),
-              )}
-            >
-              {table.map((c, i) => {
-                const end: End | null = i === 0 ? 'left' : i === table.length - 1 ? 'right' : null;
-                const gone = !!recruiting && end === recruiting.end && taken === c;
-                const recruitable = canRecruit && !!end && !recruiting && !gone;
-                const face = (
-                  <CardFace
-                    card={c}
-                    art={art}
-                    size="table"
-                    className={cn(
-                      gone && 'opacity-25',
-                      recruitable && picking && 'ring-[3px] ring-info',
-                    )}
-                  />
-                );
-                return recruitable ? (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => startRecruit(end, picking?.double ?? false)}
-                    className="flex flex-col items-center gap-0.5 rounded-md focus-visible:outline-2 focus-visible:outline-accent"
-                    aria-label={say(`Recruit the ${c.up} (other end ${downOf(c)})`)}
-                    data-table-end={end}
-                  >
-                    {face}
-                    <span className="text-xs text-info-ink">{say('recruit')}</span>
-                  </button>
-                ) : (
-                  <span key={c.id} className="flex flex-col items-center gap-0.5">
-                    {face}
-                    {canRecruit && end && <span className="h-4" />}
-                  </span>
-                );
-              })}
-            </div>
-            {last?.fresh && last.entry.beat.length > 0 && (
-              <p role="status" className="en-pop text-center text-sm font-bold text-accent">
-                {beatReason(strengthOf(last.entry.cards)!, strengthOf(last.entry.beat))}!
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-2">
+          {table.length ? (
+            <>
+              <p className="text-center text-sm">
+                <span className="font-semibold">{poss(ownerName, true)} show</span>{' '}
+                <span className="text-ink-muted">· {kindLine(table)}</span>
               </p>
-            )}
-          </>
-        ) : (
-          // An empty place on the felt, a show's height, waiting for the next one.
-          <p
-            data-testid="en-table-empty"
-            className="flex min-h-24 w-full max-w-md items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-sunk px-4 py-3 text-center text-sm text-ink-2 sm:min-h-28 lg:min-h-36"
-          >
-            <span>
-              {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
-              The table is empty: the next player shows anything.
-            </span>
-          </p>
+              <div
+                key={last?.entry.id ?? 0}
+                className={cn(
+                  'flex flex-wrap items-end justify-center gap-1.5',
+                  last?.fresh && (table.length >= 4 ? 'en-big' : 'en-show'),
+                )}
+              >
+                {table.map((c, i) => {
+                  const end: End | null =
+                    i === 0 ? 'left' : i === table.length - 1 ? 'right' : null;
+                  const gone = !!recruiting && end === recruiting.end && taken === c;
+                  const recruitable = canRecruit && !!end && !recruiting && !gone;
+                  const face = (
+                    <CardFace
+                      card={c}
+                      art={art}
+                      size="table"
+                      className={cn(
+                        gone && 'opacity-25',
+                        recruitable && picking && 'ring-[3px] ring-info',
+                      )}
+                    />
+                  );
+                  return recruitable ? (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => startRecruit(end, picking?.double ?? false)}
+                      className="flex flex-col items-center gap-0.5 rounded-md focus-visible:outline-2 focus-visible:outline-accent"
+                      aria-label={say(`Recruit the ${c.up} (other end ${downOf(c)})`)}
+                      data-table-end={end}
+                    >
+                      {face}
+                      <span className="text-xs text-info-ink">{say('recruit')}</span>
+                    </button>
+                  ) : (
+                    <span key={c.id} className="flex flex-col items-center gap-0.5">
+                      {face}
+                      {canRecruit && end && <span className="h-4" />}
+                    </span>
+                  );
+                })}
+              </div>
+              {last?.fresh && last.entry.beat.length > 0 && (
+                <p role="status" className="en-pop text-center text-sm font-bold text-accent">
+                  {beatReason(strengthOf(last.entry.cards)!, strengthOf(last.entry.beat))}!
+                </p>
+              )}
+            </>
+          ) : (
+            // An empty place on the felt, a show's height, waiting for the next one.
+            <p
+              data-testid="en-table-empty"
+              className="flex min-h-24 w-full max-w-md items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-sunk px-4 py-3 text-center text-sm text-ink-2 sm:min-h-28 lg:min-h-36"
+            >
+              <span>
+                {g.table ? say(`${poss(ownerName, true)} show was recruited away. `) : ''}
+                The table is empty: the next player shows anything.
+              </span>
+            </p>
+          )}
+        </div>
+        {wide && actions && (
+          <div className="w-full lg:w-96 lg:shrink-0 lg:self-center">{actions}</div>
         )}
       </div>
 
@@ -640,10 +775,11 @@ function Play({
           </div>
           <Hand
             cards={shownHand}
-            // Wide screens: two rows of bigger cards rather than one row of small ones (a recruit
-            // keeps one row with its gaps).
+            // Wide screens at least 900 px tall: two rows of bigger cards rather than one row of
+            // small ones (a recruit keeps one row with its gaps). A laptop keeps one row, so the
+            // hand and its actions stay in the window.
             columns={
-              wide && !recruiting && shownHand.length > 8
+              wide && tall && !recruiting && shownHand.length > 8
                 ? Math.ceil(shownHand.length / 2)
                 : undefined
             }
@@ -669,117 +805,9 @@ function Play({
                 : undefined
             }
           />
-          {mine && (
+          {mine && !wide && (
             <StickyBar fixed refusal="en-play" refusalKey={turnKey}>
-              <div className="flex flex-col gap-2" data-testid="en-actions">
-                {recruiting ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setRecruiting(null);
-                        setSel(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    {!recruiting.double ? (
-                      <Button
-                        className="flex-1"
-                        disabled={recruiting.at === null || busy}
-                        onClick={() =>
-                          void send({
-                            type: 'recruit',
-                            end: recruiting.end,
-                            flip: recruiting.flip,
-                            at: recruiting.at!,
-                          })
-                        }
-                      >
-                        {recruiting.at === null
-                          ? 'Tap a gap in your hand'
-                          : g.twoPlayer
-                            ? say('Pay a chip and recruit it here')
-                            : say(`Recruit it here · ${ownerName} +1`)}
-                      </Button>
-                    ) : (
-                      <Button
-                        className="flex-1"
-                        disabled={recruiting.at === null || !sel || !!problem || busy}
-                        onClick={() =>
-                          void send({
-                            type: 'recruit-show',
-                            end: recruiting.end,
-                            flip: recruiting.flip,
-                            at: recruiting.at!,
-                            from: sel![0],
-                            to: sel![1],
-                          })
-                        }
-                      >
-                        {recruiting.at === null
-                          ? 'Tap a gap in your hand'
-                          : !sel
-                            ? 'Now tap the cards to show'
-                            : problem
-                              ? problem
-                              : say(
-                                  `🎪 Recruit & show ${groupLine(selected)} · ${beatReason(strength!, against)}`,
-                                )}
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Button
-                      disabled={!sel || !!problem || busy}
-                      onClick={() => void send({ type: 'show', from: sel![0], to: sel![1] })}
-                      data-testid="en-show"
-                    >
-                      {!sel
-                        ? shows.length
-                          ? 'Tap your cards to pick a show'
-                          : 'Nothing in your hand beats the table'
-                        : problem
-                          ? problem
-                          : `Show ${groupLine(selected)} · ${beatReason(strength!, against)}`}
-                    </Button>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="soft"
-                        className="flex-1 px-2 whitespace-nowrap"
-                        disabled={!canRecruit || busy}
-                        onClick={() => beginRecruit(false)}
-                        data-testid="en-recruit"
-                      >
-                        🤝 {say('Recruit')}
-                        {table.length
-                          ? g.twoPlayer
-                            ? ` (${plural(me?.chips ?? 0, 'chip')} left)`
-                            : ` · ${ownerName} +1`
-                          : ''}
-                      </Button>
-                      {!g.twoPlayer && (
-                        <Button
-                          variant="soft"
-                          className="flex-1 px-2 whitespace-nowrap"
-                          disabled={!canRecruit || !me?.marker || busy}
-                          onClick={() => beginRecruit(true)}
-                          data-testid="en-recruit-show"
-                        >
-                          🎪 {say('Recruit & Show')}
-                          {me?.marker ? '' : ' (used)'}
-                        </Button>
-                      )}
-                    </div>
-                    {picking && (
-                      <p className="text-sm text-info-ink">
-                        Tap the card you want at either end of the table.
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
+              {actions}
             </StickyBar>
           )}
         </div>

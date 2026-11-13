@@ -187,6 +187,14 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     // The reveal names the scoring case and breaks each line down.
     await expect(host.getByTestId('reveal-headline')).toHaveText(/found it/);
     await expect(host.getByText(/\(storyteller\) · \d+ \(/)).toBeVisible();
+    // The whole reveal fits the window: the last card, the result and Next turn, with no tray
+    // lifted over them.
+    await expect(
+      host.getByRole('region', { name: 'Table' }).getByRole('listitem').last(),
+    ).toBeInViewport({ ratio: 1 });
+    await expect(host.getByTestId('reveal-headline')).toBeInViewport({ ratio: 1 });
+    await expect(host.getByRole('button', { name: 'Next turn' })).toBeInViewport({ ratio: 1 });
+    await expect(host.locator('[data-lifted]')).toHaveCount(0);
     if (round === 1) {
       // The hint's button, next to the status line (the Players panel has one too).
       await late.getByRole('button', { name: 'Take a seat' }).first().click();

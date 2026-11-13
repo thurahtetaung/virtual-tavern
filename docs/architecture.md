@@ -30,6 +30,7 @@ Every screen is built from these (`packages/ui/src`, details and examples in `do
 - `StatusLine` (`Hint`): what is happening now, `me` for the viewer's move. `StickyBar` (`fixed`, `refusal`): the main action at the foot of a phone screen, and lifted into a tray at the foot of a wider window while its spot is below it. `Countdown`: a deadline.
 - `Modal`: a dialog, a sheet on phones. `Standings`, `EndTabs`, `EndHero`, `EndLayout`: the end screen (two columns that fit the window on desktops). `LobbyLayout`, `LobbyPitch`, `LobbyStart`: the lobby (a settings rail on desktops, one Start everywhere).
 - `FitArea` / `useFitToScreen`: the shared phone-fit helper; a part takes the height left and scrolls inside, so the page never does.
+- `useFitSize`: the wide-screen fit; a table of cards or a drawing takes the largest size (`--vt-fit`) at which the page still fits the window.
 - `Icon`: a Lucide icon from the shared sprite.
 - The room frame (`apps/web/src/pages/RoomPage.tsx`): the header with its buttons, the status line under it, and the foot reserve (`useReservedHeight` in `reserve.ts`) that keeps the sticky bar's and tab bar's heights free.
 

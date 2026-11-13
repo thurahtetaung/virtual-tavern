@@ -39,7 +39,7 @@ export function QuestTrack({
                 'flex items-center justify-center rounded-full font-bold ring-2',
                 compact
                   ? 'size-8 text-small'
-                  : 'aspect-square w-full max-w-16 font-display text-lg sm:text-xl lg:max-w-[5rem] lg:text-title',
+                  : 'aspect-square w-full max-w-16 font-display text-lg sm:text-xl lg:max-w-[min(5rem,calc(100dvh/12))] lg:text-title',
                 result?.success && 'bg-team-b text-on-fill ring-team-b',
                 result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
@@ -205,8 +205,9 @@ export function Seats({
     <ul
       aria-label="Seats"
       className={cn(
-        // Wide screens: as many seats to a row as fit at 11 rem (five or six on a laptop).
-        'grid gap-1.5 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] lg:gap-2.5',
+        // Wide screens: as many seats to a row as fit at 9.5 rem (five on a 1280 px laptop, so a
+        // table of five is one row and every seat is in view to tap).
+        'grid gap-1.5 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] lg:gap-2.5',
         compact ? 'grid-cols-3' : 'grid-cols-2',
       )}
     >
@@ -227,9 +228,10 @@ export function Seats({
               aria-label={pick ? pick.label(p.name) : p.name}
               onClick={() => pick?.onPick(p.id)}
               className={cn(
-                // Wide screens: seat cards (128 px tall, the name in the display face at title size,
-                // the badges at body size), so the table fills its column.
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1-edge lg:min-h-32 lg:gap-2 lg:pl-4',
+                // Wide screens: seat cards (up to 128 px tall, 88 px on a short laptop window so the
+                // seats stay above the action bar; the name in the display face at title size, the
+                // badges at body size), so the table fills its column.
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow-vt-1-edge lg:min-h-[clamp(5.5rem,calc(100dvh-40rem),8rem)] lg:gap-2 lg:pl-4',
                 compact
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
@@ -242,8 +244,17 @@ export function Seats({
                 pick && !selectable && 'opacity-60',
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:gap-1.5 lg:font-display lg:text-title">
-                <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
+              {/* Wide screens: the name keeps its room and the marks after it (you, 👑, 🔨) wrap
+                  under it, so a narrow seat never cuts a short name to "B…". */}
+              <span className="flex w-full min-w-0 items-center gap-1 text-small font-semibold lg:flex-wrap lg:gap-x-1.5 lg:gap-y-0 lg:font-display lg:text-title">
+                <span
+                  className={cn(
+                    'truncate lg:max-w-full lg:shrink-0',
+                    !online(p.id) && 'opacity-60',
+                  )}
+                >
+                  {p.name}
+                </span>
                 <NameDot name={p.name} className="order-first" />
                 {me && (
                   <span

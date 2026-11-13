@@ -138,8 +138,17 @@ export async function localArt(page: Page) {
 export const PHONE: Look = { viewport: { width: 390, height: 844 } };
 
 /** The host starts the next mission and everyone reads the briefing. */
-export async function brief(pages: Page[], mission = 'Mission 1') {
+export async function brief(
+  pages: Page[],
+  mission = 'Mission 1',
+  /** Checks to run once everyone has the briefing, before anyone is ready. */
+  check?: () => Promise<void>,
+) {
   await pages[0]!.getByTestId('mc-start').click();
+  if (check) {
+    for (const p of pages) await expect(p.getByTestId('mc-briefing')).toContainText(mission);
+    await check();
+  }
   for (const p of pages) {
     await expect(p.getByTestId('mc-briefing')).toContainText(mission);
     await p.getByTestId('mc-ready').click();

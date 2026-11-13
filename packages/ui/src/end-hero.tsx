@@ -1,7 +1,8 @@
 import type { Superlative } from '@vt/game-sdk';
-import { type ReactNode, useContext } from 'react';
+import { type ReactNode, useContext, useRef } from 'react';
 import { cn } from './cn.ts';
-import { EndBanner, EndColumns } from './end-tabs.tsx';
+import { EndBanner, EndColumns, useWideScreen } from './end-tabs.tsx';
+import { useFitSize } from './fit-size.ts';
 import { SuperlativesNote } from './superlatives.tsx';
 
 export type EndTone = 'win' | 'success' | 'loss' | 'neutral';
@@ -9,13 +10,13 @@ export type EndTone = 'win' | 'success' | 'loss' | 'neutral';
 /**
  * Widths for the game's art in `EndHero` (`art`), by how many pieces sit side by side: phones keep
  * them small enough for the end to fit; in `EndLayout`'s column on wide screens they grow to the
- * column (one piece up to 18 rem, as wide as 45 % of the window's height allows for a portrait
- * card), so a finale is never phone-sized art in an empty column. Put it on each piece's wrapper.
+ * column (one piece up to 18 rem, as tall as the window allows with the title and Play again in
+ * view, `EndHero`'s fit), so a finale is never phone-sized art in an empty column. Put it on each piece's wrapper.
  */
 export const END_ART: Record<1 | 2 | 3, string> = {
-  1: 'w-32 sm:w-40 lg:w-[min(100%,18rem,calc(45vh*0.72))]',
-  2: 'w-24 sm:w-32 lg:w-[min(46%,15rem,calc(45vh*0.72))]',
-  3: 'w-20 sm:w-24 lg:w-[min(31%,11rem,calc(45vh*0.72))]',
+  1: 'w-32 sm:w-40 lg:w-[min(100%,18rem,calc(var(--vt-fit,45vh)*0.72))]',
+  2: 'w-24 sm:w-32 lg:w-[min(46%,15rem,calc(var(--vt-fit,45vh)*0.72))]',
+  3: 'w-20 sm:w-24 lg:w-[min(31%,11rem,calc(var(--vt-fit,45vh)*0.72))]',
 };
 
 /**
@@ -25,8 +26,8 @@ export const END_ART: Record<1 | 2 | 3, string> = {
  * superlatives as award tiles. The game's own details (standings, rounds, hands) follow it, phones
  * through `EndTabs`. It lands once (a 400 ms rise, none under reduced motion) and never loops.
  *
- * Play again stays in the game's own `StickyBar`, passed as `actions` so it sits at the foot of the
- * card on wide screens and in the bar on phones.
+ * Play again stays in the game's own `StickyBar`, passed as `actions` so it sits under the result
+ * on wide screens (the awards after it) and in the bar on phones.
  */
 export function EndHero({
   title,
@@ -67,8 +68,20 @@ export function EndHero({
   // the finale is a lit banner across the top instead (the emblem beside the result, Play again
   // after them, the group centred under the light), and `EndLayout` puts the rest under it.
   const banner = useContext(EndBanner) && inColumn && !art;
+  // On wide screens, beside the rest or alone, the art (sized by `END_ART` or the game's own use of
+  // `--vt-fit`) is as tall as the window allows with the title and Play again still in view
+  // (`useFitSize`; the columns fit themselves, and the awards under Play again may scroll inside).
+  const wide = useWideScreen();
+  const box = useRef<HTMLElement>(null);
+  useFitSize(box, {
+    on: (inColumn || wide) && !!art,
+    min: 160,
+    max: 520,
+    inView: () => box.current?.querySelector('[data-ui=end-hero-actions]') ?? null,
+  });
   return (
     <section
+      ref={box}
       data-ui="end-hero"
       data-bare={banner || undefined}
       data-tone={tone}
@@ -115,14 +128,15 @@ export function EndHero({
           </p>
         )}
         {/* An emoji emblem sits on the sunk tile game emblems use everywhere, so it reads as the
-            game's badge rather than a loose glyph; a piece of art stands on its own. */}
+            game's badge rather than a loose glyph; a piece of art stands on its own. On wide
+            screens the art is the finale's picture, so the tile gives it the room. */}
         {emblem &&
           (typeof emblem === 'string' ? (
             <div
               aria-hidden
               className={cn(
                 'vt-end-pop mx-auto flex size-16 items-center justify-center rounded-2xl bg-sunk text-[2.5rem] leading-none shadow-vt-1 ring-1 ring-line',
-                inColumn && art ? 'lg:size-20 lg:text-5xl' : 'lg:size-24 lg:text-6xl',
+                art ? 'lg:hidden' : 'lg:size-24 lg:text-6xl',
                 banner && 'lg:col-start-1 lg:row-span-3 lg:row-start-1',
               )}
             >
@@ -172,11 +186,17 @@ export function EndHero({
         <AwardTiles
           lines={superlatives}
           narrow={inColumn && !banner}
-          className={banner ? 'lg:order-last lg:basis-full' : undefined}
+          // Wide screens: Play again sits right under the result, the awards after it.
+          className={
+            banner ? 'lg:order-last lg:basis-full' : inColumn ? 'lg:order-last' : undefined
+          }
         />
       )}
       {actions && (
-        <div className={cn('relative mt-4 lg:mt-6', banner && 'lg:mt-0 lg:shrink-0')}>
+        <div
+          data-ui="end-hero-actions"
+          className={cn('relative mt-4 lg:mt-6', banner && 'lg:mt-0 lg:shrink-0')}
+        >
           {actions}
         </div>
       )}

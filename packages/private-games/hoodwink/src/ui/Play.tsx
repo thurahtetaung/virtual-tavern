@@ -51,7 +51,7 @@ const ANSWER_SIZE = {
 } as const;
 
 const PROMPT =
-  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:py-4 lg:text-4xl';
+  'text-center font-display text-xl leading-snug font-semibold text-balance break-words sm:text-2xl lg:py-4 lg:text-[clamp(1.5rem,4.4dvh,2.25rem)]';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
@@ -241,8 +241,9 @@ function OptionCard({
       aria-pressed={chosen}
       onClick={onPick}
       className={cn(
-        // A game-show answer board: tall tiles in the display face (64 px on phones, 112 px wide).
-        'flex min-h-16 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left font-display text-xl font-semibold ring-1 shadow-vt-1 transition lg:min-h-28 lg:px-8 lg:text-2xl',
+        // A game-show answer board: tall tiles in the display face (64 px on phones; on wide screens
+        // up to 112 px, capped by the window's height so every answer is in view on a laptop).
+        'flex min-h-16 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left font-display text-xl font-semibold ring-1 shadow-vt-1 transition lg:min-h-[min(7rem,11dvh)] lg:px-8 lg:py-2 lg:text-2xl',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
           ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'
@@ -414,7 +415,7 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
       return (
         <div className="space-y-4 lg:space-y-6">
           {/* The fact as the round's question card. */}
-          <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:px-10 lg:py-12">
+          <div className="rounded-2xl bg-card px-4 py-5 shadow-vt-2 ring-1 ring-line sm:py-8 lg:px-10 lg:py-[clamp(1rem,4dvh,3rem)]">
             <Prompt prompt={round.prompt} />
           </div>
           {round.answerSize && round.players.includes(me) && (

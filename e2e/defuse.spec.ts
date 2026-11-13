@@ -79,4 +79,12 @@ test('an expert reads the manual on one phone screen, a long page scrolling in i
   await expect(ben.getByTestId('page-password')).toBeVisible();
   await expect(ben.getByTestId('page-body')).toBeVisible();
   await expectPhoneFit(ben, 'Defuse manual page');
+
+  // On a laptop the longest page and the page list scroll in their own panels, so the page's
+  // title, Claim and the notes stay in view.
+  await ben.setViewportSize({ width: 1280, height: 720 });
+  await ben.getByTestId('index-maze').click();
+  await expect(ben.getByTestId('page-maze')).toBeVisible();
+  await expect(ben.getByRole('button', { name: 'Claim' })).toBeInViewport({ ratio: 1 });
+  await expect(ben.getByTestId('page-maze').getByRole('textbox')).toBeInViewport({ ratio: 1 });
 });

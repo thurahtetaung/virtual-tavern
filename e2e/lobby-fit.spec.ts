@@ -6,7 +6,8 @@ import { test } from './fixtures.ts';
 import { openBackroom } from './tavern-brawl-play.ts';
 
 // Every game's lobby as a first-time host sees it on a phone: the "New here?" intro not yet put
-// away (the rest of the suite marks it seen), one guest in. It fits one screen with Start on it.
+// away (the rest of the suite marks it seen), one guest in. It fits one screen with Start on it,
+// and on a laptop window Start is in view with no tray floating over the lobby.
 // The back room's games need its password, so this runs in the `back-room` project.
 
 const PHONE = { width: 390, height: 844 };
@@ -96,6 +97,11 @@ for (const id of GAME_IDS)
     await sheet.getByRole('button', { name: 'Skip' }).click();
     await expect(host.getByRole('button', { name: 'Rules', exact: true })).toBeVisible();
     await expect(intro).toHaveCount(0);
+
+    // A laptop window: Start sits at the top of the rail, in view, and never floats over the seats.
+    await host.setViewportSize({ width: 1280, height: 720 });
+    await expect(start).toBeInViewport({ ratio: 1 });
+    await expect(host.locator('[data-lifted]')).toHaveCount(0);
     await host.context().close();
     await guest.context().close();
   });

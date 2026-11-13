@@ -94,6 +94,10 @@ export async function drawAndSend(page: Page) {
 
 /** Writes a fake title and waits until the server has it. */
 export async function writeLie(page: Page, text: string) {
+  // The drawing, the title field and Send all fit the window, with no tray lifted over the field.
+  await expect(page.getByTestId('sketchy-lie')).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: 'Send title' })).toBeInViewport({ ratio: 1 });
+  await expect(page.locator('[data-lifted]')).toHaveCount(0);
   await page.getByTestId('sketchy-lie').fill(text);
   await page.getByRole('button', { name: 'Send title' }).click();
   // The last title in moves the table on to picking at once.
@@ -129,7 +133,35 @@ export async function results(pages: Page[], prompt: string) {
     await expect(p.getByTestId('artist-moment')).toContainText(`drew “${prompt}”`, {
       timeout: 30_000,
     });
+    // Who drew it and the host's Next stay in view together, with no tray lifted over the result.
+    await expect(p.getByTestId('artist-moment')).toBeInViewport();
+    const next = p.getByTestId('sketchy-next');
+    if (await next.count()) await expect(next).toBeInViewport({ ratio: 1 });
+    await expect(p.locator('[data-lifted]')).toHaveCount(0);
   }
+}
+
+/**
+ * Mid-reveal on a wide screen: every name in the scores rail and the status line is the top thing
+ * at its own spot, so nothing the reveal shows sits over them.
+ */
+export async function expectNamesClear(page: Page) {
+  await expect(page.getByTestId('sketchy-scores').getByRole('listitem').first()).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Array.from(
+          document.querySelectorAll('[data-testid=sketchy-scores] li, main [data-ui=hint]'),
+        )
+          .filter((e) => {
+            const r = e.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !hit || !(e.contains(hit) || hit.contains(e));
+          })
+          .map((e) => e.textContent),
+      ),
+    )
+    .toEqual([]);
 }
 
 /** A player's score in the scores panel. */
