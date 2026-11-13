@@ -34,6 +34,7 @@ import {
   LobbyStart,
   SeatHeading,
   SeatToggle,
+  cn,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { discName, fillNames } from '../logic/names.ts';
@@ -465,7 +466,7 @@ function End({
                       {g.players.map((p, seat) => {
                         const stack = reveal.get(p.id)?.stack ?? [];
                         return (
-                          <li key={p.id} className="flex min-h-11 items-center gap-2">
+                          <li key={p.id} className="flex min-h-11 items-center gap-2 py-1">
                             <span className="w-24 truncate">{name(p.id)}</span>
                             <span className="flex items-center">
                               {stack.length === 0 ? (
@@ -478,8 +479,13 @@ function End({
                                     seat={seat}
                                     color={room.players.find((x) => x.id === p.id)?.color}
                                     art={art}
-                                    size={40}
-                                    className={i > 0 ? '-ml-3' : undefined}
+                                    // Near the mats' size, side by side, the thorn ringed in danger.
+                                    size={wide ? 72 : 52}
+                                    className={cn(
+                                      i > 0 && 'ml-1.5',
+                                      d === 'thorn' &&
+                                        'rounded-full ring-[3px] ring-danger ring-offset-2 ring-offset-panel',
+                                    )}
                                   />
                                 ))
                               )}
