@@ -242,7 +242,7 @@ function OptionCard({
       onClick={onPick}
       className={cn(
         // A game-show answer board on wide screens: tall tiles in large type.
-        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 shadow-vt-1 transition lg:min-h-20 lg:px-6 lg:text-xl',
+        'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 shadow-vt-1 transition lg:min-h-28 lg:px-8 lg:text-2xl',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         option.mine
           ? 'cursor-not-allowed bg-sunk text-ink-muted ring-line'

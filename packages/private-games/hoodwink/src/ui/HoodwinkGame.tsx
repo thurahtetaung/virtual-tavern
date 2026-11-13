@@ -239,11 +239,14 @@ export function HoodwinkGame({
             <>
               {!shown && <ContinueWithout view={view} room={room} act={act} online={online} />}
               <Panel
-                // Wide screens: while lies are written, the question card sits in the middle of
-                // the free height rather than a strip at the top.
+                // While lies are written (and, on wide screens, while votes are cast) the question
+                // card sits in the middle of the free height rather than a strip at the top; on
+                // phones the lie form waits in the bar below.
                 className={cn(
-                  view.round.stage === 'write' &&
+                  (view.round.stage === 'write' || view.round.stage === 'vote') &&
                     'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
+                  view.round.stage === 'write' &&
+                    'max-sm:flex max-sm:min-h-[calc(100dvh-27rem)] max-sm:flex-col max-sm:justify-center',
                 )}
               >
                 <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
