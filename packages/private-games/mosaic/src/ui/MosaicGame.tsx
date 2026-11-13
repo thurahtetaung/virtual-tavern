@@ -438,7 +438,7 @@ function End({
                 <BoardView
                   board={winners[0]}
                   art={art}
-                  size={wide ? 'md' : 'sm'}
+                  size={wide ? 'lg' : 'md'}
                   owner={winners[0].id}
                   grey={!!view.settings.grey}
                 />

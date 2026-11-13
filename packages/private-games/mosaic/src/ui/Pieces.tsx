@@ -321,7 +321,8 @@ export function BoardView({
                   ) : (
                     empty
                   )}
-                  {isNew && (
+                  {/* The smallest boards skip the points flourish: it would cover the cells. */}
+                  {isNew && size !== 'xs' && (
                     <span className="mo-plus" aria-hidden>
                       +{latest.points}
                     </span>
