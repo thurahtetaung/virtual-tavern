@@ -9,7 +9,9 @@ const NAV_LINK =
 /**
  * Page chrome. `wide` is for the room: the game gets the full width (up to 1440 px, so a desktop's
  * play column grows to about 1,060 px beside a 320 px rail), and the header link and the footer
- * tagline make way so the table fits a phone screen.
+ * tagline make way so the table fits a phone screen. A game screen that needs the whole window on
+ * a desktop opts out of the 1440 px cap by marking an element `data-vt-full-width` (`index.css`);
+ * only the Séance ghost's visions screen does.
  */
 export function Layout({
   children,

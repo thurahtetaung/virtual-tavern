@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Drawer, RefusalSlot, StickyBar, cn, useFreeHeight, useWideScreen } from '@vt/ui';
+import {
+  Button,
+  Drawer,
+  FIT_SIZE_VAR,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useFitSize,
+  useFreeHeight,
+  useWideScreen,
+} from '@vt/ui';
 import { type ReactNode, useRef, useState } from 'react';
 import { PILLARS } from '../logic/cards.ts';
 import { HOURS, type PsychicView, type SeanceAction, type SeanceView } from '../logic/types.ts';
@@ -197,7 +207,14 @@ export function GhostVisions({
   );
 
   const rows = Math.max(1, Math.ceil(hand.length / 4));
-  const handWidth = `min((100cqw - 3 * ${GAP}) / 4, ((100cqh - ${rows - 1} * ${GAP}) / ${rows}) * 700 / 1024)`;
+  // Phones: the cards size to the hand's own box. Wide screens: the hand is as tall as the window
+  // lets it be (`useFitSize`, a card's height in px), no wider than 45% of the screen, and the
+  // target and the table cards take the width left.
+  const handWidth = wide
+    ? `min(var(${FIT_SIZE_VAR}, 160px) * 700 / 1024, (45cqw - 3 * ${GAP} - 1.5rem) / 4)`
+    : `min((100cqw - 3 * ${GAP}) / 4, ((100cqh - ${rows - 1} * ${GAP}) / ${rows}) * 700 / 1024)`;
+  const handList = useRef<HTMLUListElement>(null);
+  useFitSize(handList, { on: wide, min: 120, max: 520 });
   const tableCards = pillar ? g.table[pillar].length : 0;
   const tableRows = Math.max(1, Math.ceil(tableCards / 2));
   const tableWidth = `min((100cqw - ${GAP}) / 2, ((100cqh - ${tableRows - 1} * ${GAP}) / ${tableRows}) * 1024 / 700)`;
@@ -334,9 +351,13 @@ export function GhostVisions({
       </Tip>
       <div
         ref={root}
-        style={{ height }}
+        // Wide screens: at least the free height, so a hand too tall for it grows the page and
+        // `useFitSize` shrinks it back; phones: exactly that height, which the cards size to.
+        style={wide ? { minHeight: height } : { height }}
         className="flex min-h-0 flex-col gap-2"
         data-ui="ghost-visions"
+        // Wide screens: the room frame drops its 1440 px cap for this screen (index.css).
+        data-vt-full-width=""
       >
         {/* The psychics, one chip each: tap one to see their target and send their vision. */}
         <ul aria-label="Psychics" className="-mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 py-0.5">
@@ -388,23 +409,33 @@ export function GhostVisions({
             );
           })}
         </ul>
-        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-3 lg:[container-type:inline-size]">
           {/* The chosen psychic: their target big, what they hold under it, their cards beside. */}
           {sel && (
             <section
               role="region"
               aria-label={`${sel.name} (ghost view)`}
-              className="flex min-h-0 flex-[5_1_0] flex-col gap-1.5 rounded-xl bg-card p-2 ring-1 ring-line lg:p-3"
+              className="flex min-h-0 flex-[5_1_0] flex-col gap-1.5 rounded-xl bg-card p-2 ring-1 ring-line lg:p-3 lg:[container-type:size]"
             >
               {pillar && target !== undefined ? (
-                <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,11fr)_minmax(0,9fr)] gap-2 lg:grid-cols-[minmax(0,4fr)_minmax(0,3fr)] lg:gap-3">
+                <div
+                  className={cn(
+                    'grid min-h-0 flex-1 grid-cols-[minmax(0,11fr)_minmax(0,9fr)] gap-2 lg:gap-3',
+                    hasHoldings ? '[--below:6.75rem] lg:[--below:8.75rem]' : '[--below:1.75rem]',
+                  )}
+                  // Wide screens: the target's column is as wide as the target (up to 4/7), so a
+                  // target limited by the height leaves no gap; the table cards take the rest.
+                  style={
+                    wide
+                      ? {
+                          gridTemplateColumns:
+                            'min(calc((100% - 0.75rem) * 4 / 7), calc((100cqh - 1.5rem - var(--below)) * 1024 / 700)) minmax(0, 1fr)',
+                        }
+                      : undefined
+                  }
+                >
                   {/* The column is the size the target fits: what it holds sits right under it. */}
-                  <div
-                    className={cn(
-                      'flex min-h-0 flex-col gap-1.5 [container-type:size]',
-                      hasHoldings ? '[--below:6.75rem] lg:[--below:8.75rem]' : '[--below:1.75rem]',
-                    )}
-                  >
+                  <div className="flex min-h-0 flex-col gap-1.5 [container-type:size]">
                     <h3 className="shrink-0 truncate text-sm font-semibold">
                       {sel.name}’s target{' '}
                       <span className="font-normal text-ink-muted">
@@ -492,8 +523,9 @@ export function GhostVisions({
                 🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
               </Button>
             </div>
-            <div className="min-h-0 flex-1 [container-type:size]">
+            <div className={cn(wide ? 'shrink-0' : 'min-h-0 flex-1 [container-type:size]')}>
               <ul
+                ref={handList}
                 aria-label="Your hand"
                 className="grid content-start"
                 style={{ gridTemplateColumns: `repeat(4, ${handWidth})`, gap: GAP }}
@@ -521,9 +553,11 @@ export function GhostVisions({
               </ul>
             </div>
             {action && (
-              <StickyBar fixed refusal={raven ? 'seance-raven' : 'seance-send'}>
-                {action}
-              </StickyBar>
+              <div className="mt-auto">
+                <StickyBar fixed refusal={raven ? 'seance-raven' : 'seance-send'}>
+                  {action}
+                </StickyBar>
+              </div>
             )}
           </section>
         </div>
