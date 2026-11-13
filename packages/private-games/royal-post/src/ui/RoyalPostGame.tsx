@@ -10,6 +10,10 @@ import {
   PlayerTag,
   RefusalSlot,
   EndHero,
+  EndLayout,
+  LobbyLayout,
+  LobbyPitch,
+  LobbyStart,
   EndTabs,
   Standings,
   StickyBar,
@@ -40,6 +44,7 @@ import {
   type RoyalPostView,
 } from '../logic/types.ts';
 import { mustPlayCountess, shortTarget, tokensToWin } from '../logic/game.ts';
+import { guide } from '../logic/guide.ts';
 import { type Deck, deckFor, useManifest } from './assets.ts';
 import { Card, CardBack } from './Card.tsx';
 import {
@@ -120,7 +125,14 @@ export function RoyalPostGame({
   return (
     <CardReaderProvider value={reader}>
       {view.phase === 'lobby' ? (
-        <Lobby view={view} room={room} act={act} status={status} showGuide={showGuide} />
+        <Lobby
+          view={view}
+          room={room}
+          act={act}
+          status={status}
+          showGuide={showGuide}
+          deck={deck}
+        />
       ) : (
         <Table view={view} room={room} act={act} status={status} deck={deck} online={online} />
       )}
@@ -255,12 +267,14 @@ function Lobby({
   act,
   status,
   showGuide,
+  deck,
 }: {
   view: RoyalPostView;
   room: GameRoomInfo;
   act: Act;
   status: Status;
   showGuide: () => void;
+  deck: Deck;
 }) {
   const editable = room.isHost;
   const blocker = startBlocker(view);
@@ -271,124 +285,140 @@ function Lobby({
       : `${seconds(s.turnSeconds)} a turn, ${s.timerMode === 'strict' ? 'strict' : 'reminder only'}`;
   const seated = view.seats.filter((x) => x.playing).length;
   const cards = EDITIONS[s.edition].cards;
+  const title = room.gameName ?? 'Royal Post';
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
-      <Seats view={view} room={room} act={act} />
-      <GuideLink title={room.gameName ?? 'Royal Post'} onClick={showGuide} />
-      <LobbySettings
-        editable={editable}
-        summary={[
-          s.edition === 'classic' ? 'Classic' : '2019 edition',
-          `${tokensToWin(EDITIONS[s.edition], Math.min(EDITIONS[s.edition].maxPlayers, Math.max(EDITIONS[s.edition].minPlayers, seated)), s.short)} tokens to win`,
-          timers,
-        ]}
-        className="space-y-4"
-      >
-        <fieldset>
-          <legend className="text-sm font-semibold">Edition</legend>
-          <div className="mt-1 grid grid-cols-2 gap-2">
-            {EDITION_IDS.map((id) => {
-              const e = EDITIONS[id];
-              const on = s.edition === id;
+    <LobbyLayout
+      pitch={
+        <LobbyPitch
+          title={title}
+          art={
+            <div className="flex">
+              <Card
+                role="princess"
+                rank={rankIn(s.edition, 'princess')}
+                deck={deck}
+                size="sm"
+                className="-rotate-6"
+              />
+            </div>
+          }
+        >
+          {guide.tagline}
+        </LobbyPitch>
+      }
+      start={
+        editable && (
+          <LobbyStart
+            blocker={blocker}
+            onStart={() => void act({ type: 'start' }, { anchor: 'royal-post-start' })}
+            refusal="royal-post-start"
+          />
+        )
+      }
+      rail={
+        <LobbySettings
+          editable={editable}
+          summary={[
+            s.edition === 'classic' ? 'Classic' : '2019 edition',
+            `${tokensToWin(EDITIONS[s.edition], Math.min(EDITIONS[s.edition].maxPlayers, Math.max(EDITIONS[s.edition].minPlayers, seated)), s.short)} tokens to win`,
+            timers,
+          ]}
+          className="space-y-4"
+        >
+          <fieldset>
+            <legend className="text-sm font-semibold">Edition</legend>
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              {EDITION_IDS.map((id) => {
+                const e = EDITIONS[id];
+                const on = s.edition === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={on}
+                    disabled={!editable}
+                    onClick={() => void act({ type: 'update-settings', edition: id })}
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
+                      on ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line enabled:hover:bg-sunk',
+                      !editable && !on && 'text-ink-2',
+                    )}
+                  >
+                    <span className="block font-semibold">
+                      {id === 'classic' ? 'Classic' : '2019 edition'}
+                    </span>
+                    <span className="block text-xs text-ink-muted">
+                      {deckSize(id)} cards · {e.minPlayers}–{e.maxPlayers} players
+                    </span>
+                    {id === '2019' && (
+                      <span className="block text-xs text-ink-muted">Spy, Chancellor</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+          <fieldset className="flex flex-wrap items-center gap-2">
+            <legend className="sr-only">Game length</legend>
+            <span aria-hidden className="text-sm font-semibold">
+              Length
+            </span>
+            {[false, true].map((short) => {
+              const on = !!s.short === short;
+              const full = tokensToWin(EDITIONS[s.edition], seated);
               return (
                 <button
-                  key={id}
+                  key={String(short)}
                   type="button"
                   aria-pressed={on}
                   disabled={!editable}
-                  onClick={() => void act({ type: 'update-settings', edition: id })}
+                  onClick={() => void act({ type: 'update-settings', short })}
                   className={cn(
-                    'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-                    on ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line enabled:hover:bg-sunk',
+                    'h-11 flex-1 rounded-lg px-3 text-sm ring-1 transition disabled:cursor-default',
+                    on
+                      ? 'bg-accent-soft font-semibold ring-2 ring-accent'
+                      : 'ring-line enabled:hover:bg-sunk',
                     !editable && !on && 'text-ink-2',
                   )}
                 >
-                  <span className="block font-semibold">
-                    {id === 'classic' ? 'Classic' : '2019 edition'}
-                  </span>
-                  <span className="block text-xs text-ink-muted">
-                    {deckSize(id)} cards · {e.minPlayers}–{e.maxPlayers} players
-                  </span>
-                  {id === '2019' && (
-                    <span className="block text-xs text-ink-muted">Spy, Chancellor</span>
-                  )}
+                  {short ? 'Short' : 'Full'} · {short ? shortTarget(full) : full} tokens
                 </button>
               );
             })}
-          </div>
-        </fieldset>
-        <fieldset className="flex flex-wrap items-center gap-2">
-          <legend className="sr-only">Game length</legend>
-          <span aria-hidden className="text-sm font-semibold">
-            Length
-          </span>
-          {[false, true].map((short) => {
-            const on = !!s.short === short;
-            const full = tokensToWin(EDITIONS[s.edition], seated);
-            return (
-              <button
-                key={String(short)}
-                type="button"
-                aria-pressed={on}
-                disabled={!editable}
-                onClick={() => void act({ type: 'update-settings', short })}
-                className={cn(
-                  'h-11 flex-1 rounded-lg px-3 text-sm ring-1 transition disabled:cursor-default',
-                  on
-                    ? 'bg-accent-soft font-semibold ring-2 ring-accent'
-                    : 'ring-line enabled:hover:bg-sunk',
-                  !editable && !on && 'text-ink-2',
-                )}
-              >
-                {short ? 'Short' : 'Full'} · {short ? shortTarget(full) : full} tokens
-              </button>
-            );
-          })}
-        </fieldset>
-        <Fold title="The cards" summary={`${cards.length} kinds, pick one to read it`}>
-          <ul aria-label="The cards" className="flex flex-wrap gap-x-1 gap-y-3 text-sm">
-            {cards.map((c) => (
-              <li key={c.role}>
-                <CardChip role={c.role} />
-                <span className="text-xs text-ink-muted"> ×{c.count}</span>
-              </li>
-            ))}
-          </ul>
-        </Fold>
-        <Fold title="Timer" summary={timers}>
-          <TimerSettings
-            values={{ clueSeconds: s.turnSeconds, guessSeconds: null, timerMode: s.timerMode }}
-            editable={editable}
-            clueLabel="Turn timer"
-            onChange={(patch) =>
-              void act({
-                type: 'update-settings',
-                ...(patch.clueSeconds !== undefined ? { turnSeconds: patch.clueSeconds } : {}),
-                ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
-              })
-            }
-            clueHelp="Time to play a card (and again for a Chancellor’s choice)."
-            strictHelp="the lower card is played for you at a random player"
-          />
-        </Fold>
-      </LobbySettings>
-      {editable && (
-        <StickyBar>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' }, { anchor: 'royal-post-start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-          </div>
-          <RefusalSlot anchor="royal-post-start" />
-        </StickyBar>
-      )}
-    </div>
+          </fieldset>
+          <Fold title="The cards" summary={`${cards.length} kinds, pick one to read it`}>
+            <ul aria-label="The cards" className="flex flex-wrap gap-x-1 gap-y-3 text-sm">
+              {cards.map((c) => (
+                <li key={c.role}>
+                  <CardChip role={c.role} />
+                  <span className="text-xs text-ink-muted"> ×{c.count}</span>
+                </li>
+              ))}
+            </ul>
+          </Fold>
+          <Fold title="Timer" summary={timers}>
+            <TimerSettings
+              values={{ clueSeconds: s.turnSeconds, guessSeconds: null, timerMode: s.timerMode }}
+              editable={editable}
+              clueLabel="Turn timer"
+              onChange={(patch) =>
+                void act({
+                  type: 'update-settings',
+                  ...(patch.clueSeconds !== undefined ? { turnSeconds: patch.clueSeconds } : {}),
+                  ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
+                })
+              }
+              clueHelp="Time to play a card (and again for a Chancellor’s choice)."
+              strictHelp="the lower card is played for you at a random player"
+            />
+          </Fold>
+        </LobbySettings>
+      }
+    >
+      {status.text && <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>}
+      <Seats view={view} room={room} act={act} />
+      <GuideLink title={title} onClick={showGuide} />
+    </LobbyLayout>
   );
 }
 
@@ -439,10 +469,7 @@ function Discards({
       <ul aria-label="Discards" className="flex min-w-0">
         {/* The newest cards matter most: show the last few, newest on top. */}
         {p.discards.slice(-5).map((role, i) => (
-          <li
-            key={i}
-            className={cn('w-9 shrink-0 sm:w-12 lg:w-16', i > 0 && '-ml-4 sm:-ml-5 lg:-ml-6')}
-          >
+          <li key={i} className={cn('w-11 shrink-0 sm:w-12 lg:w-16', i > 0 && '-ml-5 lg:-ml-6')}>
             <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
           </li>
         ))}
@@ -607,8 +634,9 @@ function Table({
   const { read } = useCardReader();
 
   const wide = useWideScreen();
-  // Phones: the table, the log and the seats are tabs of the end, so it fits the screen.
-  const phoneEnd = view.phase === 'over' && !wide;
+  // The table, the log and the seats are parts of the end (tabs on phones, the end's right column
+  // on wide screens), so the whole end fits the screen.
+  const endParts = view.phase === 'over';
   // Seated players on phones get the tab bar while the game is on.
   const tabbed = !wide && view.phase === 'playing' && !!me?.playing;
   const [tab, setTab] = useState<PlayTab>('table');
@@ -733,13 +761,13 @@ function Table({
             deck={deck}
             act={act}
             room={room}
-            table={phoneEnd ? tableBlock : null}
+            table={endParts ? tableBlock : null}
           />
         ) : (
           round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
         )}
 
-        {!phoneEnd && tableBlock}
+        {!endParts && tableBlock}
 
         {showHand && (
           // Phones keep the hand in the bar at the foot of the screen; wider screens show it here.
@@ -1556,7 +1584,7 @@ function Podium({
   deck: Deck;
   act: Act;
   room: GameRoomInfo;
-  /** Phones: the table and the log, as a tab of the end. */
+  /** The table and the log, as a part of the end. */
   table: ReactNode;
 }) {
   // Everyone who played (or scored before leaving); the status line above names the winner.
@@ -1577,37 +1605,40 @@ function Podium({
   const lastCards = view.round?.result?.hands ?? {};
   const edition = view.settings.edition;
   return (
-    <>
-      <EndHero
-        emblem="💌"
-        title={
-          champions.length
-            ? `${listNames(champions.map((e) => name(e.id)))} ${champions.length > 1 || champions[0]!.id === view.me?.id ? 'win' : 'wins'} the game!`
-            : 'Nobody wins the game.'
-        }
-        superlatives={wide ? room.superlatives : undefined}
-        art={
-          // The winners' last letters, large.
-          wide &&
-          champions
-            .filter((e) => lastCards[e.id])
-            .map((e) => (
-              <figure key={e.id} className="w-32 space-y-1 lg:w-40">
-                <Card
-                  role={lastCards[e.id]!}
-                  rank={rankIn(edition, lastCards[e.id]!)}
-                  deck={deck}
-                  size="lg"
-                />
-                <figcaption className="text-small font-semibold text-ink-2">
-                  {name(e.id)}’s last card
-                </figcaption>
-              </figure>
-            ))
-        }
-      >
-        {wide && `${best} token${best === 1 ? '' : 's'} of ${view.target}.`}
-      </EndHero>
+    <EndLayout
+      hero={
+        <EndHero
+          emblem="💌"
+          title={
+            champions.length
+              ? `${listNames(champions.map((e) => name(e.id)))} ${champions.length > 1 || champions[0]!.id === view.me?.id ? 'win' : 'wins'} the game!`
+              : 'Nobody wins the game.'
+          }
+          superlatives={wide ? room.superlatives : undefined}
+          art={
+            // The winners' last letters, large.
+            wide &&
+            champions
+              .filter((e) => lastCards[e.id])
+              .map((e) => (
+                <figure key={e.id} className="w-32 space-y-1 lg:w-40">
+                  <Card
+                    role={lastCards[e.id]!}
+                    rank={rankIn(edition, lastCards[e.id]!)}
+                    deck={deck}
+                    size="lg"
+                  />
+                  <figcaption className="text-small font-semibold text-ink-2">
+                    {name(e.id)}’s last card
+                  </figcaption>
+                </figure>
+              ))
+          }
+        >
+          {wide && `${best} token${best === 1 ? '' : 's'} of ${view.target}.`}
+        </EndHero>
+      }
+    >
       <Panel aria-label="Game result" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         <EndTabs
           columns
@@ -1669,6 +1700,6 @@ function Podium({
         )}
         {!table && nextGame}
       </Panel>
-    </>
+    </EndLayout>
   );
 }
