@@ -46,7 +46,7 @@ export function CardChip({ role, className }: { role: Role; className?: string }
         className,
       )}
     >
-      <span aria-hidden className="text-[0.85em] tabular-nums opacity-70">
+      <span aria-hidden className="text-[max(12px,0.85em)] text-ink-muted tabular-nums">
         {rank}
       </span>
       {name}

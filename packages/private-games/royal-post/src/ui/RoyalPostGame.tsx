@@ -9,6 +9,7 @@ import {
   Panel,
   PlayerTag,
   RefusalSlot,
+  EndHero,
   EndTabs,
   Standings,
   StickyBar,
@@ -300,7 +301,7 @@ function Lobby({
                   className={cn(
                     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
                     on ? 'bg-accent-soft ring-2 ring-accent' : 'ring-line enabled:hover:bg-sunk',
-                    !editable && !on && 'opacity-60',
+                    !editable && !on && 'text-ink-2',
                   )}
                 >
                   <span className="block font-semibold">
@@ -337,7 +338,7 @@ function Lobby({
                   on
                     ? 'bg-accent-soft font-semibold ring-2 ring-accent'
                     : 'ring-line enabled:hover:bg-sunk',
-                  !editable && !on && 'opacity-60',
+                  !editable && !on && 'text-ink-2',
                 )}
               >
                 {short ? 'Short' : 'Full'} · {short ? shortTarget(full) : full} tokens
@@ -682,6 +683,7 @@ function Table({
     <div
       className={cn(
         'mx-auto max-w-4xl',
+        view.phase === 'over' && 'lg:max-w-6xl',
         view.phase === 'playing' &&
           'lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6',
       )}
@@ -746,8 +748,10 @@ function Table({
               aria-label="Your hand"
               className="rounded-xl bg-card ring-1 ring-line max-sm:rounded-none max-sm:bg-transparent max-sm:ring-0"
             >
-              <div className="mx-auto flex max-w-4xl items-end justify-center gap-3 px-3 py-2 max-sm:p-0">
-                <div className="min-w-0 shrink space-y-1 text-xs text-ink-muted">
+              {/* Phones: the hand under its line, as large as the bar allows (two cards fill the
+                  width); wider screens: the line beside large cards. */}
+              <div className="mx-auto flex max-w-4xl items-end justify-center gap-3 px-3 py-2 max-sm:flex-col max-sm:items-stretch max-sm:gap-1.5 max-sm:p-0">
+                <div className="min-w-0 shrink space-y-1 text-xs text-ink-muted max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-3 max-sm:space-y-0">
                   <p className="font-semibold">Your hand</p>
                   {me && <Tokens tokens={me.tokens} target={view.target} />}
                   {/* The status line says it's your turn; this names the card you must play. */}
@@ -762,10 +766,10 @@ function Table({
                     </Button>
                   )}
                 </div>
-                <ul className="flex shrink-0 gap-2">
+                <ul className="flex shrink-0 justify-center gap-2 max-sm:gap-3">
                   {view.hand.map((role, i) => (
                     // Big enough to read the card's art and name without opening it.
-                    <li key={`${role}-${i}`} className="w-28 lg:w-36">
+                    <li key={`${role}-${i}`} className="w-[min(9.5rem,44vw)] sm:w-36 lg:w-52">
                       <Card
                         role={role}
                         rank={rankIn(edition, role)}
@@ -1341,7 +1345,7 @@ function Notes({ view }: { view: RoyalPostView }) {
       </ul>
       {earlier.length > 0 && (
         <details className="text-sm">
-          <summary className="cursor-pointer text-xs font-semibold text-ink-muted">
+          <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold text-ink-muted">
             Earlier rounds ({earlier.length})
           </summary>
           <ul aria-label="Earlier notes" className="mt-1 space-y-1 leading-7 text-ink-muted">
@@ -1447,12 +1451,12 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   return (
     <ul aria-label="Final hands" className="flex flex-wrap justify-center gap-3">
       {Object.entries(result.hands).map(([id, role]) => (
-        <li key={id} className="w-16 space-y-1 text-xs">
+        <li key={id} className="w-20 space-y-1 text-xs sm:w-24 lg:w-28">
           <Card
             role={role}
             rank={rankIn(edition, role)}
             deck={deck}
-            size="sm"
+            size="md"
             reads
             onClick={() => read(role)}
           />
@@ -1563,61 +1567,105 @@ function Podium({
       <Seats view={view} room={room} act={act} title="Next game" />
     </div>
   );
+  const wide = useWideScreen();
+  const best = Math.max(0, ...entries.map((e) => e.score));
+  const champions = entries.filter((e) => e.score === best && best > 0);
+  const name = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
+  const lastCards = view.round?.result?.hands ?? {};
+  const edition = view.settings.edition;
   return (
-    <Panel aria-label="Game result" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
-      <EndTabs
-        tabs={[
-          {
-            id: 'scores',
-            label: '🏆 Scores',
-            content: (
-              <Standings
-                entries={entries}
-                you={view.me?.id}
-                scoreLabel={(n) => `${n} token${n === 1 ? '' : 's'}`}
-              />
-            ),
-          },
-          !!last &&
-            !!view.round?.result && {
-              id: 'round',
-              label: '💌 Round',
+    <>
+      <EndHero
+        emblem="💌"
+        title={
+          champions.length
+            ? `${listNames(champions.map((e) => name(e.id)))} ${champions.length > 1 || champions[0]!.id === view.me?.id ? 'win' : 'wins'} the game!`
+            : 'Nobody wins the game.'
+        }
+        superlatives={wide ? room.superlatives : undefined}
+        art={
+          // The winners' last letters, large.
+          wide &&
+          champions
+            .filter((e) => lastCards[e.id])
+            .map((e) => (
+              <figure key={e.id} className="w-32 space-y-1 lg:w-40">
+                <Card
+                  role={lastCards[e.id]!}
+                  rank={rankIn(edition, lastCards[e.id]!)}
+                  deck={deck}
+                  size="lg"
+                />
+                <figcaption className="text-small font-semibold text-ink-2">
+                  {name(e.id)}’s last card
+                </figcaption>
+              </figure>
+            ))
+        }
+      >
+        {wide && `${best} token${best === 1 ? '' : 's'} of ${view.target}.`}
+      </EndHero>
+      <Panel aria-label="Game result" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+        <EndTabs
+          columns
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
               content: (
-                <div className="space-y-2">
-                  <p className="text-sm leading-7 text-ink-muted">
-                    Last round: <Rich line={describeLog(view, last)} />
-                  </p>
-                  <FinalHands view={view} deck={deck} />
-                  <RoundSecrets view={view} />
-                </div>
+                <Standings
+                  entries={entries}
+                  you={view.me?.id}
+                  scoreLabel={(n) => `${n} token${n === 1 ? '' : 's'}`}
+                />
               ),
             },
-          !!room.superlatives?.length && {
-            id: 'awards',
-            label: '✨ Awards',
-            content: <Superlatives lines={room.superlatives} />,
-          },
-          !!table && {
-            id: 'table',
-            label: '🪑 Table',
-            content: <div className="space-y-3">{table}</div>,
-          },
-          !!table && { id: 'seats', label: '👥 Seats', content: nextGame },
-        ]}
-      />
-      {room.isHost ? (
-        <StickyBar className="flex flex-wrap justify-center gap-2">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
-            Play again
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change setup
-          </Button>
-        </StickyBar>
-      ) : (
-        <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
-      )}
-      {!table && nextGame}
-    </Panel>
+            !!last &&
+              !!view.round?.result && {
+                id: 'round',
+                label: '💌 Round',
+                content: (
+                  <div className="space-y-2">
+                    <p className="text-sm leading-7 text-ink-muted">
+                      Last round: <Rich line={describeLog(view, last)} />
+                    </p>
+                    <FinalHands view={view} deck={deck} />
+                    <RoundSecrets view={view} />
+                  </div>
+                ),
+              },
+            !wide &&
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+            !!table && {
+              id: 'table',
+              label: '🪑 Table',
+              content: <div className="space-y-3">{table}</div>,
+            },
+            !!table && { id: 'seats', label: '👥 Seats', content: nextGame },
+          ]}
+        />
+        {room.isHost ? (
+          <StickyBar className="flex flex-wrap justify-center gap-2">
+            <Button size="lg" onClick={() => void act({ type: 'start' })}>
+              Play again
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => void act({ type: 'back-to-lobby' })}
+            >
+              Change setup
+            </Button>
+          </StickyBar>
+        ) : (
+          <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
+        )}
+        {!table && nextGame}
+      </Panel>
+    </>
   );
 }
