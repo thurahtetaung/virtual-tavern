@@ -14,9 +14,9 @@ const GAP = 6;
  */
 function phoneLayout(n: number, room: number, free: number | null) {
   if (free === null || n < 2) return null;
-  // The hint under the hand (two lines on a phone) and the strip's top padding for a picked
-  // card's lift.
-  const height = free - 52;
+  // The hint under the hand (two lines on a phone), the strip's top padding for a picked card's
+  // lift and the 8 px gap to what follows the hand's column.
+  const height = free - 64;
   let best: { w: number; cols: number } | null = null;
   for (const rows of [1, 2]) {
     const cols = Math.ceil(n / rows);
