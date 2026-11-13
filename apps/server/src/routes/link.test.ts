@@ -485,6 +485,73 @@ describe('linking a phone to a player', () => {
     });
   });
 
+  it('a phone linked after the player moved on reaches the next tables they joined, and only those', async () => {
+    const t = await start();
+    const roomId = await t.room('codenames');
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy'].entries())
+      clients.push(await t.player(roomId, i, name));
+    const [host, ana, ben, cy] = clients;
+    await host!.call('game:action', { type: 'join-team', team: 'red', role: 'spymaster' });
+    await ana!.call('game:action', { type: 'join-team', team: 'red', role: 'operative' });
+    await ben!.call('game:action', { type: 'join-team', team: 'blue', role: 'spymaster' });
+    await cy!.call('game:action', { type: 'join-team', team: 'blue', role: 'operative' });
+    await host!.call('game:action', { type: 'start' });
+    const playing = view(await host!.until((s) => view(s).phase === 'playing'));
+    const [spy, op] = playing.turn!.team === 'red' ? [host!, ana!] : [ben!, cy!];
+    await spy.call('game:action', { type: 'give-clue', word: 'hint', count: 1 });
+    await op.until((s) => view(s).turn?.stage === 'guess');
+    await op.call('game:action', {
+      type: 'guess',
+      card: view(host!.latest()!).board.findIndex((c) => c.kind === 'assassin'),
+    });
+    await host!.until((s) => s.meta?.phase === 'over');
+    const card = (
+      (await host!.call('room:recap', { scope: 'night' })) as unknown as {
+        data: RoomRecap;
+      }
+    ).data;
+    const open = async (seat: number) =>
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: '/api/rooms',
+          payload: { gameId: 'echo', token: token(seat), nightKey: card.nightKey },
+        })
+      ).json<{ roomId: string }>().roomId;
+
+    // The host opens the next table and Ana's PC follows, all before any phone is linked.
+    const next = await open(0);
+    const anaThere = await t.player(next, 1, 'Ana');
+    await t.player(next, 2, 'Ben');
+    // Ben opens a table after that one, which Ana never enters.
+    const later = await open(2);
+    await t.player(later, 2, 'Ben');
+
+    // Now Ana links her phone back in the first room: its key opens the table her PC is at.
+    const key = await t.link(ana!);
+    const { c: phoneThere, res } = await t.phone(next, key);
+    expect(res).toEqual({ ok: true });
+    expect((await phoneThere.until(() => true)).you).toBe(anaThere.latest()!.you);
+    await anaThere.until((s) => s.link?.phone === true);
+    // The table she never entered stays shut to it, until her PC comes.
+    expect((await t.phone(later, key)).res).toMatchObject({
+      ok: false,
+      error: { code: 'link-waiting' },
+    });
+    const anaLater = await t.player(later, 1, 'Ana');
+    expect((await t.phone(later, key)).res).toEqual({ ok: true });
+    await anaLater.until((s) => s.link?.phone === true);
+
+    // Unlinking at the first table ends it everywhere.
+    expect(await ana!.call('room:unlink')).toEqual({ ok: true });
+    for (const id of [next, later])
+      expect((await t.phone(id, key)).res).toMatchObject({
+        ok: false,
+        error: { code: 'unlinked' },
+      });
+  });
+
   it('a key is never copied into a table its player never entered', async () => {
     const t = await start();
     const roomId = await t.room('codenames');

@@ -123,7 +123,9 @@ export function linkRoutes(
       }
       codes.redeem(body.data.code);
       const { roomId, playerId } = res.code;
-      const { key, replaced } = keys.create(roomId, playerId);
+      const { key, replaced, opened } = keys.create(roomId, playerId, (room, player) =>
+        rooms.isMember(room, player),
+      );
       if (res.preview.opensBackroom) {
         const unlock = backroom.issue();
         void reply.setCookie(BACKROOM_COOKIE, unlock, {
@@ -137,6 +139,8 @@ export function linkRoutes(
         opts.edge?.set(reply, unlock, opts.now());
       }
       opts.linked(roomId, replaced);
+      // Next tables the player is already in: their PC there hears of the phone too.
+      for (const next of opened) rooms.linksChanged(next);
       return { roomId, key } satisfies LinkRedeemed;
     },
   );

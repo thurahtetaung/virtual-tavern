@@ -1,8 +1,8 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { LINK_CODE_ALPHABET, LINK_CODE_LENGTH, LINK_CODE_MS, type LinkCode } from '@vt/protocol';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
-import { linkedKeys } from './db/schema.ts';
+import { linkedKeys, roomContinuations } from './db/schema.ts';
 import { playerIdFromToken } from './rooms/ids.ts';
 
 /** An open phone-link code: whose seat it opens, and the back room it carries. */
@@ -97,10 +97,13 @@ export class LinkedKeys {
   private readonly now: () => number;
   /** `<keyHash>|<roomId>` → row. */
   private readonly rows = new Map<string, Row>();
+  /** "Same crew, new game": each table's next tables. */
+  private readonly next = new Map<string, Set<string>>();
 
   constructor(db: Db, now: () => number = Date.now) {
     this.db = db;
     this.now = now;
+    for (const c of db.select().from(roomContinuations).all()) this.addNext(c.roomId, c.nextRoomId);
     for (const r of db.select().from(linkedKeys).all())
       this.rows.set(`${r.keyHash}|${r.roomId}`, {
         keyHash: r.keyHash,
@@ -145,13 +148,47 @@ export class LinkedKeys {
    * per player), in every table it opened. Returns the raw key (for the phone only) and the hash
    * of the key it replaced, if any (its phone is sent away).
    */
-  create(roomId: string, playerId: string): { key: string; replaced: string | null } {
+  create(
+    roomId: string,
+    playerId: string,
+    /** Whether the player is in a table now (only those open to the key at once). */
+    isMember: (roomId: string, playerId: string) => boolean = () => false,
+  ): { key: string; replaced: string | null; opened: string[] } {
     const old = this.find((r) => r.roomId === roomId && r.playerId === playerId)[0]?.keyHash;
     if (old) this.deleteKey(old);
     const key = randomBytes(24).toString('base64url');
     const keyHash = playerIdFromToken(key);
     this.insert({ keyHash, roomId, playerId, active: true });
-    return { key, replaced: old ?? null };
+    // The night's next tables, as "Same crew, new game" chained them from this one: the key
+    // opens those the player is in, and waits in the rest until their PC joins (as `carry`).
+    const opened: string[] = [];
+    for (const next of this.nextTables(roomId)) {
+      const active = isMember(next, playerId);
+      this.insert({ keyHash, roomId: next, playerId, active });
+      if (active) opened.push(next);
+    }
+    return { key, replaced: old ?? null, opened };
+  }
+
+  /** Every table chained after this one by "Same crew, new game" (not the table itself). */
+  private nextTables(roomId: string): string[] {
+    const seen = new Set<string>([roomId]);
+    const queue = [roomId];
+    while (queue.length) {
+      for (const n of this.next.get(queue.shift()!) ?? []) {
+        if (seen.has(n)) continue;
+        seen.add(n);
+        queue.push(n);
+      }
+    }
+    seen.delete(roomId);
+    return [...seen];
+  }
+
+  private addNext(roomId: string, next: string) {
+    let set = this.next.get(roomId);
+    if (!set) this.next.set(roomId, (set = new Set()));
+    set.add(next);
   }
 
   /** Unlinks the player's phone in the room, in every table; the key's hash, or null. */
@@ -167,6 +204,16 @@ export class LinkedKeys {
    * (`active: false`) until its player's own browser joins it.
    */
   carry(from: readonly string[], to: string): void {
+    // Remembered, so a phone linked later at an earlier table reaches this one too (`create`).
+    for (const f of from) {
+      if (f === to) continue;
+      this.addNext(f, to);
+      this.db
+        .insert(roomContinuations)
+        .values({ roomId: f, nextRoomId: to })
+        .onConflictDoNothing()
+        .run();
+    }
     const seen = new Set<string>();
     for (const r of this.find((row) => from.includes(row.roomId) && row.active)) {
       if (seen.has(r.keyHash)) continue;
@@ -191,8 +238,15 @@ export class LinkedKeys {
     return row.keyHash;
   }
 
-  /** A swept room's keys go with it. */
+  /** A swept room's keys (and its place in the chain of tables) go with it. */
   forgetRoom(roomId: string): void {
+    if (this.next.delete(roomId) || [...this.next.values()].some((s) => s.has(roomId))) {
+      for (const set of this.next.values()) set.delete(roomId);
+      this.db
+        .delete(roomContinuations)
+        .where(or(eq(roomContinuations.roomId, roomId), eq(roomContinuations.nextRoomId, roomId)))
+        .run();
+    }
     const gone = this.find((r) => r.roomId === roomId);
     if (!gone.length) return;
     for (const r of gone) this.rows.delete(`${r.keyHash}|${roomId}`);

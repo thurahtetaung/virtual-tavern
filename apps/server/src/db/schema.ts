@@ -140,6 +140,19 @@ export const linkedKeys = sqliteTable(
   ],
 );
 
+/**
+ * "Same crew, new game": which tables continue which (`roomId` → `nextRoomId`), so a phone linked
+ * at an earlier table reaches the next tables its player is already in.
+ */
+export const roomContinuations = sqliteTable(
+  'room_continuations',
+  {
+    roomId: text('room_id').notNull(),
+    nextRoomId: text('next_room_id').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.nextRoomId] })],
+);
+
 // ---- Stats (admin only) ----
 // Raw events are append-only and flat, so they map one-to-one onto a column store later. Daily
 // rollups are kept forever; raw events are pruned once their day is rolled up and 90 days old.
