@@ -216,10 +216,7 @@ function RoleTile({
       </button>
       <span className="w-full truncate text-center text-xs font-semibold">{deck.name(role)}</span>
       <span
-        className={cn(
-          'rounded-full px-1.5 text-xs font-semibold',
-          TEAM_PILL[ROLES[role].team],
-        )}
+        className={cn('rounded-full px-1.5 text-xs font-semibold', TEAM_PILL[ROLES[role].team])}
       >
         {TEAM_LABEL[ROLES[role].team]}
       </span>

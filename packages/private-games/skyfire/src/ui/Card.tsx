@@ -234,10 +234,7 @@ export function Marks({
   const ranks = poss ? [...new Set(poss.map((p) => p.rank))].sort() : null;
   return (
     <span
-      className={cn(
-        'flex min-h-4 flex-col items-center gap-px text-xs leading-tight',
-        className,
-      )}
+      className={cn('flex min-h-4 flex-col items-center gap-px text-xs leading-tight', className)}
       aria-hidden
     >
       {yes && (

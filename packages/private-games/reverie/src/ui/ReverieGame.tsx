@@ -839,7 +839,10 @@ function Play({
                     {view.hand.map((card) => (
                       // While cards are being chosen the hand is the screen's art, so it is as
                       // large on phones as on wider screens.
-                      <li key={card} className={cn('shrink-0 sm:w-36', handNeeded ? 'w-36' : 'w-24')}>
+                      <li
+                        key={card}
+                        className={cn('shrink-0 sm:w-36', handNeeded ? 'w-36' : 'w-24')}
+                      >
                         <Card
                           card={card}
                           eager

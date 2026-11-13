@@ -568,9 +568,7 @@ function TrayGroups({
                       </span>
                     )}
                     {typeOf(c.k) === 'wasabi' && c.filled && !c.flipped && (
-                      <span className="absolute right-0.5 bottom-0.5 text-xs font-bold">
-                        used
-                      </span>
+                      <span className="absolute right-0.5 bottom-0.5 text-xs font-bold">used</span>
                     )}
                   </CardFace>
                 </button>
