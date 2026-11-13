@@ -306,7 +306,10 @@ export const CardTile = memo(function CardTile({
   );
   const box = cn(
     'relative flex flex-col overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-line',
-    size === 'lg' ? 'h-64 w-44' : 'aspect-[6/5] w-full sm:aspect-[4/5] lg:aspect-[3/2]',
+    // Tall phones give the market's cards their portrait shape (the screen has the height).
+    size === 'lg'
+      ? 'h-64 w-44'
+      : 'aspect-[6/5] w-full max-sm:[@media(min-height:800px)]:aspect-[4/5] sm:aspect-[4/5] lg:aspect-[3/2]',
     afford === 'yes' && 'ring-[3px] ring-success',
     afford === 'gold' && 'ring-[3px] ring-warn',
     fresh && 'jw-deal',

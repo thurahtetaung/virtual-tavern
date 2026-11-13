@@ -1188,7 +1188,11 @@ export function Table({ view, room, act, art, name, showGuide, tips }: TableProp
           <p className="text-center text-xs text-ink-muted">
             Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
             {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
-            <button type="button" className="min-h-11 px-2 underline" onClick={() => showGuide()}>
+            <button
+              type="button"
+              className="min-h-11 min-w-11 px-2 underline"
+              onClick={() => showGuide()}
+            >
               rules
             </button>
           </p>

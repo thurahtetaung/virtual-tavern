@@ -313,7 +313,8 @@ function Lobby({
                 { anchor: 'jw-lobby' },
               )
             }
-            className="w-full accent-accent"
+            // A 44 px tall row, so the slider is easy to catch on a phone.
+            className="h-11 w-full accent-accent"
             data-testid="jw-target"
           />
           <span className="text-xs text-ink-muted">
@@ -392,6 +393,23 @@ function End({
     return tier * 10_000 + p.points * 100 + (g.winners.includes(id) ? 1 : 0);
   };
   const wide = useWideScreen();
+  const winners = g.players.filter((p) => g.winners.includes(p.id));
+  const winnerArt = winners.flatMap((p) =>
+    p.nobles.length
+      ? p.nobles.map((n) => (
+          <NobleTile key={`${p.id}-${n}`} id={n} art={art} className="!size-20 lg:!size-28" />
+        ))
+      : p.cards
+          .slice(-3)
+          .map((c) => (
+            <CardTile
+              key={`${p.id}-${c}`}
+              id={c}
+              art={art}
+              className="!w-20 shadow-vt-2 lg:!w-28"
+            />
+          )),
+  );
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
@@ -400,7 +418,9 @@ function End({
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="💎"
+        emblem={winnerArt.length ? null : '💎'}
+        // The winners' nobles (or, without any, the last cards they bought): the game's own art.
+        art={winnerArt}
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
@@ -461,7 +481,7 @@ function End({
                     <h3 className="font-semibold">What everyone had in hand</h3>
                     <ul className="flex flex-col gap-1">
                       {g.players.map((p) => (
-                        <li key={p.id} className="flex items-center gap-2">
+                        <li key={p.id} className="flex flex-wrap items-center gap-2">
                           <span className="w-24 truncate">{p.name}</span>
                           <span className="flex items-center gap-1">
                             {/* The "none" dash only for an empty row: nobles follow the cards. */}
@@ -469,20 +489,30 @@ function End({
                               ? p.nobles.length === 0 && <span className="text-ink-muted">—</span>
                               : p.reserved.map((r, i) =>
                                   r.card ? (
-                                    <CardTile key={i} id={r.card} art={art} className="!w-16" />
+                                    <CardTile
+                                      key={i}
+                                      id={r.card}
+                                      art={art}
+                                      className="!w-20 lg:!w-24"
+                                    />
                                   ) : (
                                     <CardBack
                                       key={i}
                                       level={r.level}
                                       art={art}
-                                      className="h-12 w-10"
+                                      className="h-24 w-16 lg:h-28 lg:w-20"
                                     />
                                   ),
                                 )}
                           </span>
                           <span className="flex items-center gap-1">
                             {p.nobles.map((n) => (
-                              <NobleTile key={n} id={n} art={art} className="!size-10" />
+                              <NobleTile
+                                key={n}
+                                id={n}
+                                art={art}
+                                className="!size-14 lg:!size-16"
+                              />
                             ))}
                           </span>
                         </li>
