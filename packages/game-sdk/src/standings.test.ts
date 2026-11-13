@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ordinal, rankStandings, winnersLine } from './standings.ts';
+import { ordinal, rankStandings, winTitle, winnersLine, winnersTitle } from './standings.ts';
 
 const entry = (name: string, score: number) => ({ name, score });
 const places = (ranked: ReturnType<typeof rankStandings<{ name: string; score: number }>>) =>
@@ -67,5 +67,25 @@ describe('ordinal', () => {
       '22nd',
       '101st',
     ]);
+  });
+});
+
+describe('winnersTitle', () => {
+  const e = (id: string, score: number) => ({ id, name: id.toUpperCase(), score });
+  it('names the top scorer, the viewer as You, a shared win, and nobody without points', () => {
+    expect(winnersTitle([e('a', 3), e('b', 5)])).toBe('B wins!');
+    expect(winnersTitle([e('a', 3), e('b', 5)], 'b')).toBe('You win!');
+    expect(winnersTitle([e('a', 5), e('b', 5)], 'a')).toBe('You and B share the win!');
+    expect(winnersTitle([e('a', 0), e('b', 0)])).toBe('');
+  });
+});
+
+describe('winTitle', () => {
+  const name = (id: string) => id.toUpperCase();
+  it('names the winners, the viewer as You, and nobody as empty', () => {
+    expect(winTitle(['a'], name)).toBe('A wins!');
+    expect(winTitle(['a'], name, 'a')).toBe('You win!');
+    expect(winTitle(['a', 'b'], name, 'b')).toBe('You and A win!');
+    expect(winTitle([], name)).toBe('');
   });
 });
