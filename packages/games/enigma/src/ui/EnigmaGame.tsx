@@ -28,7 +28,14 @@ import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
 import { ShowdownPanel } from './Showdown.tsx';
-import { endOfRoundWarnings, endReason, revealOutcome, startBlocker, statusFor } from './status.ts';
+import {
+  endOfRoundWarnings,
+  endReason,
+  endVerdict,
+  revealOutcome,
+  startBlocker,
+  statusFor,
+} from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
@@ -223,6 +230,9 @@ export function EnigmaGame({
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
   const outcome = revealOutcome(view);
   const reason = endReason(view);
+  // A paragraph of a reason (the score or the showdown decided it) gives the finale a one-line
+  // verdict; the whole explanation moves to the Score tab.
+  const verdict = endVerdict(view);
   const lastReveal = view.transmissions.filter((t) => t.revealed);
   const endWarnings = endOfRoundWarnings(view);
   const winnerTitle =
@@ -291,7 +301,7 @@ export function EnigmaGame({
       actions={endButtons}
     >
       {/* Why, said once here: the hint above is hidden once the game is over. */}
-      {reason && <p>{reason}</p>}
+      {(verdict ?? reason) && <p>{verdict ?? reason}</p>}
     </EndHero>
   );
   // The end: who won and Play again as the finale; the tokens, the awards (phones), each team's
@@ -316,6 +326,7 @@ export function EnigmaGame({
               <Panel className="space-y-3 text-center">
                 <ShowdownPanel view={view} act={act} />
                 {tokenLines}
+                {verdict && reason && <p className="text-small text-ink-2">{reason}</p>}
                 <p className="text-small text-ink-muted">
                   Everyone's keywords are revealed under Clues.
                 </p>

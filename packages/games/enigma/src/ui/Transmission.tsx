@@ -1,5 +1,17 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Button, Input, Notice, Panel, Peek, PlayerTag, Row, Rows, StickyBar, cn } from '@vt/ui';
+import {
+  Button,
+  Input,
+  Notice,
+  Panel,
+  Peek,
+  PlayerTag,
+  Row,
+  Rows,
+  Slate,
+  StickyBar,
+  cn,
+} from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
@@ -238,7 +250,9 @@ function CodePicker({
                       : 'bg-card text-ink ring-line-strong hover:bg-panel',
                   )}
                 >
-                  <span className="block text-lg leading-none font-black">{digit}</span>
+                  <span className="block font-display text-num leading-none font-black tabular-nums">
+                    {digit}
+                  </span>
                   {hint && (
                     <span className="block truncate text-caption leading-tight uppercase">
                       {hint}
@@ -502,11 +516,17 @@ export function TransmissionCard({
       tx.role === 'encryptor' && !tx.clues ? (
         <ClueForm view={view} tx={tx} act={act} />
       ) : (
-        <p className="text-center text-ink-2">
-          {tx.clues
-            ? 'Clues sent. Waiting for the other Encryptor…'
-            : `${encryptor} is writing clues…`}
-        </p>
+        // The shared waiting slate, in one row (the dots beside the line), so the wait reads as
+        // alive without making the code panel taller.
+        <Slate
+          kind="loading"
+          className="grid-flow-col items-center justify-center gap-3 px-0 py-0"
+          title={
+            tx.clues
+              ? 'Clues sent. Waiting for the other Encryptor…'
+              : `${encryptor} is writing clues…`
+          }
+        />
       );
   } else if ((tx.role === 'decoder' || tx.role === 'interceptor') && tx.clues) {
     // The picker stays up after the side agrees: nothing is final until every side agrees at once.

@@ -16,6 +16,7 @@ import {
   chatMuted,
   cluesByKeyword,
   endOfRoundWarnings,
+  endVerdict,
   lockedOnText,
   revealOutcome,
   startBlocker,
@@ -261,6 +262,21 @@ describe('the showdown', () => {
     expect(statusFor(enigma.view(h.state, 'b1'), false, null).text).toMatch(
       /In the showdown Red named 4 keywords right and Blue 0\.$/,
     );
+    // The finale leads with one line; the paragraph stays for the Score tab.
+    expect(endVerdict(enigma.view(h.state, 'b1'))).toBe(
+      'Level on Red 0, Blue 0; showdown: Red 4, Blue 0.',
+    );
+  });
+
+  it('gives a direct win no separate verdict: its reason is already one line', () => {
+    const h = startedGame();
+    h.state = {
+      ...h.state,
+      phase: 'over',
+      winner: 'red',
+      teams: { ...h.state.teams, red: { ...h.state.teams.red, intercepts: 2 } },
+    };
+    expect(endVerdict(enigma.view(h.state, HOST))).toBeNull();
   });
 });
 
