@@ -237,7 +237,8 @@ export function RoundTableGame({
   return (
     <div className="space-y-3">
       <TopBar view={view} room={room} onRole={() => setRoleOpen(true)} />
-      <div className={cn('grid gap-4', !over && 'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
+      {/* Wide screens: the history in the 320 px rail, the table taking the rest. */}
+      <div className={cn('grid gap-4', !over && 'lg:grid-cols-[minmax(0,1fr)_20rem]')}>
         <div {...panel('table')} className={cn('min-w-0 space-y-3', panel('table').className)}>
           {tabbed && view.phase === 'playing' && stage !== 'reveal' ? (
             // Phones in play: the quests and the rejected teams share one 44 px strip.

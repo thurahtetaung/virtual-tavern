@@ -39,7 +39,7 @@ export function QuestTrack({
                 'flex items-center justify-center rounded-full font-bold ring-2',
                 compact
                   ? 'size-8 text-small'
-                  : 'aspect-square w-full max-w-16 text-lg sm:text-xl lg:max-w-[4.5rem] lg:text-2xl',
+                  : 'aspect-square w-full max-w-16 font-display text-lg sm:text-xl lg:max-w-[5rem] lg:text-title',
                 result?.success && 'bg-team-b text-on-fill ring-team-b',
                 result && !result.success && 'bg-team-a text-on-fill ring-team-a',
                 !result &&
@@ -205,7 +205,8 @@ export function Seats({
     <ul
       aria-label="Seats"
       className={cn(
-        'grid gap-1.5 sm:grid-cols-3 lg:gap-2.5',
+        // Wide screens: as many seats to a row as fit at 11 rem (five or six on a laptop).
+        'grid gap-1.5 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] lg:gap-2.5',
         compact ? 'grid-cols-3' : 'grid-cols-2',
       )}
     >
