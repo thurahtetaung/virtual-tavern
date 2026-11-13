@@ -38,7 +38,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
   }, [up, g.players.length]);
   return (
     <ul
-      className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3 lg:grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]"
+      className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3 lg:grid-cols-5"
       aria-label="Everyone’s role"
     >
       {g.players.map((p, i) => {
@@ -182,7 +182,7 @@ export function End({
   room: GameRoomInfo;
   c: Content;
   act: Act;
-  /** Phones: the timeline, as one of the end's tabs (wider screens show it beside the end). */
+  /** The timeline: one of the end's tabs on phones, under the roles on wider screens. */
   timeline?: ReactNode;
 }) {
   const g = view.game!;
@@ -220,7 +220,7 @@ export function End({
                 {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
               </span>
             }
-            superlatives={timeline ? undefined : room.superlatives}
+            superlatives={wide ? room.superlatives : undefined}
             // Wide screens: Play again at the foot of the finale, beside the roles.
             actions={wide && <div className="space-y-2">{buttons}</div>}
           >
@@ -243,7 +243,7 @@ export function End({
           </EndHero>
         }
       >
-        {timeline ? (
+        {!wide ? (
           // Phones: the roles, the awards, the truth and the timeline one at a time, with Play
           // again always below, so the end fits the screen.
           <EndTabs
@@ -260,10 +260,15 @@ export function End({
             ]}
           />
         ) : (
-          <RoleReveal view={view} c={c} />
+          // Wide screens: the roles large across the column, the timeline (with the truth) and
+          // the credits under them, the column scrolling inside when it runs long.
+          <>
+            <RoleReveal view={view} c={c} />
+            {timeline}
+          </>
         )}
         {!wide && buttons}
-        {!timeline && <CreditBlock c={c} />}
+        {wide && <CreditBlock c={c} />}
       </EndLayout>
     </div>
   );

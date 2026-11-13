@@ -693,17 +693,21 @@ export function HydraGame({
     return (
       <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
-        {/* The rail as wide as in play, so the roles get the room to show at a readable size. */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1.3fr)]">
-          <End
-            view={view}
-            room={room}
-            c={c}
-            act={act}
-            timeline={!wide && <Timeline view={view} c={c} />}
-          />
-          {wide && <Timeline view={view} c={c} truth={<TruthLog view={view} c={c} />} />}
-        </div>
+        {/* The end takes the full width: its right column holds the roles, large, then the
+            timeline (with the truth on wide screens). */}
+        <End
+          view={view}
+          room={room}
+          c={c}
+          act={act}
+          timeline={
+            wide ? (
+              <Timeline view={view} c={c} truth={<TruthLog view={view} c={c} />} />
+            ) : (
+              <Timeline view={view} c={c} />
+            )
+          }
+        />
         <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
       </ThemeRoot>
     );
