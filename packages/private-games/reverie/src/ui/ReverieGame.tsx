@@ -901,15 +901,23 @@ function Play({
                           // three across a tablet; the whole hand in one row on a wide screen),
                           // not a strip under an empty table.
                           cn(
-                            'mx-auto grid max-w-[48rem] grid-cols-2 gap-3 px-1 py-1.5 sm:grid-cols-3 lg:max-w-none lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,13rem)] lg:justify-center',
+                            'mx-auto grid max-w-[48rem] grid-cols-2 gap-3 px-1 py-1.5 sm:grid-cols-3',
+                            // Wide screens: while the table is still empty (the storyteller
+                            // choosing), the hand is two rows of three sized to the window's
+                            // height; once cards are on the table, one row under them.
+                            turn && turn.table.length === 0 && !(storyPick !== null && canTell)
+                              ? 'lg:max-w-[calc((100dvh-15.5rem)*0.98)] lg:gap-4'
+                              : 'lg:max-w-none lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,13rem)] lg:justify-center',
                             'max-sm:overflow-y-auto',
                             // What else shares the phone's height: the clue form once the
                             // storyteller has picked, the table's face-down cards while others pick.
-                            turn?.phase === 'pick'
+                            turn?.phase === 'pick' && turn.table.length > 0
                               ? 'max-sm:max-h-[calc(100dvh-28rem)]'
-                              : storyPick !== null
-                                ? 'max-sm:max-h-[calc(100dvh-26rem)]'
-                                : 'max-sm:max-h-[calc(100dvh-19rem)]',
+                              : turn?.phase === 'pick'
+                                ? 'max-sm:max-h-[calc(100dvh-22rem)]'
+                                : storyPick !== null
+                                  ? 'max-sm:max-h-[calc(100dvh-26rem)]'
+                                  : 'max-sm:max-h-[calc(100dvh-19rem)]',
                           )
                         : 'flex gap-2 overflow-x-auto px-1 py-1.5',
                     )}
