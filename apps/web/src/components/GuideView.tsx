@@ -666,7 +666,7 @@ export function Stepper({
                 className={cn(
                   // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
                   'mb-3 flex items-center justify-center overflow-hidden rounded-lg',
-                  compact ? 'h-28' : 'h-32 sm:h-40 xl:h-64',
+                  compact ? 'h-28' : 'h-32 sm:h-40 lg:h-52 xl:h-64',
                 )}
               >
                 <Art
@@ -716,7 +716,9 @@ export function Stepper({
           </div>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
+      {/* On phones Back/Next stay at the window's foot while the step is on screen, so the way on
+          is never below the fold under a tall goal or step. */}
+      <div className="-mx-4 mt-1 -mb-4 flex items-center justify-between gap-2 rounded-b-xl bg-card px-4 pt-3 pb-4 max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button
           variant="secondary"
           size="sm"
