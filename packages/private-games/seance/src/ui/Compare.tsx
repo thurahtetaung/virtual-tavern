@@ -261,9 +261,7 @@ export function Compare({
                 />
                 {strip.captions?.[n] && (
                   // vt-contrast: the compare view is dark in both themes
-                  <p className="truncate text-center text-[11px] text-ink-faint">
-                    {strip.captions[n]}
-                  </p>
+                  <p className="truncate text-center text-xs text-ink-muted">{strip.captions[n]}</p>
                 )}
               </li>
             ))}
