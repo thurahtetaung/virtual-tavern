@@ -1,10 +1,10 @@
-import { Button, Icon, Slate } from '@vt/ui';
+import { Button, Icon, Slate, TAP_BAND, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
 const NAV_LINK =
-  'inline-flex min-h-11 items-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-1 hover:text-accent-text focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 /**
  * Page chrome. `wide` is for the room: the game gets the full width (up to 1440 px, so a desktop's
@@ -68,7 +68,10 @@ export function Layout({
       {!wide && (
         <footer className="py-6 text-center text-xs text-ink-muted">
           A cosy corner of the internet for game nights with friends.{' '}
-          <Link to="/faq" className="text-accent-text underline-offset-2 hover:underline">
+          <Link
+            to="/faq"
+            className={cn('text-accent-text underline-offset-2 hover:underline', TAP_BAND)}
+          >
             Questions?
           </Link>
         </footer>
