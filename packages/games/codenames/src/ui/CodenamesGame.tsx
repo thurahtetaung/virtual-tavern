@@ -276,7 +276,13 @@ function InGame({
             id: 'board',
             label: '🗝️ Key',
             content: (
-              <Board view={view} selected={null} lastGuessed={result?.card ?? null} onPick={null} />
+              <Board
+                view={view}
+                selected={null}
+                lastGuessed={result?.card ?? null}
+                onPick={null}
+                size="short"
+              />
             ),
           },
           !!room.superlatives?.length && {
@@ -448,6 +454,7 @@ function InGame({
             selected={selected}
             lastGuessed={result?.card ?? null}
             onPick={canGuess ? pick : null}
+            size={canGuess || canClue ? undefined : 'fill'}
           />
         )}
 

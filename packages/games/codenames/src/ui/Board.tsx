@@ -12,11 +12,16 @@ interface Props {
   lastGuessed: number | null;
   /** Null when the viewer cannot interact with the board right now. */
   onPick: ((index: number) => void) | null;
+  /**
+   * Phones: `fill` grows the cells into the height a waiting screen leaves free (no clue form or
+   * guess bar under the board); `short` keeps the whole key above the end's tab bar.
+   */
+  size?: 'fill' | 'short';
 }
 
 const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
 
-export function Board({ view, selected, lastGuessed, onPick }: Props) {
+export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
     view.me?.role === 'spymaster' && view.me.team !== null && view.phase === 'playing';
@@ -62,6 +67,9 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                 // push them into the word, and are never under 12 px.
                 '[--cap-at:0px] [--cap-size:0px] [--mark-size:max(12px,min(0.75rem,20cqw))] sm:[--cap-at:0.25rem] sm:[--cap-size:max(12px,min(0.75rem,9cqw))] sm:[--mark-size:max(12px,min(0.875rem,13cqw))] lg:[--cap-size:clamp(12px,9cqw,16px)] lg:[--mark-size:max(12px,min(0.875rem,9.5cqw))]',
                 '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-vt-1 transition sm:aspect-[3/2] sm:p-1 lg:aspect-auto lg:h-[clamp(4.5rem,calc((100dvh-30rem)/5-0.5rem),7.5rem)] motion-reduce:transition-none',
+                size === 'fill' &&
+                  'max-sm:aspect-auto max-sm:h-[clamp(3.3rem,calc((100dvh-22rem)/5-0.4rem),5.5rem)]',
+                size === 'short' && 'max-sm:aspect-[2/1]',
                 face,
                 interactive &&
                   'cursor-pointer hover:-translate-y-0.5 hover:shadow-vt-2 motion-reduce:hover:translate-none',
