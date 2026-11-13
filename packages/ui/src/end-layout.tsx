@@ -5,6 +5,8 @@ import { MoreBelow, markMore } from './more-below.tsx';
 
 /** The least a column keeps when the window is short: past it the page scrolls instead. */
 const MIN_COLUMN_PX = 320;
+/** The More below fade's height (`h-16`): art under it would look cut. */
+const MORE_FADE_PX = 64;
 
 function cap(el: HTMLElement, max: number | null) {
   el.style.maxHeight = max === null ? '' : `${max}px`;
@@ -12,12 +14,17 @@ function cap(el: HTMLElement, max: number | null) {
   el.style.overscrollBehavior = max === null ? '' : 'contain';
 }
 
-/** How tall the finale's column must stay so its title and art show whole. */
+/**
+ * How tall the finale's column must stay so its title and art show whole, clear of the More below
+ * fade (64 px) at its foot when it scrolls.
+ */
 function keepWhole(el: HTMLElement) {
   const last =
     el.querySelector('[data-ui=end-hero-art]') ?? el.querySelector('[data-ui=end-hero] h2');
   if (!last) return Infinity;
-  return Math.ceil(last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + 8);
+  return Math.ceil(
+    last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + MORE_FADE_PX,
+  );
 }
 
 /**
@@ -41,10 +48,11 @@ function useFitColumns(
       const tops = els.map((el) => (el.style.maxHeight ? el.scrollTop : 0));
       for (const el of els) cap(el, null);
       els.forEach(markMore);
+      const hero = kept?.querySelector<HTMLElement>('[data-ui=end-hero]');
+      if (hero) hero.style.minHeight = '';
       const page = document.scrollingElement ?? document.documentElement;
-      const over = page.scrollHeight - page.clientHeight;
+      let over = page.scrollHeight - page.clientHeight;
       if (over <= 0) return;
-      const heights = els.map((el) => el.getBoundingClientRect().height);
       // Side by side the tallest column sets the page; stacked (a banner over the rest), the rest
       // alone gives up what overflows.
       const stacked =
@@ -53,6 +61,13 @@ function useFitColumns(
           (el) =>
             el !== kept && el.getBoundingClientRect().top >= kept.getBoundingClientRect().bottom,
         );
+      // A finale standing the window's height (its content centred) gives that height up first.
+      if (hero && !stacked) {
+        hero.style.minHeight = '0px';
+        over = page.scrollHeight - page.clientHeight;
+        if (over <= 0) return;
+      }
+      const heights = els.map((el) => el.getBoundingClientRect().height);
       const tallest = Math.max(...els.map((el, i) => (stacked && el === kept ? 0 : heights[i]!)));
       const room = Math.max(MIN_COLUMN_PX, Math.floor(tallest - over - 1));
       els.forEach((el, i) => {
@@ -95,6 +110,8 @@ function useFitColumns(
         cap(el, null);
         markMore(el);
       }
+      const hero = kept?.querySelector<HTMLElement>('[data-ui=end-hero]');
+      if (hero) hero.style.minHeight = '';
     };
   });
 }
