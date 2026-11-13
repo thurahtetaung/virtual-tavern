@@ -964,9 +964,9 @@ function End({
       </ul>
     </Panel>
   );
-  const ranked = [...final].sort((a, b) => b.score - a.score);
-  const best = ranked[0]?.score;
-  const champs = ranked.filter((f) => f.score === best);
+  // The winners as the table screen names them; their total from the final count.
+  const champs = g.winners.map((id) => ({ id }));
+  const best = final.find((f) => f.id === g.winners[0])?.score;
   // The priciest lot of the night, large, beside the result.
   const star = [...g.results].filter((r) => r.buyer).sort((a, b) => b.price - a.price)[0];
   return (
