@@ -3,7 +3,7 @@ import { readCards, readyUp, votes } from './masquerade-play.ts';
 
 /**
  * Plays one one-round Masquerade game: the locals vote for each other and the spy joins in, so the
- * spy escapes with no votes at all. Ends on everyone's podium. Returns the spy.
+ * spy escapes with no votes at all. Ends on everyone's standings. Returns the spy.
  */
 export async function playEscape(players: Page[], names: Map<Page, string>) {
   const dealt = await readCards(players, names);
@@ -14,7 +14,13 @@ export async function playEscape(players: Page[], names: Map<Page, string>) {
     [b, names.get(a)!],
     [dealt.spy, names.get(a)!],
   ]);
-  for (const p of players) await expect(p.getByLabel('Podium')).toBeVisible();
+  // Wide screens show the podium; phones show the standings table in its place.
+  for (const p of players) {
+    const wide = (p.viewportSize()?.width ?? 1280) >= 1024;
+    await expect(
+      wide ? p.getByLabel('Podium') : p.getByRole('region', { name: 'Final standings' }),
+    ).toBeVisible();
+  }
   return dealt;
 }
 
