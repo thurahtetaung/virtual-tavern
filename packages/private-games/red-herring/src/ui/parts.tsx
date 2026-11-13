@@ -266,8 +266,9 @@ export function Table({
           className={cn(
             'grid gap-1.5 sm:gap-2',
             many ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3',
-            // Four at a desktop table sit in one row, so your hand stays on the screen.
-            r.order.length === 4 && 'lg:grid-cols-4',
+            // Four at a desktop table sit in one row while cards are laid, so your hand stays on
+            // the screen; from the talk on (no hand) they sit two by two, at twice the size.
+            r.order.length === 4 && (laying ? 'lg:grid-cols-4' : 'lg:grid-cols-2'),
           )}
         >
           {r.order.map((id) => {
@@ -321,7 +322,11 @@ export function Table({
                   className={cn(
                     'grid grid-cols-2 gap-1',
                     many ? 'max-w-[7.5rem]' : 'max-w-[10rem]',
-                    laying ? 'lg:max-w-[clamp(12rem,30vh,18rem)]' : 'lg:max-w-[12rem]',
+                    laying
+                      ? 'lg:max-w-[clamp(12rem,30vh,18rem)]'
+                      : r.order.length === 4
+                        ? 'lg:max-w-[clamp(14rem,32vh,22rem)]'
+                        : 'lg:max-w-[12rem]',
                   )}
                 >
                   {([1, 2] as const).map((lap) => {

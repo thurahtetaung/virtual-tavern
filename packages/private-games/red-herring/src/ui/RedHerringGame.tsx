@@ -174,7 +174,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         </span>
       </div>
       {shown === null && <HostTools view={view} room={room} act={act} art={art} name={name} />}
-      {/* Desktops keep the tips in the rail, so the table starts at the top. */}
+      {/* Desktops keep the tips in the rail (under the vote), so the table starts at the top. */}
       {inGame && !wide && <Tips />}
       {inGame && shown === null && <Notebook view={view} you={you} art={art} />}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
@@ -193,8 +193,9 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
         </div>
         {wide && (
           <aside className="flex flex-col gap-3">
-            {inGame && <Tips />}
+            {/* The vote and the scores first; the first-time tips under them. */}
             {side}
+            {inGame && <Tips />}
           </aside>
         )}
         {/* Desktops: the hand across the whole width under the table, so the cards are large. */}
