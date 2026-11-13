@@ -118,7 +118,8 @@ function End({
     >
       {/* The finale: the winner's hero large in their own colour, the line under it. */}
       <EndHero
-        title={status.text}
+        // The portrait is the emblem, so the status line's trophy stays out of the title.
+        title={status.text.replace(/^🏆\s*/u, '')}
         emblem={
           hero ? (
             <Portrait
