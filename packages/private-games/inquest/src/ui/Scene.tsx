@@ -159,6 +159,26 @@ interface Pending {
 }
 
 /** The six tiles, with whatever the viewer can do to them right now. */
+/** "Full bullet timeline", folded: under the tiles on phones, in the rail on desktops. */
+export function TimelineFold({
+  g,
+  content,
+  className,
+}: {
+  g: Parameters<typeof Timeline>[0]['g'];
+  content: Content;
+  className?: string;
+}) {
+  return (
+    <details className={cn('group rounded-xl bg-sunk', className)}>
+      <FoldSummary className="px-3 font-semibold">Full bullet timeline</FoldSummary>
+      <div className="px-2 pb-2">
+        <Timeline g={g} content={content} full />
+      </div>
+    </details>
+  );
+}
+
 export function Scene({ view, content, act }: { view: InquestView; content: Content; act: Act }) {
   const g = view.game!;
   const isFs = g.myRole === 'forensic' && g.stage !== 'done';
@@ -457,14 +477,8 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
             </div>
           </details>
         )}
-        {g.bullets.length > 0 && (
-          <details className="group rounded-xl bg-sunk">
-            <FoldSummary className="px-3 font-semibold">Full bullet timeline</FoldSummary>
-            <div className="px-2 pb-2">
-              <Timeline g={g} content={content} full />
-            </div>
-          </details>
-        )}
+        {/* Desktops keep this fold in the rail (`TimelineFold`), so the tiles end above the fold. */}
+        {g.bullets.length > 0 && <TimelineFold g={g} content={content} className="lg:hidden" />}
       </div>
       {g.slots.length === 0 && g.stage !== 'night' && mode !== 'location' && (
         <Hint>The Forensic Scientist is laying out the tiles…</Hint>

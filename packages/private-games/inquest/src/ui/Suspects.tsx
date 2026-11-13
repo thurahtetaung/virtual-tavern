@@ -219,18 +219,31 @@ export function Suspects(props: Common) {
   );
 }
 
+/**
+ * Wide desktops: as few rows of suspects as the width allows (up to six across, each suspect's
+ * cards keeping their size), so the suspects take one band and the tiles stay on a laptop's screen.
+ */
+const XL_COLS: Record<number, string> = {
+  4: 'xl:grid-cols-4',
+  5: 'xl:grid-cols-5',
+  6: 'xl:grid-cols-6',
+  7: 'xl:grid-cols-4',
+  8: 'xl:grid-cols-4',
+  9: 'xl:grid-cols-5',
+  10: 'xl:grid-cols-5',
+  11: 'xl:grid-cols-6',
+  12: 'xl:grid-cols-6',
+  13: 'xl:grid-cols-6',
+};
+
 /** Desktop: every suspect at once, one row of art cards each. */
 export function AllSuspects(props: Common) {
   const g = props.view.game!;
   const n = suspectsOf(g).length;
   return (
-    // Across the full width: three or four a row, so each suspect's cards are large.
+    // Across the full width: three a row on narrower desktops, more on wide ones (`XL_COLS`).
     <ul
-      className={cn(
-        'grid gap-3 lg:grid-cols-3',
-        n === 4 && 'xl:grid-cols-4',
-        n === 2 && 'lg:grid-cols-2',
-      )}
+      className={cn('grid gap-3 lg:grid-cols-3', XL_COLS[n], n === 2 && 'lg:grid-cols-2')}
       aria-label="Suspects"
     >
       {suspectsOf(g).map((p) => (

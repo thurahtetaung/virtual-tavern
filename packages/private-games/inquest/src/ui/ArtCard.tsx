@@ -130,7 +130,10 @@ export function ArtCard({
               </span>
             </span>
           )}
-          <span className={cn('block', size !== 'big' && 'line-clamp-2')}>{name}</span>
+          {/* A long word breaks with a hyphen rather than running off the card. */}
+          <span className={cn('block break-words hyphens-auto', size !== 'big' && 'line-clamp-2')}>
+            {name}
+          </span>
         </span>
       )}
       {ruledOut && (

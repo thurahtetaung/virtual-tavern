@@ -37,7 +37,7 @@ import {
 } from './Panels.tsx';
 import { AlliesPanel } from './Allies.tsx';
 import { FinalList } from './Final.tsx';
-import { LatestBullets, Scene } from './Scene.tsx';
+import { LatestBullets, Scene, TimelineFold } from './Scene.tsx';
 import { TableEndScreen, TableScreen } from './TableScreen.tsx';
 import { CardView, EventCard, SolveSheet } from './Sheets.tsx';
 import { endDiscussionLabel, nameOf, statusFor, waitingOn } from './status.ts';
@@ -609,6 +609,9 @@ export function InquestGame({
               showGuide={showGuide}
               onSolve={() => setSolving(true)}
             />
+            {wide && g.bullets.length > 0 && (
+              <TimelineFold g={g} content={content} className="mt-3" />
+            )}
           </div>
           <div
             className={cn(
