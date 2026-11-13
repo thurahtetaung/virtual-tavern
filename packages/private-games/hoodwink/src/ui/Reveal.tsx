@@ -103,7 +103,7 @@ export function RevealSequence({
         data-testid="reveal-card"
         aria-live="polite"
         className={cn(
-          'space-y-3 rounded-2xl px-4 py-6 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
+          'space-y-3 rounded-2xl px-4 py-6 text-center shadow-vt-2 ring-2 lg:space-y-4 lg:px-8 lg:py-12 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
           progress.flipped && current.truth
             ? 'bg-success-soft ring-success'
             : progress.flipped
@@ -111,8 +111,10 @@ export function RevealSequence({
               : 'bg-card ring-line-strong',
         )}
       >
-        <p className="text-2xl font-bold text-balance break-words sm:text-3xl">{current.text}</p>
-        <p className="text-sm">
+        <p className="font-display text-2xl font-bold text-balance break-words sm:text-3xl lg:text-5xl lg:leading-tight">
+          {current.text}
+        </p>
+        <p className="text-sm lg:text-base">
           {voters.length > 0 ? (
             <>
               <span className="text-ink-muted">Picked by </span>
@@ -126,7 +128,7 @@ export function RevealSequence({
           <p
             data-testid="reveal-verdict"
             className={cn(
-              'text-xl font-extrabold motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
+              'text-xl font-extrabold lg:text-3xl motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
               current.truth ? 'text-success-ink' : 'text-danger-ink',
             )}
           >

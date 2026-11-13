@@ -243,8 +243,10 @@ export function HoodwinkGame({
                 // card sits in the middle of the free height rather than a strip at the top; on
                 // phones the lie form waits in the bar below.
                 className={cn(
-                  (view.round.stage === 'write' || view.round.stage === 'vote') &&
-                    'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
+                  // The question is the show's spotlight: a pool of lamp light at the top.
+                  'bg-[radial-gradient(70%_50%_at_50%_0%,var(--vt-lamp),transparent_75%)]',
+                  // Wide screens: every stage (the reveal too) sits in the middle of the free height.
+                  'lg:flex lg:min-h-[calc(100dvh-16rem)] lg:flex-col lg:justify-center lg:px-10',
                   // Phones too: the question and its answers sit in the middle of the free height
                   // in every stage.
                   // The bars' own heights come off, so offered lies in the bar shrink the space.
