@@ -35,6 +35,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
   useWideScreen,
+  END_ART,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
@@ -1040,7 +1041,7 @@ function End({
               art={
                 wide &&
                 star && (
-                  <figure className="w-56 space-y-1 xl:w-72">
+                  <figure className={cn('space-y-1', END_ART[1])}>
                     <Picture
                       drawing={star.drawing ?? seen.get(star.item) ?? null}
                       house={star.house}

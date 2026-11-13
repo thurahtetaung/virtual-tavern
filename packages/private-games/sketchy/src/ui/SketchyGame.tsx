@@ -22,6 +22,7 @@ import {
   useSecondsLeft,
   useSpectatorPrompt,
   useWideScreen,
+  END_ART,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { MAX_PLAYERS, type SketchyAction, type SketchyView } from '../logic/types.ts';
@@ -202,7 +203,7 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
             art={
               fav &&
               wide && (
-                <figure className="w-56 space-y-1 xl:w-64">
+                <figure className={cn('space-y-1', END_ART[1])}>
                   <DrawingView
                     drawing={fav.drawing}
                     label={`${nameOf(view, fav.artist)}’s drawing`}

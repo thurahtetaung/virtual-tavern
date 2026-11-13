@@ -722,10 +722,10 @@ export function OverScreen({
               s && (
                 <>
                   {/* Large on wide screens; smaller on phones, so the end and Play again fit. */}
-                  <div className="w-20 sm:w-28 lg:w-48">
+                  <div className="w-20 sm:w-28 lg:w-[min(46%,15rem,calc(45vh*0.72))]">
                     <ArtCard deck="clue" n={s.clue} content={content} key_ />
                   </div>
-                  <div className="w-20 sm:w-28 lg:w-48">
+                  <div className="w-20 sm:w-28 lg:w-[min(46%,15rem,calc(45vh*0.72))]">
                     <ArtCard deck="means" n={s.means} content={content} key_ />
                   </div>
                 </>

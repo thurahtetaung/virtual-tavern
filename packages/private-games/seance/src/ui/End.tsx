@@ -8,6 +8,7 @@ import {
   Superlatives,
   cn,
   useWideScreen,
+  END_ART,
 } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS } from '../logic/cards.ts';
@@ -201,7 +202,7 @@ export function EndScreen({
             art={
               wide &&
               visions.map((n, i) => (
-                <div key={i} className="w-16 sm:w-20 lg:w-28">
+                <div key={i} className={END_ART[3]}>
                   <Card kind="vision" n={n} content={content} note={`shared card ${i + 1}`} />
                 </div>
               ))
