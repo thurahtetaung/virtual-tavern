@@ -568,12 +568,36 @@ function End({
   const title =
     winTitle(g.winners, (id) => g.players.find((p) => p.id === id)?.name ?? '', room.you) ||
     'Game over';
+  // One winner's tray (a tie shows the first): up to ten cards fit two rows on a phone.
+  const winner = g.players.find((p) => g.winners.includes(p.id));
+  const winnerTray = (winner?.tray ?? []).slice(0, 10);
   return (
     <div className="flex flex-col gap-3">
       <EndHero
         title={title}
         eyebrow={title === 'Game over' ? null : undefined}
-        emblem="🍣"
+        emblem={winnerTray.length ? null : '🍣'}
+        // The winner's last tray, card by card: the meal that won it.
+        art={
+          winnerTray.length > 0 && (
+            <ul
+              aria-label="The winning tray"
+              className="flex flex-wrap justify-center gap-1.5 lg:gap-2"
+            >
+              {winnerTray.map((c, i) => (
+                <li key={`${c.id}-${i}`}>
+                  <CardFace
+                    k={c.copy ?? c.k}
+                    art={art}
+                    size="tray"
+                    flipped={!!c.flipped}
+                    className="shadow-vt-1 lg:w-20"
+                  />
+                </li>
+              ))}
+            </ul>
+          )
+        }
         superlatives={wide ? room.superlatives : undefined}
         actions={
           <>
