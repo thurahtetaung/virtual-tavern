@@ -727,9 +727,11 @@ function Room({
             headerButtons > 3 ? 'text-sub sm:text-heading' : 'text-heading',
           )}
         >
+          {/* Light mode puts the emblem on a raised card with an edge, so pale emoji (✉️, 🐇) keep
+              their outline; dark mode keeps the sunk tile they read well on. */}
           <span
             aria-hidden
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-sunk text-2xl leading-none max-sm:group-has-[[data-long]]/title:size-9 max-sm:group-has-[[data-long]]/title:text-xl sm:size-11"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-card text-2xl leading-none shadow-vt-1 ring-1 ring-line-strong max-sm:group-has-[[data-long]]/title:size-9 max-sm:group-has-[[data-long]]/title:text-xl sm:size-11 dark:bg-sunk dark:shadow-none dark:ring-0"
           >
             {game.icon}
           </span>
