@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
 import { cn } from './cn.ts';
-import { EndColumns, useWideScreen } from './end-tabs.tsx';
+import { EndBanner, EndColumns, useWideScreen } from './end-tabs.tsx';
 
 /** The least a column keeps when the window is short: past it the page scrolls instead. */
 const MIN_COLUMN_PX = 320;
@@ -68,18 +68,25 @@ function useFitColumns(cols: readonly RefObject<HTMLElement | null>[], on: boole
  * (the rest uses `EndTabs`, one part at a time). Wide screens (`lg`) get two columns that fit the
  * window: the finale (`hero`, usually `EndHero` with the game's art) on the left, and the rest (the
  * standings and the game's own reveal, through `EndTabs`) on the right, each scrolling inside when
- * the window is short, so nothing sits below the fold.
+ * the window is short, so nothing sits below the fold. A finale without art is a banner across the
+ * top instead, with the rest centred under it.
  */
 export function EndLayout({
   hero,
   children,
   className,
+  banner = true,
 }: {
   /** The finale: `EndHero`, plus anything that belongs beside it (Play again). */
   hero: ReactNode;
   /** The rest: standings, the game's reveal, the next game's seats. */
   children: ReactNode;
   className?: string;
+  /**
+   * A finale without art becomes a banner across the top, with the rest under it (default). Off
+   * where the rest is a board that needs the full height beside the finale (Codenames).
+   */
+  banner?: boolean;
 }) {
   const isWide = useWideScreen();
   const left = useRef<HTMLDivElement>(null);
@@ -93,21 +100,29 @@ export function EndLayout({
       </>
     );
   return (
-    <EndColumns.Provider value>
-      <div
-        data-ui="end-layout"
-        className={cn(
-          'grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start gap-4 xl:gap-6',
-          className,
-        )}
-      >
-        <div ref={left} data-ui="end-layout-hero" className="min-w-0 space-y-4 p-px">
-          {hero}
+    <EndBanner.Provider value={banner}>
+      <EndColumns.Provider value>
+        <div
+          data-ui="end-layout"
+          className={cn(
+            'group/end grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start gap-4 xl:gap-6',
+            className,
+            // A finale with no art is a banner across the top (`EndHero`), with the rest under it.
+            banner && 'has-[[data-bare]]:grid-cols-1',
+          )}
+        >
+          <div ref={left} data-ui="end-layout-hero" className="min-w-0 space-y-4 p-px">
+            {hero}
+          </div>
+          <div
+            ref={right}
+            data-ui="end-layout-rest"
+            className="min-w-0 space-y-4 p-px group-has-[[data-bare]]/end:mx-auto group-has-[[data-bare]]/end:w-full group-has-[[data-bare]]/end:max-w-5xl"
+          >
+            {children}
+          </div>
         </div>
-        <div ref={right} data-ui="end-layout-rest" className="min-w-0 space-y-4 p-px">
-          {children}
-        </div>
-      </div>
-    </EndColumns.Provider>
+      </EndColumns.Provider>
+    </EndBanner.Provider>
   );
 }

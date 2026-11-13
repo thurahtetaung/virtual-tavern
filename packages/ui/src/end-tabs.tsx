@@ -30,6 +30,9 @@ export function useWideScreen(): boolean {
 /** True inside `EndLayout`'s wide columns: the finale and the end's parts size for a column. */
 export const EndColumns = createContext(false);
 
+/** Whether a finale without art may become a banner across the top (`EndLayout`'s `banner`). */
+export const EndBanner = createContext(true);
+
 export interface EndTab {
   id: string;
   /** Short, with its emoji: "🏆 Scores". */

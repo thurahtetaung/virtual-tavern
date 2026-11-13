@@ -1,7 +1,7 @@
 import type { Superlative } from '@vt/game-sdk';
 import { type ReactNode, useContext } from 'react';
 import { cn } from './cn.ts';
-import { EndColumns } from './end-tabs.tsx';
+import { EndBanner, EndColumns } from './end-tabs.tsx';
 import { SuperlativesNote } from './superlatives.tsx';
 
 export type EndTone = 'win' | 'success' | 'loss' | 'neutral';
@@ -63,18 +63,25 @@ export function EndHero({
 }) {
   // Beside the rest of the end (`EndLayout` on wide screens): sized for a column, not the page.
   const inColumn = useContext(EndColumns);
+  // With no art to show, a column the height of the window would be mostly empty: on wide screens
+  // the finale is a banner across the top instead (emblem, result, Play again in one row), and
+  // `EndLayout` puts the rest under it at full width.
+  const banner = useContext(EndBanner) && inColumn && !art;
   return (
     <section
       data-ui="end-hero"
+      data-bare={banner || undefined}
       data-tone={tone}
       aria-label="Result"
       className={cn(
         'vt-end-hero relative overflow-hidden rounded-2xl border px-4 py-5 text-center shadow-vt-2 sm:px-6',
         // Beside the rest on wide screens, the finale stands the height of the window (as it fills
         // a phone), its content centred, instead of stopping at the top with empty space under it.
-        inColumn
-          ? 'lg:flex lg:min-h-[min(calc(100dvh-8.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
-          : 'lg:px-10 lg:py-8',
+        banner
+          ? 'lg:flex lg:flex-wrap lg:items-center lg:gap-x-8 lg:px-8 lg:py-6 lg:text-left'
+          : inColumn
+            ? 'lg:flex lg:min-h-[min(calc(100dvh-8.5rem),48rem)] lg:flex-col lg:justify-center lg:px-6 lg:py-8'
+            : 'lg:px-10 lg:py-8',
         tone === 'loss'
           ? 'border-danger-line'
           : tone === 'success'
@@ -85,11 +92,18 @@ export function EndHero({
         className,
       )}
     >
-      <div className="vt-end-in relative space-y-2 lg:space-y-3">
+      <div
+        className={cn(
+          'vt-end-in relative space-y-2 lg:space-y-3',
+          banner &&
+            'lg:grid lg:min-w-0 lg:flex-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center lg:gap-x-6 lg:gap-y-1 lg:space-y-0',
+        )}
+      >
         {eyebrow && (
           <p
             className={cn(
               'text-caption font-semibold tracking-[0.08em] uppercase',
+              banner && 'lg:col-start-2',
               tone === 'loss'
                 ? 'text-danger-ink'
                 : tone === 'success'
@@ -109,12 +123,19 @@ export function EndHero({
               className={cn(
                 'vt-end-pop mx-auto flex size-16 items-center justify-center rounded-2xl bg-sunk text-[2.5rem] leading-none shadow-vt-1 ring-1 ring-line',
                 inColumn && art ? 'lg:size-20 lg:text-5xl' : 'lg:size-24 lg:text-6xl',
+                banner && 'lg:col-start-1 lg:row-span-3 lg:row-start-1',
               )}
             >
               {emblem}
             </div>
           ) : (
-            <div aria-hidden className="vt-end-pop text-5xl leading-none lg:text-6xl">
+            <div
+              aria-hidden
+              className={cn(
+                'vt-end-pop text-5xl leading-none lg:text-6xl',
+                banner && 'lg:col-start-1 lg:row-span-3 lg:row-start-1',
+              )}
+            >
               {emblem}
             </div>
           ))}
@@ -122,13 +143,19 @@ export function EndHero({
           className={cn(
             'font-display text-display font-semibold text-balance text-ink',
             inColumn && 'xl:text-[3.25rem]',
+            banner && 'lg:col-start-2',
           )}
           data-testid={titleTestId}
         >
           {title}
         </h2>
         {children && (
-          <div className="mx-auto max-w-prose text-small text-balance text-ink-2 lg:text-body">
+          <div
+            className={cn(
+              'mx-auto max-w-prose text-small text-balance text-ink-2 lg:text-body',
+              banner && 'lg:col-start-2 lg:mx-0',
+            )}
+          >
             {children}
           </div>
         )}
@@ -138,17 +165,35 @@ export function EndHero({
           {art}
         </div>
       )}
-      {!!superlatives?.length && <AwardTiles lines={superlatives} narrow={inColumn} />}
-      {actions && <div className="relative mt-4 lg:mt-6">{actions}</div>}
+      {!!superlatives?.length && (
+        <AwardTiles
+          lines={superlatives}
+          narrow={inColumn && !banner}
+          className={banner ? 'lg:order-last lg:basis-full' : undefined}
+        />
+      )}
+      {actions && (
+        <div className={cn('relative mt-4 lg:mt-6', banner && 'lg:mt-0 lg:shrink-0')}>
+          {actions}
+        </div>
+      )}
     </section>
   );
 }
 
 /** The night's superlatives as tiles: one row on wide screens, stacked on phones. */
-function AwardTiles({ lines, narrow }: { lines: readonly Superlative[]; narrow: boolean }) {
+function AwardTiles({
+  lines,
+  narrow,
+  className,
+}: {
+  lines: readonly Superlative[];
+  narrow: boolean;
+  className?: string;
+}) {
   const note = useContext(SuperlativesNote);
   return (
-    <section aria-label="Superlatives" className="relative mt-4 lg:mt-6">
+    <section aria-label="Superlatives" className={cn('relative mt-4 lg:mt-6', className)}>
       {note && (
         <p className="pb-1 text-caption font-semibold tracking-[0.08em] text-accent-text uppercase">
           {note}
