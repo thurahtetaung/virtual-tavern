@@ -300,8 +300,9 @@ export function EnigmaGame({
     <EndLayout hero={hero}>
       <EndTabs
         tabs={[
-          // Phones open on the last round's codes (the scoreboard above already has the tokens).
-          ...(wide
+          // Phones open on the last round's codes (the scoreboard above already has the tokens),
+          // unless a showdown decided it: then its result opens first.
+          ...(wide || view.showdown
             ? []
             : lastReveal.map((tx) => ({
                 id: tx.team,
@@ -321,6 +322,13 @@ export function EnigmaGame({
               </Panel>
             ),
           },
+          ...(!wide && view.showdown
+            ? lastReveal.map((tx) => ({
+                id: tx.team,
+                label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+                content: <TransmissionCard view={view} tx={tx} act={act} />,
+              }))
+            : []),
           !wide &&
             !!room.superlatives?.length && {
               id: 'awards',
