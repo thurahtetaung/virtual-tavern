@@ -58,8 +58,14 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
         The shared vision{' '}
         <span className="font-normal text-ink-muted">({Math.min(f.revealed, 3)} of 3 face up)</span>
       </h4>
-      {/* Phones keep the three a little smaller, so the groups below fit with them. */}
-      <ul className="grid grid-cols-3 gap-2 max-sm:max-w-[17rem] sm:max-w-sm">
+      {/* Phones keep the three a little smaller, so the groups below fit with them, and smaller
+          still while the votes are cast (tap one to see it full screen). */}
+      <ul
+        className={cn(
+          'grid grid-cols-3 gap-2 sm:max-w-sm',
+          g.stage === 'vote' ? 'max-sm:max-w-[12rem]' : 'max-sm:max-w-[17rem]',
+        )}
+      >
         {[0, 1, 2].map((i) => {
           const card = f.shared[i];
           const up = i < f.revealed || g.stage === 'done';
@@ -136,6 +142,10 @@ export function Lineup({
   // and no group needs a button row of its own. Wide screens: the groups side by side, at equal
   // size, each with its action under its cards.
   const wide = useWideScreen();
+  // Phones: once the ghost has named the culprit's group, the groups fold to their name lines
+  // (each still with its Culprit button), so the hand to pick from is right under them.
+  const [showCards, setShowCards] = useState(false);
+  const folded = !wide && picking && draft?.group != null && !showCards;
   const castBar = myTurn && (
     // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
     <StickyBar fixed refusal="seance-vote">
@@ -153,8 +163,17 @@ export function Lineup({
   );
   return (
     <div className="space-y-2">
+      {/* Desktops: two groups a row (three with five or six), the cards large; beside the
+          ghost's picker the groups share half the width. */}
       <ul
-        className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]"
+        className={cn(
+          'grid grid-cols-1 gap-2',
+          picking
+            ? 'lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]'
+            : f.groups.length <= 4
+              ? 'lg:grid-cols-2 lg:gap-3'
+              : 'lg:grid-cols-3 lg:gap-3',
+        )}
         aria-label="Line-up"
       >
         {viewer}
@@ -211,7 +230,7 @@ export function Lineup({
                 )}
                 aria-label={`Group ${i + 1}`}
               >
-                <div className="mb-1.5 flex min-h-7 items-center gap-2">
+                <div className={cn('flex min-h-7 items-center gap-2', !folded && 'mb-1.5')}>
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
@@ -232,7 +251,7 @@ export function Lineup({
                   )}
                   {!wide && action}
                 </div>
-                <div className="grid grid-cols-3 gap-1">
+                <div className={cn('grid grid-cols-3 gap-1', folded && 'hidden')}>
                   {cards.map((c, k) => (
                     <Card
                       key={k}
@@ -249,6 +268,16 @@ export function Lineup({
           );
         })}
       </ul>
+      {!wide && picking && draft?.group != null && (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-expanded={showCards}
+          onClick={() => setShowCards(!showCards)}
+        >
+          {showCards ? 'Fold the groups' : 'Show the groups’ cards'}
+        </Button>
+      )}
       {castBar}
     </div>
   );

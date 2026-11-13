@@ -707,7 +707,9 @@ function SeanceTable({
         </Button>
       )}
       <Banners view={view} room={room} act={act} />
-      <RevealPanel view={view} room={room} act={act} content={content} />
+      {/* Phones: the verdicts above the tabs. Desktops: at the top of the main column, so the
+          hand and the table beside it stay in view. */}
+      {!wide && <RevealPanel view={view} room={room} act={act} content={content} />}
       {room.isHost && g.stage === 'visions' && g.sent.length > 0 && !waitingForVision(g).length && (
         <div className="flex justify-end">
           <Button
@@ -741,11 +743,12 @@ function SeanceTable({
               : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
         )}
       >
-        {main && (
+        {(main || (wide && g.stage === 'reveal')) && (
           <div
             className={cn('min-w-0 space-y-2', onTab('main'))}
             {...(!wide && tabPanelProps(TABS_ID, 'main'))}
           >
+            {wide && <RevealPanel view={view} room={room} act={act} content={content} />}
             {main}
           </div>
         )}

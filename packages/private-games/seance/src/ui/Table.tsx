@@ -181,14 +181,19 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
     <div aria-label="Verdicts" className="space-y-1">
       {viewer}
       <h4 className="text-sm font-semibold">Hour {roman(hour)}: the ghost answered</h4>
-      <ul className="space-y-1 text-sm">
+      {/* Phones: one row per psychic. Desktops: a card per psychic (portrait, name, the guessed
+          card large, the verdict), side by side at their own width. */}
+      <ul className="space-y-1 text-sm lg:grid lg:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] lg:gap-3 lg:space-y-0">
         {list.map((v) => {
           const p = psychicByColor(g, v.color);
           const pillar = PILLARS[v.step]!;
           return (
-            <li key={v.color} className="flex items-center gap-2">
+            <li
+              key={v.color}
+              className="flex items-center gap-2 lg:relative lg:flex-col lg:gap-1.5 lg:rounded-xl lg:bg-card lg:p-3 lg:text-center lg:ring-1 lg:ring-line"
+            >
               <Avatar color={v.color} content={content} name={p?.name} size="sm" />
-              <span className="flex-1">
+              <span className="flex-1 lg:flex-none">
                 {p?.name ?? v.color}{' '}
                 {v.guess === null
                   ? `made no ${content.pillarName(pillar).toLowerCase()} guess`
@@ -210,7 +215,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
               </span>
               {v.guess !== null && (
                 // The guessed card itself: at the table, the card is the moment.
-                <span className="w-20 shrink-0 sm:w-24">
+                <span className="w-20 shrink-0 sm:w-24 lg:w-32">
                   <Card
                     kind={content.kindOf(pillar)}
                     n={v.guess}
@@ -233,7 +238,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
                   />
                 </span>
               )}
-              <span aria-hidden className="text-lg">
+              <span aria-hidden className="text-lg lg:absolute lg:top-2 lg:right-2">
                 {v.correct ? '✅' : '❌'}
               </span>
             </li>
