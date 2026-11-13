@@ -131,81 +131,32 @@ export function Lineup({
   // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
   const [choice, setChoice] = useState<number | null>(null);
   const cast = castable(g, myTurn, choice);
-  // Phones, while you vote: each group is one row (its three cards small, Choose beside them),
-  // so every group and the bar fit the screen.
+  // Phones: each group is a name line, with its action (Choose, or the ghost's Culprit) at its
+  // end, over its three cards at the full width, so the cards stay big enough to read and tap
+  // and no group needs a button row of its own. Wide screens: the groups side by side, at equal
+  // size, each with its action under its cards.
   const wide = useWideScreen();
-  if (myTurn && !wide)
-    return (
-      <div className="space-y-1.5">
-        <ul className="space-y-1.5" aria-label="Line-up">
-          {viewer}
-          {f.groups.map((color, i) => {
-            const p = psychicByColor(g, color);
-            const on = choice === i;
-            return (
-              <li
-                key={color}
-                aria-label={`Group ${i + 1}`}
-                className={cn(
-                  'flex items-center gap-2 rounded-xl p-1.5 ring-1 ring-line',
-                  on && 'bg-special/10 ring-2 ring-special',
-                )}
-              >
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
-                  {i + 1}
-                </span>
-                <div className="grid w-[10.5rem] shrink-0 grid-cols-3 gap-1">
-                  {groupCards(g, i).map((c, k) => (
-                    <Card
-                      key={k}
-                      kind={content.kindOf(PILLARS[k]!)}
-                      n={c}
-                      content={content}
-                      onTap={() => look(all, startOf(i) + k, 'The line-up')}
-                    />
-                  ))}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col items-stretch gap-1">
-                  {p && (
-                    <span className="flex min-w-0 items-center gap-1 text-xs">
-                      <Avatar color={p.color} content={content} name={p.name} size="sm" />
-                      <span className="truncate">{p.name}</span>
-                    </span>
-                  )}
-                  <Button
-                    size="sm"
-                    variant={on ? 'primary' : 'secondary'}
-                    className="w-full px-2"
-                    aria-pressed={on}
-                    aria-label={on ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
-                    onClick={() => setChoice(toggleChoice(choice, i))}
-                  >
-                    {on ? '✓ Chosen' : 'Choose'}
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <StickyBar fixed refusal="seance-vote">
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={cast === null}
-            onClick={() =>
-              cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
-            }
-          >
-            {cast === null
-              ? 'Tap a group to choose it first'
-              : `Cast my vote for group ${cast + 1}`}
-          </Button>
-        </StickyBar>
-      </div>
-    );
+  const castBar = myTurn && (
+    // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
+    <StickyBar fixed refusal="seance-vote">
+      <Button
+        size="lg"
+        className="w-full"
+        disabled={cast === null}
+        onClick={() =>
+          cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
+        }
+      >
+        {cast === null ? 'Tap a group to choose it first' : `Cast my vote for group ${cast + 1}`}
+      </Button>
+    </StickyBar>
+  );
   return (
     <div className="space-y-2">
-      <ul className="space-y-2" aria-label="Line-up">
+      <ul
+        className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]"
+        aria-label="Line-up"
+      >
         {viewer}
         {f.groups.map((color, i) => {
           const p = psychicByColor(g, color);
@@ -214,8 +165,43 @@ export function Lineup({
           const chosen = over && g.result?.chosen === i;
           const selected = picking && draft?.group === i;
           const votes = over ? (g.result?.tally[i] ?? 0) : null;
+          const action = myTurn ? (
+            <Button
+              size="sm"
+              variant={choice === i ? 'primary' : 'secondary'}
+              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
+              aria-pressed={choice === i}
+              aria-label={choice === i ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
+              onClick={() => setChoice(toggleChoice(choice, i))}
+            >
+              {choice === i
+                ? wide
+                  ? `✓ Group ${i + 1} chosen`
+                  : '✓ Chosen'
+                : wide
+                  ? `Choose group ${i + 1}`
+                  : 'Choose'}
+            </Button>
+          ) : picking ? (
+            <Button
+              size="sm"
+              variant={selected ? 'primary' : 'secondary'}
+              className={cn('min-h-11', wide ? 'mt-1.5 w-full' : 'shrink-0 px-3')}
+              aria-pressed={selected}
+              aria-label={
+                selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`
+              }
+              onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
+            >
+              {selected
+                ? '👻 The culprit’s group'
+                : wide
+                  ? `This is the culprit (group ${i + 1})`
+                  : 'Culprit'}
+            </Button>
+          ) : null;
           return (
-            <li key={color}>
+            <li key={color} className="min-w-0">
               <div
                 className={cn(
                   'rounded-xl p-2 ring-1 ring-line',
@@ -225,8 +211,8 @@ export function Lineup({
                 )}
                 aria-label={`Group ${i + 1}`}
               >
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
+                <div className="mb-1.5 flex min-h-7 items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink font-serif font-bold text-card">
                     {i + 1}
                   </span>
                   {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
@@ -244,6 +230,7 @@ export function Lineup({
                   {f.myVote === i && !over && (
                     <span className="text-xs font-semibold">your vote</span>
                   )}
+                  {!wide && action}
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {cards.map((c, k) => (
@@ -256,50 +243,13 @@ export function Lineup({
                     />
                   ))}
                 </div>
-                {myTurn && (
-                  <Button
-                    size="sm"
-                    variant={choice === i ? 'primary' : 'secondary'}
-                    className="mt-1.5 w-full"
-                    aria-pressed={choice === i}
-                    onClick={() => setChoice(toggleChoice(choice, i))}
-                  >
-                    {choice === i ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
-                  </Button>
-                )}
-                {picking && (
-                  <Button
-                    size="sm"
-                    variant={selected ? 'primary' : 'secondary'}
-                    className="mt-1.5 w-full"
-                    aria-pressed={selected}
-                    onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
-                  >
-                    {selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`}
-                  </Button>
-                )}
+                {wide && action}
               </div>
             </li>
           );
         })}
       </ul>
-      {myTurn && (
-        // In the phone's sticky bar above the tab bar, with its refusal, while the groups scroll.
-        <StickyBar fixed refusal="seance-vote">
-          <Button
-            size="lg"
-            className="w-full"
-            disabled={cast === null}
-            onClick={() =>
-              cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
-            }
-          >
-            {cast === null
-              ? 'Tap a group to choose it first'
-              : `Cast my vote for group ${cast + 1}`}
-          </Button>
-        </StickyBar>
-      )}
+      {castBar}
     </div>
   );
 }
@@ -508,24 +458,28 @@ export function VoteBar({ view, room, act }: { view: SeanceView; room: GameRoomI
   const strict = view.settings.timerMode === 'strict';
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft px-3 py-1.5 text-sm ring-1 ring-special-line">
-      <p className="min-w-0 flex-1">
+      {/* The words keep at least a readable measure: when the clock and Close this round don't
+          leave it, they wrap to a row of their own under it, on the right. */}
+      <p className="min-w-[min(100%,14rem)] flex-1">
         🗳️ Card {f.revealed} of 3 is up.{' '}
         {now.length
           ? `Voting now: ${now.map((p) => (p.color === g.me ? 'you' : p.name)).join(', ')}.`
           : ''}
       </p>
-      <Countdown
-        deadline={g.deadline}
-        clockOffset={room.clockOffset}
-        soft={!strict}
-        atZero={strict ? 'missing votes abstain' : undefined}
-        expiredHint={strict ? undefined : 'The host can close this round.'}
-      />
-      {room.isHost && (
-        <Button size="sm" variant="secondary" onClick={() => void act({ type: 'lock-now' })}>
-          Close this round
-        </Button>
-      )}
+      <div className="ml-auto flex items-center gap-2">
+        <Countdown
+          deadline={g.deadline}
+          clockOffset={room.clockOffset}
+          soft={!strict}
+          atZero={strict ? 'missing votes abstain' : undefined}
+          expiredHint={strict ? undefined : 'The host can close this round.'}
+        />
+        {room.isHost && (
+          <Button size="sm" variant="secondary" onClick={() => void act({ type: 'lock-now' })}>
+            Close this round
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

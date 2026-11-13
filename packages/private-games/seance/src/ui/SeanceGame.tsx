@@ -1,6 +1,7 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
 import {
   Button,
+  Fold,
   Countdown,
   Hint,
   Panel,
@@ -599,6 +600,7 @@ function SeanceTable({
 
   // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
   const ghostFinal = ghost && finalStage;
+  const psychicFinal = !ghost && finalStage;
   const tabs: Omit<TabBarItem<Tab>, 'badge'>[] = ghost
     ? [
         {
@@ -732,7 +734,7 @@ function SeanceTable({
       <div
         className={cn(
           'grid gap-3',
-          ghostFinal
+          ghostFinal || psychicFinal
             ? 'lg:grid-cols-[minmax(0,12fr)_minmax(0,4fr)]'
             : ghost
               ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)_minmax(0,4fr)]'
@@ -747,7 +749,7 @@ function SeanceTable({
             {main}
           </div>
         )}
-        {second && (
+        {second && !(wide && psychicFinal) && (
           <div
             className={cn('min-w-0', onTab('others'))}
             {...(!wide && tabPanelProps(TABS_ID, 'others'))}
@@ -760,6 +762,13 @@ function SeanceTable({
           {...(!wide && tabPanelProps(TABS_ID, 'table'))}
         >
           <TableTab view={view} content={content} />
+          {/* In the final the line-up gets the width; the psychics' past guesses fold into the
+              rail, one tap away. */}
+          {second && wide && psychicFinal && (
+            <Fold summary={<span className="font-semibold">The psychics’ past guesses</span>}>
+              {second}
+            </Fold>
+          )}
         </div>
       </div>
       {!wide && (
