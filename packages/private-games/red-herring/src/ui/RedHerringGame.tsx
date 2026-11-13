@@ -1,7 +1,9 @@
 import { type GameUiProps, type PlayerId, waitingFor, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  cn,
   Countdown,
+  END_ART,
   EndHero,
   EndLayout,
   EndTabs,
@@ -14,13 +16,12 @@ import {
   TabBar,
   type TabBarItem,
   tabPanelProps,
-  cn,
   useAbandonGame,
+  useFreeHeight,
   useSpectatorPrompt,
   useWideScreen,
-  END_ART,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { RedHerringAction, RedHerringView } from '../logic/types.ts';
 import { type Art, useArt } from './assets.ts';
 import { Card, DrawPile } from './Card.tsx';
@@ -122,6 +123,8 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
   // are chosen the hand sits under the table: large on your turn, a small row while others choose,
   // so the band under the table shows what you hold rather than empty space.
   const shown: PlayTab | null = wide ? null : tab;
+  const rail = useRef<HTMLElement>(null);
+  const railRoom = useFreeHeight(rail, wide);
   const handOnTable = handStage;
   const timerLabel =
     r.stage === 'discuss'
@@ -193,15 +196,22 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           )}
         </div>
         {wide && (
-          <aside className="flex flex-col gap-3">
+          // The rail never runs past the window: when the vote, the scores and the tips are taller
+          // than the room left, it scrolls inside.
+          <aside
+            ref={rail}
+            className="flex flex-col gap-3 overflow-y-auto overscroll-contain p-px lg:row-span-2"
+            style={railRoom ? { maxHeight: Math.max(320, railRoom - 16) } : undefined}
+          >
             {/* The vote and the scores first; the first-time tips under them. */}
             {side}
             {inGame && <Tips />}
           </aside>
         )}
-        {/* Desktops: the hand across the whole width under the table, so the cards are large. */}
+        {/* Desktops: the hand under the table, as large as the height left allows; the rail
+            beside both. */}
         {wide && inGame && handOnTable && (
-          <div className="lg:col-span-2">
+          <div className="min-w-0 lg:col-start-1">
             <HandStrip view={view} act={act} art={art} you={you} />
           </div>
         )}

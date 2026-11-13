@@ -2,6 +2,7 @@ import { type GameRoomInfo, type PlayerId, storageKey, waitingFor } from '@vt/ga
 import {
   Button,
   CardViewer,
+  cn,
   FitArea,
   Input,
   Panel,
@@ -10,12 +11,13 @@ import {
   ProtectedImage,
   RefusalSlot,
   StickyBar,
-  type ViewerItem,
   TAP_BAND,
-  cn,
   useConfirm,
+  useFreeHeight,
+  useWideScreen,
+  type ViewerItem,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MAX_WORD,
   POINTS,
@@ -395,8 +397,19 @@ export function HandStrip({
   const canPlay = (r.stage === 'card' || r.stage === 'play') && r.turn === you;
   const hand = g.hand;
   const items = useMemo(() => hand.map((c) => viewerItem(c)), [hand]);
+  // Desktops while cards are laid: six across, as large as the height left under the table allows
+  // (the hand's caption and padding take about 3.5 rem), between 36 and 72 rem across.
+  const box = useRef<HTMLElement>(null);
+  const wide = useWideScreen();
+  const laying = r.stage === 'card' || r.stage === 'play';
+  const free = useFreeHeight(box, wide && laying);
+  const across =
+    free === null
+      ? undefined
+      : Math.round(Math.min(1152, Math.max(576, (free - 64) * CARD_ASPECT * 6 + 30)));
   return (
     <section
+      ref={box}
       aria-label="Your hand"
       data-testid="rh-hand"
       className={cn(
@@ -413,13 +426,11 @@ export function HandStrip({
           'grid gap-1 sm:grid-cols-6',
           canPlay ? 'grid-cols-3 gap-1.5' : 'grid-cols-6',
           // Desktops: as large as the window's height allows across the page (6 across).
-          // With four players the table is one row then, so the hand has more height.
-          r.stage === 'card' || r.stage === 'play'
-            ? r.order.length === 4
-              ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-28rem)*3.4),72rem)]'
-              : 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
+          laying
+            ? 'lg:mx-auto lg:max-w-[clamp(36rem,calc((100vh-42rem)*3.4),72rem)]'
             : 'lg:max-w-xl',
         )}
+        style={across ? { maxWidth: across } : undefined}
       >
         {hand.map((c, i) => (
           <li key={c}>
