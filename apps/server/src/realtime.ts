@@ -852,7 +852,6 @@ export function attachRealtime(
         inRoom((roomId, playerId) => {
           if (!opts.links) return noLinks;
           if (socket.data.link) return fromPc;
-          if (gate.isPlaytest?.(roomId)) return noLinks;
           data = opts.links.mint(roomId, playerId, socket.request.headers.cookie);
           return { ok: true };
         }),

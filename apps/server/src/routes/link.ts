@@ -35,6 +35,9 @@ export function linkRoutes(
     gameName: (gameId: string) => string;
     isPrivateRoom: (roomId: string) => boolean;
     hasBackroom: (req: FastifyRequest) => boolean;
+    /** An admin playtest, which only a browser signed in as the admin may enter. */
+    isPlaytest: (roomId: string) => boolean;
+    isAdmin: (req: FastifyRequest) => boolean;
     /** A phone was linked (replacing `replaced`, whose phone is sent away). */
     linked: (roomId: string, replaced: string | null) => void;
   },
@@ -53,6 +56,8 @@ export function linkRoutes(
     const player = room?.players.find((p) => p.id === found.playerId);
     // The player left, or the room is gone: the code is as good as spent.
     if (!room || !player) return { status: 'expired' };
+    // A playtest's door is the admin session: the phone signs in first, then links.
+    if (opts.isPlaytest(found.roomId) && !opts.isAdmin(req)) return { status: 'admin' };
     const unlocked = opts.hasBackroom(req);
     // A back-room table the phone couldn't enter: the word changed since the code was made.
     if (opts.isPrivateRoom(found.roomId) && !unlocked && !carries(found))
@@ -118,7 +123,9 @@ export function linkRoutes(
             ? `This phone already plays ${res.seat} in this room.`
             : res.status === 'expired'
               ? 'That code has run out. Ask your PC for a new one.'
-              : 'No PC is showing that code.';
+              : res.status === 'admin'
+                ? 'Sign in as the tavern keeper on this phone first.'
+                : 'No PC is showing that code.';
         return reply.code(409).send({ error: { code: res.status, message } });
       }
       codes.redeem(body.data.code);

@@ -297,10 +297,13 @@ export function PcTableScreen({
   tvPresent,
   onControls,
   onUnlink,
+  seatToken,
 }: {
   roomId: string;
   game: ClientGame;
   link: LinkStatus;
+  /** A playtest seat's token (the screen joins as that seat's player). */
+  seatToken?: string;
   /** The phone has been away this long (null while it's here). */
   awaySeconds: number | null;
   /** The room's own table screen is paired. */
@@ -308,7 +311,7 @@ export function PcTableScreen({
   onControls: () => void;
   onUnlink: () => void;
 }) {
-  const conn = useRoom(roomId, '', undefined, true, 'show');
+  const conn = useRoom(roomId, '', seatToken, true, 'show');
   const { snapshot, clockOffset, status } = conn;
   const [started, setStarted] = useState(showStarted);
   /** The player's sound switch for this screen (by default off while a TV has the sound). */

@@ -93,7 +93,8 @@ export function useRoom(
   useEffect(() => {
     if (!canJoin) return;
     if (stage === 'show') {
-      const own = playerToken();
+      // A playtest seat's PC shows the table screen on its seat's token.
+      const own = token ?? playerToken();
       connRef.current?.enable(() => ({ role: 'show', token: own }));
       return;
     }

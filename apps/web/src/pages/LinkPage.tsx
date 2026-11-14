@@ -4,7 +4,7 @@ import {
   type LinkPreview,
   type LinkRedeemed,
 } from '@vt/protocol';
-import { Button, Icon, Panel, PlayerDot, cn } from '@vt/ui';
+import { Button, Field, Icon, Input, Panel, PlayerDot, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Layout } from '../components/Layout.tsx';
@@ -17,6 +17,8 @@ import { usePageTitle } from '../lib/title.ts';
 type Step =
   | { kind: 'type'; problem?: 'expired' | 'wrong' }
   | { kind: 'confirm'; preview: LinkPreview }
+  /** The code is for an admin playtest: this phone signs in as the admin first. */
+  | { kind: 'admin' }
   | { kind: 'other-seat'; roomId: string; seat: string; host: string; name: string };
 
 /** The code a QR code opened this page with (`/link#KXRT`), taken off the address bar at once. */
@@ -45,6 +47,7 @@ export function LinkPage() {
   const answered = (res: LinkCheck) => {
     if (res.status === 'ok') setStep({ kind: 'confirm', preview: res.preview });
     else if (res.status === 'other-seat') setStep({ kind: 'other-seat', ...res });
+    else if (res.status === 'admin') setStep({ kind: 'admin' });
     else setStep({ kind: 'type', problem: res.status });
   };
   const failed = (err: unknown) => setError(err instanceof ApiFailure ? err.message : offline);
@@ -83,6 +86,7 @@ export function LinkPage() {
     } catch (err) {
       if (err instanceof ApiFailure && (err.code === 'expired' || err.code === 'wrong'))
         setStep({ kind: 'type', problem: err.code });
+      else if (err instanceof ApiFailure && err.code === 'admin') setStep({ kind: 'admin' });
       else setError(err instanceof ApiFailure ? err.message : offline);
       setBusy(false);
     }
@@ -162,6 +166,8 @@ export function LinkPage() {
         </div>
       </>
     );
+  } else if (step.kind === 'admin') {
+    content = <AdminSignIn onDone={() => void check()} />;
   } else if (step.kind === 'other-seat') {
     content = (
       <>
@@ -256,6 +262,49 @@ export function LinkPage() {
         {content}
       </div>
     </Layout>
+  );
+}
+
+/** A playtest's phone signs in as the admin (the playtest's own door), then the code is checked again. */
+function AdminSignIn({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('');
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await api('/api/admin/login', { method: 'POST', body: { password } });
+      onDone();
+    } catch (err) {
+      setRefusal(err instanceof ApiFailure ? err.message : offline);
+      setSending(false);
+    }
+  };
+  return (
+    <form onSubmit={(e) => void submit(e)} className="flex flex-1 flex-col gap-4">
+      <h1 className="font-display text-3xl font-bold">Sign in to link</h1>
+      <p className="text-ink-muted" data-testid="link-admin">
+        This is a playtest, which only the tavern keeper can enter. Sign in on this phone to link
+        it.
+      </p>
+      <Field label="Admin password" error={refusal}>
+        <Input
+          type="password"
+          autoFocus
+          autoComplete="current-password"
+          value={password}
+          invalid={refusal !== null}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setRefusal(null);
+          }}
+        />
+      </Field>
+      <Button type="submit" size="lg" className="w-full" sending={sending} disabled={!password}>
+        Sign in and link
+      </Button>
+    </form>
   );
 }
 
