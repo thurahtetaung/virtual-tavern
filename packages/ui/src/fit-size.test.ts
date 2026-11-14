@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { fitsOver, FIT_OSCILLATION_MS, type FitHistory, fitSize, settleFit } from './fit-size.ts';
+import {
+  FIT_OSCILLATION_MS,
+  FIT_SHAKE_MS,
+  type FitBrake,
+  type FitHistory,
+  brakeFit,
+  fitSize,
+  fitsOver,
+  settleFit,
+} from './fit-size.ts';
 
 const RANGE = { min: 120, max: 360, step: 1 };
 const FRAME = 16;
@@ -111,5 +120,45 @@ describe('settleFit', () => {
     expect(fit(212, 211, 2 * FRAME)).toBe(211);
     fitsSmall = false;
     expect(fit(212, 211, 3 * FRAME)).toBe(212);
+  });
+});
+
+describe('brakeFit', () => {
+  /** Applies each wanted size in turn, `gap` ms apart, as the part's fit would. */
+  function run(wanted: number[], gap: number, width = 390) {
+    const brake: FitBrake = { changes: [] };
+    let had: number | undefined;
+    const sizes: number[] = [];
+    wanted.forEach((next, i) => {
+      had = brakeFit(brake, { width, next, had, now: i * gap });
+      sizes.push(had);
+    });
+    return { brake, sizes };
+  }
+
+  it('stops a part that keeps turning between two sizes, at the smaller, slower than settleFit sees', () => {
+    // A toolbar sliding in and out every 300 ms: each re-fit starts afresh, so settleFit lets it go.
+    const { sizes } = run([421, 380, 421, 380, 421, 380, 421], 300);
+    expect(sizes).toEqual([421, 380, 421, 380, 380, 380, 380]);
+  });
+
+  it('follows a part that only grows or only shrinks, however often', () => {
+    const { sizes } = run([200, 220, 240, 260, 250, 240, 230], FRAME);
+    expect(sizes).toEqual([200, 220, 240, 260, 250, 240, 230]);
+  });
+
+  it('follows turns spread wider apart than a shake', () => {
+    const { sizes } = run([421, 380, 421, 380, 421], FIT_SHAKE_MS / 2 + 1);
+    expect(sizes).toEqual([421, 380, 421, 380, 421]);
+  });
+
+  it('holds only lower until the width changes, then follows the fit again', () => {
+    const { brake, sizes } = run([421, 380, 421, 380, 421], FRAME);
+    expect(sizes.at(-1)).toBe(380);
+    expect(brakeFit(brake, { width: 390, next: 421, had: 380, now: 1000 })).toBe(380);
+    expect(brakeFit(brake, { width: 390, next: 360, had: 380, now: 1100 })).toBe(360);
+    expect(brakeFit(brake, { width: 390, next: 421, had: 360, now: 1200 })).toBe(360);
+    expect(brakeFit(brake, { width: 844, next: 300, had: 360, now: 1300 })).toBe(300);
+    expect(brakeFit(brake, { width: 844, next: 320, had: 300, now: 1400 })).toBe(320);
   });
 });
