@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.105.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.104.1...v0.105.0) (2026-11-14)
+
+
+### Features
+
+* **going-once:** the table screen follows the original's auction room from lobby to credits ([#592](https://github.com/thurahtetaung/virtual-tavern/issues/592)) ([5f8e4ad](https://github.com/thurahtetaung/virtual-tavern/commit/5f8e4ad0511c10bb855aa43a367e93398e7f6d84))
+* link a phone to a player and use the PC as their table screen ([#593](https://github.com/thurahtetaung/virtual-tavern/issues/593)) ([e1fd121](https://github.com/thurahtetaung/virtual-tavern/commit/e1fd1210005e976cf7756c8d611c4732376ad13c))
+
 ## [0.104.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.104.0...v0.104.1) (2026-11-13)
 
 
