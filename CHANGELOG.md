@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.105.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.2...v0.105.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ui:** resizing the window no longer makes drawings, lots and buttons jump ([#600](https://github.com/thurahtetaung/virtual-tavern/issues/600)) ([546fe53](https://github.com/thurahtetaung/virtual-tavern/commit/546fe53012dbdb68c488220a57928cfdbe857122))
+
 ## [0.105.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.1...v0.105.2) (2026-11-14)
 
 
