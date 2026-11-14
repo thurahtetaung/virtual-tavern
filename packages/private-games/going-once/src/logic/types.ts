@@ -61,6 +61,11 @@ export const PROJECTOR_WAIT_MS = 500;
 export const SLIDE_ONE_MS = 1100;
 /** After the last slide: the projector shuts off and the lights come up before lot 1. */
 export const TUTORIAL_END_MS = 1200;
+/**
+ * A skip, as the original: the lights come up at once, and 0.2 s later the projector shuts off and
+ * he says "Well, look who's fancy…" (`skipped`); lot 1 opens once it is said.
+ */
+export const SKIP_SAY_MS = 200;
 
 export const SCREW_PICK_MS = 15_000;
 /** The bank's phone rings first; then the line (the original's 2.2 s ring). */
