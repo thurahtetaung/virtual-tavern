@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.106.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.106.0...v0.106.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ui:** a drawing that keeps resizing on a phone stops at the smaller size ([#607](https://github.com/thurahtetaung/virtual-tavern/issues/607)) ([2196166](https://github.com/thurahtetaung/virtual-tavern/commit/2196166d0146d7a60b686f731a9a5b115a875544))
+
 ## [0.106.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.3...v0.106.0) (2026-11-14)
 
 
