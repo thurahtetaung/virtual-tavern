@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { cn } from './cn.ts';
+import { LAYOUT_FITTED } from './fit-area.tsx';
 import { usePhone } from './phone.ts';
 import { RefusalSlot } from './refusal.tsx';
 import { useReservedHeight } from './reserve.ts';
@@ -94,13 +96,14 @@ export function StickyBar({
 }
 
 /** Where a lifted tray sits: over the spot's column, at the foot of the window. */
-type Lift = { left: number; width: number; height: number };
+/** `fill`: the control filled its column, so its holder does too (and follows a resized column). */
+type Lift = { left: number; width: number; height: number; fill: boolean };
 
 /**
  * Wider screens: lifts `el` into the tray while it is not wholly in the window and below its foot.
  * While lifted, a holder of the same size keeps its spot (the lifted element leaves the flow), and
- * the holder is what is watched until it is wholly back in view. Resizing the window drops the
- * lift, and the watch decides again from the new layout. A control taller than a third of the
+ * the holder is what is watched until it is wholly back in view. Resizing the window moves the
+ * tray with the holder while the spot is still below the foot, and drops it otherwise. A control taller than a third of the
  * window stays in place.
  */
 function useLift(
@@ -121,6 +124,19 @@ function useLift(
     if (!active) return;
     const target = lifted ? holder.current : el.current;
     if (!target || typeof IntersectionObserver === 'undefined') return;
+    // The control's place in the tray, or null when it stays in the page: a control taller than a
+    // third of the window would cover too much of the page above.
+    const liftOf = (node: HTMLElement): Lift | null => {
+      const r = node.getBoundingClientRect();
+      if (r.height === 0 || r.height > window.innerHeight / 3) return null;
+      const column = node.parentElement?.clientWidth ?? 0;
+      return {
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        fill: Math.abs(column - r.width) < 1,
+      };
+    };
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -129,22 +145,54 @@ function useLift(
           entry.boundingClientRect.bottom > window.innerHeight - 1;
         if (lifted && !below) setLift(null);
         if (!lifted && below && el.current) {
-          const r = el.current.getBoundingClientRect();
-          // A control taller than a third of the window would cover too much of the page above.
-          if (r.height === 0 || r.height > window.innerHeight / 3) return;
-          setLift({ left: r.left, width: r.width, height: r.height });
+          const next = liftOf(el.current);
+          if (next) setLift(next);
         }
       },
       { threshold: [0, 0.25, 0.5, 0.75, 0.99, 1] },
     );
     observer.observe(target);
-    const drop = () => {
-      setLift(null);
+    // A resized window decides at once, before the frame is painted (the watch above only reports
+    // after it, a frame late on every step of a drag): the tray moves with the spot (the holder)
+    // while the spot is below the window's foot, and lifts or lands the moment that changes.
+    const check = () => {
+      const node = lifted ? holder.current : el.current;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      const shown = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      const below = r.height > 0 && shown / r.height < 0.99 && r.bottom > window.innerHeight - 1;
+      const next = below ? liftOf(node) : null;
+      flushSync(() => {
+        setLift((l) => {
+          if (!next) return null;
+          if (!lifted) return next;
+          // Lifted, the holder's own height and fill stand for the control's.
+          const moved = { ...next, height: l?.height ?? next.height, fill: !!l?.fill };
+          return l && l.left === moved.left && l.width === moved.width ? l : moved;
+        });
+      });
     };
-    window.addEventListener('resize', drop);
+    // Checked again in this frame's callbacks, after the layout the resize brought (a wider layout
+    // that moves the control) and still before the paint.
+    let frame = 0;
+    const resized = () => {
+      check();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(check);
+    };
+    window.addEventListener('resize', resized);
+    // The page's own box changes in the frame itself, even where the resize event comes a frame
+    // after the first one painted at the new size.
+    const page = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
+    page?.observe(document.documentElement);
+    // A part that fits itself (the drawing beside or above the control) moved it: check now.
+    document.addEventListener(LAYOUT_FITTED, check);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener('resize', drop);
+      page?.disconnect();
+      window.removeEventListener('resize', resized);
+      document.removeEventListener(LAYOUT_FITTED, check);
     };
   }, [active, lifted, el, holder]);
 
@@ -152,7 +200,7 @@ function useLift(
   const left = Math.max(0, lift.left - TRAY_EDGE);
   const right = Math.min(window.innerWidth, lift.left + lift.width + TRAY_EDGE);
   const style: CSSProperties = { left, width: right - left };
-  return { style, height: lift.height, width: lift.width };
+  return { style, height: lift.height, width: lift.fill ? null : lift.width };
 }
 
 /** Holds a lifted element's spot in the page (it is out of the flow while it is in the tray). */
@@ -161,7 +209,7 @@ function Holder({
   lift,
 }: {
   holder: RefObject<HTMLDivElement | null>;
-  lift: { height: number; width: number } | null;
+  lift: { height: number; width: number | null } | null;
 }) {
   return lift ? (
     <div
@@ -169,7 +217,7 @@ function Holder({
       aria-hidden="true"
       data-ui="sticky-holder"
       className="max-w-full shrink-0"
-      style={{ height: lift.height, width: lift.width }}
+      style={{ height: lift.height, width: lift.width ?? '100%' }}
     />
   ) : null;
 }

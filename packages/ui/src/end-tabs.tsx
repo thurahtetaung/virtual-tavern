@@ -19,7 +19,12 @@ const subscribe = (onChange: () => void) => {
   if (typeof window === 'undefined' || !window.matchMedia) return () => {};
   const mq = window.matchMedia(WIDE);
   mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
+  // Resizes too: they come before the frame is painted, the query's change event can be a frame late.
+  window.addEventListener('resize', onChange);
+  return () => {
+    mq.removeEventListener('change', onChange);
+    window.removeEventListener('resize', onChange);
+  };
 };
 const wide = () => typeof window !== 'undefined' && !!window.matchMedia?.(WIDE).matches;
 
