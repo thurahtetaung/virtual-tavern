@@ -39,6 +39,15 @@ export function rowHeight(free: number, tallest: number) {
   return Math.round(Math.min(tallest, Math.max(40, (free - 4 * 8) / 5)));
 }
 
+/**
+ * How much of the column follows the board, in px: down to the foot of its last part in the
+ * column's flow. A fixed part (the phone's bar at the foot of the window) sits outside it.
+ */
+export function belowBoard(parts: { bottom: number; fixed: boolean }[], boardBottom: number) {
+  const last = parts.filter((part) => !part.fixed).at(-1);
+  return last ? Math.max(0, Math.ceil(last.bottom - boardBottom)) : 0;
+}
+
 export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
@@ -59,17 +68,31 @@ export function Board({ view, selected, lastGuessed, onPick, size }: Props) {
     if (!wide || !el || !column) return;
     // What follows the board in its own column (never the side rail beside it).
     const measure = () => {
-      const last = column.lastElementChild;
-      const below = last
-        ? last.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom
-        : 0;
-      const next = Math.max(0, Math.ceil(below));
+      const parts = [...column.children]
+        .filter((child) => child !== el)
+        .map((child) => ({
+          bottom: child.getBoundingClientRect().bottom,
+          fixed: getComputedStyle(child).position === 'fixed',
+        }));
+      const next = belowBoard(parts, el.getBoundingClientRect().bottom);
       setAfter((a) => (a === next ? a : next));
     };
-    measure();
     const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    for (const child of column.children) if (child !== el) sizes?.observe(child);
-    return () => sizes?.disconnect();
+    const watch = () => {
+      sizes?.disconnect();
+      for (const child of column.children) if (child !== el) sizes?.observe(child);
+      measure();
+    };
+    watch();
+    // The column's parts can change without the board rendering again: on a window turning wide,
+    // the bar at the foot moves from the phone's fixed bar into the column a moment later, and
+    // measured before that the board kept the fixed bar's room and squashed its rows.
+    const parts = new MutationObserver(watch);
+    parts.observe(column, { childList: true });
+    return () => {
+      sizes?.disconnect();
+      parts.disconnect();
+    };
   });
   const rows = free === null ? null : rowHeight(free - after, size === 'fill' ? 144 : 120);
   const [measure, setMeasure] = useState<Measure>(() => estimate);
@@ -325,7 +348,7 @@ function CardWord({
     const tryAt = (size: number, way: (typeof ways)[number]) => {
       el.style.fontSize = `${size}px`;
       el.style.lineHeight = way.tight ? '1.05' : '';
-      el.textContent = way.hyphens
+      const text = way.hyphens
         ? softBreaks(
             word,
             fitsAlone(
@@ -336,6 +359,10 @@ function CardWord({
             ),
           )
         : word;
+      // New text costs a layout of its own many times a font size's (a game's end refits all 25
+      // words at once, and setting the same text on every try took seconds), so only when it
+      // changes.
+      if (el.textContent !== text) el.textContent = text;
       return clear(el, box, mark);
     };
     const fit = () => {
