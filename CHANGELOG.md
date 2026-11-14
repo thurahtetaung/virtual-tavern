@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.105.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.0...v0.105.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **going-once:** skipping the tutorial cuts it at once and opens lot 1 right after ([#596](https://github.com/thurahtetaung/virtual-tavern/issues/596)) ([6b2d5ac](https://github.com/thurahtetaung/virtual-tavern/commit/6b2d5ac5dabc4641bba9d1ff2bcaf71db2ae4fd3))
+* **ui:** the drawing pad's tools no longer shake on phones ([#595](https://github.com/thurahtetaung/virtual-tavern/issues/595)) ([acf80ba](https://github.com/thurahtetaung/virtual-tavern/commit/acf80ba4c34cf70dd0fc96efe470ce747ff8ac23))
+
 ## [0.105.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.104.1...v0.105.0) (2026-11-14)
 
 
