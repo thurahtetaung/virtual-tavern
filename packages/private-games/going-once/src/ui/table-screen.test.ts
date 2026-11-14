@@ -214,7 +214,9 @@ describe('the lobby', () => {
       ['sign-drop', 1000 + LOBBY.sign],
       ['bidder-voice', 5100],
     ]);
-    expect(cues[2]!.pick).toBe(2);
+    // Each paddle's own yelp, as in the game: the shape the player was handed as they joined.
+    expect(cues[2]!.pick).toBe(v.seats.find((s) => s.id === ids[2])!.paddle);
+    expect(cues[2]!.pick).toBe(h.state.shapes![2]);
     h.act(HOST, { type: 'start' });
     expect(lobbyCues(goingOnce.view(h.state, null), 1000, {})).toEqual([]);
   });

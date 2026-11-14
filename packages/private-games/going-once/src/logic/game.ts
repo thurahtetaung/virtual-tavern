@@ -889,6 +889,50 @@ function seatWaiting(s: GoingOnceState) {
   }
 }
 
+/** Every paddle shape, in a fresh random order to hand out from. */
+const shuffledShapes = (rng: Rng) => rng.shuffle([...Array(PADDLE_SHAPES).keys()]);
+
+/** The next shape nobody in the room holds, in the room's order (none once all are taken). */
+function freeShape(s: GoingOnceState): number | undefined {
+  if (!s.shapes) return undefined;
+  const taken = new Set(Object.values(s.seats).map((seat) => seat.paddle));
+  return s.shapes.find((shape) => !taken.has(shape));
+}
+
+/**
+ * The paddles at Start: everyone keeps the shape they were handed as they joined; anyone without
+ * one (a room saved by an older release, or a shape held twice) gets a free one from `rng`. A room
+ * without a handout order gets one here, so later joiners get their shapes as they come in.
+ */
+function dealPaddles(
+  s: GoingOnceState,
+  order: readonly PlayerId[],
+  rng: Rng,
+  fixed: boolean,
+): Record<PlayerId, number> {
+  s.shapes ??= fixed ? [...Array(PADDLE_SHAPES).keys()] : shuffledShapes(rng);
+  const out: Record<PlayerId, number> = {};
+  const used = new Set<number>();
+  for (const id of order) {
+    const shape = s.seats[id]?.paddle;
+    if (shape === undefined || used.has(shape) || shape < 0 || shape >= PADDLE_SHAPES) continue;
+    out[id] = shape;
+    used.add(shape);
+  }
+  const taken = new Set(Object.values(s.seats).map((seat) => seat.paddle));
+  let free = s.shapes.filter((shape) => !used.has(shape) && !taken.has(shape));
+  if (!fixed) free = rng.shuffle(free);
+  for (const id of order) {
+    if (out[id] !== undefined) continue;
+    const shape = free.shift() ?? 0;
+    out[id] = shape;
+    used.add(shape);
+    const seat = s.seats[id];
+    if (seat) seat.paddle = shape;
+  }
+  return out;
+}
+
 /** Players who left during the game lose their seats when it ends. */
 function dropLeft(s: GoingOnceState) {
   for (const id of s.game?.left ?? []) delete s.seats[id];
@@ -996,11 +1040,7 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
     ended: null,
     nudges: 0,
     unsoldRun: 0,
-    paddles: Object.fromEntries(
-      (fixed ? order.map((_, i) => i) : ctx.rng.shuffle([...Array(PADDLE_SHAPES).keys()]))
-        .slice(0, order.length)
-        .map((shape, i) => [order[i]!, shape % PADDLE_SHAPES]),
-    ),
+    paddles: dealPaddles(s, order, ctx.rng, fixed),
     lastBidLot: {},
     calledOut: { quiet: {}, empty: [] },
     since: ctx.now,
@@ -1278,6 +1318,7 @@ export function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): GoingO
     gamesPlayed: 0,
     rig: null,
     seed: newSeed(ctx.rng),
+    shapes: shuffledShapes(ctx.rng),
   };
   countGroups(state, ctx);
   for (const p of playersIn) state = playerJoined(state, p);
@@ -1305,6 +1346,9 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
     ...(!playing && { waiting: true }),
     ...(player.color && { color: player.color }),
   };
+  // Their paddle shape from the room's order (no rng here: `create` shuffled it).
+  const shape = freeShape(s);
+  if (shape !== undefined) seat.paddle = shape;
   s.seats[player.id] = seat;
   defaultPace(s);
   return s;

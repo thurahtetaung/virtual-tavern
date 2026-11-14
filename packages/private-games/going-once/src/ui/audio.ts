@@ -547,7 +547,8 @@ export function lobbyCues(
       if (at)
         out.push(
           sfx(`${id}:yelp:${s.id}`, Math.max(at, openedAt + LOBBY.logins) + 100, 'bidder-voice', {
-            pick: i,
+            // Their paddle's yelp, as in the game (by seat for a seat saved with no shape).
+            pick: s.paddle ?? i,
           }),
         );
     });

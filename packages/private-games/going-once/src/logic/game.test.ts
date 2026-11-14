@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { enableTestRig, timing } from './game.ts';
 import { halfAt } from './setup.ts';
-import { BID_SETTLE_MS, COUNTDOWN_MS, SCREW_OUTCOME_MS } from './types.ts';
+import { BID_SETTLE_MS, COUNTDOWN_MS, PADDLE_SHAPES, SCREW_OUTCOME_MS } from './types.ts';
 import {
   GROUPS,
   HOST,
@@ -20,6 +20,95 @@ import {
   packContent,
   started,
 } from './test-utils.ts';
+
+describe('paddle shapes', () => {
+  const shapes = (h: ReturnType<typeof harness>) =>
+    Object.fromEntries(Object.entries(h.state.seats).map(([id, s]) => [id, s.paddle]));
+
+  it('hands each joiner a shape of their own, in the order the room shuffled', () => {
+    const h = harness(3);
+    const order = h.state.shapes!;
+    expect([...order].sort((a, b) => a - b)).toEqual([...Array(PADDLE_SHAPES).keys()]);
+    // Joining takes no rng: the next free shape in the room's order.
+    expect(shapes(h)).toEqual({ p1: order[0], p2: order[1], p3: order[2] });
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBe(order[3]);
+    // Everyone sees them in the lobby.
+    expect(goingOnce.view(h.state, null).seats.map((s) => s.paddle)).toEqual(order.slice(0, 4));
+    // Joining again (a rename, a new tab) keeps the shape.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p2', name: 'Pat' });
+    expect(h.state.seats.p2!.paddle).toBe(order[1]);
+  });
+
+  it('frees a leaver’s shape for the next joiner, and never hands out one twice', () => {
+    const h = harness(3);
+    const order = h.state.shapes!;
+    h.state = goingOnce.playerLeft(h.state, 'p2', h.now);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBe(order[1]);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p5', name: 'P5' });
+    expect(h.state.seats.p5!.paddle).toBe(order[3]);
+    const held = Object.values(h.state.seats).map((s) => s.paddle);
+    expect(new Set(held).size).toBe(held.length);
+  });
+
+  it('gives bots shapes as they sit down, as anyone', () => {
+    const h = harness(3);
+    h.state = goingOnce.playerJoined(h.state, { id: 'bot-1', name: 'Bot' });
+    expect(h.state.seats['bot-1']!.paddle).toBe(h.state.shapes![3]);
+  });
+
+  it('keeps the shapes handed out at Start, and the game’s paddles are those', () => {
+    const h = harness(4);
+    const before = shapes(h);
+    h.act(HOST, { type: 'start' });
+    expect(game(h).paddles).toEqual(before);
+    expect(shapes(h)).toEqual(before);
+    // A watcher joining mid-game gets a shape nobody at the table holds.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p9', name: 'P9' });
+    expect(Object.values(game(h).paddles)).not.toContain(h.state.seats.p9!.paddle);
+  });
+
+  it('deals only to a player with no shape at Start', () => {
+    const h = harness(3);
+    const before = shapes(h);
+    delete h.state.seats.p2!.paddle;
+    h.act(HOST, { type: 'start' });
+    const paddles = game(h).paddles;
+    expect(paddles.p1).toBe(before.p1);
+    expect(paddles.p3).toBe(before.p3);
+    expect(paddles.p2).toBeDefined();
+    expect(new Set(Object.values(paddles)).size).toBe(3);
+    expect(h.state.seats.p2!.paddle).toBe(paddles.p2);
+  });
+
+  it('loads a room saved by an older release (no shapes) and deals them at Start', () => {
+    const h = harness(3);
+    // As saved before shapes came at join: no order, no seat shapes.
+    const saved = clone(h.state);
+    delete saved.shapes;
+    for (const seat of Object.values(saved.seats)) delete seat.paddle;
+    h.state = JSON.parse(JSON.stringify(saved)) as typeof saved;
+    // A joiner meanwhile has no shape yet (joining has no rng); the lobby shows the plain paddle.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBeUndefined();
+    expect(goingOnce.view(h.state, null).seats.every((s) => s.paddle === undefined)).toBe(true);
+    h.act(HOST, { type: 'start' });
+    const paddles = game(h).paddles;
+    expect(Object.keys(paddles).sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(new Set(Object.values(paddles)).size).toBe(4);
+    for (const [id, shape] of Object.entries(paddles)) {
+      expect(shape).toBeGreaterThanOrEqual(0);
+      expect(shape).toBeLessThan(PADDLE_SHAPES);
+      expect(h.state.seats[id]!.paddle).toBe(shape);
+    }
+    // The room now has an order, so later joiners get theirs as they come in.
+    expect(h.state.shapes).toHaveLength(PADDLE_SHAPES);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p9', name: 'P9' });
+    expect(Object.values(paddles)).not.toContain(h.state.seats.p9!.paddle);
+    expect(h.state.seats.p9!.paddle).toBeDefined();
+  });
+});
 
 describe('lobby', () => {
   it('counts the title groups on offer and refuses to start without two', () => {

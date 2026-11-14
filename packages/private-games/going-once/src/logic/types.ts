@@ -256,6 +256,12 @@ export interface Seat {
   playing: boolean;
   /** Watching only for want of a seat: sat down at the next game if there's room. */
   waiting?: boolean;
+  /**
+   * Their paddle shape, handed out as they join (the next free one in `GoingOnceState.shapes`)
+   * and kept into the game; freed when they leave the room. Rooms saved by older releases have
+   * none, and the deal at Start gives it.
+   */
+  paddle?: number;
 }
 
 /** One drawing in the game: a player's (or, unsent or extra, the house's) take on a title. */
@@ -542,6 +548,11 @@ export interface GoingOnceState {
   rig: Rig | null;
   /** Hidden randomness for timer-driven steps (hints at a new lot). */
   seed: number;
+  /**
+   * The order paddle shapes are handed out in, shuffled with `ctx.rng` when the room is made
+   * (joining has no rng). Missing in rooms saved by older releases until their first Start.
+   */
+  shapes?: number[];
 }
 
 // ---- Actions ----
@@ -595,6 +606,8 @@ export interface SeatView {
   name: string;
   playing: boolean;
   waiting?: boolean;
+  /** Their paddle shape, once handed out (the lobby's paddles show it). */
+  paddle?: number;
 }
 
 export interface PlayerView {

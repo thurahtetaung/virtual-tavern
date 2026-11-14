@@ -1327,7 +1327,7 @@ function RigPaddle({
   rig: LoadedRig;
   manifest: unknown;
   shape: number | undefined;
-  /** The original's plain round paddle (the lobby's, before paddles are dealt). */
+  /** The original's plain round paddle (a lobby seat saved by an older release, with no shape). */
   plain?: boolean;
   who: string;
   stick?: boolean;
@@ -1568,7 +1568,7 @@ function Lobby({
                 countdown ? restOf(T.login?.Appear) : { ...startOf(T.login?.Appear), opacity: 0 }
               }
             >
-              <LoginPaddle rig={rig} manifest={manifest} who={p.name} />
+              <LoginPaddle rig={rig} manifest={manifest} who={p.name} shape={p.paddle} />
             </Layer>
           );
         }}
@@ -1653,11 +1653,30 @@ function Slots({
   );
 }
 
-/** A lobby paddle: the original's plain round one in the player's colour, their name on it. */
-function LoginPaddle({ rig, manifest, who }: { rig: LoadedRig; manifest: unknown; who: string }) {
+/**
+ * A lobby paddle: the player's shape (handed out as they joined) in their colour, their name on
+ * it; the original's plain round one only for a room saved before shapes came at join.
+ */
+function LoginPaddle({
+  rig,
+  manifest,
+  who,
+  shape,
+}: {
+  rig: LoadedRig;
+  manifest: unknown;
+  who: string;
+  shape: number | undefined;
+}) {
   return (
     <>
-      <RigPaddle rig={rig} manifest={manifest} shape={undefined} plain who={who} />
+      <RigPaddle
+        rig={rig}
+        manifest={manifest}
+        shape={shape}
+        plain={shape === undefined}
+        who={who}
+      />
       <Layer m={placeOf(rig, 'paddle.num')}>
         <PaddleName who={who} />
       </Layer>
@@ -1819,7 +1838,12 @@ function LobbyLeaving({
         {(slot) =>
           order[slot] ? (
             <Layer name={`leave:${order[slot]}`} moving style={HIDDEN}>
-              <LoginPaddle rig={rig} manifest={manifest} who={name(order[slot])} />
+              <LoginPaddle
+                rig={rig}
+                manifest={manifest}
+                who={name(order[slot])}
+                shape={view.game?.paddles[order[slot]]}
+              />
             </Layer>
           ) : null
         }

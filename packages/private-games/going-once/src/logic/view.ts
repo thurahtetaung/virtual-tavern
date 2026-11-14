@@ -212,6 +212,7 @@ export function view(state: GoingOnceState, viewer: PlayerId | null): GoingOnceV
     name: s.name,
     playing: s.playing,
     ...(s.waiting && { waiting: true }),
+    ...(s.paddle !== undefined && { paddle: s.paddle }),
   }));
   const g = state.game;
   return {
