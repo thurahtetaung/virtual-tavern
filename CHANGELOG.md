@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.106.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.3...v0.106.0) (2026-11-14)
+
+
+### Features
+
+* **playtest:** link a phone to a playtest seat ([#605](https://github.com/thurahtetaung/virtual-tavern/issues/605)) ([58b8bd4](https://github.com/thurahtetaung/virtual-tavern/commit/58b8bd440550dc58f02c263a53b74d39d4c9e196))
+
 ## [0.105.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.2...v0.105.3) (2026-11-14)
 
 
