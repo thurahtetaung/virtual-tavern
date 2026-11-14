@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.105.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.1...v0.105.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **codenames:** card words refit when the board's surroundings change, and the end screen no longer freezes ([#598](https://github.com/thurahtetaung/virtual-tavern/issues/598)) ([7e6d539](https://github.com/thurahtetaung/virtual-tavern/commit/7e6d539a3c3546d6afdce603bc9964e5778339e3))
+
 ## [0.105.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.105.0...v0.105.1) (2026-11-14)
 
 
