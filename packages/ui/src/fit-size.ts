@@ -127,6 +127,51 @@ export function settleFit(
   return best;
 }
 
+/** How many turns between growing and shrinking, within `FIT_SHAKE_MS`, count as shaking. */
+export const FIT_SHAKE_TURNS = 3;
+/** The span the turns of a shake fall in, in ms. */
+export const FIT_SHAKE_MS = 1500;
+
+/** What the shake brake remembers: the window width it watches, recent changes, and a hold. */
+export interface FitBrake {
+  width?: number;
+  /** The direction (+1 grew, -1 shrank) and time of each recent change. */
+  changes: { dir: 1 | -1; at: number; from: number; to: number }[];
+  /** The size it holds while shaking stopped (only ever lower, until the width changes). */
+  held?: number;
+}
+
+/**
+ * The last guard against a part that keeps resizing: `next` is the size a re-fit wants, `had` the
+ * size the part has. A part that turns between growing and shrinking `FIT_SHAKE_TURNS` times within
+ * `FIT_SHAKE_MS`, while the window's width stays the same, stops at the smallest size of those
+ * changes and stays there (or lower, should the fit ask for less) until the width changes. A
+ * window whose height comes and goes on its own (a phone browser's toolbar sliding in and out)
+ * starts a fit afresh every time, so `settleFit` never sees its oscillation; this brake does.
+ */
+export function brakeFit(
+  brake: FitBrake,
+  { width, next, had, now }: { width: number; next: number; had: number | undefined; now: number },
+): number {
+  if (brake.width !== width) {
+    brake.width = width;
+    brake.changes = [];
+    brake.held = undefined;
+  }
+  if (brake.held !== undefined) {
+    brake.held = Math.min(brake.held, next);
+    return brake.held;
+  }
+  if (had === undefined || next === had) return next;
+  brake.changes = brake.changes.filter((c) => now - c.at <= FIT_SHAKE_MS);
+  brake.changes.push({ dir: next > had ? 1 : -1, at: now, from: had, to: next });
+  const turns = brake.changes.filter((c, i) => i > 0 && c.dir !== brake.changes[i - 1]!.dir);
+  if (turns.length < FIT_SHAKE_TURNS) return next;
+  brake.held = Math.min(...brake.changes.flatMap((c) => [c.from, c.to]));
+  brake.changes = [];
+  return brake.held;
+}
+
 /**
  * Sizes a part (a table of cards, a drawing) so the whole screen fits the window: the largest
  * size between `min` and `max` px at which the page doesn't scroll, set as `--vt-fit` on the
@@ -139,7 +184,8 @@ export function settleFit(
  *
  * It measures again after every render, when the window or anything on the page resizes, and
  * when the bars at the foot change. A fit that would only undo its last change a few frames later
- * settles instead (`settleFit`), so it never shakes against a `FitArea` round it.
+ * settles instead (`settleFit`), so it never shakes against a `FitArea` round it, and a part that
+ * still keeps turning between two sizes stops at the smaller one (`brakeFit`).
  */
 export function useFitSize(
   part: RefObject<HTMLElement | null>,
@@ -148,6 +194,7 @@ export function useFitSize(
   // The window the part was last fitted in (a new size starts afresh) and its recent changes.
   const fittedIn = useRef('');
   const history = useRef<FitHistory>({});
+  const brake = useRef<FitBrake>({ changes: [] });
   useLayoutEffect(() => {
     const el = part.current;
     if (!el) return;
@@ -172,11 +219,13 @@ export function useFitSize(
         return fitsOver(overshoots(el, inView), floor);
       };
       const best = fitSize(fitsAt, { min, max, step });
-      const next = settleFit(history.current, {
-        best,
-        current,
-        now: performance.now(),
-        stillFits: fitsAt,
+      const now = performance.now();
+      const settled = settleFit(history.current, { best, current, now, stillFits: fitsAt });
+      const next = brakeFit(brake.current, {
+        width: window.innerWidth,
+        next: settled,
+        had: Number.isFinite(had) ? had : undefined,
+        now,
       });
       set(next);
       if (next !== had) announceFitted();
