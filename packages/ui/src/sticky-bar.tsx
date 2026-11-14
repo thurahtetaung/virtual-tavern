@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { cn } from './cn.ts';
+import { LAYOUT_FITTED } from './fit-area.tsx';
 import { usePhone } from './phone.ts';
 import { RefusalSlot } from './refusal.tsx';
 import { useReservedHeight } from './reserve.ts';
@@ -122,6 +124,19 @@ function useLift(
     if (!active) return;
     const target = lifted ? holder.current : el.current;
     if (!target || typeof IntersectionObserver === 'undefined') return;
+    // The control's place in the tray, or null when it stays in the page: a control taller than a
+    // third of the window would cover too much of the page above.
+    const liftOf = (node: HTMLElement): Lift | null => {
+      const r = node.getBoundingClientRect();
+      if (r.height === 0 || r.height > window.innerHeight / 3) return null;
+      const column = node.parentElement?.clientWidth ?? 0;
+      return {
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        fill: Math.abs(column - r.width) < 1,
+      };
+    };
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -130,41 +145,54 @@ function useLift(
           entry.boundingClientRect.bottom > window.innerHeight - 1;
         if (lifted && !below) setLift(null);
         if (!lifted && below && el.current) {
-          const r = el.current.getBoundingClientRect();
-          // A control taller than a third of the window would cover too much of the page above.
-          if (r.height === 0 || r.height > window.innerHeight / 3) return;
-          const column = el.current.parentElement?.clientWidth ?? 0;
-          setLift({
-            left: r.left,
-            width: r.width,
-            height: r.height,
-            fill: Math.abs(column - r.width) < 1,
-          });
+          const next = liftOf(el.current);
+          if (next) setLift(next);
         }
       },
       { threshold: [0, 0.25, 0.5, 0.75, 0.99, 1] },
     );
     observer.observe(target);
-    // A resized window moves the lifted tray with the spot (the holder) while the spot is still
-    // below the window's foot, rather than dropping it into the page and lifting it again on every
-    // step of a drag; once the spot is in view, or the control too tall, it goes back in place.
-    const drop = () => {
-      const spot = lifted ? holder.current : null;
-      const r = spot?.getBoundingClientRect();
-      if (!r || r.bottom <= window.innerHeight - 1 || r.height > window.innerHeight / 3) {
-        setLift(null);
-        return;
-      }
-      setLift((l) =>
-        l && l.left === r.left && l.width === r.width
-          ? l
-          : { left: r.left, width: r.width, height: l?.height ?? r.height, fill: !!l?.fill },
-      );
+    // A resized window decides at once, before the frame is painted (the watch above only reports
+    // after it, a frame late on every step of a drag): the tray moves with the spot (the holder)
+    // while the spot is below the window's foot, and lifts or lands the moment that changes.
+    const check = () => {
+      const node = lifted ? holder.current : el.current;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      const shown = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      const below = r.height > 0 && shown / r.height < 0.99 && r.bottom > window.innerHeight - 1;
+      const next = below ? liftOf(node) : null;
+      flushSync(() => {
+        setLift((l) => {
+          if (!next) return null;
+          if (!lifted) return next;
+          // Lifted, the holder's own height and fill stand for the control's.
+          const moved = { ...next, height: l?.height ?? next.height, fill: !!l?.fill };
+          return l && l.left === moved.left && l.width === moved.width ? l : moved;
+        });
+      });
     };
-    window.addEventListener('resize', drop);
+    // Checked again in this frame's callbacks, after the layout the resize brought (a wider layout
+    // that moves the control) and still before the paint.
+    let frame = 0;
+    const resized = () => {
+      check();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(check);
+    };
+    window.addEventListener('resize', resized);
+    // The page's own box changes in the frame itself, even where the resize event comes a frame
+    // after the first one painted at the new size.
+    const page = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
+    page?.observe(document.documentElement);
+    // A part that fits itself (the drawing beside or above the control) moved it: check now.
+    document.addEventListener(LAYOUT_FITTED, check);
     return () => {
+      cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener('resize', drop);
+      page?.disconnect();
+      window.removeEventListener('resize', resized);
+      document.removeEventListener(LAYOUT_FITTED, check);
     };
   }, [active, lifted, el, holder]);
 

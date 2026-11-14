@@ -1,4 +1,5 @@
 import { type RefObject, useLayoutEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 /**
  * The height from the top of `ref`'s element (as laid out at the top of the page) down to the bars
@@ -29,11 +30,19 @@ export function useFreeHeight(ref: RefObject<HTMLElement | null>, on = true): nu
       const next = Math.floor(window.innerHeight - foot - top);
       setFree((f) => (f === next ? f : next));
     };
+    // A new height is applied before the frame is painted: set from the frame callback without
+    // it, React drew it a frame or two later (a column too tall for two frames as the window
+    // crossed into the wide layout, and everything fitted round it moving twice).
     const later = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+      frame = requestAnimationFrame(() => {
+        flushSync(measure);
+      });
     };
     measure();
+    // And again once the layout round it has settled: switched on by a resize (the window crossing
+    // into the wide layout), what is above it may still move before this frame is painted.
+    later();
     const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
     sizes?.observe(document.body);
     const bars = new MutationObserver(later);

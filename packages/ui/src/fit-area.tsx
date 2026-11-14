@@ -25,6 +25,30 @@ export interface FitOptions {
  */
 export const FIT_AREA_CAPPED = 'vt-fit-area-capped';
 
+/**
+ * Sent on the document when a part that fits itself (a `FitArea`, `useFitSize`) has changed size,
+ * so what is placed from the layout (the sticky tray) checks again before the frame is painted.
+ */
+export const LAYOUT_FITTED = 'vt-layout-fitted';
+
+/** Fits running inside React's commit (a layout effect), which announce nothing: React redraws. */
+let inCommit = 0;
+
+/** Sends `LAYOUT_FITTED`, unless inside React's commit. */
+export function announceFitted() {
+  if (inCommit === 0) document.dispatchEvent(new Event(LAYOUT_FITTED));
+}
+
+/** Runs a fit from a layout effect (see `announceFitted`). */
+export function fitInCommit(fit: () => void) {
+  inCommit++;
+  try {
+    fit();
+  } finally {
+    inCommit--;
+  }
+}
+
 /** Caps `el` at `max` px, scrolling inside, or (`null`) gives it back its own height. */
 function capPart(el: HTMLElement, max: number | null) {
   el.style.maxHeight = max === null ? '' : `${max}px`;
@@ -69,8 +93,13 @@ export function useFitToScreen(
     if (place.current.key !== resetKey) place.current = { key: resetKey, top: 0 };
     const fit = () => {
       // While capped, the part's own scroll is the reader's place; read it before re-fitting.
-      if (el.style.maxHeight) place.current.top = el.scrollTop;
+      const had = el.style.maxHeight;
+      if (had) place.current.top = el.scrollTop;
       fitPart(el, min, place.current.top);
+      capOnce();
+      if (el.style.maxHeight !== had) announceFitted();
+    };
+    const capOnce = () => {
       // Capped: a drawing or a table inside that sizes itself shrinks now rather than next frame
       // (one frame of a capped, scrolling area on every step of a dragged window), and the part
       // measures again, often to no cap at all.
@@ -84,7 +113,7 @@ export function useFitToScreen(
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(fit);
     };
-    fit();
+    fitInCommit(fit);
     const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
     const watchContent = () => {
       for (const node of content?.current ? [content.current] : el.children) sizes?.observe(node);

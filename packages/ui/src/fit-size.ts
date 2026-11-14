@@ -1,5 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react';
-import { FIT_AREA_CAPPED } from './fit-area.tsx';
+import { FIT_AREA_CAPPED, announceFitted, fitInCommit } from './fit-area.tsx';
 
 /** The custom property `useFitSize` sets on its element, in px. */
 export const FIT_SIZE_VAR = '--vt-fit';
@@ -172,14 +172,21 @@ export function useFitSize(
         return fitsOver(overshoots(el, inView), floor);
       };
       const best = fitSize(fitsAt, { min, max, step });
-      set(settleFit(history.current, { best, current, now: performance.now(), stillFits: fitsAt }));
+      const next = settleFit(history.current, {
+        best,
+        current,
+        now: performance.now(),
+        stillFits: fitsAt,
+      });
+      set(next);
+      if (next !== had) announceFitted();
     };
     let frame = 0;
     const later = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(fit);
     };
-    fit();
+    fitInCommit(fit);
     const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
     // The body keeps the window's height while the page grows, so watch the part's own boxes.
     sizes?.observe(document.body);
