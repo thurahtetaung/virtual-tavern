@@ -285,6 +285,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         onRename={setName}
         conn={conn}
         playtest={lookup.kind === 'found' && lookup.room.playtest === true}
+        seatToken={seat?.token}
         linkedPhone={linkedPhone}
         wordListsVersion={lookup.kind === 'found' ? lookup.room.versions?.wordLists : undefined}
       />
@@ -308,6 +309,7 @@ function Room({
   onRename,
   conn,
   playtest,
+  seatToken,
   linkedPhone,
   wordListsVersion,
 }: {
@@ -319,6 +321,8 @@ function Room({
   conn: ReturnType<typeof useRoom>;
   /** An admin playtest room: nothing is recorded, and nobody can be invited. */
   playtest: boolean;
+  /** This tab's playtest seat token (its PC table screen joins on it). */
+  seatToken: string | undefined;
   /** This browser is a phone linked to its player's PC (it joined on its link key). */
   linkedPhone: boolean;
   /** The word lists' version from the room lookup, so the first load may come from the cache. */
@@ -508,8 +512,8 @@ function Room({
   // A phone linked to this player: its PC side, and whether this game has a table screen for it.
   const desktop = useDesktop();
   const nudgeHidden = useLinkNudgeHidden();
-  /** This browser is the player's PC side (not their linked phone, not a playtest seat). */
-  const pcSide = !linkedPhone && !playtest;
+  /** This browser is the player's PC side (not their linked phone). */
+  const pcSide = !linkedPhone;
   const tableGame = game.pcTableScreen === true;
   const nightGames = night.recap?.games.length ?? 0;
   const showNight = night.enabled && nightGames > 0;
@@ -802,6 +806,7 @@ function Room({
           roomId={roomId}
           game={game}
           link={pcLink}
+          seatToken={seatToken}
           awaySeconds={away.seconds}
           tvPresent={snapshot?.stage?.present === true}
           onControls={() => setControlsHere(true)}

@@ -573,6 +573,8 @@ export function buildApp(opts: AppOptions) {
       gameName,
       isPrivateRoom,
       hasBackroom: requestHasBackroom,
+      isPlaytest: (roomId) => rooms.isPlaytest(roomId),
+      isAdmin: isAdminRequest,
       linked: (roomId, replaced) => {
         if (replaced) unlinkSockets(io, replaced, rooms);
         rooms.linksChanged(roomId);

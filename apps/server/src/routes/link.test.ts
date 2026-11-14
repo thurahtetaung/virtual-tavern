@@ -6,6 +6,7 @@ import {
   LINK_CODE_MS,
   type LinkCheck,
   type LinkCode,
+  type PlaytestCreated,
   type RoomRecap,
   type RoomSnapshot,
 } from '@vt/protocol';
@@ -228,6 +229,48 @@ describe('linking a phone to a player', () => {
     const gone = await ben.until((s) => !s.players.find((p) => p.name === 'Ana')!.connected);
     expect(gone.hostAwayUntil).toBeGreaterThan(0);
     expect(gone.hostAwayUntil! - gone.serverNow).toBeLessThanOrEqual(HOST_AWAY_MS);
+  });
+
+  it('in a playtest the phone signs in as the admin first, then plays its seat', async () => {
+    const t = await start();
+    const created = await t.app.inject({
+      method: 'POST',
+      url: '/api/admin/playtests',
+      headers: { cookie: t.admin },
+      payload: {
+        gameId: 'codenames',
+        seats: ['Ana', 'Ben', 'Cy', 'Dee'].map((name) => ({ name })),
+      },
+    });
+    const pt = created.json<PlaytestCreated>();
+    const seatToken = pt.seats[1]!.token!;
+    const pc = await t.client(t.admin);
+    expect(
+      await pc.call('room:join', { roomId: pt.roomId, token: seatToken, name: 'Ben' }),
+    ).toEqual({ ok: true });
+    const { code } = await t.mint(pc);
+    // Without the admin's session the phone gets no further, and the code isn't spent.
+    expect((await t.check(code)).json()).toEqual({ status: 'admin' });
+    const refused = await t.redeem(code);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { code: 'admin' } });
+    // Signed in, it links and plays as the seat.
+    expect((await t.check(code, t.admin)).json()).toMatchObject({
+      status: 'ok',
+      preview: { name: 'Ben' },
+    });
+    const res = await t.redeem(code, t.admin);
+    expect(res.statusCode).toBe(200);
+    const { key } = res.json<{ key: string }>();
+    const { c: phone, res: joined } = await t.phone(pt.roomId, key, t.admin);
+    expect(joined).toEqual({ ok: true });
+    expect((await phone.until((s) => s.link?.phone === true)).you).toBe(pc.latest()!.you);
+    // The PC's table screen joins on the seat's token.
+    const show = await t.client(t.admin);
+    expect(
+      await show.call('room:join', { roomId: pt.roomId, role: 'show', token: seatToken }),
+    ).toEqual({ ok: true });
+    await pc.until((s) => s.link?.show === true);
   });
 
   it("the PC's table screen gets the spectator view and counts for nobody", async () => {

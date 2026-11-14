@@ -172,11 +172,12 @@ export interface LinkPreview {
 /**
  * `POST /api/link/check`: what the phone shows next. `expired`: the code ran out or was used;
  * `wrong`: no PC shows it; `other-seat`: this phone already plays someone else in that room (its
- * own room, so it may know it: `seat` is who it plays, `name` who the code is for).
+ * own room, so it may know it: `seat` is who it plays, `name` who the code is for); `admin`: the code
+ * is for an admin playtest, which the phone may enter only once it is signed in as the admin.
  */
 export type LinkCheck =
   | { status: 'ok'; preview: LinkPreview }
-  | { status: 'expired' | 'wrong' }
+  | { status: 'expired' | 'wrong' | 'admin' }
   | { status: 'other-seat'; roomId: string; seat: string; host: string; name: string };
 
 /** A redeemed code: the room, and the phone's new key for it (sent to this phone only). */
