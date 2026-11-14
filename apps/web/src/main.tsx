@@ -15,6 +15,8 @@ import './index.css';
 // The room (socket.io and the game shell) and the admin area load on demand, so the landing
 // page stays small.
 const RoomPage = lazy(() => import('./pages/RoomPage.tsx').then((m) => ({ default: m.RoomPage })));
+// A phone linking to its player's PC.
+const LinkPage = lazy(() => import('./pages/LinkPage.tsx').then((m) => ({ default: m.LinkPage })));
 const AdminPage = lazy(() =>
   import('./pages/AdminPage.tsx').then((m) => ({ default: m.AdminPage })),
 );
@@ -58,6 +60,7 @@ createRoot(document.getElementById('root')!).render(
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/r/:roomId" element={<RoomPage />} />
+              <Route path="/link" element={<LinkPage />} />
               <Route path="/rules" element={<RulesPage />} />
               <Route path="/faq" element={<FaqPage />} />
               <Route path="/rules/:gameId" element={<RulesPage />} />

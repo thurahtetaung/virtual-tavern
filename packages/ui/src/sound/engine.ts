@@ -37,6 +37,20 @@ export interface Saying {
   cut: (ms: number) => void;
 }
 
+/**
+ * Silences every game's sound on this page while on (a PC showing its player's table screen while
+ * the room's own TV has the sound). Settings previews still play.
+ */
+let pageMuted = false;
+
+export function setPageMuted(on: boolean): void {
+  if (pageMuted === on) return;
+  pageMuted = on;
+  for (const e of engines.values()) e.applyMute();
+}
+
+export const isPageMuted = () => pageMuted;
+
 interface MusicPlayer {
   el: HTMLAudioElement;
   gain: GainNode | null;
@@ -55,6 +69,8 @@ export class SoundEngine {
     this.game = game;
   }
   private ctx: AudioContext | null = null;
+  /** Where effects, voice and context-driven music go: the speakers, unless the page is muted. */
+  private out: GainNode | null = null;
   private decoded = new Map<string, Promise<AudioBuffer | null>>();
   private pinned = new Set<string>();
   /** Compressed files fetched this visit where Cache Storage is missing (an insecure page). */
@@ -84,7 +100,15 @@ export class SoundEngine {
       } catch {
         return;
       }
+      try {
+        this.out = this.ctx.createGain();
+        this.out.gain.value = pageMuted ? 0 : 1;
+        this.out.connect(this.ctx.destination);
+      } catch {
+        this.out = null;
+      }
       for (let i = 0; i < 2; i++) this.music.push(this.musicPlayer());
+      this.applyMute();
       this.previewer = this.musicPlayer();
     }
     const ctx = this.ctx;
@@ -94,6 +118,12 @@ export class SoundEngine {
     silent.buffer = ctx.createBuffer(1, 1, 22050);
     silent.connect(ctx.destination);
     silent.start();
+  }
+
+  /** Follows the page's mute (`setPageMuted`): the effects' output, and the music elements. */
+  applyMute() {
+    if (this.out) this.out.gain.value = pageMuted ? 0 : 1;
+    for (const p of this.music) p.el.muted = pageMuted;
   }
 
   get ready(): boolean {
@@ -261,7 +291,7 @@ export class SoundEngine {
     const gain = ctx.createGain();
     gain.gain.value = Math.max(0, Math.min(1, volume));
     node.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.out ?? ctx.destination);
     return { node, gain };
   }
 

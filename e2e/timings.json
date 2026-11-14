@@ -45,6 +45,8 @@
   "nightfall-alien.spec.ts": 81,
   "nightfall-vampire.spec.ts": 101,
   "nightfall.spec.ts": 90,
+  "phone-link-shots.spec.ts": 1,
+  "phone-link.spec.ts": 22,
   "player-colours.spec.ts": 8,
   "playtest.spec.ts": 45,
   "question-decks.spec.ts": 2,

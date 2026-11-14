@@ -24,6 +24,7 @@ Notes for working on this game. The repo-wide rules are in the root `CLAUDE.md`,
     - **End** (`endTimes`, `endBeats`): the chairs drop away and the floor shows; each buyer's paddle (their name on it) comes in with their total under it, their drawings in groups (at the rig's `art1.at`; values in the artist's colour) (names 450 ms apart, the values, the fly into the total), then out, as the original's pace; the finale row (the rig's `finaleRow` places, names on the paddles, totals in each player's colour) a second apart, with a debt the loan sign and the shark ¾ s into it; the totals drop, the winner, `winner-out` 2.5 s on, then the credits on the projector (the original logo, the title's thanks, the manifest's `credit`, "The host can play again").
   - **Without rigs** the table screen is the shared poster (`Plain` in `Stage.tsx`): the lot, its bid (with the top bidder and the last few bids beside it) or sale, the stage words and the auctioneer's line.
   - **Testing:** `GOING_ONCE_TEST_RIG=1` lets the host rig the next game from the lobby (fixed deal, halved clocks, low cash so the bank comes).
+  - **Linked phone:** `pcTableScreen` in the web registry: a player on a desktop can link their phone and use the PC as their own table screen (`GoingOnceStage` on the spectator view, `docs/architecture.md` "Linked phones").
 
 ## Assets
 

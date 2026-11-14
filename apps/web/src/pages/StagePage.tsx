@@ -58,7 +58,7 @@ export function StagePage() {
 
   const headline = roomId ? 'Ready when you are' : 'Pair this screen';
   const line = roomId
-    ? 'This screen is paired with the room. Start the show when everyone can see it.'
+    ? 'This screen is paired with the room. Start the table screen when everyone can see it.'
     : "The host taps the 👥 button in the room's header, then 📺 Table screen, and reads you a code. Type it here.";
   const footer =
     'A table screen shows the table to everyone but never takes a seat, and the phones keep their own secrets.';
@@ -74,7 +74,7 @@ export function StagePage() {
             void navigate(`/stage/${roomId}`);
           }}
         >
-          ▶ Start the show
+          ▶ Start the table screen
         </Button>
         <button
           type="button"

@@ -162,7 +162,7 @@ export async function tv(
   await page.goto('/stage');
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair this screen' }).click();
-  await page.getByRole('button', { name: '▶ Start the show' }).click();
+  await page.getByRole('button', { name: '▶ Start the table screen' }).click();
   await page.evaluate(() => document.exitFullscreen().catch(() => {}));
   return page;
 }

@@ -27,6 +27,11 @@ export interface ClientGame {
    */
   stage?: GameUi;
   /**
+   * A player on a desktop may link their phone and use this screen as their own table screen
+   * (the game's `stage`, on the spectator view). Games with a table screen made for it only.
+   */
+  pcTableScreen?: true;
+  /**
    * Names the night recap's private placeholders (`{role:…}`, `{loc:…}`, `{card:…}`) from the
    * game's manifest. Back-room games only; public games report readable words already.
    */

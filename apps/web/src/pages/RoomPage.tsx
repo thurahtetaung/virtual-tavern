@@ -39,7 +39,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
 import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
@@ -48,6 +48,23 @@ import { useBackroomPage } from '../lib/backroom.ts';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
 import { TableScreen } from '../components/TableScreen.tsx';
+import {
+  LinkNudge,
+  LinkedStrip,
+  PairingCard,
+  PcAwayStrip,
+  PcSheet,
+  PcTableScreen,
+  usePhoneAway,
+} from '../components/PhoneLink.tsx';
+import {
+  forgetLinkKey,
+  hideLinkNudge,
+  linkKeyFor,
+  saveLinkKey,
+  useDesktop,
+  useLinkNudgeHidden,
+} from '../lib/links.ts';
 import {
   type ClientGame,
   findGame,
@@ -102,9 +119,11 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
     return seatFor(roomId) !== null;
   });
   const [savedAs, setName] = useState<string | null>(() => savedName() || null);
+  // A phone linked to its player's PC plays as that player, so it never asks for a name.
+  const [linkedPhone] = useState(() => linkKeyFor(roomId) !== null);
   const seat = lookup.kind === 'found' ? lookup.seat : null;
   // A seat tab plays under the seat's name and never asks for one.
-  const name = seat?.name ?? savedAs;
+  const name = seat?.name ?? savedAs ?? (linkedPhone ? '-' : null);
   // The socket opens alongside the lookup, and the join goes out once the name is known. A seat
   // link waits for the lookup: only a playtest honours its seat.
   const conn = useRoom(roomId, name, seat?.token, !seatLink || lookup.kind === 'found');
@@ -116,6 +135,15 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         ? `Join ${game?.name ?? 'a game'}`
         : null,
   );
+
+  // A linked phone follows its PC to the night's next table (its key opens it there too).
+  const { follow } = conn;
+  useEffect(() => {
+    if (!follow) return;
+    const key = linkKeyFor(roomId);
+    if (key) saveLinkKey(follow, key);
+    void navigate(`/r/${follow}`);
+  }, [follow, roomId, navigate]);
 
   // A game this app doesn't have: hang up rather than sit in the room the socket may have joined.
   const { close } = conn;
@@ -257,6 +285,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         onRename={setName}
         conn={conn}
         playtest={lookup.kind === 'found' && lookup.room.playtest === true}
+        linkedPhone={linkedPhone}
         wordListsVersion={lookup.kind === 'found' ? lookup.room.versions?.wordLists : undefined}
       />
     </RefusalProvider>
@@ -279,6 +308,7 @@ function Room({
   onRename,
   conn,
   playtest,
+  linkedPhone,
   wordListsVersion,
 }: {
   roomId: string;
@@ -289,6 +319,8 @@ function Room({
   conn: ReturnType<typeof useRoom>;
   /** An admin playtest room: nothing is recorded, and nobody can be invited. */
   playtest: boolean;
+  /** This browser is a phone linked to its player's PC (it joined on its link key). */
+  linkedPhone: boolean;
   /** The word lists' version from the room lookup, so the first load may come from the cache. */
   wordListsVersion: string | undefined;
 }) {
@@ -473,9 +505,16 @@ function Room({
     const res = await call('room:recap-tone', tone, tz());
     if (!res.ok) toast(res.error.message);
   };
+  // A phone linked to this player: its PC side, and whether this game has a table screen for it.
+  const desktop = useDesktop();
+  const nudgeHidden = useLinkNudgeHidden();
+  /** This browser is the player's PC side (not their linked phone, not a playtest seat). */
+  const pcSide = !linkedPhone && !playtest;
+  const tableGame = game.pcTableScreen === true;
   const nightGames = night.recap?.games.length ?? 0;
   const showNight = night.enabled && nightGames > 0;
-  const headerButtons = (playtest ? 2 : 3) + (showNight ? 1 : 0);
+  const linkButton = (pcSide && tableGame && (desktop || !!snapshot?.link)) || linkedPhone;
+  const headerButtons = (playtest ? 2 : 3) + (showNight ? 1 : 0) + (linkButton ? 1 : 0);
   const canWrap =
     isHost &&
     night.enabled &&
@@ -508,10 +547,84 @@ function Room({
   const myName = snapshot?.players.find((p) => p.id === snapshot.you)?.name;
   const toldName = useRef<string | null>(null);
   useEffect(() => {
-    if (!myName || myName === name || toldName.current === myName) return;
+    if (!myName || myName === name || toldName.current === myName || linkedPhone) return;
     toldName.current = myName;
     toast(`Someone here is already called ${name}, so you're ${myName} in this room.`, 'info');
-  }, [myName, name, toast]);
+  }, [myName, name, toast, linkedPhone]);
+
+  // ---- A phone linked to this player (the PC can become the table screen) ----
+  const location = useLocation();
+  /** Linking starts from desktops in games with a table screen. */
+  const canLink = pcSide && tableGame && desktop;
+  const pcLink = pcSide ? snapshot?.link : undefined;
+  const [pairOpen, setPairOpen] = useState(false);
+  const [controlsHere, setControlsHere] = useState(false);
+  const [pcSheetOpen, setPcSheetOpen] = useState(false);
+  const away = usePhoneAway(pcLink, clockOffset);
+  /** "Back to the table screen" while the phone is still away: until it next drops. */
+  const [overrideDrop, setOverrideDrop] = useState(false);
+  if (overrideDrop && pcLink?.phone) setOverrideDrop(false);
+  const tableScreenOn =
+    pcSide &&
+    tableGame &&
+    !!pcLink &&
+    !controlsHere &&
+    !pairOpen &&
+    (!away.dropped || overrideDrop);
+  const unlinking = useRef(false);
+  const hadLink = useRef(false);
+  const linkedNow = !!pcLink;
+  useEffect(() => {
+    if (hadLink.current && !linkedNow) {
+      if (!unlinking.current)
+        toast('Your phone was unlinked. The controls are back on this PC.', 'info');
+      unlinking.current = false;
+      setControlsHere(false);
+    }
+    hadLink.current = linkedNow;
+  }, [linkedNow, toast]);
+  // A phone that just linked says so once, and rings its PC button.
+  const [arrivedAs] = useState(() => (location.state as { linkedAs?: string } | null)?.linkedAs);
+  const [ring, setRing] = useState(!!arrivedAs);
+  useEffect(() => {
+    if (!arrivedAs) return;
+    toast(`You're in as ${arrivedAs}. Your PC is the table screen now.`, 'info');
+    void navigate(location.pathname, { replace: true, state: null });
+    const t = setTimeout(() => setRing(false), 4000);
+    return () => clearTimeout(t);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivedAs]);
+  useEffect(() => {
+    if (linkedPhone && status === 'unlinked') forgetLinkKey(roomId);
+  }, [linkedPhone, status, roomId]);
+  const unlinkPc = async () => {
+    const yes = await confirm({
+      title: 'Unlink your phone?',
+      body: `Your phone leaves the room at once. You keep playing as ${myName ?? name} on this PC, with the controls here.`,
+      confirmLabel: 'Unlink phone',
+      danger: true,
+    });
+    if (!yes) return;
+    unlinking.current = true;
+    const res = await call('room:unlink');
+    if (!res.ok) {
+      unlinking.current = false;
+      toast(res.error.message);
+    }
+  };
+  const unlinkPhone = async () => {
+    setPcSheetOpen(false);
+    const yes = await confirm({
+      title: 'Unlink this phone?',
+      body: `This phone leaves the room at once. You keep playing as ${myName ?? ''} on your PC, with the controls there.`,
+      confirmLabel: 'Unlink this phone',
+      danger: true,
+    });
+    if (!yes) return;
+    const res = await call('room:unlink');
+    if (!res.ok) toast(res.error.message);
+  };
 
   // Arrivals and departures, collected briefly so a group joining at once makes one toast. Only in
   // the lobby: during a game the Players count shows them, and a toast would cover the board.
@@ -566,8 +679,11 @@ function Room({
   const players = useUnchanged(snapshot?.players);
   const you = snapshot?.you;
   const hostId = snapshot?.hostId;
-  // A table screen in the room: phones keep their controls and go quiet.
-  const stagePresent = snapshot?.stage?.present === true;
+  // A table screen in the room: phones keep their controls and go quiet. A linked phone goes
+  // quiet too while its own PC is the table screen.
+  const link = snapshot?.link;
+  const pcShows = linkedPhone && link?.pc === true && link.show;
+  const stagePresent = snapshot?.stage?.present === true || pcShows;
   const stage = useMemo(() => ({ present: stagePresent }), [stagePresent]);
   const { profile } = useShowProfile(stage);
   const roomInfo = useMemo(
@@ -656,6 +772,17 @@ function Room({
       />
     );
   }
+  if (status === 'unlinked') {
+    const host = snapshot?.players.find((p) => p.id === snapshot.hostId)?.name;
+    return (
+      <NotFoundPage
+        heading="This phone is unlinked"
+        icon="👋"
+        message={`It has left ${host ? `${host}’s` : 'the'} room. You keep playing as ${myName ?? 'yourself'} on your PC, with the controls there.`}
+        {...home}
+      />
+    );
+  }
   if (status === 'error') {
     return (
       <NotFoundPage
@@ -666,6 +793,23 @@ function Room({
       />
     );
   }
+
+  // The PC as its player's table screen: the room's own page steps aside (its game makes no sound).
+  if (tableScreenOn && pcLink)
+    return (
+      <>
+        <PcTableScreen
+          roomId={roomId}
+          game={game}
+          link={pcLink}
+          awaySeconds={away.seconds}
+          tvPresent={snapshot?.stage?.present === true}
+          onControls={() => setControlsHere(true)}
+          onUnlink={() => void unlinkPc()}
+        />
+        {confirmDialog}
+      </>
+    );
 
   const Game = game.Component;
   // The host's end-of-game buttons (a game's own end screen is above or below them).
@@ -743,6 +887,29 @@ function Room({
         >
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
           {!playtest && <InviteButton />}
+          {linkButton && !linkedPhone && (
+            <HeaderButton
+              icon="smartphone"
+              label={pcLink ? (pcLink.phone ? 'Linked' : 'Offline') : 'Phone'}
+              tone={pcLink ? (pcLink.phone ? 'ok' : 'warn') : undefined}
+              aria-label={
+                pcLink
+                  ? `Phone ${pcLink.phone ? 'linked' : 'offline'}: unlink it`
+                  : 'Link your phone'
+              }
+              onClick={() => (pcLink ? void unlinkPc() : setPairOpen(true))}
+            />
+          )}
+          {linkedPhone && (
+            <HeaderButton
+              icon="monitor"
+              label="PC"
+              tone={snapshot?.link?.pc ? 'ok' : 'warn'}
+              ring={ring}
+              aria-label={snapshot?.link?.pc ? 'Your PC (connected)' : 'Your PC (away)'}
+              onClick={() => setPcSheetOpen(true)}
+            />
+          )}
           <HeaderButton
             icon="users"
             label={snapshot ? `${online} here` : 'Players'}
@@ -793,6 +960,35 @@ function Room({
           onDismiss={dismissNext}
         />
       )}
+      {canLink && !pcLink && !nudgeHidden && snapshot && (
+        <LinkNudge
+          onLink={() => setPairOpen(true)}
+          onHide={() => {
+            hideLinkNudge();
+            toast('Hidden. Link your phone any time with the Phone button up here.', 'info');
+          }}
+        />
+      )}
+      {pcLink &&
+        (!tableGame ? (
+          <LinkedStrip kind="no-table" onTableScreen={() => {}} onUnlink={() => void unlinkPc()} />
+        ) : away.dropped && !overrideDrop ? (
+          <LinkedStrip
+            kind="dropped"
+            onTableScreen={() => {
+              setControlsHere(false);
+              setOverrideDrop(true);
+            }}
+            onUnlink={() => void unlinkPc()}
+          />
+        ) : controlsHere ? (
+          <LinkedStrip
+            kind="controls"
+            onTableScreen={() => setControlsHere(false)}
+            onUnlink={() => void unlinkPc()}
+          />
+        ) : null)}
+      {linkedPhone && snapshot?.link && !snapshot.link.pc && <PcAwayStrip />}
       {snapshot && <HostAway snapshot={snapshot} clockOffset={clockOffset} />}
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
       {endActions && (
@@ -899,6 +1095,30 @@ function Room({
           Open the rules in a new tab
         </Link>
       </Drawer>
+
+      {pcSide && (
+        <PairingCard
+          open={pairOpen}
+          onClose={() => setPairOpen(false)}
+          call={call}
+          clockOffset={clockOffset}
+          name={myName ?? name}
+          linked={!!pcLink}
+          onTableScreen={(on) => {
+            setPairOpen(false);
+            setControlsHere(!on);
+          }}
+        />
+      )}
+      {linkedPhone && (
+        <PcSheet
+          open={pcSheetOpen}
+          onClose={() => setPcSheetOpen(false)}
+          name={myName ?? ''}
+          link={snapshot?.link}
+          onUnlink={() => void unlinkPhone()}
+        />
+      )}
 
       <Modal open={colorOpen} onClose={() => setColorOpen(false)} title="Your colour" size="sm">
         {snapshot && colorOpen && (
@@ -1079,11 +1299,17 @@ function HeaderButton({
   icon,
   label,
   variant = 'secondary',
+  tone,
+  ring = false,
   ...props
 }: {
   icon: IconName;
   label: ReactNode;
   variant?: 'secondary' | 'tint';
+  /** A device's status: linked and here, or away. */
+  tone?: 'ok' | 'warn' | undefined;
+  /** Rings once to point at it. */
+  ring?: boolean;
   onClick: () => void;
   'aria-label'?: string;
 }) {
@@ -1091,7 +1317,12 @@ function HeaderButton({
     <Button
       size="sm"
       variant={variant}
-      className={HEADER_BUTTON}
+      className={cn(
+        HEADER_BUTTON,
+        tone === 'ok' && 'bg-success-soft text-success-ink ring-success-line',
+        tone === 'warn' && 'bg-warn-soft text-warn-ink ring-warn-line',
+        ring && 'outline-3 outline-offset-2 outline-success motion-safe:animate-pulse',
+      )}
       aria-label={props['aria-label'] ?? (typeof label === 'string' ? label : undefined)}
       {...props}
     >

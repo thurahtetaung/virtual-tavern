@@ -23,7 +23,9 @@ export type RoomStatus =
   /** A back-room room, and this browser's unlock is missing or no longer valid. */
   | 'locked'
   /** The admin ended this playtest: the room is gone. */
-  | 'closed';
+  | 'closed'
+  /** This linked phone's link ended (unlinked, replaced, or the player left): it left the room. */
+  | 'unlinked';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -59,12 +61,20 @@ export interface RoomListener {
   playtestAwards(lines: RecapLine[]): void;
   /** The night recap, pushed with the state it belongs to. */
   recap(push: RecapPush): void;
+  /** A linked phone: its PC moved to the night's next table (this phone follows). */
+  follow?(roomId: string): void;
 }
 
 export type RecapPush = Parameters<ServerToClientEvents['room:recap']>[0];
 
-/** Who joins: a player (their token and name), or the room's table screen (on its pass). */
-export type Joiner = { token: string; name: string } | { role: 'stage' };
+/**
+ * Who joins: a player (their token and name; `link`: the token is a linked phone's key), the room's
+ * table screen (on its pass), or a player's own PC showing the table screen (on their token).
+ */
+export type Joiner =
+  | { token: string; name: string; link?: true }
+  | { role: 'stage' }
+  | { role: 'show'; token: string };
 
 /**
  * Whether the heartbeat ran out while the page was asleep. A frozen phone never ran the timer
@@ -285,6 +295,14 @@ export class RoomConnection {
       inRoom(() => this.end('kicked')),
     );
     on(
+      'room:unlinked',
+      inRoom(() => this.end('unlinked')),
+    );
+    on(
+      'room:follow',
+      inRoom((roomId: string) => listener.follow?.(roomId)),
+    );
+    on(
       'room:wrapped',
       inRoom(() => listener.wrapped()),
     );
@@ -368,7 +386,13 @@ export class RoomConnection {
       this.release(false);
       if (res.error.code === 'backroom-locked')
         this.listener.lockReason(res.error.reason ?? 'none');
-      this.setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
+      this.setStatus(
+        res.error.code === 'backroom-locked'
+          ? 'locked'
+          : res.error.code === 'unlinked'
+            ? 'unlinked'
+            : 'error',
+      );
       this.listener.error(res.error.message);
     }
   }

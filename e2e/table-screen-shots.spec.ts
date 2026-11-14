@@ -21,7 +21,7 @@ interface PlaytestGame {
 }
 
 async function startShow(page: Page) {
-  await page.getByRole('button', { name: '▶ Start the show' }).click();
+  await page.getByRole('button', { name: '▶ Start the table screen' }).click();
   await expect(page.locator('[data-poster]')).toBeVisible();
   await page.waitForTimeout(600);
 }
@@ -98,7 +98,7 @@ test('the table screen poster: pairing, both themes, and every generic game', as
       await page.goto(`/stage/${roomId}`);
       if (i === 0) {
         // The one tap that starts the show (and may play sound) before it is under way.
-        await expect(page.getByRole('button', { name: '▶ Start the show' })).toBeVisible();
+        await expect(page.getByRole('button', { name: '▶ Start the table screen' })).toBeVisible();
         await auditTv(page, 'start tap', `${DIR}/start.png`);
       }
       await startShow(page);
