@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { expectPhoneFit, expectScrollKept } from './phone-fit.ts';
+import { expectFitSteady, expectPhoneFit, expectScrollKept } from './phone-fit.ts';
 import {
   PHONE,
   expectNamesClear,
@@ -77,6 +77,8 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   // on one screen.
   await expect(ben.getByText('Draw your prompt! Nobody else sees it.')).toBeVisible();
   await expectPhoneFit(ben, 'sketchy draw');
+  // The sheet comes to rest: its size and the tools under it never shake.
+  await expectFitSteady(ben, 'sketchy draw');
   // Scrolled down to the pens, the drawing clock's ticks never throw the player back to the top.
   await expectScrollKept(ben, 'sketchy draw');
   await expect(ben.getByRole('button', { name: '🎲 New prompt' })).toHaveCount(0);
