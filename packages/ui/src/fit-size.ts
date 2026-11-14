@@ -1,4 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react';
+import { FIT_AREA_CAPPED } from './fit-area.tsx';
 
 /** The custom property `useFitSize` sets on its element, in px. */
 export const FIT_SIZE_VAR = '--vt-fit';
@@ -20,18 +21,28 @@ export interface FitSizeOptions {
 }
 
 /**
- * Whether the page fits the window (nothing under its foot), and no capped area around `el` (a
- * phone's `FitArea`) has to scroll to show it all; with `inView`, whether that element's foot is
- * inside the window.
+ * How far past its limit each thing that must fit is, in px (0 or less: it fits): with `inView`,
+ * that element's foot against the window from the page's top; otherwise the page against the
+ * window, then every capped area around `el` (a phone's `FitArea`) against its own height.
  */
-function fits(el: HTMLElement, inView?: () => Element | null): boolean {
+function overshoots(el: HTMLElement, inView?: () => Element | null): number[] {
   const page = document.scrollingElement ?? document.documentElement;
   const keep = inView?.();
-  if (keep) return keep.getBoundingClientRect().bottom + window.scrollY <= page.clientHeight - 8;
-  if (page.scrollHeight > page.clientHeight + 1) return false;
+  if (keep) return [keep.getBoundingClientRect().bottom + window.scrollY - (page.clientHeight - 8)];
+  const over = [page.scrollHeight - page.clientHeight - 1];
   for (let n = el.parentElement; n && n !== document.body; n = n.parentElement)
-    if (n.style.maxHeight && n.scrollHeight > n.clientHeight + 1) return false;
-  return true;
+    over.push(n.style.maxHeight ? n.scrollHeight - n.clientHeight - 1 : 0);
+  return over;
+}
+
+/**
+ * Whether a size fits: nothing is further past its limit than it already was at the smallest size
+ * (`floor`). The part never takes the blame for what the rest of the page overflows by: when the
+ * tools beside a drawing are taller than a short window on their own, the drawing keeps the
+ * height beside them instead of dropping to its smallest size.
+ */
+export function fitsOver(over: number[], floor: number[]): boolean {
+  return over.every((px, i) => px <= Math.max(0, floor[i] ?? 0));
 }
 
 /**
@@ -122,7 +133,9 @@ export function settleFit(
  * element for its styles to use (a card's width, a drawing's height). On a tall window the part
  * grows into the room; on a short one it shrinks, so the result under it and the action keep their
  * place in view and the sticky tray never has to cover them. Inside a phone's `FitArea` it also
- * shrinks until the area needn't scroll. Past `min` the page (or the area) scrolls.
+ * shrinks until the area needn't scroll. Past `min` the page (or the area) scrolls. When the page
+ * is too tall even with the part at `min` (the rest is taller than the window), the part takes the
+ * largest size that makes it no taller, so a window dragged past that point never snaps it small.
  *
  * It measures again after every render, when the window or anything on the page resizes, and
  * when the bars at the foot change. A fit that would only undo its last change a few frames later
@@ -151,9 +164,12 @@ export function useFitSize(
       const had = Number.parseFloat(el.style.getPropertyValue(FIT_SIZE_VAR));
       const current = fittedIn.current === size && Number.isFinite(had) ? had : undefined;
       fittedIn.current = size;
+      // What overflows anyway, with the part at its smallest.
+      set(min);
+      const floor = overshoots(el, inView);
       const fitsAt = (px: number) => {
         set(px);
-        return fits(el, inView);
+        return fitsOver(overshoots(el, inView), floor);
       };
       const best = fitSize(fitsAt, { min, max, step });
       set(settleFit(history.current, { best, current, now: performance.now(), stillFits: fitsAt }));
@@ -172,11 +188,17 @@ export function useFitSize(
     const bars = new MutationObserver(later);
     bars.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
     window.addEventListener('resize', later);
+    // A `FitArea` round the part has just capped itself: fit to it now, in the same frame.
+    const capped = (e: Event) => {
+      if (e.target instanceof Node && e.target.contains(el)) fit();
+    };
+    document.addEventListener(FIT_AREA_CAPPED, capped);
     return () => {
       cancelAnimationFrame(frame);
       sizes?.disconnect();
       bars.disconnect();
       window.removeEventListener('resize', later);
+      document.removeEventListener(FIT_AREA_CAPPED, capped);
     };
     // No dependencies: it measures afresh after every render (new cards, a result under them).
   });

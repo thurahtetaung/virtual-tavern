@@ -94,13 +94,14 @@ export function StickyBar({
 }
 
 /** Where a lifted tray sits: over the spot's column, at the foot of the window. */
-type Lift = { left: number; width: number; height: number };
+/** `fill`: the control filled its column, so its holder does too (and follows a resized column). */
+type Lift = { left: number; width: number; height: number; fill: boolean };
 
 /**
  * Wider screens: lifts `el` into the tray while it is not wholly in the window and below its foot.
  * While lifted, a holder of the same size keeps its spot (the lifted element leaves the flow), and
- * the holder is what is watched until it is wholly back in view. Resizing the window drops the
- * lift, and the watch decides again from the new layout. A control taller than a third of the
+ * the holder is what is watched until it is wholly back in view. Resizing the window moves the
+ * tray with the holder while the spot is still below the foot, and drops it otherwise. A control taller than a third of the
  * window stays in place.
  */
 function useLift(
@@ -132,14 +133,33 @@ function useLift(
           const r = el.current.getBoundingClientRect();
           // A control taller than a third of the window would cover too much of the page above.
           if (r.height === 0 || r.height > window.innerHeight / 3) return;
-          setLift({ left: r.left, width: r.width, height: r.height });
+          const column = el.current.parentElement?.clientWidth ?? 0;
+          setLift({
+            left: r.left,
+            width: r.width,
+            height: r.height,
+            fill: Math.abs(column - r.width) < 1,
+          });
         }
       },
       { threshold: [0, 0.25, 0.5, 0.75, 0.99, 1] },
     );
     observer.observe(target);
+    // A resized window moves the lifted tray with the spot (the holder) while the spot is still
+    // below the window's foot, rather than dropping it into the page and lifting it again on every
+    // step of a drag; once the spot is in view, or the control too tall, it goes back in place.
     const drop = () => {
-      setLift(null);
+      const spot = lifted ? holder.current : null;
+      const r = spot?.getBoundingClientRect();
+      if (!r || r.bottom <= window.innerHeight - 1 || r.height > window.innerHeight / 3) {
+        setLift(null);
+        return;
+      }
+      setLift((l) =>
+        l && l.left === r.left && l.width === r.width
+          ? l
+          : { left: r.left, width: r.width, height: l?.height ?? r.height, fill: !!l?.fill },
+      );
     };
     window.addEventListener('resize', drop);
     return () => {
@@ -152,7 +172,7 @@ function useLift(
   const left = Math.max(0, lift.left - TRAY_EDGE);
   const right = Math.min(window.innerWidth, lift.left + lift.width + TRAY_EDGE);
   const style: CSSProperties = { left, width: right - left };
-  return { style, height: lift.height, width: lift.width };
+  return { style, height: lift.height, width: lift.fill ? null : lift.width };
 }
 
 /** Holds a lifted element's spot in the page (it is out of the flow while it is in the tray). */
@@ -161,7 +181,7 @@ function Holder({
   lift,
 }: {
   holder: RefObject<HTMLDivElement | null>;
-  lift: { height: number; width: number } | null;
+  lift: { height: number; width: number | null } | null;
 }) {
   return lift ? (
     <div
@@ -169,7 +189,7 @@ function Holder({
       aria-hidden="true"
       data-ui="sticky-holder"
       className="max-w-full shrink-0"
-      style={{ height: lift.height, width: lift.width }}
+      style={{ height: lift.height, width: lift.width ?? '100%' }}
     />
   ) : null;
 }

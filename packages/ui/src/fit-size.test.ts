@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIT_OSCILLATION_MS, type FitHistory, fitSize, settleFit } from './fit-size.ts';
+import { fitsOver, FIT_OSCILLATION_MS, type FitHistory, fitSize, settleFit } from './fit-size.ts';
 
 const RANGE = { min: 120, max: 360, step: 1 };
 const FRAME = 16;
@@ -42,6 +42,22 @@ describe('fitSize', () => {
     expect(fitSize((px) => px <= 250, { ...RANGE, step: 4 })).toBeGreaterThan(246);
     expect(fitSize(() => true, RANGE)).toBe(360);
     expect(fitSize(() => false, RANGE)).toBe(120);
+  });
+});
+
+describe('fitsOver', () => {
+  it('fits while nothing overflows, the usual case', () => {
+    expect(fitsOver([0, 0], [-40, 0])).toBe(true);
+    expect(fitsOver([3, 0], [-40, 0])).toBe(false);
+  });
+
+  it('allows what overflows anyway at the smallest size, and nothing more', () => {
+    // Tools beside the drawing are 22 px taller than the window on their own.
+    expect(fitsOver([22], [22])).toBe(true);
+    expect(fitsOver([23], [22])).toBe(false);
+    // A sheet whose height only counts past the tools' 450 px keeps that height, not the minimum.
+    const page = (px: number) => [Math.max(450, px) - 428];
+    expect(fitSize((px) => fitsOver(page(px), page(120)), { ...RANGE, max: 600 })).toBe(450);
   });
 });
 
