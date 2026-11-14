@@ -86,8 +86,6 @@ test('a PC and a phone link by code, play a Going Once round with the PC as tabl
       await p.getByTestId('drawing-send').click();
     }
   }
-  await expect(phone.getByTestId('go-practice')).toBeVisible();
-  await cleo.getByTestId('go-skip-practice').click();
   // Lot 1 goes up: the phone bids for Hana while the PC shows the table screen.
   await lotIs(phone, 1);
   await bid(ben, 400);
