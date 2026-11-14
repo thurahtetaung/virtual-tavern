@@ -53,6 +53,7 @@ import {
   LOT_INTRO_MS,
   PROJECTOR_WAIT_MS,
   SLIDE_ONE_MS,
+  SKIP_SAY_MS,
   TUTORIAL_END_MS,
   type LogEntry,
   MAX_BANK_CALLS,
@@ -292,7 +293,7 @@ function callOut(s: GoingOnceState, lot: number, rng: Rng): Say {
 
 function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead: Say = nothing()) {
   const g = s.game!;
-  // A line still being said (a skip's) is said to its end first, as every device does.
+  // A line still being said (the drawing's wrap-up) is said to its end first, as every device does.
   const from = voiced(s) ? doneTalking(g, now) : now;
   enter(g, 'auction', now);
   g.until = 0;
@@ -1154,13 +1155,19 @@ function afterDrawing(s: GoingOnceState, now: number, rng: Rng, lead: Say = noth
   startLot(s, 0, now, rng, lead);
 }
 
-/** Anyone skips the tutorial: everyone hears so ("On with the game"), and the game goes on. */
+/**
+ * Anyone skips the tutorial, as the original: the rest of it is cut (never waited for), the lights
+ * come up, and a beat later he says "Well, look who's fancy. Fine! On with the game." Lot 1 opens
+ * once he has said it (the intro's deadline), as after a tutorial heard to its end, sending its
+ * tips if slide 10 hadn't yet.
+ */
 function skipIntro(s: GoingOnceState, now: number, rng: Rng) {
   const g = s.game!;
-  if (g.stage !== 'intro') return err('no-intro', 'The introduction is over.');
+  if (g.stage !== 'intro' || g.introSkipped) return err('no-intro', 'The introduction is over.');
   g.introSkipped = true;
   g.introSkippedAt = now;
-  afterDrawing(s, now, rng, { text: [], voice: ['skipped'] });
+  const ms = host(s, rng, now, { text: [], voice: [{ wait: SKIP_SAY_MS }, 'skipped'] }, true);
+  g.until = now + ms;
   return null;
 }
 
@@ -1393,7 +1400,7 @@ export function nextDeadline(state: GoingOnceState): number | null {
   if (g.stage === 'practice') return 0;
   if (g.stage === 'done') return null;
   // The tutorial's slide 10: lot 1's tips go out first.
-  if (g.stage === 'intro' && !g.firstSent && g.firstAt !== undefined)
+  if (g.stage === 'intro' && !g.introSkipped && !g.firstSent && g.firstAt !== undefined)
     return Math.min(g.firstAt, g.until);
   if (g.stage === 'draw') {
     // The host's nudges at half time and with ten seconds left come first.
@@ -1412,7 +1419,8 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
   const rng = hiddenRng(state, now);
   switch (g.stage) {
     case 'intro':
-      if (!g.firstSent && g.firstAt !== undefined && now < g.until) sendFirstTips(s, rng);
+      if (!g.introSkipped && !g.firstSent && g.firstAt !== undefined && now < g.until)
+        sendFirstTips(s, rng);
       else afterDrawing(s, now, rng);
       break;
     case 'draw':

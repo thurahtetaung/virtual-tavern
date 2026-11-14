@@ -2,7 +2,13 @@ import { clone, type PlayerColor, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { HOST, SQUIGGLE, bid, game, hammer, harness, nextLot, pastIntro } from './test-utils.ts';
-import { type GoingOnceState, PROJECTOR_WAIT_MS, SLIDE_ONE_MS, TUTORIAL_END_MS } from './types.ts';
+import {
+  type GoingOnceState,
+  PROJECTOR_WAIT_MS,
+  SKIP_SAY_MS,
+  SLIDE_ONE_MS,
+  TUTORIAL_END_MS,
+} from './types.ts';
 import { CHANT_GAP_MS, CLIP_GAP_MS, chantKey, clipTimes, clipsMs } from './voice.ts';
 import { BID_SETTLE_MS } from './types.ts';
 import { VOICE_MS } from './voice-lengths.ts';
@@ -105,9 +111,12 @@ describe('the spoken introduction, in the original’s order', () => {
     for (const id of g.order) expect(g.players[id]!.messages).toHaveLength(0);
     h.act('p3', { type: 'skip-intro' });
     const v = goingOnce.view(h.state, 'p2').game!;
-    expect(v.stage).toBe('auction');
     expect(v.introSkipped).toBe(true);
-    expect(keys(h.state)[0]).toBe('skipped');
+    expect(keys(h.state)).toEqual(['skipped']);
+    // Once is enough, while he says so too.
+    expect(h.refuse(HOST, { type: 'skip-intro' }).code).toBe('no-intro');
+    h.tick();
+    expect(game(h).stage).toBe('auction');
     // Skipped before slide 10: lot 1 sends them, once.
     for (const id of game(h).order) expect(game(h).players[id]!.messages).toHaveLength(1);
     expect(h.refuse(HOST, { type: 'skip-intro' }).code).toBe('no-intro');
@@ -140,7 +149,9 @@ describe('the spoken introduction, in the original’s order', () => {
     drawEverything(h);
     h.tick();
     h.act('p2', { type: 'skip-intro' });
+    h.tick();
     expect(game(h).stage).toBe('auction');
+    expect(game(h).tipsEarly).toBe(true);
     for (const id of game(h).order) expect(game(h).players[id]!.messages).toHaveLength(1);
   });
 
@@ -209,11 +220,96 @@ describe('the spoken introduction, in the original’s order', () => {
   });
 });
 
+describe('skipping the tutorial', () => {
+  /** A voiced first game in its tutorial, skipped by p2 at `when`. */
+  function skipAt(when: 'early' | 'before-slide-10' | 'after-slide-10') {
+    const h = voicedGame(3);
+    drawEverything(h);
+    const firstAt = game(h).firstAt!;
+    if (when === 'early') h.wait(1000);
+    else if (when === 'before-slide-10') h.now = firstAt - 500;
+    else h.tick();
+    const press = h.now;
+    h.act('p2', { type: 'skip-intro' });
+    return { h, press };
+  }
+
+  for (const when of ['early', 'before-slide-10', 'after-slide-10'] as const)
+    it(`cuts the rest at once, says so within a beat, then opens lot 1 (${when})`, () => {
+      const { h, press } = skipAt(when);
+      const g = game(h);
+      // Nothing left of the tutorial: "Well, look who's fancy…" 0.2 s after the press, alone.
+      expect(g.stage).toBe('intro');
+      expect(g.introSkippedAt).toBe(press);
+      expect(keys(h.state)).toEqual(['skipped']);
+      const said = clipTimes(g.host!)[0]!;
+      expect(said).toBe(press + SKIP_SAY_MS);
+      const end = said + g.host!.clips![0]!.ms;
+      expect(g.until).toBe(end);
+      expect(goingOnce.nextDeadline!(h.state)).toBe(end);
+      // No tips while he says it: lot 1 sends them if slide 10 hadn't.
+      const early = when === 'after-slide-10';
+      for (const id of g.order) expect(g.players[id]!.messages).toHaveLength(early ? 1 : 0);
+      // Lot 1 opens as he finishes, its first line straight after, the picture up seconds later.
+      h.tick();
+      const a = game(h).auction!;
+      expect(h.now).toBe(end);
+      expect(game(h).stage).toBe('auction');
+      expect(a.lot).toBe(0);
+      expect(a.since).toBe(end);
+      expect(keys(h.state)[0]).toBe('opening-first');
+      expect(clipTimes(game(h).host!)[0]).toBe(end);
+      expect(a.closeAt - press).toBeLessThan(10_000);
+      expect(game(h).tipsEarly === true).toBe(early);
+      for (const id of g.order) expect(game(h).players[id]!.messages).toHaveLength(1);
+    });
+
+  it('has no tutorial to skip with the voice off', () => {
+    const h = voicedGame(3, 5, false);
+    drawEverything(h);
+    expect(game(h).stage).toBe('auction');
+    expect(h.refuse('p2', { type: 'skip-intro' }).code).toBe('no-intro');
+  });
+
+  it('opens lot 1 in a room saved while he says so', () => {
+    const { h } = skipAt('early');
+    h.state = JSON.parse(JSON.stringify(h.state)) as GoingOnceState;
+    h.tick();
+    expect(game(h).stage).toBe('auction');
+    for (const id of game(h).order) expect(game(h).players[id]!.messages).toHaveLength(1);
+  });
+
+  it('never sends lot 1’s tips twice when a room saved mid-tutorial by an older release is skipped', () => {
+    const h = voicedGame(3);
+    drawEverything(h);
+    const s = clone(h.state);
+    const old = s.game!;
+    delete old.firstAt;
+    old.firstSent = true;
+    for (const id of old.order)
+      old.players[id]!.messages.push({
+        id: 900,
+        lot: 0,
+        kind: 'intro',
+        from: 'buyer1',
+        text: 'Hi!',
+      });
+    h.state = s;
+    h.wait(1000);
+    h.act('p2', { type: 'skip-intro' });
+    expect(keys(h.state)).toEqual(['skipped']);
+    h.tick();
+    expect(game(h).stage).toBe('auction');
+    for (const id of old.order) expect(game(h).players[id]!.messages).toHaveLength(1);
+  });
+});
+
 /** A voiced game at lot 1's opening (the intro skipped, everything drawn). */
 function voicedAuction(n = 3, seed = 5) {
   const h = voicedGame(n, seed);
   drawEverything(h);
   h.act(HOST, { type: 'skip-intro' });
+  h.tick(); // "Well, look who's fancy…", then lot 1
   pastIntro(h);
   return h;
 }
@@ -257,14 +353,15 @@ describe('the voiced auction', () => {
     h.act(HOST, { type: 'start' });
     h.tick(); // the 3-2-1
     drawEverything(h);
-    // The tutorial skipped, then lot 1 at once: "skipped" is said first.
+    // The tutorial skipped: "skipped" is said first, then lot 1.
     h.act(HOST, { type: 'skip-intro' });
-    expect(game(h).stage).toBe('auction');
     const lead = game(h).host!;
     expect(lead.clips![0]!.key).toBe('skipped');
     const said = clipTimes(lead)[0]! + lead.clips![0]!.ms;
+    h.tick();
+    expect(game(h).stage).toBe('auction');
     // "The first item up for bid" waits for it, and so does the opening.
-    expect(clipTimes(lead)[1] ?? said).toBeGreaterThanOrEqual(said);
+    expect(clipTimes(game(h).host!)[0]).toBeGreaterThanOrEqual(said);
     h.tick();
     const opening = game(h).host!;
     expect(opening.clips!.map((c) => c.key)).toContain('opening');

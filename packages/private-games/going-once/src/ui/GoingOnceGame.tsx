@@ -679,7 +679,7 @@ function SoldCard({
   );
 }
 
-/** "Skipping the introduction", for everyone, for the first few seconds of the drawing. */
+/** "Skipping the introduction", for everyone, while he says so and lot 1 comes up. */
 function IntroSkipped() {
   const [shown, setShown] = useState(true);
   useEffect(() => {
@@ -737,7 +737,8 @@ function Intro({
         clockOffset={room.clockOffset}
         label="until the first lot"
       />
-      {view.mine && (
+      {view.game!.introSkipped && <IntroSkipped />}
+      {view.mine && !view.game!.introSkipped && (
         <Button
           variant="secondary"
           onClick={() => void act({ type: 'skip-intro' }, { anchor: 'go-intro' })}

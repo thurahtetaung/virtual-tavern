@@ -144,7 +144,8 @@ describe('the tutorial on the projector', () => {
     // The projector goes off at once when someone skips.
     h.act('p2', { type: 'skip-intro' });
     expect(keys(effectCues(goingOnce.view(h.state, null), null))).toContain('projector-stop');
-    // Lot 1 then opens without the phone's ring: the tips came at slide 10.
+    // Lot 1 then opens (once he has said so) without the phone's ring: the tips came at slide 10.
+    h.tick();
     const lot1 = goingOnce.view(h.state, 'p1');
     expect(lot1.game!.tipsEarly).toBe(true);
     expect(keys(effectCues(lot1, 'p1'))).not.toContain('message');
@@ -156,6 +157,7 @@ describe('the tutorial on the projector', () => {
     const h = voicedGame();
     drawEverything(h);
     h.act('p2', { type: 'skip-intro' });
+    h.tick();
     const lot1 = goingOnce.view(h.state, 'p1');
     expect(lot1.game!.tipsEarly).toBe(false);
     expect(keys(effectCues(lot1, 'p1'))).toContain('message');

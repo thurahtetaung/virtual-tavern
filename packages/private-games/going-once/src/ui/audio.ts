@@ -10,6 +10,7 @@ import {
   type SoldBeats,
   type SoundMode,
   SLIDE_ONE_MS,
+  SKIP_SAY_MS,
   TUTORIAL_END_MS,
 } from '../logic/types.ts';
 import { CHANT_GAP_MS, clipTimes } from '../logic/voice.ts';
@@ -354,7 +355,8 @@ const SLIDE_LINES: (string | null)[] = [
  */
 export function tutorialTimes(view: GoingOnceView) {
   const g = view.game;
-  if (!g || g.stage !== 'intro') return null;
+  // Skipped: the projector is off and the lights up (the moment settles at its end).
+  if (!g || g.stage !== 'intro' || g.introSkipped) return null;
   const host = g.host;
   const keys = host?.clips?.map((c) => c.key) ?? [];
   const start = (prefix: string) => {
@@ -386,7 +388,9 @@ export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: num
   if (!g) return { key: 'lobby', pick: 0 };
   switch (g.stage) {
     case 'intro': {
-      // The projector's loop, from just after it comes on until it shuts off (as the original).
+      // The projector's loop, from just after it comes on until it shuts off (as the original),
+      // or until a skip stops it.
+      if (g.introSkipped) return null;
       const t = tutorialTimes(view);
       if (t && now && (now < t.projector + 500 || now >= t.off)) return null;
       return { key: 'tutorial', pick: 0 };
@@ -581,7 +585,7 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
   if (g.introSkippedAt)
     out.push(
       sfx(`intro:skip`, g.introSkippedAt, 'skip'),
-      sfx(`intro:skipOff`, g.introSkippedAt, 'projector-stop'),
+      sfx(`intro:skipOff`, g.introSkippedAt + SKIP_SAY_MS, 'projector-stop'),
     );
   switch (g.stage) {
     case 'countdown':
@@ -607,9 +611,11 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       break;
     }
     case 'intro': {
-      const t = tutorialTimes(view)!;
-      const id = `intro:${g.since}`;
       out.push(...drawEndCues(view));
+      // Skipped: the slides, the buzz and the shut-off still to come never play.
+      const t = tutorialTimes(view);
+      if (!t) break;
+      const id = `intro:${g.since}`;
       out.push(sfx(`${id}:projector`, t.projector, 'projector-start'));
       t.slides.forEach((at, i) => out.push(sfx(`${id}:slide${i + 1}`, at, 'slide', { pick: i })));
       // Slide 10, "check your devices now": the phone buzz, and each player's first tip ringing.

@@ -170,6 +170,7 @@ describe('music', () => {
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
+    h.tick(); // "Well, look who's fancy…", then lot 1
     while (!game(h).auction || game(h).auction!.lot < halfAt(game(h).lots.length)) {
       hammer(h);
       nextLot(h);
@@ -331,6 +332,7 @@ describe('the auctioneer’s voice', () => {
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
+    h.tick(); // "Well, look who's fancy…", then lot 1
     h.tick();
     return h;
   }
@@ -395,6 +397,7 @@ describe('the voice queue', () => {
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
+    h.tick(); // "Well, look who's fancy…", then lot 1
     h.tick();
     return h;
   }
@@ -454,7 +457,7 @@ describe('the voice queue', () => {
     expect(tutorial[0]!.stage).toBe('intro');
     h.act('p2', { type: 'skip-intro' });
     const skipped = voiceLine(goingOnce.view(h.state, 'p1'))[0]!;
-    expect(skipped.stage).toBe('auction');
+    expect(skipped.key).toBe('skipped');
     expect(cutsOff(tutorial[0]!, skipped)).toBe(true);
     // The host skipping the Sold card cuts its wrap-up.
     const wrapUp = clip('host3:2', 0, { stage: 'sold', lineEnd: 9000 });
@@ -741,6 +744,7 @@ describe('fetching ahead', () => {
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.act(HOST, { type: 'skip-intro' });
+    h.tick(); // "Well, look who's fancy…", then lot 1
     h.tick();
     return h;
   }
