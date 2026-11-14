@@ -123,3 +123,29 @@ export async function expectScrollKept(
   });
   if (size) await page.setViewportSize(size);
 }
+
+/**
+ * A fitted part comes to rest: `--vt-fit` (`useFitSize`) and the part's top, read on every
+ * animation frame for `ms`, never change. A fit inside a phone's `FitArea` once undid the area's
+ * last pixel on every frame, so the drawing pad's tools shook.
+ */
+export async function expectFitSteady(page: Page, label: string, ms = 1000) {
+  const changes = () =>
+    page.evaluate(async (ms) => {
+      const el = document.querySelector<HTMLElement>('[style*="--vt-fit"]');
+      if (!el) return -1;
+      const read = () =>
+        `${el.style.getPropertyValue('--vt-fit')} ${el.getBoundingClientRect().top}`;
+      let last = read();
+      let n = 0;
+      const until = performance.now() + ms;
+      while (performance.now() < until) {
+        await new Promise((done) => requestAnimationFrame(done));
+        const now = read();
+        if (now !== last) n++;
+        last = now;
+      }
+      return n;
+    }, ms);
+  await expect.poll(changes, { message: `${label}: the fitted part holds still` }).toBe(0);
+}

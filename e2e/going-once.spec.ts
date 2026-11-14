@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { expectPhoneFit } from './phone-fit.ts';
+import { expectFitSteady, expectPhoneFit } from './phone-fit.ts';
 import {
   PHONE,
   TITLES,
@@ -67,6 +67,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   // Drawing on a phone: the title, the sheet and its pens, with Send in the bar, on one screen.
   await expect(hana.getByTestId('go-title')).toHaveText(TITLES[0]![0]);
   await expectPhoneFit(hana, 'going-once draw');
+  // The sheet comes to rest: its size and the tools under it never shake.
+  await expectFitSteady(hana, 'going-once draw');
   // Drawing: each player's titles, in seat order of the two families.
   for (const [seat, p] of all.entries()) {
     for (const [i, title] of TITLES[seat]!.entries()) {
