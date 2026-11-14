@@ -52,9 +52,7 @@ export function PhoneShow({
       ? 'lobby'
       : g.stage === 'draw' || g.stage === 'intro'
         ? 'draw'
-        : g.stage === 'practice'
-          ? 'practice'
-          : 'auction';
+        : 'auction';
   const rig = useRig(GAME_ID, 'phone', phase, phase === 'draw' ? 'auction' : undefined);
   const targets = useShowTargets();
   const { reduced, low } = useShowSettings();

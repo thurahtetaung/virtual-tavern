@@ -15,6 +15,7 @@ import {
 import { halfAt } from '../logic/setup.ts';
 import { BID_SETTLE_MS, SCREW_NUDGE_MS } from '../logic/types.ts';
 import {
+  BEAT,
   type Cue,
   DUCK_RATIO,
   MUSIC_SHARE,
@@ -24,6 +25,7 @@ import {
   cuePlays,
   deviceSounds,
   soundModeIn,
+  soldOutAt,
   dueCues,
   effectCues,
   endTimes,
@@ -128,12 +130,13 @@ describe('music', () => {
       nextLot(h);
     }
     // The end: the scores' loop through each buyer's art, the drumroll while everyone's totals
-    // rack up, then the credits once the winner is shown.
+    // rack up, silence as the winner comes, then the credits' loop three seconds on.
     const end = goingOnce.view(h.state, null);
     const times = endTimes(end)!;
     expect(musicFor(end, times.sum)).toEqual({ key: 'drumroll', pick: 0 });
     expect(musicFor(end, times.winner - 1)).toEqual({ key: 'drumroll', pick: 0 });
-    expect(musicFor(end, times.winner)).toEqual({ key: 'credits', pick: 0 });
+    expect(musicFor(end, times.winner)).toBeNull();
+    expect(musicFor(end, times.winner + 3000)).toEqual({ key: 'credits', pick: 0 });
     expect(times.winner).toBeGreaterThan(times.sum);
     // The winner's sound comes at the same moment.
     expect(effectCues(end, null).find((c) => c.key === 'winner-centre')!.at).toBe(times.winner);
@@ -158,8 +161,9 @@ describe('music', () => {
 
   it('has the auctioneer clear his throat 5 s before a voiced screw pick runs out', () => {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
     h.now = Math.max(h.now, g.drawStart);
@@ -202,15 +206,27 @@ describe('effects', () => {
     const a = game(h).auction!;
     const view = goingOnce.view(h.state, 'p1');
     const cues = effectCues(view, 'p1');
-    expect(cues[0]).toMatchObject({ key: 'lot-in', at: a.since });
+    // Lot 1 follows the drawing: the done paddles go down as it comes in.
+    expect(cues[0]).toMatchObject({ key: 'paddles-down', at: a.since });
+    expect(cues.find((c) => c.key === 'lot-in')).toMatchObject({ at: a.since });
     const ring = cues.find((c) => c.key === 'message')!;
     expect(ring.local).toBe(true);
     expect(ring.pick).toBe(RING[view.mine!.messages.at(-1)!.from]);
     expect(ring.at).toBeGreaterThan(a.since!);
-    // Someone watching gets no ring.
-    expect(keys(effectCues(goingOnce.view(h.state, null), null))).toEqual(['lot-in']);
+    // Someone watching gets no ring; the disc's rise away lands as the intro ends.
+    const all = effectCues(goingOnce.view(h.state, null), null);
+    expect(keys(all.filter((c) => c.id.startsWith('drawEnd:')))).toEqual([
+      'paddles-down',
+      'timer-out',
+    ]);
+    const watching = all.filter((c) => !c.id.startsWith('drawEnd:'));
+    expect(keys(watching)).toEqual(['lot-in', 'lot-out']);
+    expect(watching[1]!.at).toBe(a.closeAt - 600);
     h.tick();
-    expect(keys(effectCues(goingOnce.view(h.state, 'p1'), 'p1'))).toEqual(['painting-in']);
+    // The picture slides in, then the opening bid once it has landed.
+    const open = effectCues(goingOnce.view(h.state, 'p1'), 'p1');
+    expect(keys(open)).toEqual(['painting-in', 'opening-bid']);
+    expect(open[1]!.at - open[0]!.at).toBe(BEAT.paintingIn);
   });
 
   it('plays each bid with the paddle and that bidder’s own yelp, then the calls', () => {
@@ -218,8 +234,10 @@ describe('effects', () => {
     bid(h, 'p2', 400);
     const v = goingOnce.view(h.state, 'p1');
     const cues = effectCues(v, 'p1');
-    expect(keys(cues)).toEqual(['bid', 'bidder-voice']);
-    expect(cues[1]!.pick).toBe(v.game!.paddles.p2);
+    expect(keys(cues)).toEqual(['bid', 'bid-rackup', 'bidder-voice', 'next-bid', 'paddle-down']);
+    // The paddle goes back down a second after it went up (the original's).
+    expect(cues[4]!.at - cues[0]!.at).toBe(BEAT.paddleDown);
+    expect(cues[2]!.pick).toBe(v.game!.paddles.p2);
     expect(cues[0]!.at).toBe(game(h).auction!.since);
     // The same moment has the same ids on every device, and a new bid new ones.
     expect(effectCues(goingOnce.view(h.state, 'p3'), 'p3').map((c) => c.id)).toEqual(
@@ -227,7 +245,7 @@ describe('effects', () => {
     );
     bid(h, 'p3', 500);
     const next = effectCues(goingOnce.view(h.state, 'p1'), 'p1');
-    expect(next[1]!.pick).toBe(v.game!.paddles.p3);
+    expect(next[2]!.pick).toBe(v.game!.paddles.p3);
     expect(next[0]!.id).not.toBe(cues[0]!.id);
     h.tick();
     expect(keys(effectCues(goingOnce.view(h.state, 'p1'), 'p1'))).toEqual(['going-once']);
@@ -246,14 +264,17 @@ describe('effects', () => {
     const profit = item.value - 400;
     expect(keys(cues)).toEqual([
       'sold',
-      ...(item.artist ? ['paddle-flip', 'cha-ching'] : []),
+      ...(item.artist ? ['paddle-flip', 'artist', 'cha-ching'] : []),
       profit > 0 ? 'value-under' : profit < 0 ? 'value-over' : 'value-even',
       profit > 0 ? 'profit-out' : profit < 0 ? 'loss-out' : 'even-out',
+      'painting-out',
     ]);
-    const beats = item.artist ? [0, 2, 2, 3, 4] : [0, 2, 3];
-    expect(cues.map((c) => c.at - since)).toEqual(
-      beats.map((b, i) => b * SOLD_BEAT_MS + (item.artist && i === 2 ? 500 : 0)),
-    );
+    const B = SOLD_BEAT_MS;
+    const beats = item.artist
+      ? [0, 2 * B, 2 * B + BEAT.flipEdge, 2 * B + 500, 3 * B, 4 * B]
+      : [0, 2 * B, 3 * B];
+    const v = goingOnce.view(h.state, 'p1');
+    expect(cues.map((c) => c.at - since)).toEqual([...beats, soldOutAt(v, profit) + 100]);
     // Unsold: the painting goes off.
     nextLot(h);
     hammer(h);
@@ -280,7 +301,14 @@ describe('effects', () => {
     const v = goingOnce.view(h.state, null);
     const ks = keys(effectCues(v, null));
     expect(ks[0]).toBe('player-in');
-    expect(ks.at(-1)).toBe('winner-centre');
+    // The winner, its plate, then the winner's light going out before the credits.
+    expect(ks.slice(-3)).toEqual(['winner-centre', 'winner', 'winner-out']);
+    const out = effectCues(v, null).find((c) => c.key === 'winner-out')!;
+    expect(out.at).toBe(endTimes(v)!.winnerOut - 500);
+    // Each group of art slides in, its titles pop, then its values; each buyer leaves.
+    expect(ks.filter((k) => k === 'painting-in-end')).toHaveLength(endTimes(v)!.groups.length);
+    // (and once more as everyone's totals drop away before the winner).
+    expect(ks.filter((k) => k === 'player-out')).toHaveLength(endTimes(v)!.buyers + 1);
     expect(ks.includes('debt-shark')).toBe(v.game!.final!.some((f) => f.debt > 0));
     // Each buyer's art racks up to the scores' loop, before the drumroll.
     const times = endTimes(v)!;
@@ -294,8 +322,9 @@ describe('the auctioneer’s voice', () => {
   /** A voiced game at its first lot (the intro skipped, everything drawn). */
   function voiced() {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
     h.now = Math.max(h.now, g.drawStart);
@@ -340,8 +369,9 @@ describe('the auctioneer’s voice', () => {
 
   it('plays the tutorial’s music while it runs, after the drawing', () => {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     expect(musicFor(goingOnce.view(h.state, 'p1'))!.key).toBe('draw');
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
@@ -356,8 +386,9 @@ describe('the voice queue', () => {
   /** A voiced game at its first lot (the intro skipped, everything drawn). */
   function voiced() {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
     h.now = Math.max(h.now, g.drawStart);
@@ -411,8 +442,9 @@ describe('the voice queue', () => {
 
   it('cuts off a line a Skip ended, never one whose time was up', () => {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
     h.now = Math.max(h.now, g.drawStart);
@@ -700,8 +732,9 @@ describe('fetching ahead', () => {
   /** A voiced game at its first lot (the intro skipped, everything drawn). */
   function voiced() {
     const h = harness(3, 5);
-    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', voice: true });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     const g = game(h);
     // The pads open once the auctioneer calls for the drawings.
     h.now = Math.max(h.now, g.drawStart);

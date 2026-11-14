@@ -184,16 +184,13 @@ export function PsstBubble({
   art,
   name,
   big = false,
-  fact,
 }: {
   message: Message;
   art: Art;
   name: NameOf;
   big?: boolean;
-  /** The plain fact behind a tip the engine didn't send (the practice lot's). */
-  fact?: string;
 }) {
-  const why = fact ?? whyLine(message, name);
+  const why = whyLine(message, name);
   const tip = why !== null;
   const [buzzed, setBuzzed] = useState<number | null>(null);
   if (big && buzzed !== message.id) {

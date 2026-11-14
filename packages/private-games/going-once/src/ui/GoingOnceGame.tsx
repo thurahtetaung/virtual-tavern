@@ -62,9 +62,16 @@ import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
 import { Auction, GO_TABS, GO_TABS_ID, type GoTab, LotLog, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
-import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
+import {
+  Alerts,
+  GoingOnceStyles,
+  HostStrip,
+  PsstBubble,
+  RackUp,
+  useScrewBanner,
+  useBeats,
+} from './Extras.tsx';
 import { Picture } from './Picture.tsx';
-import { Practice } from './Practice.tsx';
 import { type NameOf, statusFor, unquote } from './text.ts';
 import { GoLobbySound, GoSoundButton } from './Sound.tsx';
 import { useGoVolumes, useSound } from './useSound.ts';
@@ -209,16 +216,24 @@ export function GoingOnceGame({
               )}
               <Alerts view={view} you={room.you} />
               {!quiet && screwBanner}
-              {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
-              {g.introSkipped &&
-                (g.stage === 'practice' ||
-                  (g.stage === 'auction' &&
-                    g.auction?.lot === 0 &&
-                    g.auction.close === 'intro')) && <IntroSkipped />}
-              {g.stage === 'draw' && <Draw view={view} room={room} act={act} quiet={quiet} />}
-              {g.stage === 'practice' && g.practice && (
-                <Practice view={view} room={room} act={act} art={art} name={name} />
+              {/* The 3-2-1 after Start (the table screen shows it big). */}
+              {g.stage === 'countdown' && (
+                <div className="py-8 text-center" data-testid="go-countdown">
+                  <Countdown
+                    deadline={g.until}
+                    clockOffset={room.clockOffset}
+                    label="until the game starts"
+                  />
+                </div>
               )}
+              {g.stage === 'intro' && (
+                <Intro view={view} room={room} act={act} art={art} name={name} />
+              )}
+              {g.introSkipped &&
+                g.stage === 'auction' &&
+                g.auction?.lot === 0 &&
+                g.auction.close === 'intro' && <IntroSkipped />}
+              {g.stage === 'draw' && <Draw view={view} room={room} act={act} quiet={quiet} />}
               {(g.stage === 'auction' || g.stage === 'sold') && (
                 <>
                   {/* Phones: the Sold card above the lot. Wide screens: at the top of the bidding
@@ -415,7 +430,6 @@ function Lobby({
               soundNow === 'off'
                 ? 'sound off'
                 : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
-              ...(view.gamesPlayed === 0 && view.settings.practice ? ['a practice lot first'] : []),
             ]}
             className="space-y-4"
           >
@@ -481,20 +495,6 @@ function Lobby({
                 />
               </div>
             </div>
-            <Switch
-              on={view.settings.practice}
-              editable={room.isHost && view.gamesPlayed === 0}
-              title="Practice lot"
-              help={
-                view.gamesPlayed === 0
-                  ? 'In this room’s first game: one lot for play money before lot 1, teaching the four things to know. Anyone can skip it.'
-                  : 'Only in a room’s first game: this room has played already.'
-              }
-              onChange={(v) =>
-                void act({ type: 'update-settings', practice: v }, { anchor: 'go-lobby' })
-              }
-              testId="go-practice-setting"
-            />
             <RefusalSlot anchor="go-lobby" />
           </LobbySettings>
           <GoLobbySound view={view} room={room} act={act} manifest={manifest} />
@@ -700,11 +700,31 @@ function IntroSkipped() {
 
 /**
  * The auctioneer's tutorial after the drawing (voiced games, a room's first game), as the original:
- * the words show in the host strip above; anyone at the table can skip it for everyone.
+ * the words show in the host strip above; anyone at the table can skip it for everyone. Lot 1's
+ * tip arrives at its slide 10 ("you should have your first message on your device now"): it shows
+ * at the top, as tips do during the lots, and rings and buzzes.
  */
-function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
+function Intro({
+  view,
+  room,
+  act,
+  art,
+  name,
+}: {
+  view: GoingOnceView;
+  room: GameRoomInfo;
+  act: Act;
+  art: Art;
+  name: NameOf;
+}) {
+  const tip = view.mine?.messages.at(-1);
   return (
     <Panel className="flex flex-col items-center gap-3 text-center" data-testid="go-intro">
+      {tip && tip.lot === 0 && (
+        <div className="w-full text-left" data-testid="go-intro-tip">
+          <PsstBubble message={tip} art={art} name={name} big />
+        </div>
+      )}
       <p className="text-4xl" aria-hidden>
         🎙️
       </p>

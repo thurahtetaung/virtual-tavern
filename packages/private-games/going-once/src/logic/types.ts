@@ -53,6 +53,15 @@ export const COMMISSION = 0.5;
 /** Each lot opens with its number and the hints for this long, before the picture goes up. */
 export const LOT_INTRO_MS = 2000;
 
+/**
+ * The tutorial's projector, as the original: it starts half a second after "A few quick words…",
+ * slide 1 (the logo) shows for a second and a little more, then slide 2 comes with the first line.
+ */
+export const PROJECTOR_WAIT_MS = 500;
+export const SLIDE_ONE_MS = 1100;
+/** After the last slide: the projector shuts off and the lights come up before lot 1. */
+export const TUTORIAL_END_MS = 1200;
+
 export const SCREW_PICK_MS = 15_000;
 /** The bank's phone rings first; then the line (the original's 2.2 s ring). */
 export const BANK_RING_MS = 2200;
@@ -204,20 +213,8 @@ export type Buyer = (typeof BUYERS)[number];
 export const SOUND_MODES = ['off', 'host', 'all', 'stage'] as const;
 export type SoundMode = (typeof SOUND_MODES)[number];
 
-/** The practice lot: a house picture for play money, before lot 1 of a room's first game. */
-export const PRACTICE_STEPS = ['hint', 'bid', 'sold', 'own', 'screw'] as const;
-export type PracticeStep = (typeof PRACTICE_STEPS)[number];
-/** How long each practice step lasts (the bidding runs on the auction's own close instead). */
-export const PRACTICE_MS: Record<Exclude<PracticeStep, 'bid'>, number> = {
-  hint: 6000,
-  sold: 7000,
-  own: 7000,
-  screw: 9000,
-};
-export const PRACTICE_VALUE = 2000;
-export const PRACTICE_CASH = 3000;
-/** The practice lot's scripted rival, who bids once: never a real player id (those are hashes). */
-export const HOUSE_BIDDER = '~house';
+/** Between the host's Start and the drawing: the original's 3-2-1 (at the test rig's scale). */
+export const COUNTDOWN_MS = 3000;
 
 export interface Settings {
   drawSeconds: DrawSeconds;
@@ -232,8 +229,6 @@ export interface Settings {
   effects?: boolean;
   /** The auctioneer's voice, off unless the host turns it on. */
   voice?: boolean;
-  /** The practice lot in the room's first game. */
-  practice?: boolean;
   /** The table screen's volumes, from the host's sliders (the table has no input). */
   tableVolumes?: TableVolumes;
   /** The host's sliders for everyone, each with its version (missing in rooms saved before). */
@@ -249,7 +244,6 @@ export const DEFAULT_SETTINGS: Required<
   music: true,
   effects: true,
   voice: false,
-  practice: true,
 };
 
 /** The settings with every default filled in. */
@@ -262,6 +256,12 @@ export interface Seat {
   playing: boolean;
   /** Watching only for want of a seat: sat down at the next game if there's room. */
   waiting?: boolean;
+  /**
+   * Their paddle shape, handed out as they join (the next free one in `GoingOnceState.shapes`)
+   * and kept into the game; freed when they leave the room. Rooms saved by older releases have
+   * none, and the deal at Start gives it.
+   */
+  paddle?: number;
 }
 
 /** One drawing in the game: a player's (or, unsent or extra, the house's) take on a title. */
@@ -373,31 +373,13 @@ export interface RecentBid {
 /** Bids kept in `Auction.recent`. */
 export const RECENT_BIDS = 4;
 
-/** `intro`: the auctioneer's tutorial after the drawing (a voiced room's first game; anyone can skip). */
+/**
+ * `countdown`: the 3-2-1 after the host's Start. `intro`: the auctioneer's tutorial after the
+ * drawing (a voiced room's first game; anyone can skip). `practice` is only ever in rooms saved by
+ * an older release mid-practice-lot (the lot is gone): it moves on to lot 1 at once.
+ */
 export type Stage =
-  'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
-
-/** The practice lot in play (none of it counts). */
-export interface Practice {
-  step: PracticeStep;
-  /** When a timed step ends. */
-  until: number;
-  /** When this step (or the bidding's current close stage) began. */
-  since: number;
-  /** A title and house picture from the spare groups, which no lot uses. */
-  title: string;
-  house: string;
-  /** The coach's hint, the same for everyone (it is about the practice lot only). */
-  hint: string;
-  seq: number;
-  bid: { by: PlayerId; amount: number } | null;
-  close: CloseStage;
-  closeAt: number;
-  recent: RecentBid[];
-  /** The house bidder has made its one bid. */
-  houseBid: boolean;
-  lastBidAt: Record<PlayerId, number>;
-}
+  'countdown' | 'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
 
 export type LogEntry =
   | {
@@ -439,9 +421,9 @@ export interface Game {
   bankTook: PlayerId[];
   /**
    * The hint lines for this game (from the private lines packs; kinds left out use our own), plus
-   * each buyer's own chatter and the practice tip (`LineKey` in `content.ts`).
+   * each buyer's own chatter (`LineKey` in `content.ts`).
    */
-  lines: Partial<Record<HintKind | Buyer | 'practice', string[]>>;
+  lines: Partial<Record<HintKind | Buyer, string[]>>;
   /** Players who left the room for good: they keep their seat, cash and art. */
   left: PlayerId[];
   winners: PlayerId[];
@@ -469,8 +451,8 @@ export interface Game {
   since?: number;
   /** Each player's art buyer, who sends them every tip (games saved before it pick at random). */
   contacts?: Record<PlayerId, Buyer>;
-  /** The practice lot, while it runs. */
-  practice?: Practice | null;
+  /** An older release's practice lot, in rooms saved during it (ignored: lot 1 follows). */
+  practice?: unknown;
   /** The auctioneer's voice is on (the host's switch with sound on, at the start): it sets the pace. */
   voiced?: boolean;
   /** The voice has explained buying your own drawing once this game. */
@@ -481,8 +463,23 @@ export interface Game {
   introSkipped?: boolean;
   /** When the tutorial was skipped (for its sound). */
   introSkippedAt?: number;
-  /** Lot 1's tips went out with the tutorial. */
+  /** Lot 1's tips went out with the tutorial (at its slide 10; at its start in older releases). */
   firstSent?: boolean;
+  /**
+   * When lot 1's tips go out during the tutorial: the start of "you should have your first
+   * message on your device now" (slide 10). Missing in rooms saved before (their tips went out
+   * with the tutorial's start, so `firstSent` is already set).
+   */
+  firstAt?: number;
+  /** Lot 1's tips went out during the tutorial (its slide 10), not with lot 1. */
+  tipsEarly?: boolean;
+  /**
+   * The drawing: when each player's last drawing arrived (the table screen raises their paddle
+   * then); cleared by a redraw. Missing in rooms saved before.
+   */
+  drawDone?: Record<PlayerId, number>;
+  /** When the drawing ended with art in (the paddles go down, the hourglass rises away). */
+  drawEnded?: number;
 }
 
 /** A title group kept for a redraw. */
@@ -551,6 +548,11 @@ export interface GoingOnceState {
   rig: Rig | null;
   /** Hidden randomness for timer-driven steps (hints at a new lot). */
   seed: number;
+  /**
+   * The order paddle shapes are handed out in, shuffled with `ctx.rng` when the room is made
+   * (joining has no rng). Missing in rooms saved by older releases until their first Start.
+   */
+  shapes?: number[];
 }
 
 // ---- Actions ----
@@ -566,7 +568,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     music: z.boolean().optional(),
     effects: z.boolean().optional(),
     voice: z.boolean().optional(),
-    practice: z.boolean().optional(),
   }),
   tableVolumeAction,
   hostVolumeAction,
@@ -579,12 +580,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     amount: z.number().int().min(OPENING_BID).max(1_000_000),
     seq: z.number().int().min(0),
   }),
-  z.object({
-    type: z.literal('practice-bid'),
-    amount: z.number().int().min(OPENING_BID).max(PRACTICE_CASH),
-    seq: z.number().int().min(0),
-  }),
-  z.object({ type: z.literal('skip-practice') }),
   z.object({ type: z.literal('skip-intro') }),
   z.object({ type: z.literal('screw') }),
   z.object({ type: z.literal('screw-pick'), target: id }),
@@ -611,6 +606,8 @@ export interface SeatView {
   name: string;
   playing: boolean;
   waiting?: boolean;
+  /** Their paddle shape, once handed out (the lobby's paddles show it). */
+  paddle?: number;
 }
 
 export interface PlayerView {
@@ -620,6 +617,8 @@ export interface PlayerView {
   screw: boolean;
   /** Has sent both drawings (draw stage). */
   drawn: boolean;
+  /** When their last drawing arrived, during the drawing and just after it (0: not yet). */
+  doneAt: number;
   left: boolean;
 }
 
@@ -691,26 +690,6 @@ export interface MineView {
   contact: Buyer;
 }
 
-/** The practice lot as everyone sees it. */
-export interface PracticeView {
-  step: PracticeStep;
-  until: number;
-  since: number;
-  /** The house picture's key. */
-  house: string;
-  hint: string;
-  value: number;
-  cash: number;
-  /** Shown from the Sold step on. */
-  title: string | null;
-  seq: number;
-  bid: { by: PlayerId; amount: number } | null;
-  close: CloseStage;
-  closeAt: number;
-  steps: number[];
-  recent: RecentBid[];
-}
-
 export interface FinalView {
   id: PlayerId;
   cash: number;
@@ -721,7 +700,7 @@ export interface FinalView {
 }
 
 export interface GameView {
-  stage: Stage;
+  stage: Exclude<Stage, 'practice'>;
   /** The Sold card's beats (`SoldBeats`) while it is up, else null. */
   soldBeats: SoldBeats | null;
   until: number;
@@ -732,7 +711,6 @@ export interface GameView {
    * its timer only then); 0 otherwise.
    */
   drawFrom: number;
-  practice: PracticeView | null;
   order: PlayerId[];
   players: PlayerView[];
   lotCount: number;
@@ -755,6 +733,15 @@ export interface GameView {
   introSkipped: boolean;
   /** When the tutorial was skipped (0: it wasn't). */
   introSkippedAt: number;
+  /**
+   * The tutorial: when lot 1's tips reach the phones (its slide 10, "you should have your first
+   * message on your device now"); 0 outside it or once they were sent another way.
+   */
+  firstAt: number;
+  /** Lot 1's tips came during the tutorial, so lot 1 opens without the phone's ring. */
+  tipsEarly: boolean;
+  /** When the drawing ended with art in (the tutorial and lot 1 show it ending; 0 otherwise). */
+  drawEnded: number;
   /** This drawing round is the redraw. */
   redraw: boolean;
   /** Each player's paddle shape. */
@@ -777,7 +764,7 @@ export interface GoingOnceView {
   mine: MineView | null;
   log: LogEntry[];
   groupsAvailable: number;
-  /** Games started in this room (the practice lot runs in the first). */
+  /** Games started in this room. */
   gamesPlayed: number;
   rigAllowed: boolean;
   rig: Rig | null;

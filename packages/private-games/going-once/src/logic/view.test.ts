@@ -82,9 +82,6 @@ function allowedTitles(state: GoingOnceState, viewer: PlayerId | null): Set<stri
   if (state.phase === 'over') return new Set(ALL_TITLES);
   const out = new Set<string>();
   for (const item of Object.values(g.items)) if (item.sale) out.add(item.title);
-  // The practice lot's title (from a spare group no lot uses) is shown from its Sold step on.
-  const p = g.practice;
-  if (p && p.step !== 'hint' && p.step !== 'bid') out.add(p.title);
   if (viewer && g.players[viewer]) {
     for (const id of g.prompts[viewer]!) out.add(g.items[id]!.title);
     if (g.stage !== 'draw') for (const w of g.players[viewer].wish) out.add(w.title);
@@ -204,7 +201,6 @@ describe('fuzz', () => {
     run(HOST, {
       type: 'update-settings',
       pace: (['relaxed', 'normal', 'fast'] as const)[seed % 3],
-      practice: seed % 2 === 0,
       // Some games voiced: the intro, clips said to players by colour, the voice's timing.
       voice: seed % 5 < 2,
     });
@@ -212,7 +208,7 @@ describe('fuzz', () => {
     let stage = '';
     for (let step = 0; step < 400 && state.phase === 'playing'; step++) {
       const g = state.game!;
-      const key = `${g.stage}:${g.auction?.lot}:${g.auction?.close === 'intro'}:${g.practice?.step}`;
+      const key = `${g.stage}:${g.auction?.lot}:${g.auction?.close === 'intro'}`;
       if (key !== stage) checkViews(state, `seed ${seed} step ${step}`);
       else if (step % 2 === 0)
         checkViews(state, `seed ${seed} step ${step}`, pickOne(rng, [...g.order, null]));
@@ -227,13 +223,6 @@ describe('fuzz', () => {
       } else if (g.stage === 'intro' && roll < 0.3) {
         run(HOST, { type: 'skip-intro' });
         continue;
-      } else if (g.stage === 'practice' && view.game!.practice) {
-        const p = view.game!.practice;
-        now += 350;
-        if (roll < 0.05) run(id, { type: 'skip-practice' });
-        else if (roll < 0.4 && p.step === 'bid')
-          run(id, { type: 'practice-bid', amount: pickOne(rng, p.steps)!, seq: p.seq });
-        if (roll < 0.4) continue;
       } else if (g.stage === 'bank' && roll < 0.6) {
         run(id, { type: 'loan', take: rng.next() < 0.4 });
       } else if (g.stage === 'auction' && a && (roll < 0.3 || view.mine!.targets.length)) {

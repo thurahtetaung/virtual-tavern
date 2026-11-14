@@ -2,12 +2,15 @@ import {
   type GoingOnceView,
   type HostClip,
   type HostLine,
+  PROJECTOR_WAIT_MS,
   SCREW_NUDGE_MS,
   SCREW_PICK_MS,
   SOLD_BEAT_MS,
   type Sender,
   type SoldBeats,
   type SoundMode,
+  SLIDE_ONE_MS,
+  TUTORIAL_END_MS,
 } from '../logic/types.ts';
 import { CHANT_GAP_MS, clipTimes } from '../logic/voice.ts';
 
@@ -52,8 +55,49 @@ export const RING_MS = 1800;
 export const RACKUP_BEAT_MS = 1800;
 
 /**
+ * The table screen's beats that a sound lands with (the motion in `show.ts` uses the same
+ * numbers): the original's clip lengths at 30 fps, and where ours put each beat.
+ */
+export const BEAT = {
+  /** The LOT disc's drop, and its rise away. */
+  lotIn: 867,
+  lotOut: 600,
+  /** The painting sliding in: the opening bid follows once it has landed. */
+  paintingIn: 933,
+  /** The Sold stamp leaving (bought under its value it shrinks away, else it spins off), the painting. */
+  stampGood: 733,
+  stampBad: 600,
+  paintingOut: 633,
+  /** A bidder's paddle coming back down behind the chair after it went up (the original's). */
+  paddleDown: 1000,
+  /** The artist's paddle turned edge-on (its new words swap in). */
+  flipEdge: 267,
+  /** The drawing's sign coming down, ms into the drawing. */
+  sign: 300,
+  /** Half-time's screws drilling into the chairs, ms into it. */
+  screwsIn: 1200,
+  /** Each end group: its titles, then its values pop. */
+  endName: 450,
+  endValue: 650,
+} as const;
+
+/** When the LOT disc leaves, ms after the lot's intro began: as the intro ends, once it landed. */
+export const lotOutAt = (a: { closeAt: number; since: number }) =>
+  Math.max(BEAT.lotIn, a.closeAt - a.since - BEAT.lotOut);
+
+/**
+ * When the Sold card's stamp and picture leave, ms after it began (a beat or so before the card
+ * ends, so they are gone as the next lot comes).
+ */
+export function soldOutAt(view: GoingOnceView, profit: number): number {
+  const g = view.game!;
+  const len = Math.max(SOLD_BEAT_MS * (view.rig?.scale ?? 1) * 5, g.until - g.since);
+  return len - Math.max(BEAT.paintingOut, profit > 0 ? BEAT.stampGood : BEAT.stampBad) - 150;
+}
+
+/**
  * The Sold card's beats for this view: the server's (`GameView.soldBeats`), else (a room saved
- * before, the practice lot) a text game's, one `SOLD_BEAT_MS` apart.
+ * before) a text game's, one `SOLD_BEAT_MS` apart.
  */
 export function soldBeatsOf(view: GoingOnceView, artist: boolean): SoldBeats {
   if (view.game?.soldBeats) return view.game.soldBeats;
@@ -123,6 +167,7 @@ export interface EndGroup {
   buyer: number;
   index: number;
   items: string[];
+  /** When its drawings slide in; then, ms after that, the beats in `endBeats`. */
   at: number;
   /** Their total before and after this group's values fly in (from their cash, as the original). */
   from: number;
@@ -130,62 +175,203 @@ export interface EndGroup {
 }
 
 /**
- * The end's rack-up on the server clock, as the original's: once the auctioneer's opening line is
- * said, each buyer's drawings in their groups (`endGroups`), one beat each, counting up from their
- * cash; then everyone's totals in a row, lowest first, one a second; the shark's bite on debts;
- * then the winners.
+ * The beats of one end group (`n` drawings), ms after its drawings slide in, timed from the
+ * original's (one buyer with three drawings takes about nine seconds): each title pops a little
+ * after the last, then the values together, then they fly into the total, which thumps; then the
+ * drawings slide away.
+ */
+export function endBeats(n: number) {
+  const names = Array.from({ length: n }, (_, k) => 1300 + 450 * k);
+  const values = names.at(-1)! + 1000;
+  const fly = values + 1500;
+  const out = fly + 1500;
+  return { names, values, fly, thump: fly + 500, out, len: out + 800 };
+}
+
+/** The end: a buyer's paddle and total come up this long before their first drawings. */
+export const END_PLAYER_IN_MS = 1000;
+/** After a buyer's last drawings slide away: their paddle drops, then the next buyer comes up. */
+export const END_PLAYER_OUT_MS = 1000;
+
+/**
+ * The end's rack-up on the server clock, at the original's pace: once the auctioneer's opening
+ * line is said, each buyer's paddle and total come up (`players`), then their drawings in groups
+ * (`endGroups`, `endBeats`), counting up from their cash; then everyone's totals in a row, lowest
+ * first, one a second; the shark's bite on debts; then the winners.
  */
 export function endTimes(view: GoingOnceView): {
   buyers: number;
   debt: boolean;
   start: number;
   groups: EndGroup[];
+  /** Each buyer's paddle coming up and going down (`buyer` order). */
+  players: { in: number; out: number }[];
   sum: number;
   /** The finale's players in the order they come up (lowest score before debt first). */
   finale: string[];
+  /** With debts: the loan sign back, the shark's bite, the sign leaving. */
+  bankIn: number;
   debtAt: number;
+  bankOut: number;
+  /** Everyone's totals dropping away. */
+  dismiss: number;
   winner: number;
+  winnerOut: number;
+  credits: number;
 } | null {
   const g = view.game;
   if (!g || g.stage !== 'done' || g.ended || !g.final) return null;
-  const step = RACKUP_BEAT_MS * (view.rig?.scale ?? 1);
+  const scale = view.rig?.scale ?? 1;
   // Voiced, the rack-up waits for "Let's divide the winners from the losers!".
   const lead = g.voiced && g.host?.at === g.since && g.host.ms ? g.host.ms + 300 : 0;
   const start = g.since + lead;
   const values = new Map(g.results.map((r) => [r.item, r.value]));
   const buyers = g.final.filter((f) => f.bought.length > 0);
   const groups: EndGroup[] = [];
+  const players: { in: number; out: number }[] = [];
+  let t = start;
   buyers.forEach((f, buyer) => {
+    const enter = t;
+    t += END_PLAYER_IN_MS * scale;
     let total = f.cash;
     for (const items of endGroups(f.bought)) {
       const from = total;
       total += items.reduce((n, item) => n + (values.get(item) ?? 0), 0);
-      groups.push({
-        buyer,
-        index: groups.length,
-        items,
-        at: start + groups.length * step,
-        from,
-        to: total,
-      });
+      groups.push({ buyer, index: groups.length, items, at: t, from, to: total });
+      t += endBeats(items.length).len * scale;
     }
+    players.push({ in: enter, out: t });
+    t += END_PLAYER_OUT_MS * scale;
   });
   const debt = g.final.some((f) => f.debt > 0);
-  const sum = start + groups.length * step;
+  const sum = t;
   const finale = [...g.final]
     .sort((x, y) => x.score + x.debt - (y.score + y.debt))
     .map((f) => f.id);
-  const debtAt = sum + finale.length * FINALE_GAP_MS * (view.rig?.scale ?? 1);
+  // The original's finale (measured on its video): everyone's totals one a second; two seconds
+  // after the last, with debts, the loan sign comes back and the shark bites ¾ s later, the sign
+  // goes at 2½ s; the totals drop away (two seconds after the last without debts); the winner
+  // springs up a second and a half later, leaves two and a half seconds on, and the credits come.
+  const last = sum + Math.max(0, finale.length - 1) * FINALE_GAP_MS * scale;
+  const bankIn = last + 2000 * scale;
+  const dismiss = debt ? bankIn + 3000 * scale : last + 2000 * scale;
+  const winner = dismiss + 1500 * scale;
   return {
     buyers: buyers.length,
     debt,
     start,
     groups,
+    players,
     sum,
     finale,
-    debtAt,
-    winner: debtAt + (debt ? step : 0) + step / 2,
+    bankIn,
+    debtAt: bankIn + 750 * scale,
+    bankOut: bankIn + 2500 * scale,
+    dismiss,
+    winner,
+    winnerOut: winner + WINNER_OUT_MS * scale,
+    credits: winner + CREDITS_MS * scale,
   };
+}
+
+/** The winner's light and paddle leave this long after they came (the original's `winner-out`). */
+export const WINNER_OUT_MS = 2500;
+/** The credits' projector comes down this long after the winner. */
+export const CREDITS_MS = 3750;
+
+/** When a clip of the auctioneer's current line starts (server ms), or null when he doesn't say it. */
+export function clipStart(host: Pick<HostLine, 'at' | 'clips'> | null | undefined, key: string) {
+  const i = host?.clips?.findIndex((c) => c.key === key) ?? -1;
+  return i < 0 ? null : (clipTimes(host!)[i] ?? null);
+}
+
+/** The opening's beats when the voice says nothing to key them to (text games, a redraw). */
+const OPENING = { cascade: 1500, logoOut: 2500, prompt: 1200, signHold: 8000 } as const;
+/** The rig's sign and hourglass leaving and dropping in. */
+export const SIGN_OUT_MS = 533;
+
+/**
+ * The drawing's opening on the table screen, as the original's flowchart, keyed to what the
+ * auctioneer says when he speaks: the logo enlarges and the chairs pop up as it starts, the paddles
+ * cascade as he teases the guests, the logo goes and the sign drops in with "we'll need some art"
+ * (its example drawing itself), the "draw using your device" line comes with the instructions, and
+ * the sign rises away as the hourglass drops in with "you'll need to draw two drawings".
+ */
+export function openingTimes(view: GoingOnceView) {
+  const g = view.game;
+  if (!g || g.stage !== 'draw') return null;
+  const host = g.host;
+  const at = (key: string) => clipStart(host, key);
+  if (g.redraw) {
+    const timerIn = g.drawFrom > g.since + 3000 ? g.drawFrom : g.since + 6000;
+    return {
+      redraw: true,
+      cascade: null,
+      logoOut: g.since,
+      signIn: g.since,
+      prompt: g.since + OPENING.prompt,
+      signOut: timerIn - SIGN_OUT_MS,
+      timerIn,
+    };
+  }
+  const signIn = at('need-art') ?? g.since + OPENING.logoOut;
+  const timerIn =
+    at('two-drawings') ?? (g.drawFrom > signIn + 4000 ? g.drawFrom : signIn + OPENING.signHold);
+  return {
+    redraw: false,
+    cascade: at('guest-tease') ?? g.since + OPENING.cascade,
+    logoOut: signIn,
+    signIn,
+    prompt: at('draw-instructions') ?? signIn + OPENING.prompt,
+    signOut: timerIn - SIGN_OUT_MS,
+    timerIn,
+  };
+}
+
+/** The tutorial's slides that come on a line of their own (2, 3, … 13: slides 7 and 8 follow 6). */
+const SLIDE_LINES: (string | null)[] = [
+  null,
+  'auction-count',
+  'worth-a-lot',
+  'worth-less',
+  'starting-money',
+  'buyers-info',
+  null,
+  null,
+  'buyers-more',
+  'first-message',
+  'buy-advice',
+  'buy-advice-also',
+  'how-to-win',
+];
+
+/**
+ * The tutorial on the table screen, as the original's flowchart: the room darkens with "A few
+ * quick words…", the projector comes on half a second after it with its logo slide, then each
+ * slide slides up with its line (the three buyers two seconds apart on theirs; slide 10, "check
+ * your devices", as lot 1's tips arrive), and the projector shuts off after the last line before
+ * the lights come up. Times on the server clock; null outside the tutorial.
+ */
+export function tutorialTimes(view: GoingOnceView) {
+  const g = view.game;
+  if (!g || g.stage !== 'intro') return null;
+  const host = g.host;
+  const keys = host?.clips?.map((c) => c.key) ?? [];
+  const start = (prefix: string) => {
+    const i = keys.findIndex((k) => k === prefix || k.startsWith(`${prefix}-`));
+    return i < 0 ? null : clipTimes(host!)[i]!;
+  };
+  const count = start('auction-count');
+  const off = g.until - TUTORIAL_END_MS;
+  const dark = start('tutorial-start') ?? g.since;
+  const projector = count !== null ? count - SLIDE_ONE_MS : dark + PROJECTOR_WAIT_MS + 2900;
+  const slides: number[] = [projector];
+  for (let n = 2; n <= 13; n++) {
+    const key = SLIDE_LINES[n - 1];
+    const at = key ? start(key) : slides[5]! + (n - 6) * 2000;
+    slides.push(at ?? slides.at(-1)! + 3000);
+  }
+  return { dark, projector, slides, buzz: g.firstAt || slides[9]!, off, light: off + 400 };
 }
 
 /**
@@ -199,13 +385,18 @@ export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: num
   if (view.phase === 'lobby') return null;
   if (!g) return { key: 'lobby', pick: 0 };
   switch (g.stage) {
-    case 'intro':
+    case 'intro': {
+      // The projector's loop, from just after it comes on until it shuts off (as the original).
+      const t = tutorialTimes(view);
+      if (t && now && (now < t.projector + 500 || now >= t.off)) return null;
       return { key: 'tutorial', pick: 0 };
+    }
     case 'draw':
       // Every device picks the same track from when the drawing began.
       return { key: 'draw', pick: Math.floor(g.since / 1000) };
-    case 'practice':
-      return { key: 'auction', pick: 0 };
+    case 'countdown':
+      // The 3-2-1 has its own sound; the drawing's music starts after it.
+      return null;
     case 'auction':
     case 'sold':
     case 'halftime': {
@@ -218,6 +409,8 @@ export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: num
     case 'done': {
       const end = endTimes(view);
       if (!end) return null;
+      // As the original: the drumroll stops as the winner comes; the credits' loop 3 s later.
+      if (now >= end.winner && now < end.winner + 3000 * (view.rig?.scale ?? 1)) return null;
       const key = now < end.sum ? 'scores' : now < end.winner ? 'drumroll' : 'credits';
       return { key, pick: 0 };
     }
@@ -277,12 +470,18 @@ const sfx = (id: string, at: number, key: string, more: Partial<Cue> = {}): Cue 
   ...more,
 });
 
-/** The sound of a bid: the paddle, then the bidder's own yelp (a screwed bid drills first). */
+/**
+ * The sound of a bid: the paddle, then the bidder's own yelp (a screwed bid drills first); the
+ * amount racking up, the next ask swapping in, and the paddle going back down.
+ */
 function bidCues(view: GoingOnceView, id: string, at: number, by: string, forced: boolean) {
   return [
     ...(forced ? [sfx(`${id}:drill`, at, 'screw-drill')] : []),
     sfx(`${id}:paddle`, at, 'bid'),
+    sfx(`${id}:rackup`, at, 'bid-rackup'),
     sfx(`${id}:yelp`, at + (forced ? 600 : 80), 'bidder-voice', { pick: yelp(view, by) }),
+    sfx(`${id}:next`, at + 300, 'next-bid'),
+    sfx(`${id}:down`, at + BEAT.paddleDown, 'paddle-down'),
   ];
 }
 
@@ -295,6 +494,7 @@ function soldCues(
   at: number,
   sale: { buyer: string | null; price: number; value: number; commission: number },
   beats: SoldBeats,
+  leave: number,
 ) {
   if (!sale.buyer) return [sfx(`${id}:unsold`, at + 600, 'unsold-out')];
   const profit = sale.value - sale.price;
@@ -302,12 +502,69 @@ function soldCues(
   const out = profit > 0 ? 'profit-out' : profit < 0 ? 'loss-out' : 'even-out';
   return [
     sfx(`${id}:sold`, at, 'sold'),
-    ...(beats.artist !== null ? [sfx(`${id}:artist`, at + beats.artist, 'paddle-flip')] : []),
-    ...(sale.commission && beats.artist !== null
-      ? [sfx(`${id}:cash`, at + beats.artist + 500, 'cha-ching')]
+    ...(beats.artist !== null
+      ? [
+          sfx(`${id}:artist`, at + beats.artist, 'paddle-flip'),
+          // ARTIST turning to face the room, then the pay (or the nothing an unsold artist gets).
+          sfx(`${id}:artistWord`, at + beats.artist + BEAT.flipEdge, 'artist'),
+          sale.commission
+            ? sfx(`${id}:cash`, at + beats.artist + 500, 'cha-ching')
+            : sfx(`${id}:nothing`, at + beats.artist + 500, 'zero-commission'),
+        ]
       : []),
     sfx(`${id}:spin`, at + beats.value, spin),
     sfx(`${id}:out`, at + beats.profit, out),
+    sfx(`${id}:away`, at + leave + 100, 'painting-out'),
+  ];
+}
+
+/** The lobby on the table screen, ms after it opens there: the logo settling, the sign dropping. */
+export const LOBBY = { logoBack: 600, sign: 1200, logins: 1200 } as const;
+/** The logo shrinking back to the top (the rig's `logo.Shrink`). */
+export const LOGO_SHRINK_MS = 500;
+
+/**
+ * The table screen's lobby (it has no server moment of its own: it opens when the screen shows
+ * it, `openedAt`): the logo settling back, the room's sign dropping onto its easel, and each
+ * joiner's yelp as their paddle springs up (`joined`, when the screen saw each seat taken).
+ */
+export function lobbyCues(
+  view: GoingOnceView,
+  openedAt: number,
+  joined: Readonly<Record<string, number>>,
+): Cue[] {
+  if (view.phase !== 'lobby') return [];
+  const id = `lobby:${openedAt}`;
+  const out = [
+    sfx(`${id}:logo`, openedAt + LOBBY.logoBack, 'logo-back'),
+    sfx(`${id}:sign`, openedAt + LOBBY.sign, 'sign-drop'),
+  ];
+  view.seats
+    .filter((s) => s.playing)
+    .forEach((s, i) => {
+      const at = joined[s.id];
+      // With the paddle springing up (never before the logo has settled).
+      if (at)
+        out.push(
+          sfx(`${id}:yelp:${s.id}`, Math.max(at, openedAt + LOBBY.logins) + 100, 'bidder-voice', {
+            // Their paddle's yelp, as in the game (by seat for a seat saved with no shape).
+            pick: s.paddle ?? i,
+          }),
+        );
+    });
+  return out;
+}
+
+/**
+ * The drawing's end, as the tutorial or lot 1 begins: the done paddles drop ("all paddles
+ * down") and the hourglass rises away.
+ */
+function drawEndCues(view: GoingOnceView): Cue[] {
+  const g = view.game!;
+  if (!g.drawEnded) return [];
+  return [
+    sfx(`drawEnd:${g.drawEnded}:down`, g.drawEnded, 'paddles-down'),
+    sfx(`drawEnd:${g.drawEnded}:timer`, g.drawEnded + 300, 'timer-out'),
   ];
 }
 
@@ -321,48 +578,52 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
   if (!g || view.phase === 'lobby') return [];
   const scale = view.rig?.scale ?? 1;
   const out: Cue[] = [];
-  if (g.introSkippedAt) out.push(sfx(`intro:skip`, g.introSkippedAt, 'skip'));
+  if (g.introSkippedAt)
+    out.push(
+      sfx(`intro:skip`, g.introSkippedAt, 'skip'),
+      sfx(`intro:skipOff`, g.introSkippedAt, 'projector-stop'),
+    );
   switch (g.stage) {
+    case 'countdown':
+      out.push(sfx(`countdown:${g.since}`, g.since, 'countdown'));
+      break;
     case 'draw': {
       const id = `draw:${g.since}`;
-      out.push(sfx(`${id}:in`, g.since, 'timer-in'));
+      const o = openingTimes(view)!;
+      // The 3-2-1 card leaving and the chairs popping up (not again on a redraw), the sign
+      // dropping in, the hourglass after it.
+      if (!o.redraw)
+        out.push(sfx(`${id}:start`, g.since, 'start'), sfx(`${id}:chairs`, g.since, 'chairs'));
+      out.push(sfx(`${id}:sign`, o.signIn, 'sign'));
+      out.push(sfx(`${id}:in`, o.timerIn, 'timer-in'));
+      // Each player's paddle springing up as their drawings are all in.
+      for (const p of g.players)
+        if (p.doneAt) out.push(sfx(`${id}:done:${p.id}`, p.doneAt, 'drawing-done'));
       for (let s = 10; s >= 1; s--) {
         const at = g.until - s * 1000 * scale;
         if (at > g.since) out.push(sfx(`${id}:tick${s}`, at, 'tick'));
       }
-      out.push(sfx(`${id}:out`, g.until, 'timer-out'));
+      // The hourglass rising away is the drawing's end (`drawEndCues`, in the stage after it).
       break;
     }
-    case 'practice': {
-      const p = g.practice;
-      if (!p) break;
-      const id = `practice:${g.since}`;
-      if (p.step === 'hint' && view.mine)
+    case 'intro': {
+      const t = tutorialTimes(view)!;
+      const id = `intro:${g.since}`;
+      out.push(...drawEndCues(view));
+      out.push(sfx(`${id}:projector`, t.projector, 'projector-start'));
+      t.slides.forEach((at, i) => out.push(sfx(`${id}:slide${i + 1}`, at, 'slide', { pick: i })));
+      // Slide 10, "check your devices now": the phone buzz, and each player's first tip ringing.
+      out.push(sfx(`${id}:buzz`, t.buzz, 'vibrate'));
+      const m = view.mine?.messages.at(-1);
+      if (m && m.lot === 0 && g.firstAt)
         out.push(
-          sfx(`${id}:ring`, p.since + 250, 'message', {
-            pick: RING[view.mine.contact],
+          sfx(`${id}:ring${m.id}`, g.firstAt, 'message', {
+            pick: RING[m.from],
             maxMs: RING_MS,
             local: true,
           }),
         );
-      if (p.step === 'bid') {
-        if (!p.bid && p.close === 'open') out.push(sfx(`${id}:in`, p.since, 'painting-in'));
-        const last = p.recent.at(-1);
-        if (p.close === 'quiet' && last)
-          out.push(...bidCues(view, `${id}:bid${p.seq}`, p.since, last.by, false));
-        if (p.close === 'once') out.push(sfx(`${id}:once${p.seq}`, p.since, 'going-once'));
-        if (p.close === 'twice') out.push(sfx(`${id}:twice${p.seq}`, p.since, 'going-twice'));
-      }
-      if (p.step === 'sold' && p.bid)
-        out.push(
-          ...soldCues(
-            `${id}:sold`,
-            p.since,
-            { buyer: p.bid.by, price: p.bid.amount, value: p.value, commission: 0 },
-            soldBeatsOf(view, false),
-          ),
-        );
-      if (p.step === 'screw') out.push(sfx(`${id}:screw`, p.since + 300, 'screw-lost'));
+      out.push(sfx(`${id}:off`, t.off, 'projector-stop'));
       break;
     }
     case 'auction': {
@@ -370,9 +631,12 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       if (!a) break;
       const id = `lot${a.lot}`;
       if (a.close === 'intro') {
+        if (a.lot === 0) out.push(...drawEndCues(view));
         out.push(sfx(`${id}:in`, a.since, 'lot-in'));
+        out.push(sfx(`${id}:out`, a.since + lotOutAt(a), 'lot-out'));
         const m = view.mine?.messages.at(-1);
-        if (m && m.lot === a.lot)
+        // Lot 1's tips rang at the tutorial's slide 10 when it got that far.
+        if (m && m.lot === a.lot && !(a.lot === 0 && g.tipsEarly))
           out.push(
             sfx(`${id}:ring${m.id}`, a.since + 250, 'message', {
               pick: RING[m.from],
@@ -400,7 +664,11 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const last = view.log.at(-1);
       if (last?.kind === 'screw' && last.lot === a.lot && last.outcome !== 'forced')
         out.push(sfx(`${id}:lost${last.id}`, a.since, 'screw-lost'));
-      if (a.close === 'open' && !a.bid) out.push(sfx(`${id}:open`, a.since, 'painting-in'));
+      if (a.close === 'open' && !a.bid)
+        out.push(
+          sfx(`${id}:open`, a.since, 'painting-in'),
+          sfx(`${id}:opening`, a.since + BEAT.paintingIn, 'opening-bid'),
+        );
       const top = a.recent.at(-1);
       if (a.close === 'quiet' && top && a.bid)
         out.push(...bidCues(view, `${id}:bid${a.seq}`, a.since, top.by, top.forced));
@@ -417,16 +685,24 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
           g.since,
           { buyer: r.buyer, price: r.price, value: r.value, commission: r.commission },
           soldBeatsOf(view, r.artistKnown && r.artist !== null),
+          soldOutAt(view, r.value - r.price),
         ),
       );
       break;
     }
     case 'halftime':
       out.push(sfx(`half:${g.since}:out`, g.since, 'screws-out'));
-      out.push(sfx(`half:${g.since}:in`, g.since + 700, 'screws-in'));
+      out.push(sfx(`half:${g.since}:in`, g.since + BEAT.screwsIn, 'screws-in'));
       break;
     case 'bank': {
       out.push(sfx(`bank:${g.since}`, g.since, 'bank-ring'));
+      // The bank's sign going away and its music cut off as its time runs out (a beat early, so
+      // they still play as the next stage takes over).
+      if (g.until > g.since)
+        out.push(
+          sfx(`bank:${g.since}:away`, g.until - 200, 'bank-away'),
+          sfx(`bank:${g.since}:cutoff`, g.until - 200, 'bank-cutoff'),
+        );
       // Voiced: the loan people's bumper on their first visit, and their jingle once they've spoken.
       const host = g.host;
       if (g.voiced && host?.clips?.length && host.at !== undefined) {
@@ -444,12 +720,31 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const end = endTimes(view);
       if (!end) break;
       const id = `end:${g.since}`;
-      out.push(sfx(`${id}:in`, end.start, 'player-in'));
-      for (const grp of end.groups.slice(1))
-        out.push(sfx(`${id}:art${grp.index}`, grp.at, 'painting-value'));
-      out.push(sfx(`${id}:sum`, end.sum, 'score-rackup'));
+      end.players.forEach((p, i) => {
+        out.push(sfx(`${id}:in${i}`, p.in, 'player-in'));
+        out.push(sfx(`${id}:out${i}`, p.out, 'player-out'));
+      });
+      for (const grp of end.groups) {
+        const b = endBeats(grp.items.length);
+        out.push(sfx(`${id}:art${grp.index}`, grp.at, 'painting-in-end'));
+        b.names.forEach((t, k) =>
+          out.push(sfx(`${id}:name${grp.index}:${k}`, grp.at + t * scale, 'painting-name')),
+        );
+        out.push(
+          sfx(`${id}:value${grp.index}`, grp.at + b.values * scale, 'painting-value'),
+          sfx(`${id}:sum${grp.index}`, grp.at + b.fly * scale, 'score-rackup'),
+          sfx(`${id}:artOut${grp.index}`, grp.at + b.out * scale, 'painting-out'),
+        );
+      }
+      end.finale.forEach((_, i) =>
+        out.push(sfx(`${id}:finale${i}`, end.sum + i * FINALE_GAP_MS * scale, 'player-in')),
+      );
       if (end.debt) out.push(sfx(`${id}:shark`, end.debtAt, 'debt-shark'));
+      out.push(sfx(`${id}:dismiss`, end.dismiss, 'player-out'));
       out.push(sfx(`${id}:winner`, end.winner, 'winner-centre'));
+      // The WINNER! plate springing up with the winner's paddle; the winner leaving.
+      out.push(sfx(`${id}:plate`, end.winner + 300, 'winner'));
+      out.push(sfx(`${id}:winnerOut`, end.winnerOut - 500 * scale, 'winner-out'));
       break;
     }
   }
@@ -749,10 +1044,12 @@ export function musicClips(audio: AudioManifest | undefined, view: GoingOnceView
   if (view.phase === 'lobby' || !g) next.push({ key: 'tutorial', pick: 0 });
   else
     switch (g.stage) {
+      case 'countdown':
+        next.push({ key: 'draw', pick: 0 });
+        break;
       case 'intro':
       case 'draw':
-      case 'practice':
-        next.push({ key: 'auction', pick: 0 });
+        next.push({ key: 'tutorial', pick: 0 }, { key: 'auction', pick: 0 });
         break;
       case 'auction':
       case 'sold':

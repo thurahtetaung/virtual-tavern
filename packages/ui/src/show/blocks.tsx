@@ -392,6 +392,7 @@ export function Stamp({
         <Layer name={`${name}.lineL`} moving style={{ opacity: 0 }}>
           <Label
             name={`${name}.line`}
+            className="vt-stamp-line"
             style={
               line === 'below'
                 ? {

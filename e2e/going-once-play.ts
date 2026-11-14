@@ -201,9 +201,7 @@ export async function madeUpShow(page: Page) {
     places: {},
   };
   const files = ['show/e2e.stage.rig.json'];
-  const phases = Object.fromEntries(
-    ['lobby', 'draw', 'practice', 'auction', 'end'].map((p) => [p, files]),
-  );
+  const phases = Object.fromEntries(['lobby', 'draw', 'auction', 'end'].map((p) => [p, files]));
   await page.route('**/api/backroom/manifest/going-once', (route) =>
     route.fulfill({ json: { show: { stage: { rig: files[0], phases } } } }),
   );

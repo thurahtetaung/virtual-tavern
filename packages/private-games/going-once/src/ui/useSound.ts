@@ -123,6 +123,7 @@ export function useSound({
   colours,
   stagePresent = false,
   isStage = false,
+  extra,
 }: {
   view: GoingOnceView;
   manifest: ManifestState;
@@ -137,6 +138,8 @@ export function useSound({
   stagePresent?: boolean;
   /** This device is the table screen. */
   isStage?: boolean;
+  /** Cues of this device's own (the table screen's lobby, `lobbyCues`). */
+  extra?: readonly Cue[];
 }): void {
   const unlocked = useGesture(isStage);
   const audio: AudioManifest | undefined =
@@ -305,7 +308,7 @@ export function useSound({
         lines.current.add(id);
         if (voice && deviceSounds(mode, isHost, isStage)) hear(line);
       }
-      const cues = [...effectCues(view, you), ...own.current];
+      const cues = [...effectCues(view, you), ...own.current, ...(extra ?? [])];
       for (const cue of cues) {
         // Effects still to come load ahead of their moment.
         const src = cue.kind === 'sfx' ? clipOf(audio?.sfx, cue.key, cue.pick ?? cue.at) : null;
@@ -353,6 +356,7 @@ export function useSound({
     hear,
     pump,
     isStage,
+    extra,
   ]);
 
   // A device that goes quiet stops talking at once.

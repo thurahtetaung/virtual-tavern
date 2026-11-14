@@ -16,6 +16,7 @@
   "dependencies": {
     "@vt/game-sdk": "workspace:*",
     "@vt/ui": "workspace:*",
+    "uqr": "0.1.2",
     "zod": "^4.6.7"
   },
   "peerDependencies": {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { enableTestRig, timing } from './game.ts';
 import { halfAt } from './setup.ts';
-import { BID_SETTLE_MS, SCREW_OUTCOME_MS } from './types.ts';
+import { BID_SETTLE_MS, COUNTDOWN_MS, PADDLE_SHAPES, SCREW_OUTCOME_MS } from './types.ts';
 import {
   GROUPS,
   HOST,
@@ -20,6 +20,95 @@ import {
   packContent,
   started,
 } from './test-utils.ts';
+
+describe('paddle shapes', () => {
+  const shapes = (h: ReturnType<typeof harness>) =>
+    Object.fromEntries(Object.entries(h.state.seats).map(([id, s]) => [id, s.paddle]));
+
+  it('hands each joiner a shape of their own, in the order the room shuffled', () => {
+    const h = harness(3);
+    const order = h.state.shapes!;
+    expect([...order].sort((a, b) => a - b)).toEqual([...Array(PADDLE_SHAPES).keys()]);
+    // Joining takes no rng: the next free shape in the room's order.
+    expect(shapes(h)).toEqual({ p1: order[0], p2: order[1], p3: order[2] });
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBe(order[3]);
+    // Everyone sees them in the lobby.
+    expect(goingOnce.view(h.state, null).seats.map((s) => s.paddle)).toEqual(order.slice(0, 4));
+    // Joining again (a rename, a new tab) keeps the shape.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p2', name: 'Pat' });
+    expect(h.state.seats.p2!.paddle).toBe(order[1]);
+  });
+
+  it('frees a leaver’s shape for the next joiner, and never hands out one twice', () => {
+    const h = harness(3);
+    const order = h.state.shapes!;
+    h.state = goingOnce.playerLeft(h.state, 'p2', h.now);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBe(order[1]);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p5', name: 'P5' });
+    expect(h.state.seats.p5!.paddle).toBe(order[3]);
+    const held = Object.values(h.state.seats).map((s) => s.paddle);
+    expect(new Set(held).size).toBe(held.length);
+  });
+
+  it('gives bots shapes as they sit down, as anyone', () => {
+    const h = harness(3);
+    h.state = goingOnce.playerJoined(h.state, { id: 'bot-1', name: 'Bot' });
+    expect(h.state.seats['bot-1']!.paddle).toBe(h.state.shapes![3]);
+  });
+
+  it('keeps the shapes handed out at Start, and the game’s paddles are those', () => {
+    const h = harness(4);
+    const before = shapes(h);
+    h.act(HOST, { type: 'start' });
+    expect(game(h).paddles).toEqual(before);
+    expect(shapes(h)).toEqual(before);
+    // A watcher joining mid-game gets a shape nobody at the table holds.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p9', name: 'P9' });
+    expect(Object.values(game(h).paddles)).not.toContain(h.state.seats.p9!.paddle);
+  });
+
+  it('deals only to a player with no shape at Start', () => {
+    const h = harness(3);
+    const before = shapes(h);
+    delete h.state.seats.p2!.paddle;
+    h.act(HOST, { type: 'start' });
+    const paddles = game(h).paddles;
+    expect(paddles.p1).toBe(before.p1);
+    expect(paddles.p3).toBe(before.p3);
+    expect(paddles.p2).toBeDefined();
+    expect(new Set(Object.values(paddles)).size).toBe(3);
+    expect(h.state.seats.p2!.paddle).toBe(paddles.p2);
+  });
+
+  it('loads a room saved by an older release (no shapes) and deals them at Start', () => {
+    const h = harness(3);
+    // As saved before shapes came at join: no order, no seat shapes.
+    const saved = clone(h.state);
+    delete saved.shapes;
+    for (const seat of Object.values(saved.seats)) delete seat.paddle;
+    h.state = JSON.parse(JSON.stringify(saved)) as typeof saved;
+    // A joiner meanwhile has no shape yet (joining has no rng); the lobby shows the plain paddle.
+    h.state = goingOnce.playerJoined(h.state, { id: 'p4', name: 'P4' });
+    expect(h.state.seats.p4!.paddle).toBeUndefined();
+    expect(goingOnce.view(h.state, null).seats.every((s) => s.paddle === undefined)).toBe(true);
+    h.act(HOST, { type: 'start' });
+    const paddles = game(h).paddles;
+    expect(Object.keys(paddles).sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(new Set(Object.values(paddles)).size).toBe(4);
+    for (const [id, shape] of Object.entries(paddles)) {
+      expect(shape).toBeGreaterThanOrEqual(0);
+      expect(shape).toBeLessThan(PADDLE_SHAPES);
+      expect(h.state.seats[id]!.paddle).toBe(shape);
+    }
+    // The room now has an order, so later joiners get theirs as they come in.
+    expect(h.state.shapes).toHaveLength(PADDLE_SHAPES);
+    h.state = goingOnce.playerJoined(h.state, { id: 'p9', name: 'P9' });
+    expect(Object.values(paddles)).not.toContain(h.state.seats.p9!.paddle);
+    expect(h.state.seats.p9!.paddle).toBeDefined();
+  });
+});
 
 describe('lobby', () => {
   it('counts the title groups on offer and refuses to start without two', () => {
@@ -47,7 +136,6 @@ describe('lobby', () => {
       music: true,
       effects: true,
       voice: false,
-      practice: true,
     });
     expect(h.refuse('p2', { type: 'update-settings', pace: 'relaxed' }).code).toBe('not-host');
   });
@@ -67,6 +155,7 @@ describe('lobby', () => {
     try {
       h.act(HOST, { type: 'rig', scale: 0.5, fixed: true, cash: 1400 });
       h.act(HOST, { type: 'start' });
+      h.tick(); // the 3-2-1
       const g = game(h);
       // Fixed: groups in pack order, titles in seat order, first group high.
       expect(g.prompts.p1!.map((i) => g.items[i]!.title)).toEqual(['Apple', 'Top hat']);
@@ -137,6 +226,7 @@ describe('the deal', () => {
     expect(first).toHaveLength(2);
     h.act(HOST, { type: 'back-to-lobby' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     // Only one group was left unused: the list starts over.
     expect(h.state.usedGroups).toHaveLength(2);
     // Group keys name the pack.
@@ -214,14 +304,17 @@ describe('drawing', () => {
 
   it('turns unsent drawings into house pictures with no artist when time runs out', () => {
     const h = started(3);
+    // The drawing starts after the 3-2-1.
+    const t0 = game(h).since!;
+    expect(t0).toBe(NOW + COUNTDOWN_MS);
     drawAll(h, ['p3']);
     expect(game(h).stage).toBe('draw');
     // Nudges at half time and with ten seconds left, then 90 s plus a short grace.
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 45_000);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 45_000);
     h.tick();
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 80_000);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 80_000);
     h.tick();
-    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 90_000 + 2500);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(t0 + 90_000 + 2500);
     h.tick();
     const g = game(h);
     expect(g.stage).toBe('auction');
@@ -318,8 +411,9 @@ describe('bidding', () => {
 
   it('runs at the host’s pace', () => {
     const h = harness(3);
-    h.act(HOST, { type: 'update-settings', pace: 'relaxed', practice: false });
+    h.act(HOST, { type: 'update-settings', pace: 'relaxed' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     drawAll(h);
     expect(game(h).auction!.closeAt).toBe(h.now + 12_000);
   });
@@ -763,8 +857,9 @@ describe('the host', () => {
 
   it('speaks at each moment, from the private pack only', () => {
     const h = harness(3, 3, withHost());
-    h.act(HOST, { type: 'update-settings', practice: false });
+    h.act(HOST, { type: 'update-settings' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     expect(goingOnce.view(h.state, null).game!.host!.lines).toEqual(['Draw!']);
     drawAll(h);
     expect(game(h).host!.lines).toEqual(['First up.']);
@@ -800,8 +895,9 @@ describe('the host', () => {
 
   it('calls out a quiet bidder before a lot', () => {
     const h = harness(3, 3, withHost());
-    h.act(HOST, { type: 'update-settings', practice: false });
+    h.act(HOST, { type: 'update-settings' });
     h.act(HOST, { type: 'start' });
+    h.tick(); // the 3-2-1
     drawAll(h);
     for (let i = 0; i < 3; i++) {
       hammer(h);

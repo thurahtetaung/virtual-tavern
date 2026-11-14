@@ -1,11 +1,28 @@
 import { clone, createRng } from '@vt/game-sdk';
-import { type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
+import { type Frame, type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from '../logic/definition.ts';
-import { auctioning, bid, hammer, harness, nextLot, started } from '../logic/test-utils.ts';
+import {
+  HOST,
+  SQUIGGLE,
+  auctioning,
+  bid,
+  hammer,
+  harness,
+  nextLot,
+  started,
+} from '../logic/test-utils.ts';
 import { BID_SETTLE_MS, type GoingOnceView } from '../logic/types.ts';
 import {
   BANK_PARTS,
+  CALL_WORDS,
+  WALL_DARK,
+  CAP_GAP,
+  askBox,
+  paintingBox,
+  chairsOf,
+  raiseCap,
+  symbolBox,
   WINNERS_SETTLE_MS,
   endTrack,
   moments,
@@ -17,7 +34,7 @@ import {
   soldMoment,
   winnersShownAt,
 } from './show.ts';
-import { endGroups, endTimes } from './audio.ts';
+import { BEAT, endGroups, endTimes, openingTimes } from './audio.ts';
 
 // The show's moments are pure: built from real views (the game's own harness), the same for
 // every device, with only the steps meant for someone personal.
@@ -41,20 +58,24 @@ describe('moments', () => {
     said.game!.drawFrom = said.game!.since + 40_000;
     const voicedDraw = stage(said).find((m) => m.id.startsWith('draw:'))!;
     expect(steps(voicedDraw, 'timer')[0]).toMatchObject({ t: 40_000, track: 'timer.Appear' });
-    expect(steps(voicedDraw, 'sign')[0]).toMatchObject({ t: 300 });
+    // Unvoiced, the sign comes as the logo leaves (the voice's `need-art` line when there is one).
+    expect(steps(voicedDraw, 'sign')[0]).toMatchObject({
+      t: openingTimes(said)!.signIn - said.game!.since,
+    });
   });
 
   it('brings a lot in, then its picture, with stable ids every view', () => {
     const h = auctioning();
     const v = goingOnce.view(h.state, null);
     const list = stage(v);
-    expect(ids(list)).toEqual(['lot0:in', 'lot0:painting']);
-    expect(steps(list[1], 'painting')[0]).toMatchObject({ track: 'painting.Appear' });
+    // Lot 1 follows the drawing: its done paddles go down first.
+    expect(ids(list)).toEqual([`drawEnd:${v.game!.drawEnded}`, 'lot0:in', 'lot0:painting']);
+    expect(steps(list[2], 'painting')[0]).toMatchObject({ track: 'painting.Appear' });
     // Re-built from the same state: the same moments, so nothing replays.
     expect(stage(goingOnce.view(h.state, null))).toEqual(list);
   });
 
-  it('raises the bidder with the same wobble on every device and drops the one they beat', () => {
+  it('raises the bidder with the same wobble on every device, then parks the paddle again', () => {
     const h = auctioning();
     bid(h, 'p2', 400);
     bid(h, 'p3', 500);
@@ -65,7 +86,14 @@ describe('moments', () => {
     expect(steps(newest, 'pad:p3').find((s) => s.kind === 'anim')).toMatchObject({
       track: raiseOf(0, 500),
     });
-    expect(steps(newest, 'pad:p2')[0]).toMatchObject({ track: 'paddle.Unraise' });
+    // The original's: up, and back down behind the chair a second later; the beaten paddle is
+    // already down, and only its name dims.
+    expect(steps(newest, 'pad:p3').filter((s) => s.kind === 'anim')).toMatchObject([
+      { t: 0, track: raiseOf(0, 500) },
+      { t: BEAT.paddleDown, track: 'paddle.Unraise' },
+    ]);
+    expect(steps(newest, 'pad:p2')).toEqual([]);
+    expect(steps(newest, 'name:p2')[0]).toMatchObject({ track: 'name.Reset' });
     // Only the newest bid has a moment: older ones are played, and their paddles show it.
     expect(list.find((m) => m.id === 'lot0:bid400')).toBeUndefined();
     // Every viewer gets the same moments: players' views and the table screen's.
@@ -110,12 +138,90 @@ describe('moments', () => {
       );
     const quiet = at('p3', 'phone-quiet');
     expect(quiet.some((s) => s.kind === 'count')).toBe(false);
-    expect(quiet.some((s) => s.kind === 'css' && s.target === 'stampSpin')).toBe(false);
+    expect(quiet.some((s) => s.kind === 'anim' && s.track === 'stamp.Value')).toBe(false);
     expect(quiet.some((s) => s.kind === 'anim' && s.target === 'stamp')).toBe(true);
     // The buyer's buzz is theirs alone.
     expect(at('p2', 'phone-quiet').some((s) => s.kind === 'haptic')).toBe(true);
     expect(quiet.some((s) => s.kind === 'haptic')).toBe(false);
     expect(at(null, 'stage').some((s) => s.kind === 'haptic')).toBe(false);
+  });
+
+  it('opens a lot as the original: disc in, phone ring, disc out, then the picture and the bid', () => {
+    const h = started();
+    const g0 = h.state.game!;
+    for (const id of g0.order)
+      for (const item of g0.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    const v = goingOnce.view(h.state, null);
+    const a = v.game!.auction!;
+    expect(a.close).toBe('intro');
+    const lotIn = stage(v).find((m) => m.id === 'lot0:in')!;
+    const disc = steps(lotIn, 'lot');
+    expect(disc.map((s) => 'track' in s && s.track)).toEqual(['lot.Appear', 'lot.Disappear']);
+    const phone = steps(lotIn, 'phone')[0]!;
+    const ring = steps(lotIn, 'ring')[0]!;
+    // The phone comes as the disc lands; the disc leaves after its ring, as the intro ends.
+    expect(phone.t).toBeLessThan(disc[1]!.t);
+    expect(ring.t).toBeGreaterThan(phone.t);
+    expect(disc[1]!.t).toBe(a.closeAt - a.since - 600);
+    h.tick();
+    const painting = stage(goingOnce.view(h.state, null)).find((m) => m.id === 'lot0:painting')!;
+    expect(steps(painting, 'painting')[0]).toMatchObject({ t: 0, track: 'painting.Appear' });
+    // The opening bid only once the picture has landed.
+    expect(steps(painting, 'bidAmount')[0]!.t).toBeGreaterThanOrEqual(933);
+  });
+
+  it('says the calls in the grey line under the amount', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    h.tick();
+    const once = stage(goingOnce.view(h.state, null)).find((m) => m.id.startsWith('lot0:once'))!;
+    expect(steps(once, 'bidPrompt.text')[0]).toMatchObject({ text: CALL_WORDS.once });
+    h.tick();
+    const twice = stage(goingOnce.view(h.state, null)).find((m) => m.id.startsWith('lot0:twice'))!;
+    expect(steps(twice, 'bidPrompt.text')[0]).toMatchObject({ text: CALL_WORDS.twice });
+  });
+
+  it('lights the leader’s name on their chair and dims the one they beat', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    bid(h, 'p3', 500);
+    const list = stage(goingOnce.view(h.state, null));
+    const top = list.find((m) => m.id === 'lot0:bid500')!;
+    expect(steps(top, 'name:p3')[0]).toMatchObject({ track: 'name.Bid' });
+    expect(steps(top, 'name:p2')[0]).toMatchObject({ track: 'name.Reset' });
+  });
+
+  it('counts 3-2-1 on the original’s card, then pops the chairs up as the drawing starts', () => {
+    const h = harness(3);
+    h.act(HOST, { type: 'start' });
+    const v = goingOnce.view(h.state, null);
+    const count = stage(v).find((m) => m.id.startsWith('countdown:'))!;
+    expect(count.at).toBe(v.game!.since);
+    expect(steps(count, 'easel.num').map((s) => 'text' in s && s.text)).toEqual(['3', '2', '1']);
+    h.tick();
+    const draw = stage(goingOnce.view(h.state, null)).find((m) => m.id.startsWith('draw:'))!;
+    for (const id of ['p1', 'p2', 'p3'])
+      expect(steps(draw, `chair:${id}`)[0]).toMatchObject({ t: 0, track: 'seat-d7.Appear' });
+  });
+
+  it('darkens only the wall for a screw, and drops half-time’s screws into every chair at once', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    // A screw being aimed (made up on the view: screws unlock later).
+    const v = clone(goingOnce.view(h.state, null));
+    v.game!.auction!.screw = { by: 'p1', until: v.game!.auction!.since + 15_000 };
+    const aim = stage(v).find((m) => m.id.includes(':aim'))!;
+    expect(steps(aim, 'walldim')[0]).toMatchObject({
+      keyframes: [{ opacity: WALL_DARK }],
+      ms: 133,
+    });
+    expect(steps(aim, 'dim')).toHaveLength(0);
+    const half = clone(v);
+    half.game!.stage = 'halftime';
+    const ht = stage(half).find((m) => m.id.startsWith('half:'))!;
+    expect(steps(ht, 'dim')).toHaveLength(0);
+    const downs = ['p1', 'p2', 'p3'].map((id) => steps(ht, `screws:${id}`)[1]!.t);
+    expect(new Set(downs).size).toBe(1);
   });
 
   it('lets an unsold picture leave', () => {
@@ -210,10 +316,22 @@ describe('moments', () => {
       expect(pop.t).toBe(i * 1000);
     });
     const winner = list.find((m) => m.id.endsWith(':winner'))!;
-    expect(winner.steps.some((s) => s.kind === 'confetti')).toBe(true);
-    for (const id of v.game!.winners) expect(steps(winner, `win:${id}`)).toHaveLength(1);
+    // The original's winner: the wall darkens, the beam comes down, the paddle springs up with
+    // its WINNER! plate (no confetti: the original has none).
+    expect(winner.steps.some((s) => s.kind === 'confetti')).toBe(false);
+    expect(steps(winner, 'walldim')[0]).toMatchObject({ keyframes: [{ opacity: WALL_DARK }] });
+    expect(steps(winner, 'beam')[0]).toMatchObject({ track: 'beam.WinnerDarken' });
+    for (const id of v.game!.winners) {
+      expect(steps(winner, `win:${id}`)).toHaveLength(1);
+      expect(steps(winner, `win:${id}.plate`)).toHaveLength(1);
+    }
+    // Everyone's totals leave before the winner comes (`dismiss`).
     for (const id of times.finale)
-      expect(steps(winner, `finale:${id}.name`)[0]).toMatchObject({ keyframes: [{ opacity: 0 }] });
+      expect(steps(finale, `finale:${id}.name`).at(-1)).toMatchObject({
+        t: times.dismiss - times.sum,
+        keyframes: [{ opacity: 0 }],
+      });
+    expect(times.winner).toBeGreaterThan(times.dismiss);
   });
 
   it('groups a buyer’s drawings in threes and twos, never one alone', () => {
@@ -252,8 +370,96 @@ describe('moments', () => {
   });
 });
 
+describe('a raised paddle never covers the next ask (the owner’s rule)', () => {
+  // A made-up layout: the ask's text box at (560, 380), a seat row at 0.95, a tall silhouette.
+  const places: Rig['places'] = {
+    'bidPrompt.at': [0.42, 0, 0, 0.42, 560, 380],
+    'seat.paddle': [1, 0, 0, 1, 0, 165],
+    'paddle.shape': [1, 0, 0, 1, 0, -35],
+  };
+  const box = [-90, 90, -80, 60] as const;
+  // Parked, then up past where it rests (an overshoot), then resting up.
+  const frames: Frame[] = [
+    [0.9, 0, 0, 0.6, 0, -36, 1],
+    [1.1, 0, 0, 1.1, 0, -200, 1],
+    [1.3, 0, 0, 1.3, 0, -300, 1],
+    [1.2, 0, 0, 1.2, 0, -284, 1],
+  ];
+  const seatAt = (x: number) => [0.95, 0, 0, 0.95, x, 634];
+  const topAt = (seat: number[], f: Frame, cap: number) => {
+    const sy = seat[3]!;
+    const paddleY = seat[5]! + sy * (165 + cap + f[5]);
+    return paddleY + sy * f[3] * (-35 + box[2]);
+  };
+
+  it('holds a paddle under the ask low enough on every frame, overshoot included', () => {
+    const seat = seatAt(740);
+    const cap = raiseCap(places, seat, box, frames, 700)!;
+    expect(cap.ms).toBe(700);
+    expect(cap.ys[0]).toBe(0);
+    const bottom = askBox(places).bottom;
+    frames.forEach((f, i) => {
+      expect(topAt(seat, f, cap.ys[i]!)).toBeGreaterThanOrEqual(bottom + CAP_GAP - 0.1);
+    });
+    // Without the cap the overshoot would have reached into the ask.
+    expect(topAt(seat, frames[2]!, 0)).toBeLessThan(bottom);
+  });
+
+  it('holds a paddle under the painting too', () => {
+    const seat = seatAt(400);
+    const cap = raiseCap(places, seat, box, frames, 700)!;
+    const bottom = paintingBox(places).bottom;
+    expect(bottom).toBeGreaterThan(askBox(places).bottom);
+    frames.forEach((f, i) => {
+      expect(topAt(seat, f, cap.ys[i]!)).toBeGreaterThanOrEqual(bottom + CAP_GAP - 0.1);
+    });
+  });
+
+  it('leaves a paddle clear of the ask and the painting alone', () => {
+    expect(raiseCap(places, seatAt(100), box, frames, 700)).toBeNull();
+    expect(raiseCap(places, seatAt(1200), box, frames, 700)).toBeNull();
+  });
+
+  it('measures a silhouette through its nested transforms', () => {
+    const src =
+      '<g transform="matrix(1,0,0,1,0,-5)"><g transform="matrix(2,0,0,2,10,0)">' +
+      '<path fill="rgb(1,2,3)" d="M-5 -10L5 -10L5 10Z"/></g></g>';
+    expect(symbolBox(src)).toEqual([0, 20, -25, 15]);
+    expect(symbolBox('<g></g>')).toBeNull();
+  });
+
+  it('the bid moment holds the paddle up and lets it down with the cap, on the table screen only', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    const v = goingOnce.view(h.state, null);
+    const caps = (id: string, track: string) =>
+      id === 'p2' ? { ms: track.endsWith('Unraise') ? 667 : 700, ys: [0, 40, 30] } : null;
+    const m = moments(v, { you: null, profile: 'stage', caps }).find(
+      (x) => x.id === 'lot0:bid400',
+    )!;
+    expect(steps(m, 'padcap:p2')).toMatchObject([
+      { t: 0, kind: 'css', ms: 700, on: ['stage'] },
+      { t: BEAT.paddleDown, kind: 'css', ms: 667 },
+    ]);
+    expect(steps(m, 'padcap:p2')[0]).toMatchObject({
+      keyframes: [
+        { transform: 'translate(0px, 0px)' },
+        { transform: 'translate(0px, 40px)' },
+        { transform: 'translate(0px, 30px)' },
+      ],
+    });
+    // Without caps (phones, or no rig), no such steps.
+    expect(
+      steps(
+        stage(v).find((x) => x.id === 'lot0:bid400'),
+        'padcap:p2',
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('the paddles over many bids', () => {
-  it('has exactly the leader’s paddle up after every bid, over 30 seeded bids', () => {
+  it('raises each bidder’s paddle and parks it again, leaving none up, over 30 seeded bids', () => {
     const h = auctioning(4, 11);
     const rng = createRng(29);
     // What the table screen does with the moments (`useShow`): a new one plays, one that leaves
@@ -302,15 +508,29 @@ describe('the paddles over many bids', () => {
       h.act(by, { type: 'bid', amount, seq: a.seq });
       n++;
       sync();
+      // The original's: up and back down behind the chair; the name and TOP show the leader.
       const up = Object.entries(pose)
         .filter(([, track]) => /Raise\d$/.test(track))
         .map(([id]) => id);
-      expect(up, `after bid ${n} (${by} at ${amount})`).toEqual([by]);
+      expect(up, `after bid ${n} (${by} at ${amount})`).toEqual([]);
+      expect(pose[by], `after bid ${n}`).toMatch(/^paddle\.(Screw)?Unraise$/);
     }
   });
 });
 
 describe('the table screen’s layout', () => {
+  it('seats everyone in the original’s chairs: its layout for three to six, inside its row', () => {
+    const places = {
+      'row.at': [0.95, 0, 0, 0.95, 32.65, 35.8],
+      'row.Three': [440, 640, 840, 728, 926, 1124].map((x) => [1, 0, 0, 1, x, 630]),
+      'row.Six': [140, 340, 540, 740, 940, 1140].map((x) => [1, 0, 0, 1, x, 630]),
+    };
+    expect(chairsOf(places, 3).map((m) => m[4])).toEqual([450.65, 640.65, 830.65]);
+    expect(chairsOf(places, 3)[0]).toEqual([0.95, 0, 0, 0.95, 450.65, 634.3]);
+    expect(chairsOf(places, 6)).toHaveLength(6);
+    expect(chairsOf(places, 6).at(-1)![4]).toBeCloseTo(1115.65);
+  });
+
   it('finds every dealt paddle’s silhouette by its picture’s name, the bell included', () => {
     const manifest = {
       ui: { paddles: ['ui/paddles/thumbs-up.webp', 'ui/paddles/bell.webp', 'ui/paddles/x.webp'] },

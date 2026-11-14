@@ -30,7 +30,7 @@ import {
   voiced,
 } from './voice.ts';
 import { artOf, sendHints } from './hints.ts';
-import { PRACTICE_TIP, dealContacts, fillLine, money } from './lines.ts';
+import { dealContacts, money } from './lines.ts';
 import { deal as dealItems, halfAt, wishLists } from './setup.ts';
 import {
   BANK_FIRST_MS,
@@ -40,10 +40,10 @@ import {
   BID_GAP_MS,
   BID_STEP,
   COMMISSION,
+  COUNTDOWN_MS,
   DEFAULT_SETTINGS,
   DRAW_GRACE_MS,
   type Game,
-  HOUSE_BIDDER,
   type GoingOnceAction,
   type Auction,
   type GoingOnceState,
@@ -51,6 +51,9 @@ import {
   LOAN_CASH,
   LOAN_DEBT,
   LOT_INTRO_MS,
+  PROJECTOR_WAIT_MS,
+  SLIDE_ONE_MS,
+  TUTORIAL_END_MS,
   type LogEntry,
   MAX_BANK_CALLS,
   MAX_LOANS,
@@ -60,10 +63,6 @@ import {
   MIN_PLAYERS,
   OPENING_BID,
   PADDLE_SHAPES,
-  PRACTICE_CASH,
-  PRACTICE_MS,
-  PRACTICE_VALUE,
-  type Practice,
   RECENT_BIDS,
   type PlayerState,
   type Rig,
@@ -392,6 +391,7 @@ function endDraw(s: GoingOnceState, now: number, rng: Rng) {
     host(s, rng, now, { text: ['no-drawings'], voice: ['no-art-end'] }, true);
     return;
   }
+  g.drawEnded = now;
   const missing = Object.values(g.items).some((i) => i.drawer && !i.drawing);
   const wish = wishLists(g.order, g.items, rng, s.rig?.fixed);
   for (const id of g.order) g.players[id]!.wish = wish[id] ?? [];
@@ -411,6 +411,7 @@ function redeal(s: GoingOnceState, groups: [TitleGroupRef, TitleGroupRef], now: 
   g.prompts = dealt.prompts;
   g.redraws += 1;
   g.spares = null;
+  g.drawDone = {};
   g.nudges = 0;
   g.since = now;
   startDrawClock(s, now);
@@ -690,7 +691,9 @@ function draw(
   if (!check.ok) return err(check.code, check.message);
   item.drawing = check.drawing;
   item.artist = by;
-  if (drawWaiting(g).length === 0) endDraw(s, now, rng);
+  const waiting = drawWaiting(g);
+  if (!waiting.includes(by)) g.drawDone = { ...g.drawDone, [by]: now };
+  if (waiting.length === 0) endDraw(s, now, rng);
   return null;
 }
 
@@ -863,151 +866,6 @@ function skip(s: GoingOnceState, now: number, rng: Rng) {
   return err('nothing-to-skip', 'Nothing to skip right now.');
 }
 
-// ---- The practice lot ----
-
-/**
- * The practice lot runs in a room's first game (unless the host turned it off), before lot 1: a
- * house picture from the spare title groups (no lot uses them once the drawings are in), play
- * money, and a house bidder who bids once. Nothing in it counts.
- */
-function practiceDue(s: GoingOnceState): boolean {
-  return (
-    (s.settings.practice ?? DEFAULT_SETTINGS.practice) && s.gamesPlayed === 1 && !!s.game?.spares
-  );
-}
-
-function startPractice(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
-  const g = s.game!;
-  const spare = g.spares![0];
-  const tips = g.lines.practice?.length ? g.lines.practice : [PRACTICE_TIP];
-  enter(g, 'practice', now);
-  g.until = 0;
-  g.practice = {
-    step: 'hint',
-    since: now,
-    until: now + scaled(s, PRACTICE_MS.hint),
-    title: spare.titles[0]!,
-    house: spare.house[0]!,
-    hint: fillLine(tips[rng.int(tips.length)]!, { value: PRACTICE_VALUE }, rng),
-    seq: 0,
-    bid: null,
-    close: 'open',
-    closeAt: 0,
-    recent: [],
-    houseBid: false,
-    lastBidAt: {},
-  };
-  host(s, rng, now, lead, true);
-}
-
-function endPractice(s: GoingOnceState, now: number, rng: Rng) {
-  s.game!.practice = null;
-  startLot(s, 0, now, rng);
-}
-
-/** A practice bid moves the practice lot's own close, as a real bid moves a lot's. */
-function placePracticeBid(
-  s: GoingOnceState,
-  p: Practice,
-  by: PlayerId,
-  amount: number,
-  now: number,
-  rng: Rng,
-) {
-  p.bid = { by, amount };
-  p.seq += 1;
-  p.recent = [...p.recent, { by, amount, forced: false }].slice(-RECENT_BIDS);
-  p.close = 'quiet';
-  p.closeAt = now + timing(s).quiet;
-  p.since = now;
-  host(s, rng, now, { text: [bidMoment(amount)], voice: [bidMoment(amount)] });
-}
-
-function practiceBid(
-  s: GoingOnceState,
-  by: PlayerId,
-  amount: number,
-  seq: number,
-  now: number,
-  rng: Rng,
-) {
-  const g = s.game!;
-  const p = g.practice;
-  if (!g.players[by]) return err('not-playing', 'You are not in this game.');
-  if (g.stage !== 'practice' || !p) return err('no-practice', 'The practice lot is over.');
-  if (p.step !== 'bid')
-    return err(p.step === 'hint' ? 'not-yet' : 'too-late', 'The practice bidding isn’t open.');
-  if (seq !== p.seq) return err('too-late', 'Too late: the price changed.');
-  if (p.bid?.by === by) return err('leading', 'You already have the top bid.');
-  if (!bidSteps(p.bid).includes(amount))
-    return err('bad-bid', 'Bid one of the amounts on the buttons.');
-  if (amount > PRACTICE_CASH) return err('cash', 'That’s more play money than you have.');
-  if (now - (p.lastBidAt[by] ?? 0) < BID_GAP_MS) return err('too-fast', 'One bid at a time!');
-  p.lastBidAt[by] = now;
-  placePracticeBid(s, p, by, amount, now, rng);
-  return null;
-}
-
-function skipPractice(s: GoingOnceState, by: PlayerId, now: number, rng: Rng) {
-  const g = s.game!;
-  if (!g.players[by]) return err('not-playing', 'You are not in this game.');
-  if (g.stage !== 'practice') return err('no-practice', 'The practice lot is over.');
-  endPractice(s, now, rng);
-  return null;
-}
-
-/** The practice lot's timers: its steps in turn, and the bidding's close with the house bidder. */
-function practiceDeadline(s: GoingOnceState, now: number, rng: Rng) {
-  const g = s.game!;
-  const p = g.practice!;
-  const next = (step: Exclude<Practice['step'], 'hint' | 'bid'>) => {
-    p.step = step;
-    p.since = now;
-    p.until = now + scaled(s, PRACTICE_MS[step]);
-  };
-  switch (p.step) {
-    case 'hint':
-      p.step = 'bid';
-      p.since = now;
-      p.close = 'open';
-      p.closeAt = now + timing(s).open;
-      return;
-    case 'bid':
-      // The house bidder bids once: to open a lot nobody opened, or to raise a low first bid.
-      if ((p.close === 'open' || p.close === 'quiet') && !p.houseBid) {
-        const amount = p.bid ? p.bid.amount + BID_STEP : OPENING_BID;
-        if (amount <= PRACTICE_VALUE / 2 + OPENING_BID) {
-          p.houseBid = true;
-          placePracticeBid(s, p, HOUSE_BIDDER, amount, now, rng);
-          return;
-        }
-      }
-      p.since = now;
-      if (p.close === 'open' || p.close === 'quiet') {
-        p.close = 'once';
-        p.closeAt = now + closeMs(s, 'once', p.bid);
-        host(s, rng, now, { text: ['going-once'], voice: ['going-once'] });
-      } else if (p.close === 'once') {
-        p.close = 'twice';
-        p.closeAt = now + closeMs(s, 'twice', p.bid);
-        host(s, rng, now, { text: ['going-twice'], voice: ['going-twice'] });
-      } else {
-        next('sold');
-        host(s, rng, now, { text: ['sold'], voice: ['sold'] }, true);
-      }
-      return;
-    case 'sold':
-      next('own');
-      return;
-    case 'own':
-      next('screw');
-      return;
-    case 'screw':
-      endPractice(s, now, rng);
-      return;
-  }
-}
-
 // ---- Lobby ----
 
 function requireHost(ctx: Ctx) {
@@ -1029,6 +887,50 @@ function seatWaiting(s: GoingOnceState) {
     seat.playing = true;
     free -= 1;
   }
+}
+
+/** Every paddle shape, in a fresh random order to hand out from. */
+const shuffledShapes = (rng: Rng) => rng.shuffle([...Array(PADDLE_SHAPES).keys()]);
+
+/** The next shape nobody in the room holds, in the room's order (none once all are taken). */
+function freeShape(s: GoingOnceState): number | undefined {
+  if (!s.shapes) return undefined;
+  const taken = new Set(Object.values(s.seats).map((seat) => seat.paddle));
+  return s.shapes.find((shape) => !taken.has(shape));
+}
+
+/**
+ * The paddles at Start: everyone keeps the shape they were handed as they joined; anyone without
+ * one (a room saved by an older release, or a shape held twice) gets a free one from `rng`. A room
+ * without a handout order gets one here, so later joiners get their shapes as they come in.
+ */
+function dealPaddles(
+  s: GoingOnceState,
+  order: readonly PlayerId[],
+  rng: Rng,
+  fixed: boolean,
+): Record<PlayerId, number> {
+  s.shapes ??= fixed ? [...Array(PADDLE_SHAPES).keys()] : shuffledShapes(rng);
+  const out: Record<PlayerId, number> = {};
+  const used = new Set<number>();
+  for (const id of order) {
+    const shape = s.seats[id]?.paddle;
+    if (shape === undefined || used.has(shape) || shape < 0 || shape >= PADDLE_SHAPES) continue;
+    out[id] = shape;
+    used.add(shape);
+  }
+  const taken = new Set(Object.values(s.seats).map((seat) => seat.paddle));
+  let free = s.shapes.filter((shape) => !used.has(shape) && !taken.has(shape));
+  if (!fixed) free = rng.shuffle(free);
+  for (const id of order) {
+    if (out[id] !== undefined) continue;
+    const shape = free.shift() ?? 0;
+    out[id] = shape;
+    used.add(shape);
+    const seat = s.seats[id];
+    if (seat) seat.paddle = shape;
+  }
+  return out;
 }
 
 /** Players who left during the game lose their seats when it ends. */
@@ -1138,19 +1040,16 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
     ended: null,
     nudges: 0,
     unsoldRun: 0,
-    paddles: Object.fromEntries(
-      (fixed ? order.map((_, i) => i) : ctx.rng.shuffle([...Array(PADDLE_SHAPES).keys()]))
-        .slice(0, order.length)
-        .map((shape, i) => [order[i]!, shape % PADDLE_SHAPES]),
-    ),
+    paddles: dealPaddles(s, order, ctx.rng, fixed),
     lastBidLot: {},
     calledOut: { quiet: {}, empty: [] },
     since: ctx.now,
     contacts: dealContacts(order, ctx.rng, fixed),
-    practice: null,
     voiced: s.settings.voice === true && (s.settings.sound ?? DEFAULT_SETTINGS.sound) !== 'off',
   };
-  beginDraw(s, ctx.now, ctx.rng);
+  // The original's 3-2-1 first; the drawing (and the welcome) start when it runs out.
+  enter(s.game, 'countdown', ctx.now);
+  s.game.until = ctx.now + COUNTDOWN_MS;
   s.seed = newSeed(ctx.rng);
   return s;
 }
@@ -1204,15 +1103,16 @@ function startDrawClock(s: GoingOnceState, at: number) {
 }
 
 /**
- * The auctioneer's tutorial, as the original: after the drawing, in a voiced room's first game;
- * lot 1's tips go out with it ("you should have your first message now"). Anyone can skip it.
+ * The auctioneer's tutorial, as the original: after the drawing, in a voiced room's first game.
+ * The projector comes on after "A few quick words…" and shows its logo slide before the first line
+ * (`PROJECTOR_WAIT_MS`, `SLIDE_ONE_MS`); lot 1's tips go out at slide 10, as he says "you should
+ * have your first message on your device now" (`firstAt`, sent by its deadline). Anyone can skip it.
  */
 function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
   const g = s.game!;
   const n = g.order.length;
   enter(g, 'intro', now);
-  sendHints(s, rng, 0);
-  g.firstSent = true;
+  g.firstSent = false;
   const ms = speak(
     s,
     rng,
@@ -1220,6 +1120,7 @@ function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
     [
       ...lead.voice,
       'tutorial-start',
+      { wait: PROJECTOR_WAIT_MS + SLIDE_ONE_MS },
       `auction-count-${n}`,
       'worth-a-lot',
       'worth-less',
@@ -1234,13 +1135,23 @@ function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
     ],
     true,
   );
-  g.until = now + ms + 500;
+  const clips = g.host?.clips ?? [];
+  const at = clipTimes(g.host ?? {})[clips.findIndex((c) => c.key === 'first-message')];
+  g.firstAt = at ?? now;
+  g.until = now + ms + TUTORIAL_END_MS;
 }
 
-/** After the drawing (and the tutorial): the practice lot in a room's first game, then lot 1. */
+/** Lot 1's tips at the tutorial's slide 10 (not when it was skipped first: lot 1 sends them). */
+function sendFirstTips(s: GoingOnceState, rng: Rng) {
+  const g = s.game!;
+  sendHints(s, rng, 0);
+  g.firstSent = true;
+  g.tipsEarly = true;
+}
+
+/** After the drawing (and the tutorial): lot 1, as the original. */
 function afterDrawing(s: GoingOnceState, now: number, rng: Rng, lead: Say = nothing()) {
-  if (practiceDue(s)) startPractice(s, now, rng, lead);
-  else startLot(s, 0, now, rng, lead);
+  startLot(s, 0, now, rng, lead);
 }
 
 /** Anyone skips the tutorial: everyone hears so ("On with the game"), and the game goes on. */
@@ -1267,7 +1178,7 @@ function updateSettings(
     s.settings.pace = action.pace;
     s.settings.paceChosen = true;
   }
-  for (const key of ['sound', 'music', 'effects', 'voice', 'practice'] as const)
+  for (const key of ['sound', 'music', 'effects', 'voice'] as const)
     if (action[key] !== undefined) Object.assign(s.settings, { [key]: action[key] });
   if (action.sound !== undefined) s.settings.soundChosen = true;
   countGroups(s, ctx);
@@ -1372,10 +1283,6 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
       return inPlay(state, (s) => draw(s, by, action.item, action.drawing, ctx.now, ctx.rng));
     case 'bid':
       return inPlay(state, (s) => bid(s, by, action.amount, action.seq, ctx.now, ctx.rng));
-    case 'practice-bid':
-      return inPlay(state, (s) => practiceBid(s, by, action.amount, action.seq, ctx.now, ctx.rng));
-    case 'skip-practice':
-      return inPlay(state, (s) => skipPractice(s, by, ctx.now, ctx.rng));
     case 'skip-intro':
       // Anyone at the table may skip the tutorial, as in the original.
       if (!state.game?.players[ctx.by]) return err('not-playing', 'You are not in this game.');
@@ -1411,6 +1318,7 @@ export function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): GoingO
     gamesPlayed: 0,
     rig: null,
     seed: newSeed(ctx.rng),
+    shapes: shuffledShapes(ctx.rng),
   };
   countGroups(state, ctx);
   for (const p of playersIn) state = playerJoined(state, p);
@@ -1438,6 +1346,9 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
     ...(!playing && { waiting: true }),
     ...(player.color && { color: player.color }),
   };
+  // Their paddle shape from the room's order (no rng here: `create` shuffled it).
+  const shape = freeShape(s);
+  if (shape !== undefined) seat.paddle = shape;
   s.seats[player.id] = seat;
   defaultPace(s);
   return s;
@@ -1478,11 +1389,12 @@ export function nextDeadline(state: GoingOnceState): number | null {
   const g = state.game;
   if (state.phase !== 'playing' || !g) return null;
   if (g.stage === 'auction') return g.auction!.screw ? g.auction!.screw.until : g.auction!.closeAt;
-  if (g.stage === 'practice') {
-    const p = g.practice!;
-    return p.step === 'bid' ? p.closeAt : p.until;
-  }
+  // A room saved mid-practice-lot by an older release: due at once (lot 1 follows).
+  if (g.stage === 'practice') return 0;
   if (g.stage === 'done') return null;
+  // The tutorial's slide 10: lot 1's tips go out first.
+  if (g.stage === 'intro' && !g.firstSent && g.firstAt !== undefined)
+    return Math.min(g.firstAt, g.until);
   if (g.stage === 'draw') {
     // The host's nudges at half time and with ten seconds left come first.
     const t = drawTimes(state, g.drawStart);
@@ -1500,7 +1412,8 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
   const rng = hiddenRng(state, now);
   switch (g.stage) {
     case 'intro':
-      afterDrawing(s, now, rng);
+      if (!g.firstSent && g.firstAt !== undefined && now < g.until) sendFirstTips(s, rng);
+      else afterDrawing(s, now, rng);
       break;
     case 'draw':
       if (due < g.until) {
@@ -1575,8 +1488,12 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
       } else hammer(s, now, rng);
       break;
     }
+    case 'countdown':
+      beginDraw(s, now, rng);
+      break;
     case 'practice':
-      practiceDeadline(s, now, rng);
+      g.practice = null;
+      startLot(s, 0, now, rng);
       break;
     case 'sold':
     case 'halftime':
